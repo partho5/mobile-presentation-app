@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     // Photo Picker launcher
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
     private SlideAdapter slideAdapter;
+    private RecyclerView recyclerSlides;
     private BottomSheetDialog managerDialog;
 
     @Override
@@ -182,7 +183,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
                         if (localPath != null) {
                             Slide newSlide = new Slide(Slide.TYPE_IMAGE, slides.size(), null, localPath);
-                            repository.insert(newSlide, id -> loadSlidesFromDb());
+                            repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
                             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
                         }
@@ -192,8 +193,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void loadSlidesFromDb() {
+        loadSlidesFromDb(false);
+    }
+
+    private void loadSlidesFromDb(boolean scrollToBottom) {
         repository.getAllOrdered(result -> {
             slides = result;
+            if (slideAdapter != null) {
+                slideAdapter.setSlides(new ArrayList<>(slides));
+                if (scrollToBottom && recyclerSlides != null && !slides.isEmpty()) {
+                    recyclerSlides.smoothScrollToPosition(slides.size() - 1);
+                }
+            }
             if (slides.isEmpty()) {
                 seedInitialSlides();
             } else {
@@ -313,7 +324,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_slide_manager, null);
         managerDialog.setContentView(dialogView);
 
-        RecyclerView recyclerSlides = dialogView.findViewById(R.id.recycler_slides);
+        recyclerSlides = dialogView.findViewById(R.id.recycler_slides);
         recyclerSlides.setLayoutManager(new LinearLayoutManager(this));
 
         slideAdapter = new SlideAdapter(this);
@@ -334,7 +345,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         btnClose.setOnClickListener(v -> managerDialog.dismiss());
 
-        managerDialog.setOnDismissListener(dialog -> loadSlidesFromDb());
+        managerDialog.setOnDismissListener(dialog -> {
+            slideAdapter = null;
+            recyclerSlides = null;
+            managerDialog = null;
+            loadSlidesFromDb();
+        });
         managerDialog.show();
     }
 
@@ -374,7 +390,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 Slide newSlide = new Slide(Slide.TYPE_TEXT, slides.size(), text, null);
                 repository.insert(newSlide, id -> {
                     dialog.dismiss();
-                    loadSlidesFromDb();
+                    loadSlidesFromDb(true);
                 });
             }
         });
