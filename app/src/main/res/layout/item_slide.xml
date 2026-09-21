@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#1E1E1E"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:layout_marginBottom="8dp">
+
+    <TextView
+        android:id="@+id/slide_number"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="#333333"
+        android:gravity="center"
+        android:text="1"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/slide_thumbnail"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="12dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/slide_type_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="#3364B5F6"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="TEXT"
+            android:textColor="#64B5F6"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/slide_preview_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:text="Slide content snippet..."
+            android:textColor="#EEEEEE"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btn_move_up"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Move Up"
+        android:src="@drawable/ic_chevron_left"
+        android:rotation="90" />
+
+    <ImageButton
+        android:id="@+id/btn_move_down"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Move Down"
+        android:src="@drawable/ic_chevron_right"
+        android:rotation="90" />
+
+    <ImageButton
+        android:id="@+id/btn_delete_slide"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Delete Slide"
+        android:src="@drawable/ic_delete" />
+
+</LinearLayout>

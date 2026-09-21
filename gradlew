@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 #
 # Copyright (c) 2015-2021 the original author or authors.
 # Licensed under the Apache License, Version 2.0

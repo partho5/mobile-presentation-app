@@ -1,6 +1,143 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black" />
+    android:background="@android:color/black">
+
+    <!-- Container for Image Slide (anchored to top) -->
+    <ImageView
+        android:id="@+id/image_slide_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:adjustViewBounds="true"
+        android:contentDescription="Slide Image"
+        android:scaleType="fitStart"
+        android:visibility="gone" />
+
+    <!-- Container for Text Slide (Top 30% of screen height) -->
+    <FrameLayout
+        android:id="@+id/text_slide_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentTop="true"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/text_slide_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:paddingHorizontal="24dp"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    <!-- Empty State View when database has 0 slides -->
+    <TextView
+        android:id="@+id/empty_state_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:padding="32dp"
+        android:text="Double-tap to open Menu &amp; Add Slides"
+        android:textColor="#66FFFFFF"
+        android:textSize="18sp"
+        android:visibility="gone" />
+
+    <!-- Top Action Menu Bar (revealed in Edit Mode / Menu toggle) -->
+    <LinearLayout
+        android:id="@+id/top_menu_bar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_alignParentTop="true"
+        android:background="#DD111111"
+        android:elevation="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/toolbar_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Presentation Viewer"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_slide_manager"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Edit Slides"
+            android:textColor="#64B5F6"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Bottom 20% Navigation Overlay -->
+    <LinearLayout
+        android:id="@+id/bottom_nav_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:weightSum="10">
+
+        <!-- PREVIOUS Zone: Left 20% -->
+        <FrameLayout
+            android:id="@+id/zone_previous"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="2"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageButton
+                android:id="@+id/btn_prev"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_nav"
+                android:contentDescription="Previous Slide"
+                android:src="@drawable/ic_chevron_left" />
+        </FrameLayout>
+
+        <!-- Dead Zone: Center 60% -->
+        <View
+            android:id="@+id/zone_dead"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="6" />
+
+        <!-- NEXT Zone: Right 20% -->
+        <FrameLayout
+            android:id="@+id/zone_next"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="2"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageButton
+                android:id="@+id/btn_next"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_nav"
+                android:contentDescription="Next Slide"
+                android:src="@drawable/ic_chevron_right" />
+        </FrameLayout>
+
+    </LinearLayout>
+
+</RelativeLayout>
