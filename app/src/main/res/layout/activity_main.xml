@@ -108,7 +108,9 @@
                 android:layout_height="48dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_circle_nav"
+                android:clickable="false"
                 android:contentDescription="Previous Slide"
+                android:focusable="false"
                 android:src="@drawable/ic_chevron_left" />
         </FrameLayout>
 
@@ -134,7 +136,9 @@
                 android:layout_height="48dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_circle_nav"
+                android:clickable="false"
                 android:contentDescription="Next Slide"
+                android:focusable="false"
                 android:src="@drawable/ic_chevron_right" />
         </FrameLayout>
 

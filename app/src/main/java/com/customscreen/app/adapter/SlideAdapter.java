@@ -78,23 +78,30 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
         holder.btnMoveDown.setAlpha(position < slides.size() - 1 ? 1.0f : 0.3f);
 
         holder.itemView.setOnClickListener(v -> {
-            if (listener != null) listener.onSlideClick(slide, holder.getAdapterPosition());
+            int pos = holder.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION && pos < slides.size()) {
+                listener.onSlideClick(slides.get(pos), pos);
+            }
         });
 
         holder.btnMoveUp.setOnClickListener(v -> {
-            int pos = holder.getAdapterPosition();
-            if (listener != null && pos > 0) listener.onMoveUp(pos);
+            int pos = holder.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION && pos > 0 && pos < slides.size()) {
+                listener.onMoveUp(pos);
+            }
         });
 
         holder.btnMoveDown.setOnClickListener(v -> {
-            int pos = holder.getAdapterPosition();
-            if (listener != null && pos < slides.size() - 1) listener.onMoveDown(pos);
+            int pos = holder.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION && pos >= 0 && pos < slides.size() - 1) {
+                listener.onMoveDown(pos);
+            }
         });
 
         holder.btnDelete.setOnClickListener(v -> {
-            int pos = holder.getAdapterPosition();
-            if (listener != null && pos != RecyclerView.NO_POSITION) {
-                listener.onDelete(slide, pos);
+            int pos = holder.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION && pos < slides.size()) {
+                listener.onDelete(slides.get(pos), pos);
             }
         });
     }

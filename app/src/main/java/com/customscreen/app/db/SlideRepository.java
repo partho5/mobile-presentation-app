@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,9 +50,10 @@ public class SlideRepository {
     }
 
     public void updateAll(List<Slide> slides, Runnable onComplete) {
+        List<Slide> copy = new ArrayList<>(slides);
         executor.execute(() -> {
-            for (int i = 0; i < slides.size(); i++) {
-                Slide slide = slides.get(i);
+            for (int i = 0; i < copy.size(); i++) {
+                Slide slide = copy.get(i);
                 slide.setOrderIndex(i);
                 slideDao.update(slide);
             }

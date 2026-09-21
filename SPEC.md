@@ -57,9 +57,9 @@ The app has two distinct visual modes: a normal **Edit Mode** with full UI, and 
 ### Tap Zones
 | Zone | Position | Action |
 |---|---|---|
-| **Next** | Right 20% of screen width × Bottom 20% of screen height | Advance to next slide |
-| **Previous** | Left 20% of screen width × Bottom 20% of screen height | Go back to previous slide |
-| **Dead zone** | Center 60% of bottom 20%, and entire top 80% | No action |
+| **Next** | Right 20% of screen width × Bottom 40% of screen height | Advance to next slide |
+| **Previous** | Left 20% of screen width × Bottom 40% of screen height | Go back to previous slide |
+| **Dead zone** | Center 60% of bottom 40%, and entire top 60% | No action |
 
 ### Edge Behavior
 - On the **first slide**: tapping Previous does nothing.
@@ -114,10 +114,8 @@ The app has two distinct visual modes: a normal **Edit Mode** with full UI, and 
 |                                          |
 |         [IMAGE or black space]           |
 |                                          |
-|                                          |
-|                                          |
 +----------+--------------------+----------+
-| PREVIOUS |    (dead zone)     |   NEXT   |  <- bottom 20%
+| PREVIOUS |    (dead zone)     |   NEXT   |  <- bottom 40%
 | left 20% |    center 60%      | right 20%|
 +----------+--------------------+----------+
 ```

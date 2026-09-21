@@ -53,6 +53,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private TextView textSlideView;
     private TextView emptyStateView;
     private LinearLayout topMenuBar;
+    private LinearLayout bottomNavContainer;
+    private FrameLayout zonePrev;
+    private FrameLayout zoneNext;
     private ImageButton btnPrev;
     private ImageButton btnNext;
 
@@ -75,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         setupGestureDetector();
         setupPhotoPicker();
         setupTop30PercentLayout();
+        setupBottom40PercentLayout();
 
         // Start directly in Presentation Mode (system bars hidden)
         setPresentationMode(true);
@@ -89,14 +93,17 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         textSlideView = findViewById(R.id.text_slide_view);
         emptyStateView = findViewById(R.id.empty_state_view);
         topMenuBar = findViewById(R.id.top_menu_bar);
+        bottomNavContainer = findViewById(R.id.bottom_nav_container);
+        zonePrev = findViewById(R.id.zone_previous);
+        zoneNext = findViewById(R.id.zone_next);
         btnPrev = findViewById(R.id.btn_prev);
         btnNext = findViewById(R.id.btn_next);
 
         Button btnSlideManager = findViewById(R.id.btn_slide_manager);
         btnSlideManager.setOnClickListener(v -> openSlideManagerDialog());
 
-        btnPrev.setOnClickListener(v -> goToPreviousSlide());
-        btnNext.setOnClickListener(v -> goToNextSlide());
+        zonePrev.setOnClickListener(v -> goToPreviousSlide());
+        zoneNext.setOnClickListener(v -> goToNextSlide());
     }
 
     private void setupTop30PercentLayout() {
@@ -109,6 +116,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         ViewGroup.LayoutParams params = textSlideContainer.getLayoutParams();
         params.height = top30Height;
         textSlideContainer.setLayoutParams(params);
+    }
+
+    private void setupBottom40PercentLayout() {
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int screenHeight = displayMetrics.heightPixels;
+
+        // Set Bottom 40% container height dynamically
+        int bottom40Height = (int) (screenHeight * 0.40);
+        ViewGroup.LayoutParams params = bottomNavContainer.getLayoutParams();
+        if (params != null) {
+            params.height = bottom40Height;
+            bottomNavContainer.setLayoutParams(params);
+        }
     }
 
     private void setupGestureDetector() {
@@ -136,6 +157,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         isMenuBarVisible = !isMenuBarVisible;
         topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
         setPresentationMode(!isMenuBarVisible);
+        updateNavigationButtonsState();
     }
 
     private void setPresentationMode(boolean enableImmersive) {
@@ -235,8 +257,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         textSlideView.post(() -> {
             int containerHeight = textSlideContainer.getHeight();
             int textHeight = textSlideView.getHeight();
-            float startY = -textHeight;
-            float endY = (containerHeight - textHeight) / 2f;
+            float startY = -((containerHeight + textHeight) / 2f);
+            float endY = 0f;
 
             textSlideView.setTranslationY(startY);
             textSlideView.setAlpha(1f);
@@ -266,11 +288,22 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         boolean hasPrev = currentSlideIndex > 0;
         boolean hasNext = currentSlideIndex < slides.size() - 1 && !slides.isEmpty();
 
-        btnPrev.setEnabled(hasPrev);
-        btnPrev.setAlpha(hasPrev ? 1.0f : 0.3f);
+        zonePrev.setEnabled(hasPrev);
+        zoneNext.setEnabled(hasNext);
 
+        btnPrev.setEnabled(hasPrev);
         btnNext.setEnabled(hasNext);
-        btnNext.setAlpha(hasNext ? 1.0f : 0.3f);
+
+        if (isMenuBarVisible) {
+            btnPrev.setVisibility(View.VISIBLE);
+            btnNext.setVisibility(View.VISIBLE);
+            btnPrev.setAlpha(hasPrev ? 1.0f : 0.3f);
+            btnNext.setAlpha(hasNext ? 1.0f : 0.3f);
+        } else {
+            // Presentation mode: hide visual chrome while keeping tap zones functional
+            btnPrev.setVisibility(View.INVISIBLE);
+            btnNext.setVisibility(View.INVISIBLE);
+        }
     }
 
     // --- Slide Manager Dialog ---
