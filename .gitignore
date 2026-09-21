@@ -1,0 +1,19 @@
+# Build outputs (at any depth)
+**/build/
+**/release/
+*.apk
+*.aab
+
+# Gradle cache
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Generated
+captures/
+.externalNativeBuild/
+.cxx/
