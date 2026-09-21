@@ -34,7 +34,8 @@
             android:paddingHorizontal="24dp"
             android:textColor="#FFFFFF"
             android:textSize="26sp"
-            android:textStyle="bold" />
+            android:fontFamily="@font/bitter"
+            android:lineSpacingMultiplier="1.2" />
     </FrameLayout>
 
     <!-- Empty State View when database has 0 slides -->

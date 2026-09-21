@@ -55,7 +55,8 @@
             android:maxLines="2"
             android:text="Slide content snippet..."
             android:textColor="#EEEEEE"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:fontFamily="@font/bitter" />
     </LinearLayout>
 
     <ImageButton
