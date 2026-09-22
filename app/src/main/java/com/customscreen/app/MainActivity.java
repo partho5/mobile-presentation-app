@@ -9,6 +9,8 @@ import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -80,10 +82,26 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private Button btnRecord;
 
     // Draggable & Resizable Camera Components
+    private FrameLayout cameraRootWrapper;
     private MaterialCardView cameraCardContainer;
     private PreviewView cameraPreviewView;
+    private ImageView btnResizeHandle;
+
     private ScaleGestureDetector scaleGestureDetector;
     private float dX, dY;
+    private float initialResizeTouchX, initialResizeTouchY;
+    private int initialCardWidth;
+
+    private final Handler hideHandleHandler = new Handler(Looper.getMainLooper());
+    private final Runnable hideHandleRunnable = () -> {
+        if (btnResizeHandle != null) {
+            btnResizeHandle.animate()
+                    .alpha(0f)
+                    .setDuration(250)
+                    .withEndAction(() -> btnResizeHandle.setVisibility(View.GONE))
+                    .start();
+        }
+    };
 
     private GestureDetector gestureDetector;
     private boolean isMenuBarVisible = false;
@@ -143,8 +161,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void setupDraggableCameraContainer() {
+        cameraRootWrapper = findViewById(R.id.camera_root_wrapper);
         cameraCardContainer = findViewById(R.id.camera_card_container);
         cameraPreviewView = findViewById(R.id.camera_preview_view);
+        btnResizeHandle = findViewById(R.id.btn_resize_handle);
 
         // Position camera in center initially once layout is measured
         rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -185,8 +205,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    dX = view.getX() - event.getRawX();
-                    dY = view.getY() - event.getRawY();
+                    dX = cameraRootWrapper.getX() - event.getRawX();
+                    dY = cameraRootWrapper.getY() - event.getRawY();
+                    showResizeHandleFor3Seconds();
                     return true;
 
                 case MotionEvent.ACTION_MOVE:
@@ -196,30 +217,84 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     int parentWidth = rootLayout.getWidth();
                     int parentHeight = rootLayout.getHeight();
 
-                    newX = Math.max(0, Math.min(parentWidth - view.getWidth(), newX));
-                    newY = Math.max(0, Math.min(parentHeight - view.getHeight(), newY));
+                    newX = Math.max(0, Math.min(parentWidth - cameraRootWrapper.getWidth(), newX));
+                    newY = Math.max(0, Math.min(parentHeight - cameraRootWrapper.getHeight(), newY));
 
-                    view.setX(newX);
-                    view.setY(newY);
+                    cameraRootWrapper.setX(newX);
+                    cameraRootWrapper.setY(newY);
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                    showResizeHandleFor3Seconds();
                     return true;
 
                 default:
                     return false;
             }
         });
+
+        setupResizeHandleTouch();
+    }
+
+    private void showResizeHandleFor3Seconds() {
+        if (btnResizeHandle == null) return;
+        btnResizeHandle.animate().cancel();
+        btnResizeHandle.setAlpha(1f);
+        btnResizeHandle.setVisibility(View.VISIBLE);
+        hideHandleHandler.removeCallbacks(hideHandleRunnable);
+        hideHandleHandler.postDelayed(hideHandleRunnable, 3000);
+    }
+
+    private void setupResizeHandleTouch() {
+        if (btnResizeHandle == null) return;
+
+        btnResizeHandle.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    initialResizeTouchX = event.getRawX();
+                    initialResizeTouchY = event.getRawY();
+                    initialCardWidth = cameraCardContainer.getWidth();
+                    hideHandleHandler.removeCallbacks(hideHandleRunnable);
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float dx = event.getRawX() - initialResizeTouchX;
+                    float dy = event.getRawY() - initialResizeTouchY;
+                    int delta = (int) (Math.abs(dx) > Math.abs(dy) ? dx : dy);
+
+                    int newSize = initialCardWidth + delta;
+                    int minSize = (int) (90 * getResources().getDisplayMetrics().density);
+                    int maxSize = (int) (320 * getResources().getDisplayMetrics().density);
+
+                    newSize = Math.max(minSize, Math.min(maxSize, newSize));
+
+                    ViewGroup.LayoutParams params = cameraCardContainer.getLayoutParams();
+                    params.width = newSize;
+                    params.height = newSize;
+                    cameraCardContainer.setLayoutParams(params);
+                    cameraCardContainer.setRadius(newSize / 2f);
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    hideHandleHandler.postDelayed(hideHandleRunnable, 3000);
+                    return true;
+            }
+            return false;
+        });
     }
 
     private void centerCameraContainer() {
         int parentWidth = rootLayout.getWidth();
         int parentHeight = rootLayout.getHeight();
-        int cardWidth = cameraCardContainer.getWidth();
-        int cardHeight = cameraCardContainer.getHeight();
+        int wrapperWidth = cameraRootWrapper.getWidth();
+        int wrapperHeight = cameraRootWrapper.getHeight();
 
         if (parentWidth > 0 && parentHeight > 0) {
-            float centerX = (parentWidth - cardWidth) / 2f;
-            float centerY = (parentHeight - cardHeight) / 2f;
-            cameraCardContainer.setX(centerX);
-            cameraCardContainer.setY(centerY);
+            float centerX = (parentWidth - wrapperWidth) / 2f;
+            float centerY = (parentHeight - wrapperHeight) / 2f;
+            cameraRootWrapper.setX(centerX);
+            cameraRootWrapper.setY(centerY);
         }
     }
 
@@ -250,10 +325,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (btnRecord == null) return;
         if (isRecording) {
             btnRecord.setText("Stop Record");
-            btnRecord.setTextColor(0xFF00E676); // Green text
         } else {
             btnRecord.setText("Start Record");
-            btnRecord.setTextColor(0xFFFF5252); // Red text
         }
     }
 

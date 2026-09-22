@@ -69,19 +69,20 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Presentation Viewer"
+            android:text="Recording Mode"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/btn_record"
-            style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_btn_record_black"
             android:text="Start Record"
-            android:textColor="#FF5252"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <Button
@@ -96,25 +97,49 @@
     </LinearLayout>
 
     <!-- Draggable & Resizable Circular Camera Overlay Container -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/camera_card_container"
-        android:layout_width="160dp"
-        android:layout_height="160dp"
+    <FrameLayout
+        android:id="@+id/camera_root_wrapper"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:clickable="true"
-        android:focusable="true"
-        app:cardBackgroundColor="#000000"
-        app:cardCornerRadius="80dp"
-        app:cardElevation="12dp"
-        app:strokeColor="#FFFFFF"
-        app:strokeWidth="2dp">
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
-        <androidx.camera.view.PreviewView
-            android:id="@+id/camera_preview_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/camera_card_container"
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="#000000"
+            app:cardCornerRadius="80dp"
+            app:cardElevation="12dp"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="2dp">
 
-    </com.google.android.material.card.MaterialCardView>
+            <androidx.camera.view.PreviewView
+                android:id="@+id/camera_preview_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Resize Handle Icon (visible for 3s upon tap on camera circle) -->
+        <ImageView
+            android:id="@+id/btn_resize_handle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginBottom="-4dp"
+            android:layout_marginEnd="-4dp"
+            android:background="@drawable/bg_circle_resize_handle"
+            android:contentDescription="Resize Handle"
+            android:elevation="16dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_aspect_ratio"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <!-- Bottom 20% Navigation Overlay -->
     <LinearLayout
