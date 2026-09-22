@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.MediaRecorder;
+import android.media.MediaScannerConnection;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
@@ -136,14 +137,14 @@ public class ScreenRecordService extends Service {
             if (width % 2 != 0) width--;
             if (height % 2 != 0) height--;
 
-            // App-named folder dynamically loaded from getString(R.string.app_name)
+            // Determine target directory in public Movies
             String appName = getString(R.string.app_name);
             File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
             File appDir = new File(moviesDir, appName);
             if (!appDir.exists()) {
                 boolean created = appDir.mkdirs();
-                if (!created && getExternalFilesDir(Environment.DIRECTORY_MOVIES) != null) {
-                    appDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES);
+                if (!created) {
+                    appDir = moviesDir;
                 }
             }
 
@@ -263,7 +264,19 @@ public class ScreenRecordService extends Service {
         } catch (Exception ignored) {}
 
         if (currentVideoPath != null) {
-            Toast.makeText(this, "Saved recording to: " + currentVideoPath, Toast.LENGTH_LONG).show();
+            File file = new File(currentVideoPath);
+            if (file.exists() && file.length() > 0) {
+                // Scan recorded file so Android MediaStore indexes it immediately into Gallery / Photos
+                MediaScannerConnection.scanFile(
+                        getApplicationContext(),
+                        new String[]{ currentVideoPath },
+                        new String[]{ "video/mp4" },
+                        (path, uri) -> Log.d(TAG, "MediaScanner Connection scanned " + path + " -> uri=" + uri)
+                );
+                Toast.makeText(this, "Saved recording to Movies gallery: " + file.getName(), Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
+            }
         }
 
         stopSelf();
