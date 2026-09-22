@@ -127,8 +127,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     // Launchers
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
+    private ActivityResultLauncher<PickVisualMediaRequest> updateImagePickerLauncher;
     private ActivityResultLauncher<String[]> permissionLauncher;
     private ActivityResultLauncher<Intent> screenCaptureLauncher;
+
+    private Slide slideToUpdateImage = null;
+    private int targetSlidePosition = -1;
 
     private SlideAdapter slideAdapter;
     private RecyclerView recyclerSlides;
@@ -190,6 +194,24 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
+
+        imageSlideView.setOnClickListener(v -> {
+            if (isMenuBarVisible && !isRecording && currentSlideIndex >= 0 && currentSlideIndex < slides.size()) {
+                Slide slide = slides.get(currentSlideIndex);
+                if (Slide.TYPE_IMAGE.equals(slide.getType())) {
+                    showImageSlideOptionsDialog(slide, currentSlideIndex);
+                }
+            }
+        });
+
+        textSlideContainer.setOnClickListener(v -> {
+            if (isMenuBarVisible && !isRecording && currentSlideIndex >= 0 && currentSlideIndex < slides.size()) {
+                Slide slide = slides.get(currentSlideIndex);
+                if (Slide.TYPE_TEXT.equals(slide.getType())) {
+                    showAddTextSlideDialog(slide, currentSlideIndex);
+                }
+            }
+        });
     }
 
     private static final String PREF_NAME = "app_prefs";
@@ -690,6 +712,56 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     }
                 }
         );
+
+        updateImagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(),
+                uri -> {
+                    if (uri != null && slideToUpdateImage != null) {
+                        String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
+                        if (localPath != null) {
+                            slideToUpdateImage.setImagePath(localPath);
+                            Slide slideToSave = slideToUpdateImage;
+                            int posToUpdate = targetSlidePosition;
+                            repository.update(slideToSave, () -> {
+                                Toast.makeText(this, "Image updated successfully", Toast.LENGTH_SHORT).show();
+                                if (slideAdapter != null && posToUpdate != -1) {
+                                    slideAdapter.notifyItemChanged(posToUpdate);
+                                }
+                                renderCurrentSlide();
+                            });
+                        } else {
+                            Toast.makeText(this, "Failed to save new image", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    slideToUpdateImage = null;
+                    targetSlidePosition = -1;
+                }
+        );
+    }
+
+    private void launchImageUpdater(Slide slide, int position) {
+        slideToUpdateImage = slide;
+        targetSlidePosition = position;
+        updateImagePickerLauncher.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build());
+    }
+
+    private void showImageSlideOptionsDialog(Slide slide, int position) {
+        String[] options = {"Update / Replace Image", "View Slide"};
+        new AlertDialog.Builder(this)
+                .setTitle("Image Slide Options")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        launchImageUpdater(slide, position);
+                    } else if (which == 1) {
+                        currentSlideIndex = position;
+                        renderCurrentSlide();
+                        if (managerDialog != null) managerDialog.dismiss();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void loadSlidesFromDb() {
@@ -906,10 +978,17 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     public void onSlideClick(Slide slide, int position) {
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
             showAddTextSlideDialog(slide, position);
-        } else {
-            currentSlideIndex = position;
-            renderCurrentSlide();
-            if (managerDialog != null) managerDialog.dismiss();
+        } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
+            showImageSlideOptionsDialog(slide, position);
+        }
+    }
+
+    @Override
+    public void onEditSlide(Slide slide, int position) {
+        if (Slide.TYPE_TEXT.equals(slide.getType())) {
+            showAddTextSlideDialog(slide, position);
+        } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
+            launchImageUpdater(slide, position);
         }
     }
 

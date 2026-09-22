@@ -105,8 +105,20 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
     private void showPopupMenu(View view, RecordingItem item, int position) {
         PopupMenu popup = new PopupMenu(context, view);
-        popup.getMenu().add(0, 1, 0, "Rename");
-        popup.getMenu().add(0, 2, 1, "Delete");
+        android.view.MenuItem renameItem = popup.getMenu().add(0, 1, 0, "Rename");
+        renameItem.setIcon(R.drawable.ic_edit);
+        android.view.MenuItem deleteItem = popup.getMenu().add(0, 2, 1, "Delete");
+        deleteItem.setIcon(R.drawable.ic_delete);
+
+        try {
+            java.lang.reflect.Field popupField = PopupMenu.class.getDeclaredField("mPopup");
+            popupField.setAccessible(true);
+            Object menuPopupHelper = popupField.get(popup);
+            Class<?> classPopupHelper = Class.forName(menuPopupHelper.getClass().getName());
+            java.lang.reflect.Method setForceIcons = classPopupHelper.getMethod("setForceShowIcon", boolean.class);
+            setForceIcons.invoke(menuPopupHelper, true);
+        } catch (Exception ignored) {
+        }
 
         popup.setOnMenuItemClickListener(menuItem -> {
             if (menuItem.getItemId() == 1) {

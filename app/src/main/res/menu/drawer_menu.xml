@@ -3,23 +3,23 @@
     <group android:checkableBehavior="none">
         <item
             android:id="@+id/nav_edit_slides"
-            android:icon="@drawable/ic_menu"
+            android:icon="@drawable/ic_slides"
             android:title="Manage Slides" />
         <item
             android:id="@+id/nav_record_settings"
-            android:icon="@drawable/ic_add"
+            android:icon="@drawable/ic_settings"
             android:title="Record Settings" />
         <item
             android:id="@+id/nav_saved_recordings"
-            android:icon="@drawable/ic_chevron_right"
+            android:icon="@drawable/ic_video_library"
             android:title="Saved Recordings" />
         <item
             android:id="@+id/nav_help"
-            android:icon="@drawable/ic_chevron_right"
+            android:icon="@drawable/ic_help"
             android:title="How to Use &amp; Guide" />
         <item
             android:id="@+id/nav_about"
-            android:icon="@drawable/ic_chevron_right"
+            android:icon="@drawable/ic_info"
             android:title="About App" />
     </group>
 </menu>
