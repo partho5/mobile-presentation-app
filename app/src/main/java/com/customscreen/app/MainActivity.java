@@ -1,15 +1,23 @@
 package com.customscreen.app;
 
+import android.Manifest;
 import android.animation.ObjectAnimator;
-
 import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.animation.DecelerateInterpolator;
@@ -26,6 +34,11 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -33,8 +46,11 @@ import com.bumptech.glide.Glide;
 import com.customscreen.app.adapter.SlideAdapter;
 import com.customscreen.app.db.Slide;
 import com.customscreen.app.db.SlideRepository;
+import com.customscreen.app.service.ScreenRecordService;
 import com.customscreen.app.util.ImageStorageHelper;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.card.MaterialCardView;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -43,11 +59,14 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements SlideAdapter.SlideActionListener {
 
+    private static final String TAG = "MainActivity";
+
     private SlideRepository repository;
     private List<Slide> slides = new ArrayList<>();
     private int currentSlideIndex = 0;
 
     // UI Components
+    private View rootLayout;
     private ImageView imageSlideView;
     private FrameLayout textSlideContainer;
     private TextView textSlideView;
@@ -58,12 +77,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private FrameLayout zoneNext;
     private ImageButton btnPrev;
     private ImageButton btnNext;
+    private Button btnRecord;
+
+    // Draggable & Resizable Camera Components
+    private MaterialCardView cameraCardContainer;
+    private PreviewView cameraPreviewView;
+    private ScaleGestureDetector scaleGestureDetector;
+    private float dX, dY;
 
     private GestureDetector gestureDetector;
     private boolean isMenuBarVisible = false;
+    private boolean isRecording = false;
 
-    // Photo Picker launcher
+    // Launchers
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
+    private ActivityResultLauncher<String[]> permissionLauncher;
+    private ActivityResultLauncher<Intent> screenCaptureLauncher;
+
     private SlideAdapter slideAdapter;
     private RecyclerView recyclerSlides;
     private BottomSheetDialog managerDialog;
@@ -81,6 +111,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         setupTop30PercentLayout();
         setupBottom40PercentLayout();
 
+        setupDraggableCameraContainer();
+        setupRecordButton();
+        setupPermissionsAndCamera();
+
         // Start directly in Presentation Mode (system bars hidden)
         setPresentationMode(true);
 
@@ -89,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void initViews() {
+        rootLayout = findViewById(R.id.root_layout);
         imageSlideView = findViewById(R.id.image_slide_view);
         textSlideContainer = findViewById(R.id.text_slide_container);
         textSlideView = findViewById(R.id.text_slide_view);
@@ -105,6 +140,194 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
+    }
+
+    private void setupDraggableCameraContainer() {
+        cameraCardContainer = findViewById(R.id.camera_card_container);
+        cameraPreviewView = findViewById(R.id.camera_preview_view);
+
+        // Position camera in center initially once layout is measured
+        rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                rootLayout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                centerCameraContainer();
+            }
+        });
+
+        scaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float scaleFactor = detector.getScaleFactor();
+                int currentWidth = cameraCardContainer.getWidth();
+                int newSize = (int) (currentWidth * scaleFactor);
+
+                int minSize = (int) (90 * getResources().getDisplayMetrics().density);  // 90dp min
+                int maxSize = (int) (320 * getResources().getDisplayMetrics().density); // 320dp max
+
+                newSize = Math.max(minSize, Math.min(maxSize, newSize));
+
+                ViewGroup.LayoutParams params = cameraCardContainer.getLayoutParams();
+                params.width = newSize;
+                params.height = newSize;
+                cameraCardContainer.setLayoutParams(params);
+                cameraCardContainer.setRadius(newSize / 2f);
+                return true;
+            }
+        });
+
+        cameraCardContainer.setOnTouchListener((view, event) -> {
+            scaleGestureDetector.onTouchEvent(event);
+
+            if (scaleGestureDetector.isInProgress() || event.getPointerCount() > 1) {
+                return true;
+            }
+
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    dX = view.getX() - event.getRawX();
+                    dY = view.getY() - event.getRawY();
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float newX = event.getRawX() + dX;
+                    float newY = event.getRawY() + dY;
+
+                    int parentWidth = rootLayout.getWidth();
+                    int parentHeight = rootLayout.getHeight();
+
+                    newX = Math.max(0, Math.min(parentWidth - view.getWidth(), newX));
+                    newY = Math.max(0, Math.min(parentHeight - view.getHeight(), newY));
+
+                    view.setX(newX);
+                    view.setY(newY);
+                    return true;
+
+                default:
+                    return false;
+            }
+        });
+    }
+
+    private void centerCameraContainer() {
+        int parentWidth = rootLayout.getWidth();
+        int parentHeight = rootLayout.getHeight();
+        int cardWidth = cameraCardContainer.getWidth();
+        int cardHeight = cameraCardContainer.getHeight();
+
+        if (parentWidth > 0 && parentHeight > 0) {
+            float centerX = (parentWidth - cardWidth) / 2f;
+            float centerY = (parentHeight - cardHeight) / 2f;
+            cameraCardContainer.setX(centerX);
+            cameraCardContainer.setY(centerY);
+        }
+    }
+
+    private void setupRecordButton() {
+        btnRecord = findViewById(R.id.btn_record);
+        if (btnRecord != null) {
+            btnRecord.setOnClickListener(v -> toggleRecording());
+        }
+    }
+
+    private void toggleRecording() {
+        if (isRecording) {
+            Intent serviceIntent = new Intent(this, ScreenRecordService.class);
+            serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
+            startService(serviceIntent);
+            isRecording = false;
+            updateRecordButtonUI();
+        } else {
+            MediaProjectionManager projectionManager =
+                    (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (projectionManager != null) {
+                screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent());
+            }
+        }
+    }
+
+    private void updateRecordButtonUI() {
+        if (btnRecord == null) return;
+        if (isRecording) {
+            btnRecord.setText("Stop Record");
+            btnRecord.setTextColor(0xFF00E676); // Green text
+        } else {
+            btnRecord.setText("Start Record");
+            btnRecord.setTextColor(0xFFFF5252); // Red text
+        }
+    }
+
+    private void setupPermissionsAndCamera() {
+        permissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                result -> {
+                    Boolean cameraGranted = result.getOrDefault(Manifest.permission.CAMERA, false);
+                    if (Boolean.TRUE.equals(cameraGranted)) {
+                        startCameraPreview();
+                    } else {
+                        Toast.makeText(this, "Camera permission required for face cam preview", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
+        screenCaptureLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Intent serviceIntent = new Intent(this, ScreenRecordService.class);
+                        serviceIntent.setAction(ScreenRecordService.ACTION_START);
+                        serviceIntent.putExtra(ScreenRecordService.EXTRA_RESULT_CODE, result.getResultCode());
+                        serviceIntent.putExtra(ScreenRecordService.EXTRA_RESULT_DATA, result.getData());
+                        ContextCompat.startForegroundService(this, serviceIntent);
+                        isRecording = true;
+                        updateRecordButtonUI();
+                    } else {
+                        Toast.makeText(this, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
+        checkAndRequestPermissions();
+    }
+
+    private void checkAndRequestPermissions() {
+        List<String> neededPermissions = new ArrayList<>();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            neededPermissions.add(Manifest.permission.CAMERA);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            neededPermissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                neededPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+
+        if (!neededPermissions.isEmpty()) {
+            permissionLauncher.launch(neededPermissions.toArray(new String[0]));
+        } else {
+            startCameraPreview();
+        }
+    }
+
+    private void startCameraPreview() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                Preview preview = new Preview.Builder().build();
+                CameraSelector cameraSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+                        .build();
+
+                preview.setSurfaceProvider(cameraPreviewView.getSurfaceProvider());
+                cameraProvider.unbindAll();
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview);
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting front camera preview", e);
+            }
+        }, ContextCompat.getMainExecutor(this));
     }
 
     private void setupTop30PercentLayout() {

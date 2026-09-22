@@ -75,6 +75,16 @@
             android:textStyle="bold" />
 
         <Button
+            android:id="@+id/btn_record"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="Start Record"
+            android:textColor="#FF5252"
+            android:textStyle="bold" />
+
+        <Button
             android:id="@+id/btn_slide_manager"
             style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
@@ -84,6 +94,27 @@
             android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <!-- Draggable & Resizable Circular Camera Overlay Container -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/camera_card_container"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_centerInParent="true"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="#000000"
+        app:cardCornerRadius="80dp"
+        app:cardElevation="12dp"
+        app:strokeColor="#FFFFFF"
+        app:strokeWidth="2dp">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/camera_preview_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Bottom 20% Navigation Overlay -->
     <LinearLayout

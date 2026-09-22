@@ -1,0 +1,252 @@
+package com.customscreen.app.service;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
+import android.media.MediaRecorder;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
+import android.os.Binder;
+import android.os.Build;
+import android.os.Environment;
+import android.os.IBinder;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.WindowManager;
+import android.widget.Toast;
+
+import androidx.core.app.NotificationCompat;
+
+import com.customscreen.app.R;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+public class ScreenRecordService extends Service {
+
+    private static final String TAG = "ScreenRecordService";
+    private static final String CHANNEL_ID = "screen_record_channel";
+    private static final int NOTIFICATION_ID = 1001;
+
+    public static final String ACTION_START = "ACTION_START";
+    public static final String ACTION_STOP = "ACTION_STOP";
+    public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
+    public static final String EXTRA_RESULT_DATA = "EXTRA_RESULT_DATA";
+
+    private final IBinder binder = new LocalBinder();
+
+    private MediaProjection mediaProjection;
+    private MediaRecorder mediaRecorder;
+    private VirtualDisplay virtualDisplay;
+
+    private boolean isRecording = false;
+    private String currentVideoPath = null;
+
+    public class LocalBinder extends Binder {
+        public ScreenRecordService getService() {
+            return ScreenRecordService.this;
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return binder;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_START.equals(action)) {
+                int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
+                Intent resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+                if (resultCode != 0 && resultData != null) {
+                    startRecordingInternal(resultCode, resultData);
+                }
+            } else if (ACTION_STOP.equals(action)) {
+                stopRecordingInternal();
+            }
+        }
+        return START_NOT_STICKY;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Screen Recording",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Notification shown while recording screen and camera");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification createNotification() {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText("Recording screen and camera...")
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build();
+    }
+
+    private void startRecordingInternal(int resultCode, Intent resultData) {
+        if (isRecording) return;
+
+        Notification notification = createNotification();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
+
+        WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        DisplayMetrics metrics = new DisplayMetrics();
+        if (windowManager != null) {
+            windowManager.getDefaultDisplay().getRealMetrics(metrics);
+        }
+
+        int width = metrics.widthPixels;
+        int height = metrics.heightPixels;
+        int densityDpi = metrics.densityDpi;
+
+        // Ensure width and height are even numbers for encoder stability
+        if (width % 2 != 0) width--;
+        if (height % 2 != 0) height--;
+
+        // App-named folder dynamically loaded from getString(R.string.app_name)
+        String appName = getString(R.string.app_name);
+        File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+        File appDir = new File(moviesDir, appName);
+        if (!appDir.exists()) {
+            boolean created = appDir.mkdirs();
+            if (!created && getExternalFilesDir(Environment.DIRECTORY_MOVIES) != null) {
+                appDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES);
+            }
+        }
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File outputFile = new File(appDir, "RECORDING_" + timeStamp + ".mp4");
+        currentVideoPath = outputFile.getAbsolutePath();
+
+        try {
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setOutputFile(currentVideoPath);
+
+            mediaRecorder.setVideoSize(width, height);
+            mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setVideoEncodingBitRate(8 * 1024 * 1024); // 8Mbps
+            mediaRecorder.setVideoFrameRate(30);
+            mediaRecorder.setAudioSamplingRate(44100);
+            mediaRecorder.setAudioEncodingBitRate(128000);
+
+            mediaRecorder.prepare();
+        } catch (IOException e) {
+            Log.e(TAG, "MediaRecorder prepare failed", e);
+            Toast.makeText(this, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+            return;
+        }
+
+        MediaProjectionManager projectionManager =
+                (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        if (projectionManager != null) {
+            mediaProjection = projectionManager.getMediaProjection(resultCode, resultData);
+            if (mediaProjection != null) {
+                virtualDisplay = mediaProjection.createVirtualDisplay(
+                        "ScreenRecordVirtualDisplay",
+                        width,
+                        height,
+                        densityDpi,
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                        mediaRecorder.getSurface(),
+                        null,
+                        null
+                );
+
+                try {
+                    mediaRecorder.start();
+                    isRecording = true;
+                    Log.d(TAG, "Recording started successfully: " + currentVideoPath);
+                    Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Log.e(TAG, "MediaRecorder start failed", e);
+                    stopRecordingInternal();
+                }
+            }
+        }
+    }
+
+    private void stopRecordingInternal() {
+        if (!isRecording && mediaRecorder == null) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+            return;
+        }
+
+        try {
+            if (mediaRecorder != null) {
+                mediaRecorder.stop();
+                mediaRecorder.reset();
+                mediaRecorder.release();
+                mediaRecorder = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping MediaRecorder", e);
+        }
+
+        if (virtualDisplay != null) {
+            virtualDisplay.release();
+            virtualDisplay = null;
+        }
+
+        if (mediaProjection != null) {
+            mediaProjection.stop();
+            mediaProjection = null;
+        }
+
+        isRecording = false;
+        stopForeground(STOP_FOREGROUND_REMOVE);
+
+        if (currentVideoPath != null) {
+            Toast.makeText(this, "Saved recording to: " + currentVideoPath, Toast.LENGTH_LONG).show();
+        }
+
+        stopSelf();
+    }
+
+    public boolean isRecording() {
+        return isRecording;
+    }
+
+    @Override
+    public void onDestroy() {
+        stopRecordingInternal();
+        super.onDestroy();
+    }
+}
