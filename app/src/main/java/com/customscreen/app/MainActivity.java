@@ -41,6 +41,8 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -52,6 +54,7 @@ import com.customscreen.app.service.ScreenRecordService;
 import com.customscreen.app.util.ImageStorageHelper;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.navigation.NavigationView;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
@@ -69,6 +72,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     // UI Components
     private View rootLayout;
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
     private ImageView imageSlideView;
     private FrameLayout textSlideContainer;
     private TextView textSlideView;
@@ -124,6 +129,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         repository = new SlideRepository(this);
 
         initViews();
+        setupDrawer();
         setupGestureDetector();
         setupPhotoPicker();
         setupTop30PercentLayout();
@@ -142,6 +148,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void initViews() {
         rootLayout = findViewById(R.id.root_layout);
+        drawerLayout = findViewById(R.id.drawer_layout);
+        navigationView = findViewById(R.id.nav_view);
+
         imageSlideView = findViewById(R.id.image_slide_view);
         textSlideContainer = findViewById(R.id.text_slide_container);
         textSlideView = findViewById(R.id.text_slide_view);
@@ -158,6 +167,35 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
+    }
+
+    private void setupDrawer() {
+        ImageButton btnOpenDrawer = findViewById(R.id.btn_open_drawer);
+
+        if (btnOpenDrawer != null) {
+            btnOpenDrawer.setOnClickListener(v -> {
+                if (drawerLayout != null) {
+                    drawerLayout.openDrawer(GravityCompat.START);
+                }
+            });
+        }
+
+        if (navigationView != null) {
+            navigationView.setNavigationItemSelectedListener(item -> {
+                int itemId = item.getItemId();
+                if (itemId == R.id.nav_edit_slides) {
+                    openSlideManagerDialog();
+                } else if (itemId == R.id.nav_record_settings) {
+                    Toast.makeText(this, "Record Settings coming soon!", Toast.LENGTH_SHORT).show();
+                } else if (itemId == R.id.nav_help) {
+                    Toast.makeText(this, "Double-tap anywhere on screen to hide/show controls.", Toast.LENGTH_LONG).show();
+                }
+                if (drawerLayout != null) {
+                    drawerLayout.closeDrawer(GravityCompat.START);
+                }
+                return true;
+            });
+        }
     }
 
     private void setupDraggableCameraContainer() {
@@ -459,15 +497,24 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void setPresentationMode(boolean enableImmersive) {
         WindowInsetsController controller = getWindow().getInsetsController();
-        if (controller == null) return;
+        if (controller != null) {
+            if (enableImmersive) {
+                controller.hide(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            } else {
+                controller.show(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_DEFAULT);
+            }
+        }
 
-        if (enableImmersive) {
-            controller.hide(WindowInsets.Type.systemBars());
-            controller.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-        } else {
-            controller.show(WindowInsets.Type.systemBars());
-            controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_DEFAULT);
+        if (drawerLayout != null) {
+            if (enableImmersive) {
+                drawerLayout.closeDrawer(GravityCompat.START);
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+            } else {
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED);
+            }
         }
     }
 
@@ -513,8 +560,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void seedInitialSlides() {
-        Slide textSlide1 = new Slide(Slide.TYPE_TEXT, 0, "Welcome to Presentation Viewer", null);
-        Slide textSlide2 = new Slide(Slide.TYPE_TEXT, 1, "Double-tap anywhere to toggle Menu & Edit Slides", null);
+        Slide textSlide1 = new Slide(Slide.TYPE_TEXT, 0, "Double-tap anywhere to toggle Menu & Edit Slides", null);
+        Slide textSlide2 = new Slide(Slide.TYPE_TEXT, 1, "Welcome to Presentation Viewer", null);
 
         repository.insert(textSlide1, id1 -> {
             repository.insert(textSlide2, id2 -> {

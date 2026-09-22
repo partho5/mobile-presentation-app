@@ -1,204 +1,233 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/root_layout"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/black">
+    android:layout_height="match_parent">
 
-    <!-- Container for Image Slide (anchored to top) -->
-    <ImageView
-        android:id="@+id/image_slide_view"
+    <!-- Main Content Area -->
+    <RelativeLayout
+        android:id="@+id/root_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:adjustViewBounds="true"
-        android:contentDescription="Slide Image"
-        android:scaleType="fitStart"
-        android:visibility="gone" />
+        android:layout_height="match_parent"
+        android:background="@android:color/black">
 
-    <!-- Container for Text Slide (Top 30% of screen height) -->
-    <FrameLayout
-        android:id="@+id/text_slide_container"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_alignParentTop="true"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/text_slide_view"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:paddingHorizontal="24dp"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:fontFamily="@font/bitter"
-            android:lineSpacingMultiplier="1.2" />
-    </FrameLayout>
-
-    <!-- Empty State View when database has 0 slides -->
-    <TextView
-        android:id="@+id/empty_state_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:gravity="center"
-        android:padding="32dp"
-        android:text="Double-tap to open Menu &amp; Add Slides"
-        android:textColor="#66FFFFFF"
-        android:textSize="18sp"
-        android:visibility="gone" />
-
-    <!-- Top Action Menu Bar (revealed in Edit Mode / Menu toggle) -->
-    <LinearLayout
-        android:id="@+id/top_menu_bar"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_alignParentTop="true"
-        android:background="#DD111111"
-        android:elevation="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/toolbar_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Recording Mode"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btn_record"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_btn_record_black"
-            android:text="Start Record"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btn_slide_manager"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Edit Slides"
-            android:textColor="#64B5F6"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- Draggable & Resizable Circular Camera Overlay Container -->
-    <FrameLayout
-        android:id="@+id/camera_root_wrapper"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:clipChildren="false"
-        android:clipToPadding="false">
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/camera_card_container"
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardBackgroundColor="#000000"
-            app:cardCornerRadius="80dp"
-            app:cardElevation="12dp"
-            app:strokeColor="#FFFFFF"
-            app:strokeWidth="2dp">
-
-            <androidx.camera.view.PreviewView
-                android:id="@+id/camera_preview_view"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Resize Handle Icon (visible for 3s upon tap on camera circle) -->
+        <!-- Container for Image Slide (anchored to top) -->
         <ImageView
-            android:id="@+id/btn_resize_handle"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_gravity="bottom|end"
-            android:layout_marginBottom="-4dp"
-            android:layout_marginEnd="-4dp"
-            android:background="@drawable/bg_circle_resize_handle"
-            android:contentDescription="Resize Handle"
-            android:elevation="16dp"
-            android:padding="6dp"
-            android:src="@drawable/ic_aspect_ratio"
+            android:id="@+id/image_slide_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:adjustViewBounds="true"
+            android:contentDescription="Slide Image"
+            android:scaleType="fitStart"
             android:visibility="gone" />
 
-    </FrameLayout>
-
-    <!-- Bottom 20% Navigation Overlay -->
-    <LinearLayout
-        android:id="@+id/bottom_nav_container"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
-        android:weightSum="10">
-
-        <!-- PREVIOUS Zone: Left 20% -->
+        <!-- Container for Text Slide (Top 30% of screen height) -->
         <FrameLayout
-            android:id="@+id/zone_previous"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="2"
-            android:clickable="true"
-            android:focusable="true">
+            android:id="@+id/text_slide_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_alignParentTop="true"
+            android:visibility="gone">
 
-            <ImageButton
-                android:id="@+id/btn_prev"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+            <TextView
+                android:id="@+id/text_slide_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:background="@drawable/bg_circle_nav"
-                android:clickable="false"
-                android:contentDescription="Previous Slide"
-                android:focusable="false"
-                android:src="@drawable/ic_chevron_left" />
+                android:fontFamily="@font/bitter"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.2"
+                android:paddingHorizontal="24dp"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp" />
         </FrameLayout>
 
-        <!-- Dead Zone: Center 60% -->
-        <View
-            android:id="@+id/zone_dead"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="6" />
+        <!-- Empty State View when database has 0 slides -->
+        <TextView
+            android:id="@+id/empty_state_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text="Double-tap to open Menu &amp; Add Slides"
+            android:textColor="#66FFFFFF"
+            android:textSize="18sp"
+            android:visibility="gone" />
 
-        <!-- NEXT Zone: Right 20% -->
-        <FrameLayout
-            android:id="@+id/zone_next"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="2"
-            android:clickable="true"
-            android:focusable="true">
+        <!-- Top Action Menu Bar (revealed in Edit Mode / Menu toggle) -->
+        <LinearLayout
+            android:id="@+id/top_menu_bar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_alignParentTop="true"
+            android:background="#DD111111"
+            android:elevation="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:visibility="gone">
 
             <ImageButton
-                android:id="@+id/btn_next"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_circle_nav"
-                android:clickable="false"
-                android:contentDescription="Next Slide"
-                android:focusable="false"
-                android:src="@drawable/ic_chevron_right" />
+                android:id="@+id/btn_open_drawer"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Open Navigation Menu"
+                android:src="@drawable/ic_hamburger" />
+
+            <TextView
+                android:id="@+id/toolbar_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Recording Mode"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_record"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_btn_record_black"
+                android:text="Start Record"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_slide_manager"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Edit Slides"
+                android:textColor="#64B5F6"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Draggable & Resizable Circular Camera Overlay Container -->
+        <FrameLayout
+            android:id="@+id/camera_root_wrapper"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/camera_card_container"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="#000000"
+                app:cardCornerRadius="80dp"
+                app:cardElevation="12dp"
+                app:strokeColor="#FFFFFF"
+                app:strokeWidth="2dp">
+
+                <androidx.camera.view.PreviewView
+                    android:id="@+id/camera_preview_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Resize Handle Icon (visible for 3s upon tap on camera circle) -->
+            <ImageView
+                android:id="@+id/btn_resize_handle"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginBottom="-4dp"
+                android:layout_marginEnd="-4dp"
+                android:background="@drawable/bg_circle_resize_handle"
+                android:contentDescription="Resize Handle"
+                android:elevation="16dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_aspect_ratio"
+                android:visibility="gone" />
+
         </FrameLayout>
 
-    </LinearLayout>
+        <!-- Bottom 20% Navigation Overlay -->
+        <LinearLayout
+            android:id="@+id/bottom_nav_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_alignParentBottom="true"
+            android:orientation="horizontal"
+            android:weightSum="10">
 
-</RelativeLayout>
+            <!-- PREVIOUS Zone: Left 20% -->
+            <FrameLayout
+                android:id="@+id/zone_previous"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="2"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageButton
+                    android:id="@+id/btn_prev"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_circle_nav"
+                    android:clickable="false"
+                    android:contentDescription="Previous Slide"
+                    android:focusable="false"
+                    android:src="@drawable/ic_chevron_left" />
+            </FrameLayout>
+
+            <!-- Dead Zone: Center 60% -->
+            <View
+                android:id="@+id/zone_dead"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="6" />
+
+            <!-- NEXT Zone: Right 20% -->
+            <FrameLayout
+                android:id="@+id/zone_next"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="2"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageButton
+                    android:id="@+id/btn_next"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_circle_nav"
+                    android:clickable="false"
+                    android:contentDescription="Next Slide"
+                    android:focusable="false"
+                    android:src="@drawable/ic_chevron_right" />
+            </FrameLayout>
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- Left Navigation Drawer View -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/nav_view"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#FF181818"
+        app:headerLayout="@layout/nav_header"
+        app:itemIconTint="#FFFFFF"
+        app:itemTextColor="#FFFFFF"
+        app:menu="@menu/drawer_menu" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

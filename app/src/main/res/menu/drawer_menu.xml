@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_edit_slides"
+            android:icon="@drawable/ic_menu"
+            android:title="Edit Slides" />
+        <item
+            android:id="@+id/nav_record_settings"
+            android:icon="@drawable/ic_add"
+            android:title="Record Settings" />
+        <item
+            android:id="@+id/nav_help"
+            android:icon="@drawable/ic_chevron_right"
+            android:title="Help &amp; Instructions" />
+    </group>
+</menu>
