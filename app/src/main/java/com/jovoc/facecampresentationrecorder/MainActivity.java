@@ -213,6 +213,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    private void updateResizeHandlePosition(int cardSize) {
+        if (btnResizeHandle == null) return;
+        int handleSize = (int) (40 * getResources().getDisplayMetrics().density);
+        if (btnResizeHandle.getWidth() > 0) {
+            handleSize = btnResizeHandle.getWidth();
+        }
+        // Center of circle is at (cardSize / 2, cardSize / 2).
+        // 45-degree angle on circle border is at (cardSize * 0.85355f, cardSize * 0.85355f).
+        float borderPos = cardSize * 0.85355f;
+        btnResizeHandle.setTranslationX(borderPos - (handleSize / 2f));
+        btnResizeHandle.setTranslationY(borderPos - (handleSize / 2f));
+    }
+
     private void restoreCameraState() {
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         int savedSize = prefs.getInt(KEY_CAM_SIZE, -1);
@@ -222,6 +235,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             params.height = savedSize;
             cameraCardContainer.setLayoutParams(params);
             cameraCardContainer.setRadius(savedSize / 2f);
+            updateResizeHandlePosition(savedSize);
         }
     }
 
@@ -242,6 +256,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             cameraRootWrapper.setY(boundedY);
         } else {
             centerCameraContainer();
+        }
+        if (cameraCardContainer != null) {
+            updateResizeHandlePosition(cameraCardContainer.getWidth());
         }
     }
 
@@ -311,6 +328,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 params.height = newSize;
                 cameraCardContainer.setLayoutParams(params);
                 cameraCardContainer.setRadius(newSize / 2f);
+                updateResizeHandlePosition(newSize);
                 saveCameraState();
                 return true;
             }
@@ -376,17 +394,31 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     initialResizeTouchY = event.getRawY();
                     initialCardWidth = cameraCardContainer.getWidth();
                     hideHandleHandler.removeCallbacks(hideHandleRunnable);
+                    btnResizeHandle.animate().cancel();
+                    btnResizeHandle.setAlpha(1f);
+                    btnResizeHandle.setVisibility(View.VISIBLE);
                     return true;
 
                 case MotionEvent.ACTION_MOVE:
                     float dx = event.getRawX() - initialResizeTouchX;
                     float dy = event.getRawY() - initialResizeTouchY;
-                    int delta = (int) (Math.abs(dx) > Math.abs(dy) ? dx : dy);
+                    float delta = (dx + dy) / 2f;
 
-                    int newSize = initialCardWidth + delta;
                     int minSize = (int) (90 * getResources().getDisplayMetrics().density);
                     int maxSize = (int) (320 * getResources().getDisplayMetrics().density);
 
+                    int parentWidth = rootLayout.getWidth();
+                    int parentHeight = rootLayout.getHeight();
+                    if (parentWidth > 0 && parentHeight > 0) {
+                        float posX = cameraRootWrapper.getX();
+                        float posY = cameraRootWrapper.getY();
+                        int maxAvailableWidth = (int) (parentWidth - posX);
+                        int maxAvailableHeight = (int) (parentHeight - posY);
+                        int maxAllowedByScreen = Math.min(maxAvailableWidth, maxAvailableHeight);
+                        maxSize = Math.max(minSize, Math.min(maxSize, maxAllowedByScreen));
+                    }
+
+                    int newSize = (int) (initialCardWidth + delta);
                     newSize = Math.max(minSize, Math.min(maxSize, newSize));
 
                     ViewGroup.LayoutParams params = cameraCardContainer.getLayoutParams();
@@ -394,10 +426,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     params.height = newSize;
                     cameraCardContainer.setLayoutParams(params);
                     cameraCardContainer.setRadius(newSize / 2f);
+                    updateResizeHandlePosition(newSize);
                     return true;
 
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    hideHandleHandler.removeCallbacks(hideHandleRunnable);
                     hideHandleHandler.postDelayed(hideHandleRunnable, 3000);
                     saveCameraState();
                     return true;
