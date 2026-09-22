@@ -651,12 +651,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (isMenuBarVisible) {
             btnPrev.setVisibility(View.VISIBLE);
             btnNext.setVisibility(View.VISIBLE);
+            if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             btnPrev.setAlpha(hasPrev ? 1.0f : 0.3f);
             btnNext.setAlpha(hasNext ? 1.0f : 0.3f);
         } else {
             // Presentation mode: hide visual chrome while keeping tap zones functional
             btnPrev.setVisibility(View.INVISIBLE);
             btnNext.setVisibility(View.INVISIBLE);
+            if (btnRecord != null) btnRecord.setVisibility(View.INVISIBLE);
         }
     }
 

@@ -90,17 +90,6 @@
                 android:textStyle="bold" />
 
             <Button
-                android:id="@+id/btn_record"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_btn_record_black"
-                android:text="Start Record"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <Button
                 android:id="@+id/btn_slide_manager"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
@@ -186,12 +175,25 @@
                     android:src="@drawable/ic_chevron_left" />
             </FrameLayout>
 
-            <!-- Dead Zone: Center 60% -->
-            <View
-                android:id="@+id/zone_dead"
+            <!-- RECORD Zone: Center 60% -->
+            <FrameLayout
+                android:id="@+id/zone_record"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="6" />
+                android:layout_weight="6">
+
+                <Button
+                    android:id="@+id/btn_record"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_btn_record_black"
+                    android:elevation="6dp"
+                    android:text="Start Record"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
 
             <!-- NEXT Zone: Right 20% -->
             <FrameLayout

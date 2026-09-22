@@ -15,7 +15,9 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
@@ -26,7 +28,6 @@ import androidx.core.app.NotificationCompat;
 import com.customscreen.app.R;
 
 import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -113,98 +114,120 @@ public class ScreenRecordService extends Service {
     private void startRecordingInternal(int resultCode, Intent resultData) {
         if (isRecording) return;
 
-        Notification notification = createNotification();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
-
-        WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        DisplayMetrics metrics = new DisplayMetrics();
-        if (windowManager != null) {
-            windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        }
-
-        int width = metrics.widthPixels;
-        int height = metrics.heightPixels;
-        int densityDpi = metrics.densityDpi;
-
-        // Ensure width and height are even numbers for encoder stability
-        if (width % 2 != 0) width--;
-        if (height % 2 != 0) height--;
-
-        // App-named folder dynamically loaded from getString(R.string.app_name)
-        String appName = getString(R.string.app_name);
-        File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-        File appDir = new File(moviesDir, appName);
-        if (!appDir.exists()) {
-            boolean created = appDir.mkdirs();
-            if (!created && getExternalFilesDir(Environment.DIRECTORY_MOVIES) != null) {
-                appDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES);
-            }
-        }
-
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        File outputFile = new File(appDir, "RECORDING_" + timeStamp + ".mp4");
-        currentVideoPath = outputFile.getAbsolutePath();
-
         try {
-            mediaRecorder = new MediaRecorder();
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            Notification notification = createNotification();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+
+            WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            DisplayMetrics metrics = new DisplayMetrics();
+            if (windowManager != null) {
+                windowManager.getDefaultDisplay().getRealMetrics(metrics);
+            }
+
+            int width = metrics.widthPixels;
+            int height = metrics.heightPixels;
+            int densityDpi = metrics.densityDpi;
+
+            // Ensure width and height are even numbers for encoder stability
+            if (width % 2 != 0) width--;
+            if (height % 2 != 0) height--;
+
+            // App-named folder dynamically loaded from getString(R.string.app_name)
+            String appName = getString(R.string.app_name);
+            File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+            File appDir = new File(moviesDir, appName);
+            if (!appDir.exists()) {
+                boolean created = appDir.mkdirs();
+                if (!created && getExternalFilesDir(Environment.DIRECTORY_MOVIES) != null) {
+                    appDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES);
+                }
+            }
+
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            File outputFile = new File(appDir, "RECORDING_" + timeStamp + ".mp4");
+            currentVideoPath = outputFile.getAbsolutePath();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                mediaRecorder = new MediaRecorder(this);
+            } else {
+                mediaRecorder = new MediaRecorder();
+            }
+
+            try {
+                mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            } catch (Exception e) {
+                Log.w(TAG, "AudioSource.MIC set failed, attempting video-only", e);
+            }
+
             mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             mediaRecorder.setOutputFile(currentVideoPath);
 
             mediaRecorder.setVideoSize(width, height);
             mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+
+            try {
+                mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                mediaRecorder.setAudioSamplingRate(44100);
+                mediaRecorder.setAudioEncodingBitRate(128000);
+            } catch (Exception e) {
+                Log.w(TAG, "Audio encoder configuration skipped", e);
+            }
+
             mediaRecorder.setVideoEncodingBitRate(8 * 1024 * 1024); // 8Mbps
             mediaRecorder.setVideoFrameRate(30);
-            mediaRecorder.setAudioSamplingRate(44100);
-            mediaRecorder.setAudioEncodingBitRate(128000);
 
             mediaRecorder.prepare();
-        } catch (IOException e) {
-            Log.e(TAG, "MediaRecorder prepare failed", e);
-            Toast.makeText(this, "Failed to start recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
-            return;
-        }
 
-        MediaProjectionManager projectionManager =
-                (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        if (projectionManager != null) {
-            mediaProjection = projectionManager.getMediaProjection(resultCode, resultData);
-            if (mediaProjection != null) {
-                virtualDisplay = mediaProjection.createVirtualDisplay(
-                        "ScreenRecordVirtualDisplay",
-                        width,
-                        height,
-                        densityDpi,
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                        mediaRecorder.getSurface(),
-                        null,
-                        null
-                );
+            MediaProjectionManager projectionManager =
+                    (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (projectionManager != null) {
+                mediaProjection = projectionManager.getMediaProjection(resultCode, resultData);
+                if (mediaProjection != null) {
+                    // Mandatory callback registration on Android 14+ (API 34+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        mediaProjection.registerCallback(new MediaProjection.Callback() {
+                            @Override
+                            public void onStop() {
+                                super.onStop();
+                                stopRecordingInternal();
+                            }
+                        }, new Handler(Looper.getMainLooper()));
+                    }
 
-                try {
+                    virtualDisplay = mediaProjection.createVirtualDisplay(
+                            "ScreenRecordVirtualDisplay",
+                            width,
+                            height,
+                            densityDpi,
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                            mediaRecorder.getSurface(),
+                            null,
+                            null
+                    );
+
                     mediaRecorder.start();
                     isRecording = true;
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
                     Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    Log.e(TAG, "MediaRecorder start failed", e);
-                    stopRecordingInternal();
                 }
             }
+        } catch (Throwable t) {
+            Log.e(TAG, "Fatal exception during startRecordingInternal", t);
+            Toast.makeText(this, "Failed to start recording: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            stopRecordingInternal();
         }
     }
 
     private void stopRecordingInternal() {
         if (!isRecording && mediaRecorder == null) {
-            stopForeground(STOP_FOREGROUND_REMOVE);
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE);
+            } catch (Exception ignored) {}
             stopSelf();
             return;
         }
@@ -221,17 +244,23 @@ public class ScreenRecordService extends Service {
         }
 
         if (virtualDisplay != null) {
-            virtualDisplay.release();
+            try {
+                virtualDisplay.release();
+            } catch (Exception ignored) {}
             virtualDisplay = null;
         }
 
         if (mediaProjection != null) {
-            mediaProjection.stop();
+            try {
+                mediaProjection.stop();
+            } catch (Exception ignored) {}
             mediaProjection = null;
         }
 
         isRecording = false;
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } catch (Exception ignored) {}
 
         if (currentVideoPath != null) {
             Toast.makeText(this, "Saved recording to: " + currentVideoPath, Toast.LENGTH_LONG).show();
