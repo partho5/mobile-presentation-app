@@ -165,11 +165,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnPrev = findViewById(R.id.btn_prev);
         btnNext = findViewById(R.id.btn_next);
 
-        btnStopRecordFloating = findViewById(R.id.btn_stop_record_floating);
-        if (btnStopRecordFloating != null) {
-            btnStopRecordFloating.setOnClickListener(v -> toggleRecording());
-        }
-
         Button btnSlideManager = findViewById(R.id.btn_slide_manager);
         btnSlideManager.setOnClickListener(v -> openSlideManagerDialog());
 
@@ -346,19 +341,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void setupRecordButton() {
         btnRecord = findViewById(R.id.btn_record);
+        btnStopRecordFloating = findViewById(R.id.btn_stop_record_floating);
+
         if (btnRecord != null) {
-            btnRecord.setOnClickListener(v -> toggleRecording());
+            btnRecord.setOnClickListener(v -> startRecordingFlow());
+        }
+
+        if (btnStopRecordFloating != null) {
+            btnStopRecordFloating.setOnClickListener(v -> stopRecordingFlow());
         }
     }
 
-    private void toggleRecording() {
-        if (isRecording) {
-            Intent serviceIntent = new Intent(this, ScreenRecordService.class);
-            serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
-            startService(serviceIntent);
-            isRecording = false;
-            updateRecordButtonUI();
-        } else {
+    private void startRecordingFlow() {
+        if (!isRecording) {
             MediaProjectionManager projectionManager =
                     (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (projectionManager != null) {
@@ -367,16 +362,43 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    private void updateRecordButtonUI() {
-        if (btnRecord != null) {
-            btnRecord.setText(isRecording ? "Stop Record" : "Start Record");
+    private void stopRecordingFlow() {
+        if (isRecording) {
+            Intent serviceIntent = new Intent(this, ScreenRecordService.class);
+            serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
+            startService(serviceIntent);
+            isRecording = false;
+
+            // Return to Edit Mode UI
+            isMenuBarVisible = true;
+            setPresentationMode(false);
+            updateUIState();
         }
-        if (btnStopRecordFloating != null) {
-            btnStopRecordFloating.setVisibility(isRecording ? View.VISIBLE : View.GONE);
-        }
+    }
+
+    private void updateUIState() {
         if (toolbarTitle != null) {
             toolbarTitle.setText(isRecording ? "Recording Mode" : "Edit Mode");
         }
+
+        if (isRecording) {
+            // In Recording Mode: hide top bar, hide red start button, show ONLY floating gray stop button
+            topMenuBar.setVisibility(View.GONE);
+            if (btnRecord != null) btnRecord.setVisibility(View.GONE);
+            if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
+        } else {
+            // In Edit Mode: show top bar (if menu bar is visible), show red start button, hide floating stop button
+            if (isMenuBarVisible) {
+                topMenuBar.setVisibility(View.VISIBLE);
+                if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
+            } else {
+                topMenuBar.setVisibility(View.GONE);
+                if (btnRecord != null) btnRecord.setVisibility(View.GONE);
+            }
+            if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
+        }
+
+        updateNavigationButtonsState();
     }
 
     private void setupPermissionsAndCamera() {
@@ -403,12 +425,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         ContextCompat.startForegroundService(this, serviceIntent);
                         isRecording = true;
 
-                        // Auto-toggle to presentation / recording mode (hide UI chrome and top bar)
+                        // Auto-toggle to presentation / recording mode (hide UI chrome and enter full-screen)
                         isMenuBarVisible = false;
-                        topMenuBar.setVisibility(View.GONE);
                         setPresentationMode(true);
-
-                        updateRecordButtonUI();
+                        updateUIState();
                     } else {
                         Toast.makeText(this, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
                     }
@@ -507,9 +527,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void toggleMenuBarAndSystemBars() {
         isMenuBarVisible = !isMenuBarVisible;
-        topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
         setPresentationMode(!isMenuBarVisible);
-        updateNavigationButtonsState();
+        updateUIState();
     }
 
     private void setPresentationMode(boolean enableImmersive) {
@@ -665,17 +684,17 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnPrev.setEnabled(hasPrev);
         btnNext.setEnabled(hasNext);
 
-        if (isMenuBarVisible) {
+        if (isMenuBarVisible && !isRecording) {
             btnPrev.setVisibility(View.VISIBLE);
             btnNext.setVisibility(View.VISIBLE);
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             btnPrev.setAlpha(hasPrev ? 1.0f : 0.3f);
             btnNext.setAlpha(hasNext ? 1.0f : 0.3f);
         } else {
-            // Presentation mode: hide visual chrome while keeping tap zones functional
+            // Presentation mode / Recording mode: hide visual chrome while keeping tap zones functional
             btnPrev.setVisibility(View.INVISIBLE);
             btnNext.setVisibility(View.INVISIBLE);
-            if (btnRecord != null) btnRecord.setVisibility(View.INVISIBLE);
+            if (btnRecord != null) btnRecord.setVisibility(View.GONE);
         }
     }
 
