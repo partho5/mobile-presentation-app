@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private FrameLayout textSlideContainer;
     private TextView textSlideView;
     private TextView emptyStateView;
+    private TextView toolbarTitle;
     private LinearLayout topMenuBar;
     private LinearLayout bottomNavContainer;
     private FrameLayout zonePrev;
@@ -85,6 +86,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnPrev;
     private ImageButton btnNext;
     private Button btnRecord;
+    private Button btnStopRecordFloating;
 
     // Draggable & Resizable Camera Components
     private FrameLayout cameraRootWrapper;
@@ -155,12 +157,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         textSlideContainer = findViewById(R.id.text_slide_container);
         textSlideView = findViewById(R.id.text_slide_view);
         emptyStateView = findViewById(R.id.empty_state_view);
+        toolbarTitle = findViewById(R.id.toolbar_title);
         topMenuBar = findViewById(R.id.top_menu_bar);
         bottomNavContainer = findViewById(R.id.bottom_nav_container);
         zonePrev = findViewById(R.id.zone_previous);
         zoneNext = findViewById(R.id.zone_next);
         btnPrev = findViewById(R.id.btn_prev);
         btnNext = findViewById(R.id.btn_next);
+
+        btnStopRecordFloating = findViewById(R.id.btn_stop_record_floating);
+        if (btnStopRecordFloating != null) {
+            btnStopRecordFloating.setOnClickListener(v -> toggleRecording());
+        }
 
         Button btnSlideManager = findViewById(R.id.btn_slide_manager);
         btnSlideManager.setOnClickListener(v -> openSlideManagerDialog());
@@ -360,11 +368,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void updateRecordButtonUI() {
-        if (btnRecord == null) return;
-        if (isRecording) {
-            btnRecord.setText("Stop Record");
-        } else {
-            btnRecord.setText("Start Record");
+        if (btnRecord != null) {
+            btnRecord.setText(isRecording ? "Stop Record" : "Start Record");
+        }
+        if (btnStopRecordFloating != null) {
+            btnStopRecordFloating.setVisibility(isRecording ? View.VISIBLE : View.GONE);
+        }
+        if (toolbarTitle != null) {
+            toolbarTitle.setText(isRecording ? "Recording Mode" : "Edit Mode");
         }
     }
 
@@ -391,6 +402,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         serviceIntent.putExtra(ScreenRecordService.EXTRA_RESULT_DATA, result.getData());
                         ContextCompat.startForegroundService(this, serviceIntent);
                         isRecording = true;
+
+                        // Auto-toggle to presentation / recording mode (hide UI chrome and top bar)
+                        isMenuBarVisible = false;
+                        topMenuBar.setVisibility(View.GONE);
+                        setPresentationMode(true);
+
                         updateRecordButtonUI();
                     } else {
                         Toast.makeText(this, "Screen recording permission denied", Toast.LENGTH_SHORT).show();

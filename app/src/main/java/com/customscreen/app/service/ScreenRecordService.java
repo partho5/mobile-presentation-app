@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
@@ -19,6 +20,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
@@ -137,14 +139,14 @@ public class ScreenRecordService extends Service {
             if (width % 2 != 0) width--;
             if (height % 2 != 0) height--;
 
-            // Determine target directory in public Movies
+            // Determine target directory in public DCIM / Camera
             String appName = getString(R.string.app_name);
-            File moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-            File appDir = new File(moviesDir, appName);
+            File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+            File appDir = new File(dcimDir, appName);
             if (!appDir.exists()) {
                 boolean created = appDir.mkdirs();
                 if (!created) {
-                    appDir = moviesDir;
+                    appDir = dcimDir;
                 }
             }
 
@@ -266,14 +268,25 @@ public class ScreenRecordService extends Service {
         if (currentVideoPath != null) {
             File file = new File(currentVideoPath);
             if (file.exists() && file.length() > 0) {
-                // Scan recorded file so Android MediaStore indexes it immediately into Gallery / Photos
+                // Register with MediaStore for instant Camera / Gallery visibility
+                try {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Video.Media.TITLE, file.getName());
+                    values.put(MediaStore.Video.Media.DISPLAY_NAME, file.getName());
+                    values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+                    values.put(MediaStore.Video.Media.DATA, file.getAbsolutePath());
+                    getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+                } catch (Exception e) {
+                    Log.w(TAG, "ContentResolver insert fallback", e);
+                }
+
                 MediaScannerConnection.scanFile(
                         getApplicationContext(),
                         new String[]{ currentVideoPath },
                         new String[]{ "video/mp4" },
                         (path, uri) -> Log.d(TAG, "MediaScanner Connection scanned " + path + " -> uri=" + uri)
                 );
-                Toast.makeText(this, "Saved recording to Movies gallery: " + file.getName(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Saved recording to Camera gallery: " + file.getName(), Toast.LENGTH_LONG).show();
             } else {
                 Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
             }
