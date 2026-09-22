@@ -1,3 +1,5 @@
-﻿# Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in the Android SDK tools/proguard/proguard-android.txt file.
+# Add project specific ProGuard rules here.
+# Keep Room Entities and Data Models
+-keep class com.jovoc.facecampresentationrecorder.db.** { *; }
+-keep class com.jovoc.facecampresentationrecorder.model.** { *; }
+

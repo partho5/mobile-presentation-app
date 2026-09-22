@@ -4,20 +4,24 @@ plugins {
 
 android {
     namespace 'com.jovoc.facecampresentationrecorder'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.jovoc.facecampresentationrecorder"
         minSdk 31
-        targetSdk 35
-        versionCode 1
+        targetSdk 36
+        versionCode 2
         versionName "1.0"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
     }
 
