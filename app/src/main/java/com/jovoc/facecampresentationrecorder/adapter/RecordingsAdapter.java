@@ -60,7 +60,6 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
         holder.tvFilename.setText(item.getFileName());
         holder.tvRecordedTime.setText(item.getFormattedDate());
-        holder.tvFilePath.setText(item.getFilePath());
         holder.tvDuration.setText(item.getFormattedDuration());
 
         // Load thumbnail using Glide
@@ -222,7 +221,6 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         TextView tvDuration;
         TextView tvFilename;
         TextView tvRecordedTime;
-        TextView tvFilePath;
         ImageButton btnMenu;
 
         public RecordingViewHolder(@NonNull View itemView) {
@@ -231,7 +229,6 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             tvDuration = itemView.findViewById(R.id.tv_duration);
             tvFilename = itemView.findViewById(R.id.tv_filename);
             tvRecordedTime = itemView.findViewById(R.id.tv_recorded_time);
-            tvFilePath = itemView.findViewById(R.id.tv_file_path);
             btnMenu = itemView.findViewById(R.id.btn_menu);
         }
     }

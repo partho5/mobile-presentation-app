@@ -223,7 +223,7 @@
             android:layout_height="32dp"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="70dp"
             android:alpha="0.12"
             android:background="@drawable/bg_circle_stop_minimal"
             android:contentDescription="Stop Recording"

@@ -1056,10 +1056,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             tvCountdownNumber.setText(String.valueOf(countdownSeconds));
         }
 
-        countDownTimer = new CountDownTimer((countdownSeconds * 1000L) + 150L, 1000L) {
+        countDownTimer = new CountDownTimer(countdownSeconds * 1000L, 1000L) {
             @Override
             public void onTick(long millisUntilFinished) {
-                int sec = (int) Math.ceil(millisUntilFinished / 1000.0);
+                int sec = Math.min(countdownSeconds, (int) Math.ceil(millisUntilFinished / 1000.0));
                 if (sec > 0 && tvCountdownNumber != null) {
                     tvCountdownNumber.setText(String.valueOf(sec));
                     tvCountdownNumber.setScaleX(1.3f);

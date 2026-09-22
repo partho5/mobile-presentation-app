@@ -150,8 +150,8 @@ public class ScreenRecordService extends Service {
                 }
             }
 
-            String timeStamp = new SimpleDateFormat("yyyyMMdd_HH-mm-ss", Locale.US).format(new Date());
-            File outputFile = new File(appDir, "RECORDING_" + timeStamp + ".mp4");
+            String timeStamp = new SimpleDateFormat("hh-mm-a-yyyy-MM-dd", Locale.US).format(new Date()).toUpperCase(Locale.US);
+            File outputFile = new File(appDir, timeStamp + "-" + appName + ".mp4");
             currentVideoPath = outputFile.getAbsolutePath();
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
