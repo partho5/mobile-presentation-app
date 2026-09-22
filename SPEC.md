@@ -1,4 +1,4 @@
-# Custom Screen — Presentation Viewer App Specification
+# FaceCam Presentation Recorder — Presentation Viewer App Specification
 
 ## Purpose
 

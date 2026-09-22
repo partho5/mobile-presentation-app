@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.customscreen.app'
+    namespace 'com.jovoc.facecampresentationrecorder'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.customscreen.app"
+        applicationId "com.jovoc.facecampresentationrecorder"
         minSdk 31
         targetSdk 35
         versionCode 1

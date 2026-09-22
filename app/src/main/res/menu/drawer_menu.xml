@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <group android:checkableBehavior="single">
+    <group android:checkableBehavior="none">
         <item
             android:id="@+id/nav_edit_slides"
             android:icon="@drawable/ic_menu"
-            android:title="Edit Slides" />
+            android:title="Manage Slides" />
         <item
             android:id="@+id/nav_record_settings"
             android:icon="@drawable/ic_add"
             android:title="Record Settings" />
         <item
+            android:id="@+id/nav_saved_recordings"
+            android:icon="@drawable/ic_chevron_right"
+            android:title="Saved Recordings" />
+        <item
             android:id="@+id/nav_help"
             android:icon="@drawable/ic_chevron_right"
-            android:title="Help &amp; Instructions" />
+            android:title="How to Use &amp; Guide" />
+        <item
+            android:id="@+id/nav_about"
+            android:icon="@drawable/ic_chevron_right"
+            android:title="About App" />
     </group>
 </menu>
