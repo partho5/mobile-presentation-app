@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
@@ -91,6 +92,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private Button btnRecord;
     private ImageButton btnStopRecordFloating;
 
+    // Countdown & Start Flash Components
+    private View countdownOverlayContainer;
+    private TextView tvCountdownNumber;
+    private Button btnCancelCountdown;
+    private View flashOverlayView;
+    private CountDownTimer countDownTimer;
+
     // Draggable & Resizable Camera Components
     private FrameLayout cameraRootWrapper;
     private MaterialCardView cameraCardContainer;
@@ -167,6 +175,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         zoneNext = findViewById(R.id.zone_next);
         btnPrev = findViewById(R.id.btn_prev);
         btnNext = findViewById(R.id.btn_next);
+
+        countdownOverlayContainer = findViewById(R.id.countdown_overlay_container);
+        tvCountdownNumber = findViewById(R.id.tv_countdown_number);
+        btnCancelCountdown = findViewById(R.id.btn_cancel_countdown);
+        flashOverlayView = findViewById(R.id.flash_overlay_view);
+
+        if (btnCancelCountdown != null) {
+            btnCancelCountdown.setOnClickListener(v -> cancelCountdown());
+        }
 
         Button btnSlideManager = findViewById(R.id.btn_slide_manager);
         btnSlideManager.setOnClickListener(v -> openSlideManagerDialog());
@@ -489,20 +506,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
                         int countdown = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getInt(KEY_COUNTDOWN_SECONDS, 3);
                         if (countdown > 0) {
-                            Toast.makeText(this, "Recording starting in " + countdown + " seconds...", Toast.LENGTH_SHORT).show();
-                            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            startTimedRecording(serviceIntent, countdown);
+                        } else {
+                            triggerStartFlashEffect(() -> {
                                 ContextCompat.startForegroundService(this, serviceIntent);
                                 isRecording = true;
                                 isMenuBarVisible = false;
                                 setPresentationMode(true);
                                 updateUIState();
-                            }, countdown * 1000L);
-                        } else {
-                            ContextCompat.startForegroundService(this, serviceIntent);
-                            isRecording = true;
-                            isMenuBarVisible = false;
-                            setPresentationMode(true);
-                            updateUIState();
+                            });
                         }
                     } else {
                         Toast.makeText(this, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
@@ -994,5 +1006,87 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .setMessage("Version 1.0.0\n\nA powerful, simple app for presenting slides with live face cam overlay and screen recording.\n\nPrivacy Notice: Camera and Screen Capture are used exclusively for live preview and recording when initiated by you.")
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .show();
+    }
+
+    private void startTimedRecording(Intent serviceIntent, int countdownSeconds) {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+        }
+
+        if (countdownOverlayContainer != null) {
+            countdownOverlayContainer.setVisibility(View.VISIBLE);
+            countdownOverlayContainer.setAlpha(1.0f);
+        }
+
+        if (tvCountdownNumber != null) {
+            tvCountdownNumber.setText(String.valueOf(countdownSeconds));
+        }
+
+        countDownTimer = new CountDownTimer((countdownSeconds * 1000L) + 150L, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int sec = (int) Math.ceil(millisUntilFinished / 1000.0);
+                if (sec > 0 && tvCountdownNumber != null) {
+                    tvCountdownNumber.setText(String.valueOf(sec));
+                    tvCountdownNumber.setScaleX(1.3f);
+                    tvCountdownNumber.setScaleY(1.3f);
+                    tvCountdownNumber.animate().scaleX(1.0f).scaleY(1.0f).setDuration(250).start();
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (countdownOverlayContainer != null) {
+                    countdownOverlayContainer.setVisibility(View.GONE);
+                }
+                triggerStartFlashEffect(() -> {
+                    ContextCompat.startForegroundService(MainActivity.this, serviceIntent);
+                    isRecording = true;
+                    isMenuBarVisible = false;
+                    setPresentationMode(true);
+                    updateUIState();
+                });
+            }
+        }.start();
+    }
+
+    private void cancelCountdown() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+        if (countdownOverlayContainer != null) {
+            countdownOverlayContainer.setVisibility(View.GONE);
+        }
+        Toast.makeText(this, "Recording cancelled", Toast.LENGTH_SHORT).show();
+    }
+
+    private void triggerStartFlashEffect(Runnable onComplete) {
+        if (flashOverlayView == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        flashOverlayView.setVisibility(View.VISIBLE);
+        flashOverlayView.setAlpha(0.85f);
+
+        if (onComplete != null) {
+            onComplete.run();
+        }
+
+        flashOverlayView.animate()
+                .alpha(0.0f)
+                .setDuration(200)
+                .withEndAction(() -> flashOverlayView.setVisibility(View.GONE))
+                .start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
     }
 }

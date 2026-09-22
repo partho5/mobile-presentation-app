@@ -234,6 +234,80 @@
             android:src="@drawable/ic_stop"
             android:visibility="gone" />
 
+        <!-- Countdown Overlay UI -->
+        <FrameLayout
+            android:id="@+id/countdown_overlay_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#99000000"
+            android:clickable="true"
+            android:focusable="true"
+            android:elevation="25dp"
+            android:visibility="gone">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="220dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="#EF1F1F1F"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="16dp"
+                app:strokeColor="#44FFFFFF"
+                app:strokeWidth="1.5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.08"
+                        android:text="RECORDING STARTS IN"
+                        android:textColor="#B0BEC5"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_countdown_number"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginVertical="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="3"
+                        android:textColor="#FF5252"
+                        android:textSize="64sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_cancel_countdown"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cancel"
+                        android:textColor="#B0BEC5"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </FrameLayout>
+
+        <!-- Fullscreen Start Flash Effect Overlay -->
+        <View
+            android:id="@+id/flash_overlay_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FFFFFF"
+            android:elevation="30dp"
+            android:visibility="gone"
+            android:alpha="0" />
+
     </RelativeLayout>
 
     <!-- Left Navigation Drawer View -->
