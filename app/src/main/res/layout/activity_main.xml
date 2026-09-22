@@ -218,20 +218,20 @@
 
         </LinearLayout>
 
-        <!-- Subtle Floating Gray Stop Record Button for Presentation Mode -->
-        <Button
+        <!-- Minimal Low-Opacity Floating Stop Icon for Recording Mode -->
+        <ImageButton
             android:id="@+id/btn_stop_record_floating"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
             android:layout_marginBottom="20dp"
-            android:background="@drawable/bg_btn_stop_gray"
+            android:alpha="0.12"
+            android:background="@drawable/bg_circle_stop_minimal"
+            android:contentDescription="Stop Recording"
             android:elevation="12dp"
-            android:text="Stop Record"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold"
+            android:padding="7dp"
+            android:src="@drawable/ic_stop"
             android:visibility="gone" />
 
     </RelativeLayout>

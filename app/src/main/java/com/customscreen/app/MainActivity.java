@@ -86,7 +86,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnPrev;
     private ImageButton btnNext;
     private Button btnRecord;
-    private Button btnStopRecordFloating;
+    private ImageButton btnStopRecordFloating;
 
     // Draggable & Resizable Camera Components
     private FrameLayout cameraRootWrapper;
