@@ -150,7 +150,7 @@ public class ScreenRecordService extends Service {
                 }
             }
 
-            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HH-mm-ss", Locale.US).format(new Date());
             File outputFile = new File(appDir, "RECORDING_" + timeStamp + ".mp4");
             currentVideoPath = outputFile.getAbsolutePath();
 
