@@ -201,6 +201,8 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_btn_record_red"
+                    android:backgroundTint="#E53935"
+                    app:backgroundTint="#E53935"
                     android:elevation="6dp"
                     android:text="Start Record"
                     android:textColor="#FFFFFF"

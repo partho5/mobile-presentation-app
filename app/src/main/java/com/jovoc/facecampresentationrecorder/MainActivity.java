@@ -882,13 +882,52 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    private void animateMediaSlideExit(View view) {
+        if (view == null || view.getVisibility() != View.VISIBLE) return;
+        int screenWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+
+        view.animate().cancel();
+        view.animate()
+                .translationX(-screenWidth)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    view.setVisibility(View.GONE);
+                    view.setTranslationX(0f);
+                })
+                .start();
+    }
+
+    private void animateMediaSlideEntry(View view, Runnable onAnimationEnd) {
+        if (view == null) return;
+        view.animate().cancel();
+        int screenWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+
+        view.setTranslationX(screenWidth);
+        view.setAlpha(1f);
+        view.setVisibility(View.VISIBLE);
+
+        view.animate()
+                .translationX(0f)
+                .setDuration(350)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    if (onAnimationEnd != null) {
+                        onAnimationEnd.run();
+                    }
+                })
+                .start();
+    }
+
     private void renderCurrentSlide() {
         if (slides.isEmpty()) {
             emptyStateView.setVisibility(View.VISIBLE);
-            textSlideContainer.setVisibility(View.GONE);
-            imageSlideView.setVisibility(View.GONE);
-            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
-            stopVideoIfPlaying();
+            if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
+            if (imageSlideView != null) animateMediaSlideExit(imageSlideView);
+            if (videoSlideContainer != null) {
+                stopVideoIfPlaying();
+                animateMediaSlideExit(videoSlideContainer);
+            }
             updateNavigationButtonsState();
             return;
         }
@@ -897,18 +936,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Slide slide = slides.get(currentSlideIndex);
 
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
-            stopVideoIfPlaying();
-            imageSlideView.setVisibility(View.GONE);
-            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
+            if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
+                stopVideoIfPlaying();
+                animateMediaSlideExit(videoSlideContainer);
+            }
+            if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
+                animateMediaSlideExit(imageSlideView);
+            }
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
             animateTextSlideEntry();
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
-            stopVideoIfPlaying();
-            textSlideContainer.setVisibility(View.GONE);
-            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
-            imageSlideView.setVisibility(View.VISIBLE);
+            if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
+                stopVideoIfPlaying();
+                animateMediaSlideExit(videoSlideContainer);
+            }
+            if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
 
             if (slide.getImagePath() != null) {
                 File imgFile = new File(slide.getImagePath());
@@ -920,6 +964,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
                                     imageSlideView.setImageDrawable(null);
                                     applyMediaTopMargin(imageSlideView, 0);
+                                    imageSlideView.setVisibility(View.GONE);
                                     return false;
                                 }
 
@@ -933,6 +978,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                         calculatedHeight = (int) (((float) displayWidth / intrinsicWidth) * intrinsicHeight);
                                     }
                                     applyMediaTopMargin(imageSlideView, calculatedHeight);
+                                    animateMediaSlideEntry(imageSlideView, null);
                                     return false;
                                 }
                             })
@@ -941,15 +987,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 } else {
                     imageSlideView.setImageDrawable(null);
                     applyMediaTopMargin(imageSlideView, 0);
+                    imageSlideView.setVisibility(View.GONE);
                 }
             } else {
                 imageSlideView.setImageDrawable(null);
                 applyMediaTopMargin(imageSlideView, 0);
+                imageSlideView.setVisibility(View.GONE);
             }
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
-            textSlideContainer.setVisibility(View.GONE);
-            imageSlideView.setVisibility(View.GONE);
-            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.VISIBLE);
+            if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
+                animateMediaSlideExit(imageSlideView);
+            }
+            if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
 
             if (slide.getImagePath() != null && videoSlideView != null) {
                 File vidFile = new File(slide.getImagePath());
@@ -969,22 +1018,28 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             calculatedHeight = (int) (((float) displayWidth / videoWidth) * videoHeight);
                         }
                         applyMediaTopMargin(videoSlideContainer, calculatedHeight);
-
                         mp.setLooping(true);
-                        videoSlideView.start();
+
+                        // Animate video slide from right to left, and start playback ONLY after animation finishes!
+                        animateMediaSlideEntry(videoSlideContainer, () -> mp.start());
                     });
                     videoSlideView.setOnErrorListener((mp, what, extra) -> {
                         stopVideoIfPlaying();
                         applyMediaTopMargin(videoSlideContainer, 0);
+                        if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
                         return true; // handled error, blank screen
                     });
                 } else {
                     stopVideoIfPlaying();
                     applyMediaTopMargin(videoSlideContainer, 0);
+                    if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
                 }
             } else {
                 stopVideoIfPlaying();
-                if (videoSlideContainer != null) applyMediaTopMargin(videoSlideContainer, 0);
+                if (videoSlideContainer != null) {
+                    applyMediaTopMargin(videoSlideContainer, 0);
+                    videoSlideContainer.setVisibility(View.GONE);
+                }
             }
         }
 
