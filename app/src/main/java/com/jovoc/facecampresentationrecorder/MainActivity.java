@@ -65,6 +65,7 @@ import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
 import com.jovoc.facecampresentationrecorder.service.ScreenRecordService;
 import com.jovoc.facecampresentationrecorder.util.ImageStorageHelper;
+import com.jovoc.facecampresentationrecorder.util.SlideLogger;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.navigation.NavigationView;
@@ -74,6 +75,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements SlideAdapter.SlideActionListener {
 
@@ -157,6 +159,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        SlideLogger.init(this);
+        SlideLogger.log("LIFECYCLE", "MainActivity onCreate started");
         setContentView(R.layout.activity_main);
 
         repository = new SlideRepository(this);
@@ -984,6 +988,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void renderCurrentSlide() {
         if (slides.isEmpty()) {
+            SlideLogger.log("RENDER", "renderCurrentSlide: database has 0 slides");
             emptyStateView.setVisibility(View.GONE);
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
             if (imageSlideView != null) animateMediaSlideExit(imageSlideView);
@@ -997,6 +1002,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         emptyStateView.setVisibility(View.GONE);
         Slide slide = slides.get(currentSlideIndex);
+        SlideLogger.log("RENDER", String.format(Locale.US,
+                "renderCurrentSlide: index=%d/%d, type=%s, id=%d, imagePath=%s, textContent=%s",
+                currentSlideIndex, slides.size(), slide.getType(), slide.getId(),
+                slide.getImagePath(), slide.getTextContent()));
 
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
@@ -1010,6 +1019,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             textSlideView.setText(slide.getTextContent());
             animateTextSlideEntry();
+            SlideLogger.log("RENDER_TEXT", "Text slide rendered: " + slide.getTextContent());
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
                 stopVideoIfPlaying();
@@ -1019,12 +1029,27 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             if (slide.getImagePath() != null) {
                 File imgFile = new File(slide.getImagePath());
-                if (imgFile.exists()) {
+                boolean exists = imgFile.exists();
+                long length = exists ? imgFile.length() : 0;
+                SlideLogger.log("RENDER_IMAGE", String.format(Locale.US,
+                        "Attempting image load: path=%s, exists=%b, size=%d bytes",
+                        slide.getImagePath(), exists, length));
+
+                if (exists) {
+                    imageSlideView.animate().cancel();
+                    imageSlideView.setVisibility(View.VISIBLE);
+
                     Glide.with(this)
                             .load(imgFile)
                             .listener(new RequestListener<Drawable>() {
                                 @Override
                                 public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                                    SlideLogger.log("IMAGE_ERROR", "Glide failed to load image: " + (e != null ? e.getMessage() : "unknown error"));
+                                    if (e != null) {
+                                        for (Throwable t : e.getRootCauses()) {
+                                            SlideLogger.log("IMAGE_ERROR_CAUSE", "Root cause: " + t.getMessage());
+                                        }
+                                    }
                                     imageSlideView.setImageDrawable(null);
                                     applyMediaTopMargin(imageSlideView, 0);
                                     imageSlideView.setVisibility(View.GONE);
@@ -1041,6 +1066,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                         calculatedHeight = (int) (((float) displayWidth / intrinsicWidth) * intrinsicHeight);
                                     }
                                     applyMediaTopMargin(imageSlideView, calculatedHeight);
+                                    SlideLogger.log("IMAGE_SUCCESS", String.format(Locale.US,
+                                            "Image loaded: intrinsicW=%d, intrinsicH=%d, displayW=%d, calculatedH=%d",
+                                            intrinsicWidth, intrinsicHeight, displayWidth, calculatedHeight));
+
                                     if (imageSlideView.getVisibility() == View.VISIBLE && imageSlideView.getTranslationX() == 0f) {
                                         imageSlideView.setAlpha(1f);
                                     } else {
@@ -1052,11 +1081,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             .fitCenter()
                             .into(imageSlideView);
                 } else {
+                    SlideLogger.log("IMAGE_ERROR", "Image file does not exist on disk: " + slide.getImagePath());
                     imageSlideView.setImageDrawable(null);
                     applyMediaTopMargin(imageSlideView, 0);
                     imageSlideView.setVisibility(View.GONE);
                 }
             } else {
+                SlideLogger.log("IMAGE_ERROR", "Slide imagePath is NULL for slide id=" + slide.getId());
                 imageSlideView.setImageDrawable(null);
                 applyMediaTopMargin(imageSlideView, 0);
                 imageSlideView.setVisibility(View.GONE);
@@ -1069,16 +1100,27 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             if (slide.getImagePath() != null && videoSlideView != null) {
                 File vidFile = new File(slide.getImagePath());
-                if (vidFile.exists()) {
+                boolean exists = vidFile.exists();
+                long length = exists ? vidFile.length() : 0;
+                SlideLogger.log("RENDER_VIDEO", String.format(Locale.US,
+                        "Attempting video load: path=%s, exists=%b, size=%d bytes",
+                        slide.getImagePath(), exists, length));
+
+                if (exists) {
+                    videoSlideContainer.animate().cancel();
+                    videoSlideContainer.setVisibility(View.VISIBLE);
+
                     videoSlideView.setVideoPath(slide.getImagePath());
                     if (mediaController == null) {
                         mediaController = new MediaController(this);
                     }
                     mediaController.setAnchorView(videoSlideView);
                     videoSlideView.setMediaController(mediaController);
+
                     videoSlideView.setOnPreparedListener(mp -> {
                         int videoWidth = mp.getVideoWidth();
                         int videoHeight = mp.getVideoHeight();
+                        int duration = mp.getDuration();
                         int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
                         int calculatedHeight = 0;
                         if (videoWidth > 0 && videoHeight > 0) {
@@ -1087,24 +1129,34 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         applyMediaTopMargin(videoSlideContainer, calculatedHeight);
                         mp.setLooping(true);
 
+                        SlideLogger.log("VIDEO_SUCCESS", String.format(Locale.US,
+                                "Video prepared: videoW=%d, videoH=%d, duration=%d ms, displayW=%d, calculatedH=%d",
+                                videoWidth, videoHeight, duration, displayWidth, calculatedHeight));
+
                         if (videoSlideContainer.getVisibility() == View.VISIBLE && videoSlideContainer.getTranslationX() == 0f) {
                             mp.start();
                         } else {
                             animateMediaSlideEntry(videoSlideContainer, () -> mp.start());
                         }
                     });
+
                     videoSlideView.setOnErrorListener((mp, what, extra) -> {
+                        SlideLogger.log("VIDEO_ERROR", String.format(Locale.US,
+                                "Video playback error: what=%d, extra=%d, path=%s",
+                                what, extra, slide.getImagePath()));
                         stopVideoIfPlaying();
                         applyMediaTopMargin(videoSlideContainer, 0);
                         if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
-                        return true; // handled error, blank screen
+                        return true;
                     });
                 } else {
+                    SlideLogger.log("VIDEO_ERROR", "Video file does not exist on disk: " + slide.getImagePath());
                     stopVideoIfPlaying();
                     applyMediaTopMargin(videoSlideContainer, 0);
                     if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
                 }
             } else {
+                SlideLogger.log("VIDEO_ERROR", "Slide imagePath is NULL or videoSlideView is null for slide id=" + slide.getId());
                 stopVideoIfPlaying();
                 if (videoSlideContainer != null) {
                     applyMediaTopMargin(videoSlideContainer, 0);
@@ -1140,6 +1192,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private void goToPreviousSlide() {
         if (currentSlideIndex > 0) {
             currentSlideIndex--;
+            SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
             renderCurrentSlide();
         }
     }
@@ -1147,6 +1200,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private void goToNextSlide() {
         if (currentSlideIndex < slides.size() - 1) {
             currentSlideIndex++;
+            SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
             renderCurrentSlide();
         }
     }
