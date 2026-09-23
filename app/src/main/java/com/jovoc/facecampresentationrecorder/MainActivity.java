@@ -524,14 +524,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
         } else {
-            // In Edit Mode: show top bar (if menu bar is visible), show red start button, hide floating stop button
-            if (isMenuBarVisible) {
-                topMenuBar.setVisibility(View.VISIBLE);
-                if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
-            } else {
-                topMenuBar.setVisibility(View.GONE);
-                if (btnRecord != null) btnRecord.setVisibility(View.GONE);
-            }
+            // Non-recording state: show top bar (if menu bar is visible), keep red start button visible, hide floating stop button
+            topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
+            if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
         }
 
@@ -877,17 +872,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnPrev.setEnabled(hasPrev);
         btnNext.setEnabled(hasNext);
 
+        if (!isRecording) {
+            if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
+        } else {
+            if (btnRecord != null) btnRecord.setVisibility(View.GONE);
+        }
+
         if (isMenuBarVisible && !isRecording) {
             btnPrev.setVisibility(View.VISIBLE);
             btnNext.setVisibility(View.VISIBLE);
-            if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             btnPrev.setAlpha(hasPrev ? 1.0f : 0.3f);
             btnNext.setAlpha(hasNext ? 1.0f : 0.3f);
         } else {
             // Presentation mode / Recording mode: hide visual chrome while keeping tap zones functional
             btnPrev.setVisibility(View.INVISIBLE);
             btnNext.setVisibility(View.INVISIBLE);
-            if (btnRecord != null) btnRecord.setVisibility(View.GONE);
         }
     }
 
