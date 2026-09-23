@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 
 import java.io.File;
 import java.util.List;
@@ -88,16 +89,30 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 Toast.makeText(context, "File no longer exists", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Uri contentUri = FileProvider.getUriForFile(
-                    context,
-                    context.getPackageName() + ".fileprovider",
-                    file
-            );
 
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(contentUri, "video/mp4");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            context.startActivity(Intent.createChooser(intent, "Open Recording With"));
+            VideoPlayerDialog.show(context, file, new VideoPlayerDialog.OnVideoActionListener() {
+                @Override
+                public void onVideoRenamed(File oldFile, File newFile) {
+                    item.setFile(newFile);
+                    int pos = itemList.indexOf(item);
+                    if (pos >= 0) {
+                        notifyItemChanged(pos);
+                    }
+                }
+
+                @Override
+                public void onVideoDeleted(File deletedFile) {
+                    int pos = itemList.indexOf(item);
+                    if (pos >= 0 && pos < itemList.size()) {
+                        itemList.remove(pos);
+                        notifyItemRemoved(pos);
+                        notifyItemRangeChanged(pos, itemList.size());
+                    }
+                    if (listChangeListener != null) {
+                        listChangeListener.onListChanged(itemList.size());
+                    }
+                }
+            });
         } catch (Exception e) {
             Toast.makeText(context, "Unable to open video: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }

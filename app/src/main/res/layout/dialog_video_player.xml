@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/bg_player_dialog">
+
+    <!-- Top Header Bar -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@id/btn_close_dialog">
+
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:src="@drawable/ic_video_library"
+                app:tint="#6366F1"
+                android:contentDescription="Video Opener Icon"
+                android:layout_marginEnd="10dp" />
+
+            <TextView
+                android:id="@+id/tv_dialog_header_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Video Player"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btn_close_dialog"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            app:tint="#9CA3AF"
+            android:contentDescription="Close Player" />
+    </RelativeLayout>
+
+    <!-- Video Player Container Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        app:cardCornerRadius="14dp"
+        app:cardBackgroundColor="#000000"
+        app:cardElevation="4dp"
+        android:layout_marginBottom="16dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <VideoView
+                android:id="@+id/player_video_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
+            <!-- Center Play/Pause Touch Overlay Button -->
+            <ImageButton
+                android:id="@+id/btn_center_play_pause"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_nav"
+                android:backgroundTint="#B3000000"
+                android:padding="12dp"
+                android:src="@drawable/ic_play"
+                app:tint="#FFFFFF"
+                android:contentDescription="Play or Pause Video" />
+
+            <!-- Bottom Transport Controls Overlay -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:background="@drawable/bg_player_controls">
+
+                <ImageButton
+                    android:id="@+id/btn_bar_play_pause"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_play"
+                    app:tint="#FFFFFF"
+                    android:contentDescription="Play/Pause Bar Toggle" />
+
+                <TextView
+                    android:id="@+id/tv_current_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="6dp" />
+
+                <SeekBar
+                    android:id="@+id/player_seek_bar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:progressTint="#6366F1"
+                    android:thumbTint="#818CF8" />
+
+                <TextView
+                    android:id="@+id/tv_total_duration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="#9CA3AF"
+                    android:textSize="12sp"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- File Details Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_player_controls"
+        android:backgroundTint="#252836"
+        android:padding="14dp"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_player_filename"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Recording_2026.mp4"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:ellipsize="middle" />
+
+            <ImageButton
+                android:id="@+id/btn_rename_video"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_edit"
+                app:tint="#60A5FA"
+                android:contentDescription="Rename Video" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_player_metadata"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Sep 23, 2026 • 14.2 MB"
+            android:textColor="#9CA3AF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Bottom Action Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_delete_video"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="Delete"
+            android:textColor="#FF5252"
+            app:icon="@drawable/ic_delete"
+            app:iconTint="#FF5252"
+            app:backgroundTint="#2C1E23"
+            app:strokeColor="#50FF5252"
+            app:strokeWidth="1dp"
+            app:cornerRadius="10dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_share_video"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Share"
+            android:textColor="#FFFFFF"
+            app:icon="@drawable/ic_share"
+            app:iconTint="#FFFFFF"
+            app:backgroundTint="#6366F1"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

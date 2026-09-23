@@ -43,8 +43,10 @@ public class ScreenRecordService extends Service {
 
     public static final String ACTION_START = "ACTION_START";
     public static final String ACTION_STOP = "ACTION_STOP";
+    public static final String ACTION_RECORDING_FINISHED = "com.jovoc.facecampresentationrecorder.ACTION_RECORDING_FINISHED";
     public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
     public static final String EXTRA_RESULT_DATA = "EXTRA_RESULT_DATA";
+    public static final String EXTRA_VIDEO_PATH = "EXTRA_VIDEO_PATH";
 
     private final IBinder binder = new LocalBinder();
 
@@ -291,7 +293,11 @@ public class ScreenRecordService extends Service {
                         new String[]{ "video/mp4" },
                         (path, uri) -> Log.d(TAG, "MediaScanner Connection scanned " + path + " -> uri=" + uri)
                 );
-                Toast.makeText(this, "Saved recording to Camera gallery: " + file.getName(), Toast.LENGTH_LONG).show();
+
+                Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);
+                finishIntent.setPackage(getPackageName());
+                finishIntent.putExtra(EXTRA_VIDEO_PATH, currentVideoPath);
+                sendBroadcast(finishIntent);
             } else {
                 Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
             }

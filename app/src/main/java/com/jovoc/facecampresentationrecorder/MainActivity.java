@@ -1,6 +1,9 @@
 package com.jovoc.facecampresentationrecorder;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import android.animation.ObjectAnimator;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -187,6 +190,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         // Load slides from DB
         loadSlidesFromDb();
+
+        // Register post-recording completion receiver to launch VideoPlayerDialog
+        registerRecordingFinishedReceiver();
     }
 
     private void initViews() {
@@ -1708,9 +1714,40 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .start();
     }
 
+    private final BroadcastReceiver recordingFinishedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null && ScreenRecordService.ACTION_RECORDING_FINISHED.equals(intent.getAction())) {
+                String path = intent.getStringExtra(ScreenRecordService.EXTRA_VIDEO_PATH);
+                if (path != null) {
+                    File file = new File(path);
+                    if (file.exists() && file.length() > 0) {
+                        VideoPlayerDialog.show(MainActivity.this, file, null);
+                    }
+                }
+            }
+        }
+    };
+
+    private void registerRecordingFinishedReceiver() {
+        IntentFilter filter = new IntentFilter(ScreenRecordService.ACTION_RECORDING_FINISHED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(recordingFinishedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(recordingFinishedReceiver, filter);
+        }
+    }
+
+    private void unregisterRecordingFinishedReceiver() {
+        try {
+            unregisterReceiver(recordingFinishedReceiver);
+        } catch (Exception ignored) {}
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        unregisterRecordingFinishedReceiver();
         stopVideoIfPlaying();
         if (countDownTimer != null) {
             countDownTimer.cancel();
