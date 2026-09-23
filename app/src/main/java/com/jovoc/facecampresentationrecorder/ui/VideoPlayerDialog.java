@@ -3,6 +3,7 @@ package com.jovoc.facecampresentationrecorder.ui;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaScannerConnection;
@@ -221,6 +222,10 @@ public class VideoPlayerDialog {
                 }
 
                 File oldFile = currentFile[0];
+                if (oldFile.getName().equals(newName)) {
+                    return;
+                }
+
                 File parentDir = oldFile.getParentFile();
                 File newFile = new File(parentDir, newName);
 
@@ -229,11 +234,90 @@ public class VideoPlayerDialog {
                     return;
                 }
 
+                // 1. Save playback state and stop playback to release active file handle
+                int currentPosition = 0;
+                boolean wasPlaying = false;
+                try {
+                    currentPosition = videoView.getCurrentPosition();
+                    wasPlaying = videoView.isPlaying();
+                    progressHandler.removeCallbacks(progressRunnable);
+                    videoView.stopPlayback();
+                } catch (Exception ignored) {}
+
+                // 2. Perform disk rename
                 boolean success = oldFile.renameTo(newFile);
                 if (success) {
+                    // 3. Update MediaStore record
+                    try {
+                        ContentResolver resolver = context.getContentResolver();
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Video.Media.TITLE, newFile.getName());
+                        values.put(MediaStore.Video.Media.DISPLAY_NAME, newFile.getName());
+                        values.put(MediaStore.Video.Media.DATA, newFile.getAbsolutePath());
+                        resolver.update(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                                values,
+                                MediaStore.Video.Media.DATA + "=?",
+                                new String[]{oldFile.getAbsolutePath()});
+                    } catch (Exception e) {
+                        Log.w(TAG, "ContentResolver rename update fallback", e);
+                    }
+
                     MediaScannerConnection.scanFile(context, new String[]{oldFile.getAbsolutePath(), newFile.getAbsolutePath()}, null, null);
+
                     currentFile[0] = newFile;
                     updateMetadataUI(currentFile[0], tvFileName, tvMetadata);
+
+                    // 4. Re-bind VideoView to new file path and restore playback
+                    final int savedSeekPos = currentPosition;
+                    final boolean shouldResume = wasPlaying;
+
+                    videoView.setVideoPath(newFile.getAbsolutePath());
+                    videoView.setOnPreparedListener(mp -> {
+                        int duration = mp.getDuration();
+                        seekBar.setMax(duration);
+                        tvTotalDuration.setText(formatDuration(duration));
+
+                        View cardContainer = dialog.findViewById(R.id.player_card_container);
+                        int vWidth = mp.getVideoWidth();
+                        int vHeight = mp.getVideoHeight();
+                        if (cardContainer != null && vWidth > 0 && vHeight > 0) {
+                            float videoAspect = (float) vWidth / (float) vHeight;
+                            int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+                            int maxCardWidth = (int) (screenWidth * 0.82f);
+                            int maxCardHeight = (int) (320 * context.getResources().getDisplayMetrics().density);
+
+                            int calcWidth, calcHeight;
+                            if (videoAspect < (float) maxCardWidth / maxCardHeight) {
+                                calcHeight = maxCardHeight;
+                                calcWidth = (int) (maxCardHeight * videoAspect);
+                            } else {
+                                calcWidth = maxCardWidth;
+                                calcHeight = (int) (maxCardWidth / videoAspect);
+                            }
+
+                            ViewGroup.LayoutParams params = cardContainer.getLayoutParams();
+                            if (params != null) {
+                                params.width = Math.max(calcWidth, (int) (140 * context.getResources().getDisplayMetrics().density));
+                                params.height = calcHeight;
+                                cardContainer.setLayoutParams(params);
+                            }
+                        }
+
+                        if (savedSeekPos > 0) {
+                            videoView.seekTo(savedSeekPos);
+                        }
+
+                        if (shouldResume) {
+                            videoView.start();
+                            btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
+                            btnBarPlayPause.setImageResource(R.drawable.ic_pause);
+                            progressHandler.post(progressRunnable);
+                        } else {
+                            btnCenterPlayPause.setImageResource(R.drawable.ic_play);
+                            btnBarPlayPause.setImageResource(R.drawable.ic_play);
+                        }
+                    });
+
                     if (listener != null) {
                         listener.onVideoRenamed(oldFile, newFile);
                     }
