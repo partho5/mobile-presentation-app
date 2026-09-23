@@ -911,6 +911,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (slides != null && !slides.isEmpty()) {
+            renderCurrentSlide();
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         stopVideoIfPlaying();
@@ -1033,7 +1041,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                         calculatedHeight = (int) (((float) displayWidth / intrinsicWidth) * intrinsicHeight);
                                     }
                                     applyMediaTopMargin(imageSlideView, calculatedHeight);
-                                    animateMediaSlideEntry(imageSlideView, null);
+                                    if (imageSlideView.getVisibility() == View.VISIBLE && imageSlideView.getTranslationX() == 0f) {
+                                        imageSlideView.setAlpha(1f);
+                                    } else {
+                                        animateMediaSlideEntry(imageSlideView, null);
+                                    }
                                     return false;
                                 }
                             })
@@ -1075,8 +1087,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         applyMediaTopMargin(videoSlideContainer, calculatedHeight);
                         mp.setLooping(true);
 
-                        // Animate video slide from right to left, and start playback ONLY after animation finishes!
-                        animateMediaSlideEntry(videoSlideContainer, () -> mp.start());
+                        if (videoSlideContainer.getVisibility() == View.VISIBLE && videoSlideContainer.getTranslationX() == 0f) {
+                            mp.start();
+                        } else {
+                            animateMediaSlideEntry(videoSlideContainer, () -> mp.start());
+                        }
                     });
                     videoSlideView.setOnErrorListener((mp, what, extra) -> {
                         stopVideoIfPlaying();
