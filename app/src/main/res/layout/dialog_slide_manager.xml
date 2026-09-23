@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#121212"
@@ -39,23 +40,54 @@
 
         <Button
             android:id="@+id/btn_add_text_slide"
+            style="@style/Widget.Material3.Button.Icon"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="4dp"
             android:layout_weight="1"
             android:backgroundTint="#2C2C2C"
-            android:text="+ Text Slide"
-            android:textColor="#FFFFFF" />
+            android:paddingHorizontal="4dp"
+            android:text="+Text slide"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_edit"
+            app:iconPadding="2dp"
+            app:iconSize="16dp"
+            app:iconTint="#64B5F6" />
 
         <Button
             android:id="@+id/btn_add_image_slide"
+            style="@style/Widget.Material3.Button.Icon"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginHorizontal="2dp"
             android:layout_weight="1"
             android:backgroundTint="#2C2C2C"
-            android:text="+ Image Slide"
-            android:textColor="#FFFFFF" />
+            android:paddingHorizontal="4dp"
+            android:text="+Image slide"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_slides"
+            app:iconPadding="2dp"
+            app:iconSize="16dp"
+            app:iconTint="#81C784" />
+
+        <Button
+            android:id="@+id/btn_add_video_slide"
+            style="@style/Widget.Material3.Button.Icon"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:backgroundTint="#2C2C2C"
+            android:paddingHorizontal="4dp"
+            android:text="+video"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_video_library"
+            app:iconPadding="2dp"
+            app:iconSize="16dp"
+            app:iconTint="#FFB74D" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

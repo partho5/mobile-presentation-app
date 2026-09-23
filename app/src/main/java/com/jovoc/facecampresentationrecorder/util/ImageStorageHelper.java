@@ -36,4 +36,31 @@ public class ImageStorageHelper {
             return null;
         }
     }
+
+    public static String saveVideoToInternalStorage(Context context, Uri uri) {
+        try {
+            File videosDir = new File(context.getFilesDir(), "slides_videos");
+            if (!videosDir.exists()) {
+                videosDir.mkdirs();
+            }
+
+            String fileName = "slide_vid_" + System.currentTimeMillis() + ".mp4";
+            File destFile = new File(videosDir, fileName);
+
+            try (InputStream in = context.getContentResolver().openInputStream(uri);
+                 OutputStream out = new FileOutputStream(destFile)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+            }
+
+            return destFile.getAbsolutePath();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

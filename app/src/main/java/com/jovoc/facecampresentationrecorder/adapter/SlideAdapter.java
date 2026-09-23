@@ -70,6 +70,17 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
                         .centerCrop()
                         .into(holder.slideThumbnail);
             }
+        } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
+            holder.slideThumbnail.setVisibility(View.VISIBLE);
+            holder.slidePreviewText.setText("Video Slide");
+            if (slide.getImagePath() != null) {
+                Glide.with(holder.itemView.getContext())
+                        .load(new File(slide.getImagePath()))
+                        .centerCrop()
+                        .into(holder.slideThumbnail);
+            } else {
+                holder.slideThumbnail.setImageResource(R.drawable.ic_video_library);
+            }
         }
 
         // Move Up / Down button state

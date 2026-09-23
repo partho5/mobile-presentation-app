@@ -44,6 +44,21 @@
                 android:textSize="26sp" />
         </FrameLayout>
 
+        <!-- Container for Video Slide (anchored to top) -->
+        <FrameLayout
+            android:id="@+id/video_slide_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:visibility="gone">
+
+            <VideoView
+                android:id="@+id/video_slide_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal" />
+        </FrameLayout>
+
         <!-- Empty State View when database has 0 slides -->
         <TextView
             android:id="@+id/empty_state_view"

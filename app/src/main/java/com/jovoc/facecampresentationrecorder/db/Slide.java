@@ -10,6 +10,7 @@ public class Slide {
 
     public static final String TYPE_TEXT = "TEXT";
     public static final String TYPE_IMAGE = "IMAGE";
+    public static final String TYPE_VIDEO = "VIDEO";
 
     @PrimaryKey(autoGenerate = true)
     private int id;

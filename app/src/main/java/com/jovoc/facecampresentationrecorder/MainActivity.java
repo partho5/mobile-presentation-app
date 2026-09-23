@@ -35,6 +35,8 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
+import android.widget.MediaController;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
@@ -81,6 +83,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageView imageSlideView;
     private FrameLayout textSlideContainer;
     private TextView textSlideView;
+    private FrameLayout videoSlideContainer;
+    private VideoView videoSlideView;
+    private MediaController mediaController;
     private TextView emptyStateView;
     private TextView toolbarTitle;
     private LinearLayout topMenuBar;
@@ -128,10 +133,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     // Launchers
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
     private ActivityResultLauncher<PickVisualMediaRequest> updateImagePickerLauncher;
+    private ActivityResultLauncher<PickVisualMediaRequest> videoPickerLauncher;
+    private ActivityResultLauncher<PickVisualMediaRequest> updateVideoPickerLauncher;
     private ActivityResultLauncher<String[]> permissionLauncher;
     private ActivityResultLauncher<Intent> screenCaptureLauncher;
 
     private Slide slideToUpdateImage = null;
+    private Slide slideToUpdateVideo = null;
     private int targetSlidePosition = -1;
 
     private SlideAdapter slideAdapter;
@@ -171,6 +179,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         imageSlideView = findViewById(R.id.image_slide_view);
         textSlideContainer = findViewById(R.id.text_slide_container);
         textSlideView = findViewById(R.id.text_slide_view);
+        videoSlideContainer = findViewById(R.id.video_slide_container);
+        videoSlideView = findViewById(R.id.video_slide_view);
         emptyStateView = findViewById(R.id.empty_state_view);
         toolbarTitle = findViewById(R.id.toolbar_title);
         topMenuBar = findViewById(R.id.top_menu_bar);
@@ -194,24 +204,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
-
-        imageSlideView.setOnClickListener(v -> {
-            if (isMenuBarVisible && !isRecording && currentSlideIndex >= 0 && currentSlideIndex < slides.size()) {
-                Slide slide = slides.get(currentSlideIndex);
-                if (Slide.TYPE_IMAGE.equals(slide.getType())) {
-                    showImageSlideOptionsDialog(slide, currentSlideIndex);
-                }
-            }
-        });
-
-        textSlideContainer.setOnClickListener(v -> {
-            if (isMenuBarVisible && !isRecording && currentSlideIndex >= 0 && currentSlideIndex < slides.size()) {
-                Slide slide = slides.get(currentSlideIndex);
-                if (Slide.TYPE_TEXT.equals(slide.getType())) {
-                    showAddTextSlideDialog(slide, currentSlideIndex);
-                }
-            }
-        });
     }
 
     private static final String PREF_NAME = "app_prefs";
@@ -732,6 +724,46 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     targetSlidePosition = -1;
                 }
         );
+
+        videoPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(),
+                uri -> {
+                    if (uri != null) {
+                        String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
+                        if (localPath != null) {
+                            Slide newSlide = new Slide(Slide.TYPE_VIDEO, slides.size(), null, localPath);
+                            repository.insert(newSlide, id -> loadSlidesFromDb(true));
+                        } else {
+                            Toast.makeText(this, "Failed to save video", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+        );
+
+        updateVideoPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(),
+                uri -> {
+                    if (uri != null && slideToUpdateVideo != null) {
+                        String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
+                        if (localPath != null) {
+                            slideToUpdateVideo.setImagePath(localPath);
+                            Slide slideToSave = slideToUpdateVideo;
+                            int posToUpdate = targetSlidePosition;
+                            repository.update(slideToSave, () -> {
+                                Toast.makeText(this, "Video updated successfully", Toast.LENGTH_SHORT).show();
+                                if (slideAdapter != null && posToUpdate != -1) {
+                                    slideAdapter.notifyItemChanged(posToUpdate);
+                                }
+                                renderCurrentSlide();
+                            });
+                        } else {
+                            Toast.makeText(this, "Failed to save new video", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    slideToUpdateVideo = null;
+                    targetSlidePosition = -1;
+                }
+        );
     }
 
     private void launchImageUpdater(Slide slide, int position) {
@@ -739,6 +771,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         targetSlidePosition = position;
         updateImagePickerLauncher.launch(new PickVisualMediaRequest.Builder()
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build());
+    }
+
+    private void launchVideoUpdater(Slide slide, int position) {
+        slideToUpdateVideo = slide;
+        targetSlidePosition = position;
+        updateVideoPickerLauncher.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.VideoOnly.INSTANCE)
                 .build());
     }
 
@@ -759,6 +799,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .show();
     }
 
+    private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
+
     private void loadSlidesFromDb() {
         loadSlidesFromDb(false);
     }
@@ -772,9 +814,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     recyclerSlides.smoothScrollToPosition(slides.size() - 1);
                 }
             }
+
+            SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+            int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
+
             if (slides.isEmpty()) {
-                seedInitialSlides();
+                if (openedTimes == 0) {
+                    prefs.edit().putInt(KEY_APP_OPENED_TIMES, 1).apply();
+                    seedInitialSlides();
+                    return;
+                }
+                renderCurrentSlide();
             } else {
+                if (openedTimes == 0) {
+                    prefs.edit().putInt(KEY_APP_OPENED_TIMES, 1).apply();
+                }
                 if (currentSlideIndex >= slides.size()) {
                     currentSlideIndex = Math.max(0, slides.size() - 1);
                 }
@@ -794,11 +848,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         });
     }
 
+    private void stopVideoIfPlaying() {
+        if (videoSlideView != null && videoSlideView.isPlaying()) {
+            videoSlideView.stopPlayback();
+        }
+    }
+
     private void renderCurrentSlide() {
         if (slides.isEmpty()) {
             emptyStateView.setVisibility(View.VISIBLE);
             textSlideContainer.setVisibility(View.GONE);
             imageSlideView.setVisibility(View.GONE);
+            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
+            stopVideoIfPlaying();
             updateNavigationButtonsState();
             return;
         }
@@ -807,13 +869,17 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Slide slide = slides.get(currentSlideIndex);
 
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
+            stopVideoIfPlaying();
             imageSlideView.setVisibility(View.GONE);
+            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
             animateTextSlideEntry();
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
+            stopVideoIfPlaying();
             textSlideContainer.setVisibility(View.GONE);
+            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
             imageSlideView.setVisibility(View.VISIBLE);
 
             if (slide.getImagePath() != null) {
@@ -821,6 +887,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         .load(new File(slide.getImagePath()))
                         .fitCenter()
                         .into(imageSlideView);
+            }
+        } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
+            textSlideContainer.setVisibility(View.GONE);
+            imageSlideView.setVisibility(View.GONE);
+            if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.VISIBLE);
+
+            if (slide.getImagePath() != null && videoSlideView != null) {
+                videoSlideView.setVideoPath(slide.getImagePath());
+                if (mediaController == null) {
+                    mediaController = new MediaController(this);
+                }
+                mediaController.setAnchorView(videoSlideView);
+                videoSlideView.setMediaController(mediaController);
+                videoSlideView.setOnPreparedListener(mp -> {
+                    mp.setLooping(true);
+                    videoSlideView.start();
+                });
             }
         }
 
@@ -906,6 +989,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         Button btnAddText = dialogView.findViewById(R.id.btn_add_text_slide);
         Button btnAddImage = dialogView.findViewById(R.id.btn_add_image_slide);
+        Button btnAddVideo = dialogView.findViewById(R.id.btn_add_video_slide);
         Button btnClose = dialogView.findViewById(R.id.btn_close_manager);
 
         btnAddText.setOnClickListener(v -> showAddTextSlideDialog(null, -1));
@@ -916,6 +1000,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .build());
         });
 
+        if (btnAddVideo != null) {
+            btnAddVideo.setOnClickListener(v -> {
+                videoPickerLauncher.launch(new PickVisualMediaRequest.Builder()
+                        .setMediaType(ActivityResultContracts.PickVisualMedia.VideoOnly.INSTANCE)
+                        .build());
+            });
+        }
+
         btnClose.setOnClickListener(v -> managerDialog.dismiss());
 
         managerDialog.setOnDismissListener(dialog -> {
@@ -925,6 +1017,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             loadSlidesFromDb();
         });
         managerDialog.show();
+    }
+
+    private void showVideoSlideOptionsDialog(Slide slide, int position) {
+        String[] options = {"Update / Replace Video", "View Slide"};
+        new AlertDialog.Builder(this)
+                .setTitle("Video Slide Options")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        launchVideoUpdater(slide, position);
+                    } else if (which == 1) {
+                        currentSlideIndex = position;
+                        renderCurrentSlide();
+                        if (managerDialog != null) managerDialog.dismiss();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void showAddTextSlideDialog(Slide slideToEdit, int position) {
@@ -979,6 +1088,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             showAddTextSlideDialog(slide, position);
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
             showImageSlideOptionsDialog(slide, position);
+        } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
+            showVideoSlideOptionsDialog(slide, position);
         }
     }
 
@@ -988,6 +1099,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             showAddTextSlideDialog(slide, position);
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
             launchImageUpdater(slide, position);
+        } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
+            launchVideoUpdater(slide, position);
         }
     }
 
