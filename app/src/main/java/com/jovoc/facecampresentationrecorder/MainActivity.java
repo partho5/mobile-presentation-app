@@ -39,7 +39,10 @@ import android.widget.VideoView;
 import android.widget.MediaController;
 import android.widget.RelativeLayout;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.provider.Settings;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
@@ -497,7 +500,37 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    private List<String> getMissingPermissions() {
+        List<String> neededPermissions = new ArrayList<>();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            neededPermissions.add(Manifest.permission.CAMERA);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            neededPermissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                neededPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+        return neededPermissions;
+    }
+
     private void startRecordingFlow() {
+        if (isRecording) return;
+
+        List<String> missingPermissions = getMissingPermissions();
+        if (!missingPermissions.isEmpty()) {
+            showPermissionRationaleDialog(missingPermissions);
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                startCameraPreview();
+            }
+            proceedToScreenCapture();
+        }
+    }
+
+    private void proceedToScreenCapture() {
         if (!isRecording) {
             MediaProjectionManager projectionManager =
                     (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
@@ -505,6 +538,75 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent());
             }
         }
+    }
+
+    private void showPermissionRationaleDialog(List<String> missingPermissions) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_permission_rationale, null);
+        builder.setView(dialogView);
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        View containerCamera = dialogView.findViewById(R.id.container_perm_camera);
+        View containerMic = dialogView.findViewById(R.id.container_perm_mic);
+        View containerNotification = dialogView.findViewById(R.id.container_perm_notification);
+        Button btnGrant = dialogView.findViewById(R.id.btn_grant_permissions);
+        Button btnCancel = dialogView.findViewById(R.id.btn_cancel_permissions);
+
+        if (containerCamera != null) {
+            containerCamera.setVisibility(missingPermissions.contains(Manifest.permission.CAMERA) ? View.VISIBLE : View.GONE);
+        }
+        if (containerMic != null) {
+            containerMic.setVisibility(missingPermissions.contains(Manifest.permission.RECORD_AUDIO) ? View.VISIBLE : View.GONE);
+        }
+        if (containerNotification != null) {
+            boolean showNotif = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU 
+                    && missingPermissions.contains(Manifest.permission.POST_NOTIFICATIONS);
+            containerNotification.setVisibility(showNotif ? View.VISIBLE : View.GONE);
+        }
+
+        boolean isPermanentlyDenied = false;
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        for (String perm : missingPermissions) {
+            if (prefs.getBoolean("asked_perm_" + perm, false)
+                    && !ActivityCompat.shouldShowRequestPermissionRationale(this, perm)) {
+                isPermanentlyDenied = true;
+                break;
+            }
+        }
+
+        if (isPermanentlyDenied) {
+            btnGrant.setText("Open Settings");
+            btnGrant.setOnClickListener(v -> {
+                dialog.dismiss();
+                openAppSettings();
+            });
+        } else {
+            btnGrant.setText("Grant Permissions");
+            btnGrant.setOnClickListener(v -> {
+                dialog.dismiss();
+                SharedPreferences.Editor editor = prefs.edit();
+                for (String perm : missingPermissions) {
+                    editor.putBoolean("asked_perm_" + perm, true);
+                }
+                editor.apply();
+                permissionLauncher.launch(missingPermissions.toArray(new String[0]));
+            });
+        }
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    private void openAppSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", getPackageName(), null);
+        intent.setData(uri);
+        startActivity(intent);
     }
 
     private void stopRecordingFlow() {
@@ -565,11 +667,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         permissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 result -> {
-                    Boolean cameraGranted = result.getOrDefault(Manifest.permission.CAMERA, false);
-                    if (Boolean.TRUE.equals(cameraGranted)) {
-                        startCameraPreview();
+                    boolean allGranted = true;
+                    for (Boolean granted : result.values()) {
+                        if (!Boolean.TRUE.equals(granted)) {
+                            allGranted = false;
+                            break;
+                        }
+                    }
+                    if (allGranted) {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            startCameraPreview();
+                        }
+                        proceedToScreenCapture();
                     } else {
-                        Toast.makeText(this, "Camera permission required for face cam preview", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "All permissions are required to start recording.", Toast.LENGTH_LONG).show();
                     }
                 }
         );
@@ -596,31 +707,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             });
                         }
                     } else {
-                        Toast.makeText(this, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Screen recording permission is required to start recording.", Toast.LENGTH_LONG).show();
                     }
                 }
         );
 
-        checkAndRequestPermissions();
-    }
-
-    private void checkAndRequestPermissions() {
-        List<String> neededPermissions = new ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            neededPermissions.add(Manifest.permission.CAMERA);
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            neededPermissions.add(Manifest.permission.RECORD_AUDIO);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                neededPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-
-        if (!neededPermissions.isEmpty()) {
-            permissionLauncher.launch(neededPermissions.toArray(new String[0]));
-        } else {
+        // Do not request permissions on app launch.
+        // Only start camera preview if camera permission is already granted.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCameraPreview();
         }
     }
