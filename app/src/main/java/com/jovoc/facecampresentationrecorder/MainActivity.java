@@ -807,6 +807,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
+    private boolean isInitialAppLaunchCheck = true;
 
     private void loadSlidesFromDb() {
         loadSlidesFromDb(false);
@@ -831,8 +832,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     seedInitialSlides();
                     return;
                 }
+                if (isInitialAppLaunchCheck) {
+                    isInitialAppLaunchCheck = false;
+                    Toast.makeText(this, "Double tap to add slides", Toast.LENGTH_SHORT).show();
+                }
                 renderCurrentSlide();
             } else {
+                isInitialAppLaunchCheck = false;
                 if (openedTimes == 0) {
                     prefs.edit().putInt(KEY_APP_OPENED_TIMES, 1).apply();
                 }
@@ -856,9 +862,31 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void stopVideoIfPlaying() {
-        if (videoSlideView != null && videoSlideView.isPlaying()) {
-            videoSlideView.stopPlayback();
+        if (videoSlideView != null) {
+            try {
+                videoSlideView.setOnPreparedListener(null);
+                videoSlideView.setOnErrorListener(null);
+                if (videoSlideView.isPlaying()) {
+                    videoSlideView.pause();
+                }
+                videoSlideView.stopPlayback();
+                videoSlideView.suspend();
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping video playback", e);
+            }
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopVideoIfPlaying();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopVideoIfPlaying();
     }
 
     private void applyMediaTopMargin(View view, int mediaHeight) {
@@ -921,7 +949,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void renderCurrentSlide() {
         if (slides.isEmpty()) {
-            emptyStateView.setVisibility(View.VISIBLE);
+            emptyStateView.setVisibility(View.GONE);
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
             if (imageSlideView != null) animateMediaSlideExit(imageSlideView);
             if (videoSlideContainer != null) {
@@ -1445,6 +1473,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopVideoIfPlaying();
         if (countDownTimer != null) {
             countDownTimer.cancel();
             countDownTimer = null;
