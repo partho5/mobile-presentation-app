@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Red Rightward Arrow pointing at floating stop button -->
+    <path
+        android:fillColor="#FF1744"
+        android:pathData="M2,12 C2,11.45 2.45,11 3,11 L14,11 L14,6.41 C14,5.52 15.08,5.08 15.71,5.71 L22.29,11.29 C22.68,11.68 22.68,12.31 22.29,12.71 L15.71,18.29 C15.08,18.92 14,18.48 14,17.59 L14,13 L3,13 C2.45,13 2,12.55 2,12 Z" />
+</vector>

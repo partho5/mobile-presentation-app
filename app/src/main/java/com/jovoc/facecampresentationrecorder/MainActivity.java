@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnNext;
     private Button btnRecord;
     private ImageButton btnStopRecordFloating;
+    private ImageView ivStopArrowHint;
 
     // Countdown & Start Flash Components
     private View countdownOverlayContainer;
@@ -171,6 +172,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         setupRecordButton();
         setupPermissionsAndCamera();
 
+        // Track app opened count
+        incrementAppOpenedTimes();
+
         // Start directly in Presentation Mode (system bars hidden)
         setPresentationMode(true);
 
@@ -201,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         tvCountdownNumber = findViewById(R.id.tv_countdown_number);
         btnCancelCountdown = findViewById(R.id.btn_cancel_countdown);
         flashOverlayView = findViewById(R.id.flash_overlay_view);
+        ivStopArrowHint = findViewById(R.id.iv_stop_arrow_hint);
 
         if (btnCancelCountdown != null) {
             btnCancelCountdown.setOnClickListener(v -> cancelCountdown());
@@ -522,11 +527,31 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             topMenuBar.setVisibility(View.GONE);
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
+
+            SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+            int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
+            if (openedTimes <= 2 && ivStopArrowHint != null) {
+                ivStopArrowHint.setVisibility(View.VISIBLE);
+                ivStopArrowHint.setTranslationX(0f);
+
+                ObjectAnimator bounceAnim = ObjectAnimator.ofFloat(ivStopArrowHint, "translationX", 0f, -16f, 0f);
+                bounceAnim.setDuration(600);
+                bounceAnim.setRepeatCount(2); // 3 bounce cycles total
+                bounceAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+                bounceAnim.start();
+            } else if (ivStopArrowHint != null) {
+                ivStopArrowHint.setVisibility(View.GONE);
+            }
         } else {
             // Non-recording state: show top bar (if menu bar is visible), keep red start button visible, hide floating stop button
             topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
+
+            if (ivStopArrowHint != null) {
+                ivStopArrowHint.clearAnimation();
+                ivStopArrowHint.setVisibility(View.GONE);
+            }
         }
 
         updateNavigationButtonsState();
@@ -806,6 +831,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .show();
     }
 
+    private void incrementAppOpenedTimes() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
+        prefs.edit().putInt(KEY_APP_OPENED_TIMES, openedTimes + 1).apply();
+    }
+
     private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
     private boolean isInitialAppLaunchCheck = true;
 
@@ -827,8 +858,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
 
             if (slides.isEmpty()) {
-                if (openedTimes == 0) {
-                    prefs.edit().putInt(KEY_APP_OPENED_TIMES, 1).apply();
+                if (openedTimes <= 1) {
                     seedInitialSlides();
                     return;
                 }
@@ -839,9 +869,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 renderCurrentSlide();
             } else {
                 isInitialAppLaunchCheck = false;
-                if (openedTimes == 0) {
-                    prefs.edit().putInt(KEY_APP_OPENED_TIMES, 1).apply();
-                }
                 if (currentSlideIndex >= slides.size()) {
                     currentSlideIndex = Math.max(0, slides.size() - 1);
                 }

@@ -249,6 +249,20 @@
             android:src="@drawable/ic_stop"
             android:visibility="gone" />
 
+        <!-- Red Arrow Hint for First-Time Users (appOpenedTimes <= 2) -->
+        <ImageView
+            android:id="@+id/iv_stop_arrow_hint"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="66dp"
+            android:layout_marginEnd="4dp"
+            android:layout_toLeftOf="@id/btn_stop_record_floating"
+            android:contentDescription="Stop Button Arrow Hint"
+            android:elevation="13dp"
+            android:src="@drawable/ic_arrow_right_red"
+            android:visibility="gone" />
+
         <!-- Countdown Overlay UI -->
         <FrameLayout
             android:id="@+id/countdown_overlay_container"
