@@ -25,7 +25,7 @@
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:src="@drawable/ic_video_library"
-                app:tint="#6366F1"
+                app:tint="#06B6D4"
                 android:contentDescription="Video Opener Icon"
                 android:layout_marginEnd="10dp" />
 
@@ -53,13 +53,15 @@
 
     <!-- Video Player Container Card -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/player_card_container"
         android:layout_width="match_parent"
-        android:layout_height="220dp"
+        android:layout_height="280dp"
+        android:layout_gravity="center_horizontal"
         app:cardCornerRadius="14dp"
         app:cardBackgroundColor="#000000"
         app:cardElevation="4dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="#6366F1"
+        app:strokeWidth="1.5dp"
+        app:strokeColor="#0891B2"
         android:layout_marginBottom="16dp">
 
         <FrameLayout
@@ -122,8 +124,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:progressTint="#6366F1"
-                    android:thumbTint="#818CF8" />
+                    android:progressTint="#06B6D4"
+                    android:thumbTint="#22D3EE" />
 
                 <TextView
                     android:id="@+id/tv_total_duration"
@@ -172,7 +174,7 @@
                 android:layout_marginStart="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_edit"
-                app:tint="#60A5FA"
+                app:tint="#22D3EE"
                 android:contentDescription="Rename Video" />
         </LinearLayout>
 
@@ -218,7 +220,7 @@
             android:textColor="#FFFFFF"
             app:icon="@drawable/ic_share"
             app:iconTint="#FFFFFF"
-            app:backgroundTint="#6366F1"
+            app:backgroundTint="#0891B2"
             app:cornerRadius="10dp" />
     </LinearLayout>
 

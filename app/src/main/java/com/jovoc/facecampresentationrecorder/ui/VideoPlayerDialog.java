@@ -104,6 +104,36 @@ public class VideoPlayerDialog {
             int duration = mp.getDuration();
             seekBar.setMax(duration);
             tvTotalDuration.setText(formatDuration(duration));
+
+            // Dynamically resize card container to hug video stream aspect ratio tightly
+            View cardContainer = dialog.findViewById(R.id.player_card_container);
+            int vWidth = mp.getVideoWidth();
+            int vHeight = mp.getVideoHeight();
+            if (cardContainer != null && vWidth > 0 && vHeight > 0) {
+                float videoAspect = (float) vWidth / (float) vHeight;
+                int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+                int maxCardWidth = (int) (screenWidth * 0.82f);
+                int maxCardHeight = (int) (320 * context.getResources().getDisplayMetrics().density);
+
+                int calcWidth, calcHeight;
+                if (videoAspect < (float) maxCardWidth / maxCardHeight) {
+                    // Portrait / Screen record format (e.g. 9:16)
+                    calcHeight = maxCardHeight;
+                    calcWidth = (int) (maxCardHeight * videoAspect);
+                } else {
+                    // Landscape format (e.g. 16:9)
+                    calcWidth = maxCardWidth;
+                    calcHeight = (int) (maxCardWidth / videoAspect);
+                }
+
+                ViewGroup.LayoutParams params = cardContainer.getLayoutParams();
+                if (params != null) {
+                    params.width = Math.max(calcWidth, (int) (140 * context.getResources().getDisplayMetrics().density));
+                    params.height = calcHeight;
+                    cardContainer.setLayoutParams(params);
+                }
+            }
+
             videoView.start();
             btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
             btnBarPlayPause.setImageResource(R.drawable.ic_pause);
