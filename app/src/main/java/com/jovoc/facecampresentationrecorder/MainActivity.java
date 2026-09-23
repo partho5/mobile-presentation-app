@@ -616,6 +616,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             startService(serviceIntent);
             isRecording = false;
 
+            incrementSuccessfulRecordingsCount();
+
             // Return to Edit Mode UI
             isMenuBarVisible = true;
             setPresentationMode(false);
@@ -635,8 +637,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
 
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-            int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
-            if (openedTimes <= 2 && ivStopArrowHint != null) {
+            int successfulRecordings = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
+            if (successfulRecordings < 2 && ivStopArrowHint != null) {
                 ivStopArrowHint.setVisibility(View.VISIBLE);
                 ivStopArrowHint.setTranslationX(0f);
 
@@ -974,7 +976,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         prefs.edit().putInt(KEY_APP_OPENED_TIMES, openedTimes + 1).apply();
     }
 
+    private void incrementSuccessfulRecordingsCount() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        int count = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
+        prefs.edit().putInt(KEY_SUCCESSFUL_RECORDINGS, count + 1).apply();
+    }
+
     private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
+    private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
     private boolean isInitialAppLaunchCheck = true;
 
     private void loadSlidesFromDb() {
