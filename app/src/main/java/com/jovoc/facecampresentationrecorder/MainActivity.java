@@ -37,6 +37,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 import android.widget.MediaController;
+import android.widget.RelativeLayout;
+import android.graphics.drawable.Drawable;
+import androidx.annotation.Nullable;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
@@ -854,6 +861,27 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    private void applyMediaTopMargin(View view, int mediaHeight) {
+        if (view == null) return;
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int screenHeight = displayMetrics.heightPixels;
+
+        int topMargin = 0;
+        if (mediaHeight > 0 && mediaHeight <= (screenHeight * 0.50)) {
+            topMargin = (int) (screenHeight * 0.15);
+        }
+
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (params instanceof RelativeLayout.LayoutParams) {
+            RelativeLayout.LayoutParams relativeParams = (RelativeLayout.LayoutParams) params;
+            if (relativeParams.topMargin != topMargin) {
+                relativeParams.topMargin = topMargin;
+                view.setLayoutParams(relativeParams);
+            }
+        }
+    }
+
     private void renderCurrentSlide() {
         if (slides.isEmpty()) {
             emptyStateView.setVisibility(View.VISIBLE);
@@ -883,10 +911,40 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             imageSlideView.setVisibility(View.VISIBLE);
 
             if (slide.getImagePath() != null) {
-                Glide.with(this)
-                        .load(new File(slide.getImagePath()))
-                        .fitCenter()
-                        .into(imageSlideView);
+                File imgFile = new File(slide.getImagePath());
+                if (imgFile.exists()) {
+                    Glide.with(this)
+                            .load(imgFile)
+                            .listener(new RequestListener<Drawable>() {
+                                @Override
+                                public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                                    imageSlideView.setImageDrawable(null);
+                                    applyMediaTopMargin(imageSlideView, 0);
+                                    return false;
+                                }
+
+                                @Override
+                                public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                                    int intrinsicWidth = resource.getIntrinsicWidth();
+                                    int intrinsicHeight = resource.getIntrinsicHeight();
+                                    int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+                                    int calculatedHeight = 0;
+                                    if (intrinsicWidth > 0 && intrinsicHeight > 0) {
+                                        calculatedHeight = (int) (((float) displayWidth / intrinsicWidth) * intrinsicHeight);
+                                    }
+                                    applyMediaTopMargin(imageSlideView, calculatedHeight);
+                                    return false;
+                                }
+                            })
+                            .fitCenter()
+                            .into(imageSlideView);
+                } else {
+                    imageSlideView.setImageDrawable(null);
+                    applyMediaTopMargin(imageSlideView, 0);
+                }
+            } else {
+                imageSlideView.setImageDrawable(null);
+                applyMediaTopMargin(imageSlideView, 0);
             }
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
             textSlideContainer.setVisibility(View.GONE);
@@ -894,16 +952,39 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.VISIBLE);
 
             if (slide.getImagePath() != null && videoSlideView != null) {
-                videoSlideView.setVideoPath(slide.getImagePath());
-                if (mediaController == null) {
-                    mediaController = new MediaController(this);
+                File vidFile = new File(slide.getImagePath());
+                if (vidFile.exists()) {
+                    videoSlideView.setVideoPath(slide.getImagePath());
+                    if (mediaController == null) {
+                        mediaController = new MediaController(this);
+                    }
+                    mediaController.setAnchorView(videoSlideView);
+                    videoSlideView.setMediaController(mediaController);
+                    videoSlideView.setOnPreparedListener(mp -> {
+                        int videoWidth = mp.getVideoWidth();
+                        int videoHeight = mp.getVideoHeight();
+                        int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+                        int calculatedHeight = 0;
+                        if (videoWidth > 0 && videoHeight > 0) {
+                            calculatedHeight = (int) (((float) displayWidth / videoWidth) * videoHeight);
+                        }
+                        applyMediaTopMargin(videoSlideContainer, calculatedHeight);
+
+                        mp.setLooping(true);
+                        videoSlideView.start();
+                    });
+                    videoSlideView.setOnErrorListener((mp, what, extra) -> {
+                        stopVideoIfPlaying();
+                        applyMediaTopMargin(videoSlideContainer, 0);
+                        return true; // handled error, blank screen
+                    });
+                } else {
+                    stopVideoIfPlaying();
+                    applyMediaTopMargin(videoSlideContainer, 0);
                 }
-                mediaController.setAnchorView(videoSlideView);
-                videoSlideView.setMediaController(mediaController);
-                videoSlideView.setOnPreparedListener(mp -> {
-                    mp.setLooping(true);
-                    videoSlideView.start();
-                });
+            } else {
+                stopVideoIfPlaying();
+                if (videoSlideContainer != null) applyMediaTopMargin(videoSlideContainer, 0);
             }
         }
 
