@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Environment;
 import android.util.Log;
 
+import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.R;
 
 import java.io.File;
@@ -19,6 +20,10 @@ public class SlideLogger {
     private static File logFile = null;
 
     public static void init(Context context) {
+        if (!BuildConfig.DEBUG) {
+            logFile = null;
+            return;
+        }
         try {
             String appName = context.getString(R.string.app_name);
             File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
@@ -30,13 +35,19 @@ public class SlideLogger {
                 }
             }
             logFile = new File(appDir, "slide_debug_log.txt");
-            log("INIT", "SlideLogger initialized. Log path: " + logFile.getAbsolutePath());
+            if (logFile.exists()) {
+                logFile.delete();
+            }
+            log("INIT", "SlideLogger initialized (Debug Build Only). Log path: " + logFile.getAbsolutePath());
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize SlideLogger", e);
         }
     }
 
     public static void log(String category, String message) {
+        if (!BuildConfig.DEBUG) {
+            return;
+        }
         String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date());
         String formattedMessage = String.format("[%s] [%s] %s", timestamp, category, message);
 
