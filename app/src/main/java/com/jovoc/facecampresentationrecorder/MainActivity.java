@@ -776,7 +776,46 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 toggleMenuBarAndSystemBars();
                 return true;
             }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                if (drawerLayout != null && drawerLayout.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
+                    return false;
+                }
+                if (isTouchInsideView(e1, cameraRootWrapper)) {
+                    return false;
+                }
+
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+
+                // Check if horizontal swipe is dominant and exceeds thresholds
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                        if (diffX > 0) {
+                            // Swipe Right -> Previous Slide
+                            goToPreviousSlide();
+                        } else {
+                            // Swipe Left -> Next Slide
+                            goToNextSlide();
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
         });
+    }
+
+    private boolean isTouchInsideView(MotionEvent ev, View view) {
+        if (view == null || view.getVisibility() != View.VISIBLE) return false;
+        int[] location = new int[2];
+        view.getLocationOnScreen(location);
+        float x = ev.getRawX();
+        float y = ev.getRawY();
+        return x >= location[0] && x <= location[0] + view.getWidth() &&
+               y >= location[1] && y <= location[1] + view.getHeight();
     }
 
     @Override
