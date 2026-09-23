@@ -52,12 +52,14 @@
     </RelativeLayout>
 
     <!-- Video Player Container Card -->
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="220dp"
         app:cardCornerRadius="14dp"
         app:cardBackgroundColor="#000000"
         app:cardElevation="4dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#6366F1"
         android:layout_marginBottom="16dp">
 
         <FrameLayout
@@ -133,7 +135,7 @@
                     android:layout_marginStart="6dp" />
             </LinearLayout>
         </FrameLayout>
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- File Details Container -->
     <LinearLayout
