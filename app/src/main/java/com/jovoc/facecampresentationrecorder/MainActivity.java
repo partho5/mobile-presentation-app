@@ -348,6 +348,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void restoreCameraState() {
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        int version = prefs.getInt("key_cam_size_v2", 0);
+        if (version < 1) {
+            // Upgrade preference version: clear legacy saved camera size so the new 240dp default size is applied
+            prefs.edit().remove(KEY_CAM_SIZE).putInt("key_cam_size_v2", 1).apply();
+        }
         int savedSize = prefs.getInt(KEY_CAM_SIZE, -1);
         if (savedSize > 0 && cameraCardContainer != null) {
             ViewGroup.LayoutParams params = cameraCardContainer.getLayoutParams();

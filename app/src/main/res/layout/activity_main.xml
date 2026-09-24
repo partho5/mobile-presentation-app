@@ -162,12 +162,12 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/camera_card_container"
-                android:layout_width="160dp"
-                android:layout_height="160dp"
+                android:layout_width="240dp"
+                android:layout_height="240dp"
                 android:clickable="true"
                 android:focusable="true"
                 app:cardBackgroundColor="#000000"
-                app:cardCornerRadius="80dp"
+                app:cardCornerRadius="120dp"
                 app:cardElevation="12dp"
                 app:strokeColor="#FFFFFF"
                 app:strokeWidth="2dp">
