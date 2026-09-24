@@ -1,6 +1,7 @@
 package com.jovoc.facecampresentationrecorder;
 
 import android.Manifest;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
@@ -117,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private VideoView videoSlideView;
     private FrameLayout webSlideContainer;
     private WebView webSlideView;
+    private SwipeRefreshLayout swipeRefreshWebSlide;
     private ImageButton btnReloadWebSlide;
     private MediaController mediaController;
     private TextView emptyStateView;
@@ -226,13 +228,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         videoSlideView = findViewById(R.id.video_slide_view);
         webSlideContainer = findViewById(R.id.web_slide_container);
         webSlideView = findViewById(R.id.web_slide_view);
+        swipeRefreshWebSlide = findViewById(R.id.swipe_refresh_web_slide);
         btnReloadWebSlide = findViewById(R.id.btn_reload_web_slide);
 
         if (btnReloadWebSlide != null) {
-            btnReloadWebSlide.setOnClickListener(v -> {
+            btnReloadWebSlide.setVisibility(View.GONE);
+        }
+
+        if (swipeRefreshWebSlide != null) {
+            swipeRefreshWebSlide.setOnRefreshListener(() -> {
                 if (webSlideView != null) {
                     webSlideView.reload();
                     Toast.makeText(this, "Reloading page...", Toast.LENGTH_SHORT).show();
+                } else if (swipeRefreshWebSlide != null) {
+                    swipeRefreshWebSlide.setRefreshing(false);
                 }
             });
         }
@@ -255,6 +264,22 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     return false;
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    if (swipeRefreshWebSlide != null) {
+                        swipeRefreshWebSlide.setRefreshing(false);
+                    }
+                }
+
+                @Override
+                public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                    super.onReceivedError(view, errorCode, description, failingUrl);
+                    if (swipeRefreshWebSlide != null) {
+                        swipeRefreshWebSlide.setRefreshing(false);
+                    }
                 }
             });
             webSlideView.setWebChromeClient(new WebChromeClient());
@@ -1248,6 +1273,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 webSlideContainer.setVisibility(View.GONE);
                 if (webSlideView != null) webSlideView.loadUrl("about:blank");
             }
+            if (swipeRefreshWebSlide != null) {
+                swipeRefreshWebSlide.setRefreshing(false);
+            }
             updateNavigationButtonsState();
             return;
         }
@@ -1438,6 +1466,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 webSlideContainer.setVisibility(View.VISIBLE);
             }
 
+            if (swipeRefreshWebSlide != null) {
+                swipeRefreshWebSlide.setRefreshing(false);
+                swipeRefreshWebSlide.setEnabled(true);
+            }
+
             String url = slide.getTextContent();
             if (url != null && !url.trim().isEmpty()) {
                 url = url.trim();
@@ -1464,6 +1497,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 params.height = displayWidth;
                 webSlideContainer.setLayoutParams(params);
                 webSlideContainer.setVisibility(View.VISIBLE);
+            }
+
+            if (swipeRefreshWebSlide != null) {
+                swipeRefreshWebSlide.setRefreshing(false);
+                swipeRefreshWebSlide.setEnabled(false);
             }
 
             String videoId = extractYouTubeVideoId(slide.getTextContent());
@@ -2215,8 +2253,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         case MotionEvent.ACTION_DOWN:
                             lastX = event.getRawX();
                             lastY = event.getRawY();
-                            // Return true on ACTION_DOWN so Android delivers ACTION_POINTER_DOWN for 2-finger pinch
-                            return true;
+                            if (scale > 1.05f) {
+                                return true;
+                            }
+                            return false;
 
                         case MotionEvent.ACTION_MOVE:
                             if (scaleDetector.isInProgress()) {

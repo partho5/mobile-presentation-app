@@ -67,10 +67,16 @@
             android:layout_alignParentTop="true"
             android:visibility="gone">
 
-            <WebView
-                android:id="@+id/web_slide_view"
+            <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                android:id="@+id/swipe_refresh_web_slide"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent">
+
+                <WebView
+                    android:id="@+id/web_slide_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
             <!-- Reload Button overlay for Web slide -->
             <ImageButton
@@ -85,6 +91,7 @@
                 android:elevation="10dp"
                 android:padding="6dp"
                 android:src="@drawable/ic_refresh"
+                android:visibility="gone"
                 app:tint="#FFFFFF" />
         </FrameLayout>
 
