@@ -11,6 +11,8 @@ public class Slide {
     public static final String TYPE_TEXT = "TEXT";
     public static final String TYPE_IMAGE = "IMAGE";
     public static final String TYPE_VIDEO = "VIDEO";
+    public static final String TYPE_WEBSITE = "WEBSITE";
+    public static final String TYPE_YOUTUBE = "YOUTUBE";
 
     @PrimaryKey(autoGenerate = true)
     private int id;

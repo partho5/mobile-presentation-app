@@ -59,6 +59,35 @@
                 android:layout_gravity="top|center_horizontal" />
         </FrameLayout>
 
+        <!-- Container for Web / Website & YouTube Slide (1:1 Aspect Ratio) -->
+        <FrameLayout
+            android:id="@+id/web_slide_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:visibility="gone">
+
+            <WebView
+                android:id="@+id/web_slide_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <!-- Reload Button overlay for Web slide -->
+            <ImageButton
+                android:id="@+id/btn_reload_web_slide"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="12dp"
+                android:alpha="0.75"
+                android:background="@drawable/bg_circle_nav"
+                android:contentDescription="Reload Web Page"
+                android:elevation="10dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_refresh"
+                app:tint="#FFFFFF" />
+        </FrameLayout>
+
         <!-- Empty State View when database has 0 slides -->
         <TextView
             android:id="@+id/empty_state_view"

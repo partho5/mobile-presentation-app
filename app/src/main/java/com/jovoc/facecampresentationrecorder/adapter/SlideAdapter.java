@@ -81,6 +81,14 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             } else {
                 holder.slideThumbnail.setImageResource(R.drawable.ic_video_library);
             }
+        } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
+            holder.slideThumbnail.setVisibility(View.VISIBLE);
+            holder.slideThumbnail.setImageResource(R.drawable.ic_web);
+            holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "Website Slide");
+        } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
+            holder.slideThumbnail.setVisibility(View.VISIBLE);
+            holder.slideThumbnail.setImageResource(R.drawable.ic_youtube);
+            holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "YouTube Video");
         }
 
         // Move Up / Down button state

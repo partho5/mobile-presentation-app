@@ -43,6 +43,16 @@ import android.widget.MediaController;
 import android.widget.RelativeLayout;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -100,6 +110,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private TextView textSlideView;
     private FrameLayout videoSlideContainer;
     private VideoView videoSlideView;
+    private FrameLayout webSlideContainer;
+    private WebView webSlideView;
+    private ImageButton btnReloadWebSlide;
     private MediaController mediaController;
     private TextView emptyStateView;
     private TextView toolbarTitle;
@@ -205,6 +218,40 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         textSlideView = findViewById(R.id.text_slide_view);
         videoSlideContainer = findViewById(R.id.video_slide_container);
         videoSlideView = findViewById(R.id.video_slide_view);
+        webSlideContainer = findViewById(R.id.web_slide_container);
+        webSlideView = findViewById(R.id.web_slide_view);
+        btnReloadWebSlide = findViewById(R.id.btn_reload_web_slide);
+
+        if (btnReloadWebSlide != null) {
+            btnReloadWebSlide.setOnClickListener(v -> {
+                if (webSlideView != null) {
+                    webSlideView.reload();
+                    Toast.makeText(this, "Reloading page...", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        if (webSlideView != null) {
+            WebSettings settings = webSlideView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+            settings.setLoadWithOverviewMode(true);
+            settings.setUseWideViewPort(true);
+            settings.setBuiltInZoomControls(true);
+            settings.setDisplayZoomControls(false);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            webSlideView.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    return false;
+                }
+            });
+            webSlideView.setWebChromeClient(new WebChromeClient());
+        }
         emptyStateView = findViewById(R.id.empty_state_view);
         toolbarTitle = findViewById(R.id.toolbar_title);
         topMenuBar = findViewById(R.id.top_menu_bar);
@@ -522,8 +569,51 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         return neededPermissions;
     }
 
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) {
+            Network network = cm.getActiveNetwork();
+            if (network != null) {
+                NetworkCapabilities nc = cm.getNetworkCapabilities(network);
+                return nc != null && (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+            }
+        }
+        return false;
+    }
+
+    private String extractYouTubeVideoId(String input) {
+        if (input == null || input.trim().isEmpty()) return null;
+        String trimmed = input.trim();
+        if (trimmed.length() == 11 && trimmed.matches("[a-zA-Z0-9_-]{11}")) {
+            return trimmed;
+        }
+        Pattern pattern = Pattern.compile("(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/*|.*[?&]v=)|youtu\\.be\\/|youtube\\.com\\/shorts\\/)([a-zA-Z0-9_-]{11})");
+        Matcher matcher = pattern.matcher(trimmed);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return trimmed;
+    }
+
     private void startRecordingFlow() {
         if (isRecording) return;
+
+        // Check for website/youtube slides requiring internet before proceeding
+        for (int i = 0; i < slides.size(); i++) {
+            Slide s = slides.get(i);
+            if (Slide.TYPE_WEBSITE.equals(s.getType())) {
+                if (!isNetworkConnected()) {
+                    Toast.makeText(this, "Slide " + (i + 1) + " is website, so internet is needed", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            } else if (Slide.TYPE_YOUTUBE.equals(s.getType())) {
+                if (!isNetworkConnected()) {
+                    Toast.makeText(this, "Slide " + (i + 1) + " is YouTube video, so internet is needed", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
+        }
 
         List<String> missingPermissions = getMissingPermissions();
         if (!missingPermissions.isEmpty()) {
@@ -1144,6 +1234,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 stopVideoIfPlaying();
                 animateMediaSlideExit(videoSlideContainer);
             }
+            if (webSlideContainer != null) {
+                webSlideContainer.setVisibility(View.GONE);
+                if (webSlideView != null) webSlideView.loadUrl("about:blank");
+            }
             updateNavigationButtonsState();
             return;
         }
@@ -1163,6 +1257,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
                 animateMediaSlideExit(imageSlideView);
             }
+            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
@@ -1174,6 +1269,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 animateMediaSlideExit(videoSlideContainer);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
+            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
 
             if (slide.getImagePath() != null) {
                 File imgFile = new File(slide.getImagePath());
@@ -1245,6 +1341,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 animateMediaSlideExit(imageSlideView);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
+            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
 
             if (slide.getImagePath() != null && videoSlideView != null) {
                 File vidFile = new File(slide.getImagePath());
@@ -1310,6 +1407,63 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     applyMediaTopMargin(videoSlideContainer, 0);
                     videoSlideContainer.setVisibility(View.GONE);
                 }
+            }
+        } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
+            if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
+                stopVideoIfPlaying();
+                animateMediaSlideExit(videoSlideContainer);
+            }
+            if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
+                animateMediaSlideExit(imageSlideView);
+            }
+            if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
+
+            int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+            if (webSlideContainer != null) {
+                ViewGroup.LayoutParams params = webSlideContainer.getLayoutParams();
+                params.height = displayWidth;
+                webSlideContainer.setLayoutParams(params);
+                webSlideContainer.setVisibility(View.VISIBLE);
+            }
+
+            String url = slide.getTextContent();
+            if (url != null && !url.trim().isEmpty()) {
+                url = url.trim();
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    url = "https://" + url;
+                }
+                if (webSlideView != null && !url.equals(webSlideView.getUrl())) {
+                    webSlideView.loadUrl(url);
+                }
+            }
+        } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
+            if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
+                stopVideoIfPlaying();
+                animateMediaSlideExit(videoSlideContainer);
+            }
+            if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
+                animateMediaSlideExit(imageSlideView);
+            }
+            if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
+
+            int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
+            if (webSlideContainer != null) {
+                ViewGroup.LayoutParams params = webSlideContainer.getLayoutParams();
+                params.height = displayWidth;
+                webSlideContainer.setLayoutParams(params);
+                webSlideContainer.setVisibility(View.VISIBLE);
+            }
+
+            String videoId = extractYouTubeVideoId(slide.getTextContent());
+            if (videoId != null && !videoId.isEmpty() && webSlideView != null) {
+                String html = "<!DOCTYPE html><html><head>"
+                        + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">"
+                        + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}"
+                        + "iframe{width:100%;height:100%;border:0;}</style></head><body>"
+                        + "<iframe src=\"https://www.youtube.com/embed/" + videoId + "?autoplay=1&rel=0&playsinline=1\" "
+                        + "allow=\"autoplay; encrypted-media; picture-in-picture\" allowfullscreen></iframe>"
+                        + "</body></html>";
+                webSlideView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null);
             }
         }
 
@@ -1398,6 +1552,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Button btnAddText = dialogView.findViewById(R.id.btn_add_text_slide);
         Button btnAddImage = dialogView.findViewById(R.id.btn_add_image_slide);
         Button btnAddVideo = dialogView.findViewById(R.id.btn_add_video_slide);
+        Button btnAddMore = dialogView.findViewById(R.id.btn_add_more_slide);
         Button btnClose = dialogView.findViewById(R.id.btn_close_manager);
 
         btnAddText.setOnClickListener(v -> showAddTextSlideDialog(null, -1));
@@ -1414,6 +1569,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         .setMediaType(ActivityResultContracts.PickVisualMedia.VideoOnly.INSTANCE)
                         .build());
             });
+        }
+
+        if (btnAddMore != null) {
+            btnAddMore.setOnClickListener(v -> showMoreSlideTypesPopup());
         }
 
         btnClose.setOnClickListener(v -> managerDialog.dismiss());
@@ -1488,6 +1647,154 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         dialog.show();
     }
 
+    private void showMoreSlideTypesPopup() {
+        View popupView = LayoutInflater.from(this).inflate(R.layout.dialog_more_slide_types, null);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(popupView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setWindowAnimations(R.style.DialogAnimation);
+        }
+
+        View cardWebsite = popupView.findViewById(R.id.card_type_website);
+        View cardYouTube = popupView.findViewById(R.id.card_type_youtube);
+        Button btnCancel = popupView.findViewById(R.id.btn_cancel_more);
+
+        if (cardWebsite != null) {
+            cardWebsite.setOnClickListener(v -> {
+                dialog.dismiss();
+                showAddWebsiteSlideDialog(null, -1);
+            });
+        }
+
+        if (cardYouTube != null) {
+            cardYouTube.setOnClickListener(v -> {
+                dialog.dismiss();
+                showAddYouTubeSlideDialog(null, -1);
+            });
+        }
+
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        dialog.show();
+    }
+
+    private void showAddWebsiteSlideDialog(Slide slideToEdit, int position) {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_website, null);
+        TextView title = dialogView.findViewById(R.id.dialog_website_title);
+        EditText editUrl = dialogView.findViewById(R.id.edit_website_url);
+        Button btnCancel = dialogView.findViewById(R.id.btn_cancel_website);
+        Button btnSave = dialogView.findViewById(R.id.btn_save_website);
+
+        if (slideToEdit != null) {
+            if (title != null) title.setText("Edit Website Slide");
+            if (editUrl != null) editUrl.setText(slideToEdit.getTextContent());
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setWindowAnimations(R.style.DialogAnimation);
+        }
+
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        if (btnSave != null) {
+            btnSave.setOnClickListener(v -> {
+                String inputUrl = editUrl != null ? editUrl.getText().toString().trim() : "";
+                if (inputUrl.isEmpty()) {
+                    Toast.makeText(this, "URL cannot be empty", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (!inputUrl.startsWith("http://") && !inputUrl.startsWith("https://")) {
+                    inputUrl = "https://" + inputUrl;
+                }
+
+                if (slideToEdit != null) {
+                    slideToEdit.setTextContent(inputUrl);
+                    repository.update(slideToEdit, () -> {
+                        dialog.dismiss();
+                        if (slideAdapter != null && position != -1) slideAdapter.notifyItemChanged(position);
+                        renderCurrentSlide();
+                    });
+                } else {
+                    Slide newSlide = new Slide(Slide.TYPE_WEBSITE, slides.size(), inputUrl, null);
+                    repository.insert(newSlide, id -> {
+                        dialog.dismiss();
+                        loadSlidesFromDb(true);
+                    });
+                }
+            });
+        }
+
+        dialog.show();
+    }
+
+    private void showAddYouTubeSlideDialog(Slide slideToEdit, int position) {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_youtube, null);
+        TextView title = dialogView.findViewById(R.id.dialog_youtube_title);
+        EditText editUrl = dialogView.findViewById(R.id.edit_youtube_url);
+        Button btnCancel = dialogView.findViewById(R.id.btn_cancel_youtube);
+        Button btnSave = dialogView.findViewById(R.id.btn_save_youtube);
+
+        if (slideToEdit != null) {
+            if (title != null) title.setText("Edit YouTube Slide");
+            if (editUrl != null) editUrl.setText(slideToEdit.getTextContent());
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setWindowAnimations(R.style.DialogAnimation);
+        }
+
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        if (btnSave != null) {
+            btnSave.setOnClickListener(v -> {
+                String input = editUrl != null ? editUrl.getText().toString().trim() : "";
+                if (input.isEmpty()) {
+                    Toast.makeText(this, "YouTube URL or Video ID cannot be empty", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                String videoId = extractYouTubeVideoId(input);
+                if (videoId == null || videoId.isEmpty()) {
+                    Toast.makeText(this, "Could not extract YouTube video ID", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (slideToEdit != null) {
+                    slideToEdit.setTextContent(input);
+                    repository.update(slideToEdit, () -> {
+                        dialog.dismiss();
+                        if (slideAdapter != null && position != -1) slideAdapter.notifyItemChanged(position);
+                        renderCurrentSlide();
+                    });
+                } else {
+                    Slide newSlide = new Slide(Slide.TYPE_YOUTUBE, slides.size(), input, null);
+                    repository.insert(newSlide, id -> {
+                        dialog.dismiss();
+                        loadSlidesFromDb(true);
+                    });
+                }
+            });
+        }
+
+        dialog.show();
+    }
+
     // --- SlideAdapter.SlideActionListener implementations ---
 
     @Override
@@ -1498,6 +1805,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             showImageSlideOptionsDialog(slide, position);
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
             showVideoSlideOptionsDialog(slide, position);
+        } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
+            showAddWebsiteSlideDialog(slide, position);
+        } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
+            showAddYouTubeSlideDialog(slide, position);
         }
     }
 
@@ -1509,6 +1820,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             launchImageUpdater(slide, position);
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
             launchVideoUpdater(slide, position);
+        } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
+            showAddWebsiteSlideDialog(slide, position);
+        } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
+            showAddYouTubeSlideDialog(slide, position);
         }
     }
 
