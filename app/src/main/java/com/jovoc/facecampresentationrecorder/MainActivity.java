@@ -919,6 +919,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (isSlideZoomed()) {
                     return false;
                 }
+                View activeSlideView = getActiveSlideView();
+                if (activeSlideView != null && isTouchInsideView(e1, activeSlideView)) {
+                    return false;
+                }
 
                 float diffX = e2.getX() - e1.getX();
                 float diffY = e2.getY() - e1.getY();
@@ -1477,8 +1481,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
                     url = "https://" + url;
                 }
-                if (webSlideView != null && !url.equals(webSlideView.getUrl())) {
-                    webSlideView.loadUrl(url);
+                if (webSlideView != null) {
+                    webSlideView.getSettings().setUserAgentString(null);
+                    if (!url.equals(webSlideView.getUrl())) {
+                        webSlideView.loadUrl(url);
+                    }
                 }
             }
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
@@ -1506,14 +1513,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             String videoId = extractYouTubeVideoId(slide.getTextContent());
             if (videoId != null && !videoId.isEmpty() && webSlideView != null) {
+                webSlideView.getSettings().setUserAgentString(
+                        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                );
                 String html = "<!DOCTYPE html><html><head>"
                         + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">"
                         + "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;}"
                         + "iframe{width:100%;height:100%;border:0;}</style></head><body>"
-                        + "<iframe src=\"https://www.youtube.com/embed/" + videoId + "?autoplay=1&rel=0&playsinline=1\" "
+                        + "<iframe src=\"https://www.youtube-nocookie.com/embed/" + videoId
+                        + "?enablejsapi=1&origin=https://localhost&autoplay=1&rel=0&playsinline=1\" "
+                        + "referrerpolicy=\"strict-origin-when-cross-origin\" "
                         + "allow=\"autoplay; encrypted-media; picture-in-picture\" allowfullscreen></iframe>"
                         + "</body></html>";
-                webSlideView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null);
+                webSlideView.loadDataWithBaseURL("https://localhost", html, "text/html", "utf-8", null);
             }
         }
 
