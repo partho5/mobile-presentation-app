@@ -641,6 +641,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         // Check for website/youtube slides requiring internet before proceeding
         for (int i = 0; i < slides.size(); i++) {
             Slide s = slides.get(i);
+            if (s.isDisabled()) continue;
             if (Slide.TYPE_WEBSITE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
                     Toast.makeText(this, "Slide " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
@@ -1160,6 +1161,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (currentSlideIndex >= slides.size()) {
                     currentSlideIndex = Math.max(0, slides.size() - 1);
                 }
+                // Resolve to nearest active (non-disabled) slide
+                resolveCurrentSlideToActive();
                 renderCurrentSlide();
             }
         });
@@ -1270,9 +1273,47 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .start();
     }
 
+    /**
+     * Resolves currentSlideIndex to the nearest active (non-disabled) slide.
+     * Searches forward first, then backward. If no active slides exist, index stays as-is
+     * and renderCurrentSlide will handle the blank state.
+     */
+    private void resolveCurrentSlideToActive() {
+        if (slides.isEmpty()) return;
+        if (currentSlideIndex >= slides.size()) {
+            currentSlideIndex = slides.size() - 1;
+        }
+        // If current slide is already active, nothing to do
+        if (!slides.get(currentSlideIndex).isDisabled()) return;
+        // Search forward
+        for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
+            if (!slides.get(i).isDisabled()) {
+                currentSlideIndex = i;
+                return;
+            }
+        }
+        // Search backward
+        for (int i = currentSlideIndex - 1; i >= 0; i--) {
+            if (!slides.get(i).isDisabled()) {
+                currentSlideIndex = i;
+                return;
+            }
+        }
+        // All slides are disabled — renderCurrentSlide will handle blank state
+    }
+
     private void renderCurrentSlide() {
-        if (slides.isEmpty()) {
-            SlideLogger.log("RENDER", "renderCurrentSlide: database has 0 slides");
+        // Check if all slides are empty or all disabled
+        boolean hasActiveSlide = false;
+        for (Slide s : slides) {
+            if (!s.isDisabled()) {
+                hasActiveSlide = true;
+                break;
+            }
+        }
+
+        if (slides.isEmpty() || !hasActiveSlide) {
+            SlideLogger.log("RENDER", "renderCurrentSlide: no active slides");
             emptyStateView.setVisibility(View.GONE);
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
             if (imageSlideView != null) animateMediaSlideExit(imageSlideView);
@@ -1561,24 +1602,36 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void goToPreviousSlide() {
-        if (currentSlideIndex > 0) {
-            currentSlideIndex--;
-            SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
-            renderCurrentSlide();
+        for (int i = currentSlideIndex - 1; i >= 0; i--) {
+            if (!slides.get(i).isDisabled()) {
+                currentSlideIndex = i;
+                SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
+                renderCurrentSlide();
+                return;
+            }
         }
     }
 
     private void goToNextSlide() {
-        if (currentSlideIndex < slides.size() - 1) {
-            currentSlideIndex++;
-            SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
-            renderCurrentSlide();
+        for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
+            if (!slides.get(i).isDisabled()) {
+                currentSlideIndex = i;
+                SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
+                renderCurrentSlide();
+                return;
+            }
         }
     }
 
     private void updateNavigationButtonsState() {
-        boolean hasPrev = currentSlideIndex > 0;
-        boolean hasNext = currentSlideIndex < slides.size() - 1 && !slides.isEmpty();
+        boolean hasPrev = false;
+        for (int i = currentSlideIndex - 1; i >= 0; i--) {
+            if (!slides.get(i).isDisabled()) { hasPrev = true; break; }
+        }
+        boolean hasNext = false;
+        for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
+            if (!slides.get(i).isDisabled()) { hasNext = true; break; }
+        }
 
         zonePrev.setEnabled(hasPrev);
         zoneNext.setEnabled(hasNext);
@@ -1972,6 +2025,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     @Override
     public void onSlideClick(Slide slide, int position) {
+        if (slide.isDisabled()) {
+            // Offer to re-enable the disabled slide
+            new AlertDialog.Builder(this)
+                    .setTitle("Slide Disabled")
+                    .setMessage("This slide is currently disabled and hidden during presentation. Would you like to enable it?")
+                    .setPositiveButton("Enable", (dialog, which) -> {
+                        slide.setDisabled(false);
+                        repository.update(slide, () -> {
+                            if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
             showAddTextSlideDialog(slide, position);
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
@@ -1987,6 +2055,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     @Override
     public void onEditSlide(Slide slide, int position) {
+        if (slide.isDisabled()) {
+            // Offer to re-enable the disabled slide
+            new AlertDialog.Builder(this)
+                    .setTitle("Slide Disabled")
+                    .setMessage("This slide is currently disabled. Would you like to enable it?")
+                    .setPositiveButton("Enable", (dialog, which) -> {
+                        slide.setDisabled(false);
+                        repository.update(slide, () -> {
+                            if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
             showAddTextSlideDialog(slide, position);
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
@@ -2028,14 +2111,41 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     @Override
     public void onDelete(Slide slide, int position) {
-        repository.delete(slide, () -> {
-            slides.remove(position);
-            slideAdapter.setSlides(slides);
-            if (currentSlideIndex >= slides.size()) {
-                currentSlideIndex = Math.max(0, slides.size() - 1);
-            }
-            renderCurrentSlide();
-        });
+        if (!slide.isDisabled()) {
+            // First click: Disable the slide
+            new AlertDialog.Builder(this)
+                    .setTitle("Disable Slide?")
+                    .setMessage("This slide will be hidden during presentation mode. You can re-enable it later.")
+                    .setPositiveButton("Disable", (dialog, which) -> {
+                        slide.setDisabled(true);
+                        repository.update(slide, () -> {
+                            if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
+                            // If the currently displayed slide was disabled, resolve to next active
+                            resolveCurrentSlideToActive();
+                            renderCurrentSlide();
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        } else {
+            // Second click: Permanently delete the disabled slide
+            new AlertDialog.Builder(this)
+                    .setTitle("Permanently Delete?")
+                    .setMessage("This slide will be permanently deleted. This action cannot be undone.")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        repository.delete(slide, () -> {
+                            slides.remove(position);
+                            slideAdapter.setSlides(slides);
+                            if (currentSlideIndex >= slides.size()) {
+                                currentSlideIndex = Math.max(0, slides.size() - 1);
+                            }
+                            resolveCurrentSlideToActive();
+                            renderCurrentSlide();
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
     }
 
     private void openHowToUseDialog() {

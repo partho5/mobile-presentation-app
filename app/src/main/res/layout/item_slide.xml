@@ -48,6 +48,20 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/slide_disabled_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="#33FF6B6B"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="DISABLED"
+            android:textColor="#FF6B6B"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/slide_preview_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

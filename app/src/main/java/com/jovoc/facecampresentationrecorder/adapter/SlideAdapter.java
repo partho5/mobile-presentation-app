@@ -108,11 +108,38 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "YouTube Video");
         }
 
-        // Move Up / Down button state
-        holder.btnMoveUp.setEnabled(position > 0);
-        holder.btnMoveUp.setAlpha(position > 0 ? 1.0f : 0.3f);
-        holder.btnMoveDown.setEnabled(position < slides.size() - 1);
-        holder.btnMoveDown.setAlpha(position < slides.size() - 1 ? 1.0f : 0.3f);
+        // Disabled state visual handling
+        if (slide.isDisabled()) {
+            holder.slideNumber.setAlpha(0.45f);
+            holder.slideTypeBadge.setAlpha(0.45f);
+            holder.slidePreviewText.setAlpha(0.45f);
+            holder.slideThumbnail.setAlpha(0.45f);
+            holder.disabledBadge.setVisibility(View.VISIBLE);
+            holder.btnEdit.setAlpha(0.45f);
+            // Delete button stays fully visible
+            holder.btnDelete.setAlpha(1.0f);
+            // Move buttons disabled for disabled slides
+            holder.btnMoveUp.setEnabled(false);
+            holder.btnMoveUp.setAlpha(0.3f);
+            holder.btnMoveDown.setEnabled(false);
+            holder.btnMoveDown.setAlpha(0.3f);
+        } else {
+            holder.slideNumber.setAlpha(1.0f);
+            holder.slideTypeBadge.setAlpha(1.0f);
+            holder.slidePreviewText.setAlpha(1.0f);
+            holder.slideThumbnail.setAlpha(1.0f);
+            holder.disabledBadge.setVisibility(View.GONE);
+            holder.btnEdit.setAlpha(1.0f);
+            holder.btnDelete.setAlpha(1.0f);
+        }
+
+        // Move Up / Down button state (only for active slides; disabled slides handled above)
+        if (!slide.isDisabled()) {
+            holder.btnMoveUp.setEnabled(position > 0);
+            holder.btnMoveUp.setAlpha(position > 0 ? 1.0f : 0.3f);
+            holder.btnMoveDown.setEnabled(position < slides.size() - 1);
+            holder.btnMoveDown.setAlpha(position < slides.size() - 1 ? 1.0f : 0.3f);
+        }
 
         holder.itemView.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
@@ -164,6 +191,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
         ImageButton btnMoveUp;
         ImageButton btnMoveDown;
         ImageButton btnDelete;
+        TextView disabledBadge;
 
         public SlideViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -175,6 +203,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             btnMoveUp = itemView.findViewById(R.id.btn_move_up);
             btnMoveDown = itemView.findViewById(R.id.btn_move_down);
             btnDelete = itemView.findViewById(R.id.btn_delete_slide);
+            disabledBadge = itemView.findViewById(R.id.slide_disabled_badge);
         }
     }
 }

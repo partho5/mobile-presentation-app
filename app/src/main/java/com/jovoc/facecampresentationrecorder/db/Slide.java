@@ -29,6 +29,9 @@ public class Slide {
     @ColumnInfo(name = "image_path")
     private String imagePath;
 
+    @ColumnInfo(name = "is_disabled")
+    private boolean disabled;
+
     public Slide() {
     }
 
@@ -78,5 +81,13 @@ public class Slide {
 
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
+    }
+
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
     }
 }
