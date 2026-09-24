@@ -51,7 +51,8 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp"
             app:icon="@drawable/ic_edit"
-            app:iconPadding="2dp"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
             app:iconSize="14dp"
             app:iconTint="#64B5F6" />
 
@@ -68,7 +69,8 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp"
             app:icon="@drawable/ic_slides"
-            app:iconPadding="2dp"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
             app:iconSize="14dp"
             app:iconTint="#81C784" />
 
@@ -85,7 +87,8 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp"
             app:icon="@drawable/ic_video_library"
-            app:iconPadding="2dp"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
             app:iconSize="14dp"
             app:iconTint="#FFB74D" />
 
@@ -102,7 +105,8 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp"
             app:icon="@drawable/ic_more_vert"
-            app:iconPadding="2dp"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
             app:iconSize="14dp"
             app:iconTint="#E0E0E0" />
     </LinearLayout>
