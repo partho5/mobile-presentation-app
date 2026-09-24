@@ -636,12 +636,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             Slide s = slides.get(i);
             if (Slide.TYPE_WEBSITE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    Toast.makeText(this, "Slide " + (i + 1) + " is website, so internet is needed", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Slide " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             } else if (Slide.TYPE_YOUTUBE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    Toast.makeText(this, "Slide " + (i + 1) + " is YouTube video, so internet is needed", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Slide " + (i + 1) + " is YouTube video, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             }
@@ -1670,6 +1670,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         TextView title = dialogView.findViewById(R.id.dialog_title);
         EditText editText = dialogView.findViewById(R.id.edit_slide_text);
         TextView tvCharCount = dialogView.findViewById(R.id.tv_char_count);
+        TextView tvLimitWarning = dialogView.findViewById(R.id.tv_limit_warning);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel_text);
         Button btnSave = dialogView.findViewById(R.id.btn_save_text);
 
@@ -1692,6 +1693,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         tvCharCount.setTextColor(Color.parseColor("#AAAAAA"));
                     }
                 }
+                if (tvLimitWarning != null) {
+                    tvLimitWarning.setVisibility(length >= 200 ? View.VISIBLE : View.GONE);
+                }
             }
 
             @Override
@@ -1707,6 +1711,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         int initialLen = editText.getText() != null ? editText.getText().length() : 0;
         if (tvCharCount != null) {
             tvCharCount.setText(initialLen + "/200");
+        }
+        if (tvLimitWarning != null) {
+            tvLimitWarning.setVisibility(initialLen >= 200 ? View.VISIBLE : View.GONE);
         }
 
         AlertDialog dialog = new AlertDialog.Builder(this)

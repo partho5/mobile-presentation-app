@@ -39,6 +39,16 @@
         android:textColor="#AAAAAA"
         android:textSize="12sp" />
 
+    <TextView
+        android:id="@+id/tv_limit_warning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="If you have more words, create another slide"
+        android:textColor="#FF5252"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
