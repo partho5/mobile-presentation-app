@@ -151,5 +151,7 @@
         android:layout_gravity="end"
         android:layout_marginTop="12dp"
         android:text="Cancel"
-        android:textColor="#AAAAAA" />
+        android:textColor="#E0E0E0"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 </LinearLayout>
