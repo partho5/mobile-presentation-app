@@ -16,6 +16,7 @@ import com.jovoc.facecampresentationrecorder.db.Slide;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHolder> {
@@ -42,6 +43,22 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
 
     public List<Slide> getSlides() {
         return slides;
+    }
+
+    public void onItemMove(int fromPosition, int toPosition) {
+        if (fromPosition < 0 || toPosition < 0 || fromPosition >= slides.size() || toPosition >= slides.size()) {
+            return;
+        }
+        if (fromPosition < toPosition) {
+            for (int i = fromPosition; i < toPosition; i++) {
+                Collections.swap(slides, i, i + 1);
+            }
+        } else {
+            for (int i = fromPosition; i > toPosition; i--) {
+                Collections.swap(slides, i, i - 1);
+            }
+        }
+        notifyItemMoved(fromPosition, toPosition);
     }
 
     @NonNull

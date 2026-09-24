@@ -60,6 +60,7 @@ import android.text.InputFilter;
 import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.graphics.Color;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import com.bumptech.glide.load.DataSource;
@@ -78,6 +79,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -1610,6 +1612,71 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         slideAdapter = new SlideAdapter(this);
         recyclerSlides.setAdapter(slideAdapter);
         slideAdapter.setSlides(new ArrayList<>(slides));
+
+        ItemTouchHelper.SimpleCallback itemTouchCallback = new ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                int fromPos = viewHolder.getBindingAdapterPosition();
+                int toPos = target.getBindingAdapterPosition();
+                if (fromPos != RecyclerView.NO_POSITION && toPos != RecyclerView.NO_POSITION && slideAdapter != null) {
+                    slideAdapter.onItemMove(fromPos, toPos);
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                // Swiping not used for deletion
+            }
+
+            @Override
+            public void onSelectedChanged(RecyclerView.ViewHolder viewHolder, int actionState) {
+                super.onSelectedChanged(viewHolder, actionState);
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+                    viewHolder.itemView.setAlpha(0.7f);
+                    viewHolder.itemView.setScaleX(1.02f);
+                    viewHolder.itemView.setScaleY(1.02f);
+                }
+            }
+
+            @Override
+            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+                super.clearView(recyclerView, viewHolder);
+                viewHolder.itemView.setAlpha(1.0f);
+                viewHolder.itemView.setScaleX(1.0f);
+                viewHolder.itemView.setScaleY(1.0f);
+
+                if (slideAdapter != null) {
+                    List<Slide> updatedList = slideAdapter.getSlides();
+                    Slide currentSlide = (slides != null && currentSlideIndex >= 0 && currentSlideIndex < slides.size())
+                            ? slides.get(currentSlideIndex) : null;
+
+                    slides.clear();
+                    slides.addAll(updatedList);
+
+                    if (currentSlide != null) {
+                        int newIndex = slides.indexOf(currentSlide);
+                        if (newIndex != -1) {
+                            currentSlideIndex = newIndex;
+                        }
+                    }
+
+                    repository.updateAll(slides, () -> {
+                        if (slideAdapter != null) {
+                            slideAdapter.setSlides(slides);
+                        }
+                        renderCurrentSlide();
+                    });
+                }
+            }
+        };
+
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(itemTouchCallback);
+        itemTouchHelper.attachToRecyclerView(recyclerSlides);
 
         Button btnAddText = dialogView.findViewById(R.id.btn_add_text_slide);
         Button btnAddImage = dialogView.findViewById(R.id.btn_add_image_slide);
