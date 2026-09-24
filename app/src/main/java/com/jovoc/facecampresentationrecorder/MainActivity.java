@@ -2157,6 +2157,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         for (View targetView : slideViews) {
             if (targetView == null) continue;
 
+            targetView.setClickable(true);
+
             ScaleGestureDetector scaleDetector = new ScaleGestureDetector(this,
                     new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                         @Override
@@ -2164,6 +2166,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             float scaleFactor = detector.getScaleFactor();
                             float currentScale = targetView.getScaleX() * scaleFactor;
                             currentScale = Math.max(1.0f, Math.min(4.0f, currentScale));
+
+                            if (targetView.getWidth() > 0 && targetView.getHeight() > 0) {
+                                targetView.setPivotX(detector.getFocusX());
+                                targetView.setPivotY(detector.getFocusY());
+                            }
 
                             targetView.setScaleX(currentScale);
                             targetView.setScaleY(currentScale);
@@ -2202,19 +2209,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     scaleDetector.onTouchEvent(event);
                     doubleTapDetector.onTouchEvent(event);
 
-                    if (scaleDetector.isInProgress()) {
-                        return true;
-                    }
-
                     float scale = v.getScaleX();
 
                     switch (event.getActionMasked()) {
                         case MotionEvent.ACTION_DOWN:
                             lastX = event.getRawX();
                             lastY = event.getRawY();
-                            break;
+                            // Return true on ACTION_DOWN so Android delivers ACTION_POINTER_DOWN for 2-finger pinch
+                            return true;
 
                         case MotionEvent.ACTION_MOVE:
+                            if (scaleDetector.isInProgress()) {
+                                return true;
+                            }
                             if (scale > 1.05f && event.getPointerCount() == 1) {
                                 float dx = event.getRawX() - lastX;
                                 float dy = event.getRawY() - lastY;
@@ -2235,7 +2242,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             break;
                     }
 
-                    return scale > 1.05f;
+                    return scale > 1.05f || scaleDetector.isInProgress() || event.getPointerCount() > 1;
                 }
             });
         }
