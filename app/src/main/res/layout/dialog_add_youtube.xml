@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_dialog_rounded"
+    android:background="@drawable/bg_dialog_rounded_red"
     android:orientation="vertical"
     android:padding="20dp">
 
@@ -20,7 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:text="Paste YouTube link or Video ID"
-        android:textColor="#AAAAAA"
+        android:textColor="#FFCDD2"
         android:textSize="13sp" />
 
     <EditText
@@ -28,12 +28,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:background="#2B2B2B"
+        android:background="@drawable/bg_input_white_border_red"
         android:hint="https://www.youtube.com/watch?v=..."
-        android:textColorHint="#888888"
+        android:textColorHint="#EF9A9A"
         android:inputType="textUri"
         android:padding="14dp"
-        android:textColor="#FFFFFF"
+        android:textColor="#D32F2F"
         android:textSize="15sp" />
 
     <LinearLayout
@@ -49,7 +49,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cancel"
-            android:textColor="#AAAAAA" />
+            android:textColor="#FFCDD2" />
 
         <Button
             android:id="@+id/btn_save_youtube"

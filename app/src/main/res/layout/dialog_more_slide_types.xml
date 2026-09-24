@@ -36,10 +36,10 @@
             android:layout_marginBottom="12dp"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="#2A2A2A"
+            app:cardBackgroundColor="#00363A"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="#3D3D3D"
+            app:strokeColor="#00796B"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -53,7 +53,7 @@
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:src="@drawable/ic_web"
-                    app:tint="#64B5F6" />
+                    app:tint="#80CBC4" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -73,8 +73,8 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Embed a live web page using 1:1 WebView"
-                        android:textColor="#888888"
+                        android:text="Embed a live web page"
+                        android:textColor="#B2DFDB"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -82,7 +82,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_chevron_right"
-                    app:tint="#888888" />
+                    app:tint="#80CBC4" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -92,10 +92,10 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="#2A2A2A"
+            app:cardBackgroundColor="#2E0000"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="#3D3D3D"
+            app:strokeColor="#D32F2F"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -130,7 +130,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Embed YouTube video player by URL or ID"
-                        android:textColor="#888888"
+                        android:textColor="#FFCDD2"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -138,7 +138,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_chevron_right"
-                    app:tint="#888888" />
+                    app:tint="#FF8A80" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
