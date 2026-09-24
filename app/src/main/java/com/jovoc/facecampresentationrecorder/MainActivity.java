@@ -54,6 +54,11 @@ import android.webkit.WebViewClient;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.TextWatcher;
+import android.util.TypedValue;
+import android.graphics.Color;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import com.bumptech.glide.load.DataSource;
@@ -190,6 +195,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         setupPhotoPicker();
         setupTop30PercentLayout();
         setupBottom40PercentLayout();
+        setupSlideZoomTouchListeners();
 
         setupDraggableCameraContainer();
         setupRecordButton();
@@ -884,6 +890,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (isTouchInsideView(e1, cameraRootWrapper)) {
                     return false;
                 }
+                if (isSlideZoomed()) {
+                    return false;
+                }
 
                 float diffX = e2.getX() - e1.getX();
                 float diffY = e2.getY() - e1.getY();
@@ -1244,6 +1253,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         emptyStateView.setVisibility(View.GONE);
         Slide slide = slides.get(currentSlideIndex);
+        resetAllSlideZoom();
         SlideLogger.log("RENDER", String.format(Locale.US,
                 "renderCurrentSlide: index=%d/%d, type=%s, id=%d, imagePath=%s, textContent=%s",
                 currentSlideIndex, slides.size(), slide.getType(), slide.getId(),
@@ -1261,6 +1271,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
+            applyTextSlideFontScaling(textSlideView, slide.getTextContent());
             animateTextSlideEntry();
             SlideLogger.log("RENDER_TEXT", "Text slide rendered: " + slide.getTextContent());
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
@@ -1607,12 +1618,44 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_text, null);
         TextView title = dialogView.findViewById(R.id.dialog_title);
         EditText editText = dialogView.findViewById(R.id.edit_slide_text);
+        TextView tvCharCount = dialogView.findViewById(R.id.tv_char_count);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel_text);
         Button btnSave = dialogView.findViewById(R.id.btn_save_text);
+
+        editText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(200)});
+
+        TextWatcher textWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                int length = s != null ? s.length() : 0;
+                if (tvCharCount != null) {
+                    tvCharCount.setText(length + "/200");
+                    if (length >= 200) {
+                        tvCharCount.setTextColor(Color.parseColor("#FF5252"));
+                    } else if (length >= 180) {
+                        tvCharCount.setTextColor(Color.parseColor("#FFB74D"));
+                    } else {
+                        tvCharCount.setTextColor(Color.parseColor("#AAAAAA"));
+                    }
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        };
+        editText.addTextChangedListener(textWatcher);
 
         if (slideToEdit != null) {
             title.setText("Edit Text Slide");
             editText.setText(slideToEdit.getTextContent());
+        }
+
+        int initialLen = editText.getText() != null ? editText.getText().length() : 0;
+        if (tvCharCount != null) {
+            tvCharCount.setText(initialLen + "/200");
         }
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -2057,6 +2100,144 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         try {
             unregisterReceiver(recordingFinishedReceiver);
         } catch (Exception ignored) {}
+    }
+
+    private void applyTextSlideFontScaling(TextView textView, String text) {
+        if (textView == null || text == null) return;
+        int length = text.length();
+        float maxFontSizeSp = 26.0f;
+        float minFontSizeSp = 15.0f;
+
+        float fontSizeSp;
+        if (length <= 100) {
+            fontSizeSp = maxFontSizeSp;
+        } else if (length >= 200) {
+            fontSizeSp = minFontSizeSp;
+        } else {
+            float fraction = (length - 100) / 100.0f;
+            fontSizeSp = maxFontSizeSp - fraction * (maxFontSizeSp - minFontSizeSp);
+        }
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp);
+    }
+
+    private boolean isSlideZoomed() {
+        View activeView = getActiveSlideView();
+        return activeView != null && activeView.getScaleX() > 1.05f;
+    }
+
+    private View getActiveSlideView() {
+        if (textSlideContainer != null && textSlideContainer.getVisibility() == View.VISIBLE) {
+            return textSlideContainer;
+        } else if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
+            return imageSlideView;
+        } else if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
+            return videoSlideContainer;
+        } else if (webSlideContainer != null && webSlideContainer.getVisibility() == View.VISIBLE) {
+            return webSlideContainer;
+        }
+        return null;
+    }
+
+    private void resetAllSlideZoom() {
+        View[] views = new View[]{imageSlideView, textSlideContainer, videoSlideContainer, webSlideContainer};
+        for (View v : views) {
+            if (v != null) {
+                v.setScaleX(1.0f);
+                v.setScaleY(1.0f);
+                v.setTranslationX(0.0f);
+                v.setTranslationY(0.0f);
+            }
+        }
+    }
+
+    private void setupSlideZoomTouchListeners() {
+        View[] slideViews = new View[]{imageSlideView, textSlideContainer, videoSlideContainer, webSlideContainer};
+
+        for (View targetView : slideViews) {
+            if (targetView == null) continue;
+
+            ScaleGestureDetector scaleDetector = new ScaleGestureDetector(this,
+                    new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                        @Override
+                        public boolean onScale(ScaleGestureDetector detector) {
+                            float scaleFactor = detector.getScaleFactor();
+                            float currentScale = targetView.getScaleX() * scaleFactor;
+                            currentScale = Math.max(1.0f, Math.min(4.0f, currentScale));
+
+                            targetView.setScaleX(currentScale);
+                            targetView.setScaleY(currentScale);
+
+                            if (currentScale <= 1.0f) {
+                                targetView.setTranslationX(0f);
+                                targetView.setTranslationY(0f);
+                            }
+                            return true;
+                        }
+                    });
+
+            GestureDetector doubleTapDetector = new GestureDetector(this,
+                    new GestureDetector.SimpleOnGestureListener() {
+                        @Override
+                        public boolean onDoubleTap(MotionEvent e) {
+                            if (targetView.getScaleX() > 1.05f) {
+                                targetView.animate()
+                                        .scaleX(1.0f)
+                                        .scaleY(1.0f)
+                                        .translationX(0.0f)
+                                        .translationY(0.0f)
+                                        .setDuration(200)
+                                        .start();
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+
+            targetView.setOnTouchListener(new View.OnTouchListener() {
+                private float lastX, lastY;
+
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    scaleDetector.onTouchEvent(event);
+                    doubleTapDetector.onTouchEvent(event);
+
+                    if (scaleDetector.isInProgress()) {
+                        return true;
+                    }
+
+                    float scale = v.getScaleX();
+
+                    switch (event.getActionMasked()) {
+                        case MotionEvent.ACTION_DOWN:
+                            lastX = event.getRawX();
+                            lastY = event.getRawY();
+                            break;
+
+                        case MotionEvent.ACTION_MOVE:
+                            if (scale > 1.05f && event.getPointerCount() == 1) {
+                                float dx = event.getRawX() - lastX;
+                                float dy = event.getRawY() - lastY;
+
+                                float maxTranslationX = (v.getWidth() * (scale - 1.0f)) / 2.0f;
+                                float maxTranslationY = (v.getHeight() * (scale - 1.0f)) / 2.0f;
+
+                                float newTx = Math.max(-maxTranslationX, Math.min(maxTranslationX, v.getTranslationX() + dx));
+                                float newTy = Math.max(-maxTranslationY, Math.min(maxTranslationY, v.getTranslationY() + dy));
+
+                                v.setTranslationX(newTx);
+                                v.setTranslationY(newTy);
+
+                                lastX = event.getRawX();
+                                lastY = event.getRawY();
+                                return true;
+                            }
+                            break;
+                    }
+
+                    return scale > 1.05f;
+                }
+            });
+        }
     }
 
     @Override
