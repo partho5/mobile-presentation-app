@@ -3,3 +3,5 @@
 -keep class com.jovoc.facecampresentationrecorder.db.** { *; }
 -keep class com.jovoc.facecampresentationrecorder.model.** { *; }
 
+-keep class com.arthenica.ffmpegkit.** { *; }
+-keep class com.arthenica.smartexception.** { *; }

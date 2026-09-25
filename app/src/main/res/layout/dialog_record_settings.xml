@@ -100,6 +100,38 @@
             android:textSize="14sp" />
     </RadioGroup>
 
+    <!-- Auto-Crop After Recording -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="After recording, auto-crop to:"
+        android:textColor="#6200EE"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="6dp" />
+
+    <CheckBox
+        android:id="@+id/cb_crop_9_16"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="9:16 (vertical)"
+        android:textSize="14sp" />
+
+    <CheckBox
+        android:id="@+id/cb_crop_4_5"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="4:5 (portrait)"
+        android:textSize="14sp" />
+
+    <CheckBox
+        android:id="@+id/cb_crop_1_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="1:1 (square)"
+        android:textSize="14sp"
+        android:layout_marginBottom="20dp" />
+
     <!-- Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"

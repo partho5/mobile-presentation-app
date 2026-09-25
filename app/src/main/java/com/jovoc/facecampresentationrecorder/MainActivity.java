@@ -5,9 +5,14 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
+import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import android.animation.ObjectAnimator;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
+import android.widget.CheckBox;
+import java.util.ArrayList;
+import java.util.List;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
@@ -141,6 +146,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private Button btnCancelCountdown;
     private View flashOverlayView;
     private CountDownTimer countDownTimer;
+
+    // Crop guide lines
+    private View guideLineView916, guideLineView45, guideLineView11;
+    private TextView guideLabel916, guideLabel45, guideLabel11;
 
     // Draggable & Resizable Camera Components
     private FrameLayout cameraRootWrapper;
@@ -310,6 +319,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
+
+        guideLineView916 = findViewById(R.id.guide_line_9_16);
+        guideLabel916 = findViewById(R.id.guide_label_9_16);
+        guideLineView45 = findViewById(R.id.guide_line_4_5);
+        guideLabel45 = findViewById(R.id.guide_label_4_5);
+        guideLineView11 = findViewById(R.id.guide_line_1_1);
+        guideLabel11 = findViewById(R.id.guide_label_1_1);
     }
 
     private static final String PREF_NAME = "app_prefs";
@@ -318,6 +334,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_CAM_POS_Y = "key_cam_pos_y";
     private static final String KEY_COUNTDOWN_SECONDS = "key_countdown_seconds";
     private static final String KEY_RECORD_AUDIO = "key_record_audio";
+    private static final String KEY_AUTOCROP_9_16 = "key_autocrop_9_16";
+    private static final String KEY_AUTOCROP_4_5 = "key_autocrop_4_5";
+    private static final String KEY_AUTOCROP_1_1 = "key_autocrop_1_1";
 
     private void saveCameraState() {
         if (cameraCardContainer == null || cameraRootWrapper == null) return;
@@ -376,7 +395,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         if (posX >= 0 && posY >= 0 && parentWidth > 0 && parentHeight > 0) {
             float boundedX = Math.max(0, Math.min(parentWidth - wrapperWidth, posX));
-            float boundedY = Math.max(0, Math.min(parentHeight - wrapperHeight, posY));
+            int cropLimit = getSmallestCropHeight();
+            int maxYRestore = Math.min(parentHeight - wrapperHeight, cropLimit - wrapperHeight);
+            float boundedY = Math.max(0, Math.min(maxYRestore, posY));
             cameraRootWrapper.setX(boundedX);
             cameraRootWrapper.setY(boundedY);
         } else {
@@ -385,6 +406,97 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (cameraCardContainer != null) {
             updateResizeHandlePosition(cameraCardContainer.getWidth());
         }
+    }
+
+    /**
+     * Returns the pixel height of the tightest (smallest) crop zone
+     * based on currently selected auto-crop ratios in Settings.
+     * If no ratio is selected, returns the full screen height (no constraint).
+     */
+    private int getSmallestCropHeight() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        int screenWidth = rootLayout.getWidth();
+        int screenHeight = rootLayout.getHeight();
+        if (screenWidth <= 0 || screenHeight <= 0) return screenHeight;
+
+        int smallest = screenHeight;
+
+        if (prefs.getBoolean(KEY_AUTOCROP_9_16, true)) {
+            int h = screenWidth * 16 / 9;
+            if (h < smallest) smallest = h;
+        }
+        if (prefs.getBoolean(KEY_AUTOCROP_4_5, false)) {
+            int h = screenWidth * 5 / 4;
+            if (h < smallest) smallest = h;
+        }
+        if (prefs.getBoolean(KEY_AUTOCROP_1_1, false)) {
+            int h = screenWidth; // 1:1 means height = width
+            if (h < smallest) smallest = h;
+        }
+
+        return Math.min(smallest, screenHeight);
+    }
+
+    /**
+     * Returns the crop height in pixels for a given aspect ratio,
+     * or -1 if that ratio is not selected or doesn't need cropping.
+     */
+    private int getCropHeightForRatio(int ratioW, int ratioH) {
+        int screenWidth = rootLayout.getWidth();
+        int screenHeight = rootLayout.getHeight();
+        if (screenWidth <= 0) return -1;
+
+        int cropHeight = screenWidth * ratioH / ratioW;
+        if (cropHeight >= screenHeight) return -1; // screen already fits, no crop
+        return cropHeight;
+    }
+
+    private void showCropGuideLines() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+
+        showOneGuideLine(guideLineView916, guideLabel916,
+                prefs.getBoolean(KEY_AUTOCROP_9_16, true), 9, 16);
+        showOneGuideLine(guideLineView45, guideLabel45,
+                prefs.getBoolean(KEY_AUTOCROP_4_5, false), 4, 5);
+        showOneGuideLine(guideLineView11, guideLabel11,
+                prefs.getBoolean(KEY_AUTOCROP_1_1, false), 1, 1);
+    }
+
+    private void showOneGuideLine(View line, TextView label,
+                                   boolean isSelected, int ratioW, int ratioH) {
+        if (line == null || label == null) return;
+
+        if (!isSelected) {
+            line.setVisibility(View.GONE);
+            label.setVisibility(View.GONE);
+            return;
+        }
+
+        int cropHeight = getCropHeightForRatio(ratioW, ratioH);
+        if (cropHeight < 0) {
+            // Screen already fits this ratio, no crop needed
+            line.setVisibility(View.GONE);
+            label.setVisibility(View.GONE);
+            return;
+        }
+
+        line.setY(cropHeight);
+        line.setVisibility(View.VISIBLE);
+
+        // Position label just above the line
+        label.post(() -> {
+            label.setY(cropHeight - label.getHeight() - 4);
+            label.setVisibility(View.VISIBLE);
+        });
+    }
+
+    private void hideCropGuideLines() {
+        if (guideLineView916 != null) guideLineView916.setVisibility(View.GONE);
+        if (guideLabel916 != null) guideLabel916.setVisibility(View.GONE);
+        if (guideLineView45 != null) guideLineView45.setVisibility(View.GONE);
+        if (guideLabel45 != null) guideLabel45.setVisibility(View.GONE);
+        if (guideLineView11 != null) guideLineView11.setVisibility(View.GONE);
+        if (guideLabel11 != null) guideLabel11.setVisibility(View.GONE);
     }
 
     private void setupDrawer() {
@@ -481,7 +593,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     int parentHeight = rootLayout.getHeight();
 
                     newX = Math.max(0, Math.min(parentWidth - cameraRootWrapper.getWidth(), newX));
-                    newY = Math.max(0, Math.min(parentHeight - cameraRootWrapper.getHeight(), newY));
+                    int maxYBound = parentHeight - cameraRootWrapper.getHeight();
+                    int cropMaxY = getSmallestCropHeight() - cameraRootWrapper.getHeight();
+                    if (cropMaxY < maxYBound) maxYBound = cropMaxY;
+                    newY = Math.max(0, Math.min(maxYBound, newY));
 
                     cameraRootWrapper.setX(newX);
                     cameraRootWrapper.setY(newY);
@@ -836,7 +951,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         if (countdown > 0) {
                             startTimedRecording(serviceIntent, countdown);
                         } else {
+                            showCropGuideLines();
                             triggerStartFlashEffect(() -> {
+                                hideCropGuideLines();
                                 ContextCompat.startForegroundService(this, serviceIntent);
                                 isRecording = true;
                                 isMenuBarVisible = false;
@@ -1217,14 +1334,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void applyMediaTopMargin(View view, int mediaHeight) {
         if (view == null) return;
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int screenHeight = displayMetrics.heightPixels;
-
-        int topMargin = 0;
-        if (mediaHeight > 0 && mediaHeight <= (screenHeight * 0.50)) {
-            topMargin = (int) (screenHeight * 0.15);
-        }
+        int topMargin = 15; // fixed 15px top padding for social media safe area
 
         ViewGroup.LayoutParams params = view.getLayoutParams();
         if (params instanceof RelativeLayout.LayoutParams) {
@@ -2196,6 +2306,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (recordAudio && rbMic != null) rbMic.setChecked(true);
         else if (!recordAudio && rbMute != null) rbMute.setChecked(true);
 
+        // Auto-crop checkboxes
+        CheckBox cbCrop916 = view.findViewById(R.id.cb_crop_9_16);
+        CheckBox cbCrop45 = view.findViewById(R.id.cb_crop_4_5);
+        CheckBox cbCrop11 = view.findViewById(R.id.cb_crop_1_1);
+
+        if (cbCrop916 != null) cbCrop916.setChecked(prefs.getBoolean(KEY_AUTOCROP_9_16, true));
+        if (cbCrop45 != null) cbCrop45.setChecked(prefs.getBoolean(KEY_AUTOCROP_4_5, false));
+        if (cbCrop11 != null) cbCrop11.setChecked(prefs.getBoolean(KEY_AUTOCROP_1_1, false));
+
         Button btnCancel = view.findViewById(R.id.btn_cancel_settings);
         Button btnSave = view.findViewById(R.id.btn_save_settings);
 
@@ -2215,6 +2334,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 prefs.edit()
                         .putInt(KEY_COUNTDOWN_SECONDS, newCountdown)
                         .putBoolean(KEY_RECORD_AUDIO, newAudio)
+                        .putBoolean(KEY_AUTOCROP_9_16, cbCrop916 != null && cbCrop916.isChecked())
+                        .putBoolean(KEY_AUTOCROP_4_5, cbCrop45 != null && cbCrop45.isChecked())
+                        .putBoolean(KEY_AUTOCROP_1_1, cbCrop11 != null && cbCrop11.isChecked())
                         .apply();
 
                 Toast.makeText(this, "Record Settings saved", Toast.LENGTH_SHORT).show();
@@ -2240,6 +2362,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void startTimedRecording(Intent serviceIntent, int countdownSeconds) {
+        showCropGuideLines();
+
         if (countDownTimer != null) {
             countDownTimer.cancel();
         }
@@ -2270,6 +2394,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (countdownOverlayContainer != null) {
                     countdownOverlayContainer.setVisibility(View.GONE);
                 }
+                hideCropGuideLines();
                 triggerStartFlashEffect(() -> {
                     ContextCompat.startForegroundService(MainActivity.this, serviceIntent);
                     isRecording = true;
@@ -2289,6 +2414,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (countdownOverlayContainer != null) {
             countdownOverlayContainer.setVisibility(View.GONE);
         }
+        hideCropGuideLines();
         Toast.makeText(this, "Recording cancelled", Toast.LENGTH_SHORT).show();
     }
 
@@ -2320,7 +2446,42 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (path != null) {
                     File file = new File(path);
                     if (file.exists() && file.length() > 0) {
-                        VideoPlayerDialog.show(MainActivity.this, file, null);
+                        Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
+
+                        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+                        List<int[]> ratios = new ArrayList<>();
+                        if (prefs.getBoolean(KEY_AUTOCROP_9_16, true)) ratios.add(new int[]{9, 16});
+                        if (prefs.getBoolean(KEY_AUTOCROP_4_5, false)) ratios.add(new int[]{4, 5});
+                        if (prefs.getBoolean(KEY_AUTOCROP_1_1, false)) ratios.add(new int[]{1, 1});
+
+                        if (!ratios.isEmpty() && dialog != null) {
+                            TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
+                            if (tvCropStatus != null) {
+                                tvCropStatus.setText("⏳ Auto-cropping as per your settings…");
+                                tvCropStatus.setVisibility(View.VISIBLE);
+                            }
+
+                            VideoCropHelper.cropAsync(
+                                getApplicationContext(), path, ratios,
+                                new VideoCropHelper.CropCallback() {
+                                    @Override
+                                    public void onProgress(String ratioLabel, boolean success) {
+                                    }
+
+                                    @Override
+                                    public void onAllComplete(int successCount, int failCount) {
+                                        if (tvCropStatus != null) {
+                                            if (failCount == 0) {
+                                                tvCropStatus.setText("✓ Cropped versions saved");
+                                            } else {
+                                                tvCropStatus.setText("⚠ " + failCount +
+                                                    " crop(s) failed, " + successCount + " saved");
+                                            }
+                                        }
+                                    }
+                                }
+                            );
+                        }
                     }
                 }
             }
