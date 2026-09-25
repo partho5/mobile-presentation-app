@@ -3,7 +3,6 @@ package com.jovoc.facecampresentationrecorder.ui;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaMetadataRetriever;
@@ -12,15 +11,12 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
-import android.text.InputType;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -32,6 +28,7 @@ import androidx.core.content.FileProvider;
 import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
+import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -111,34 +108,8 @@ public class VideoPlayerDialog {
             seekBar.setMax(duration);
             tvTotalDuration.setText(formatDuration(duration));
 
-            // Dynamically resize card container to hug video stream aspect ratio tightly
-            View cardContainer = dialog.findViewById(R.id.player_card_container);
-            int vWidth = mp.getVideoWidth();
-            int vHeight = mp.getVideoHeight();
-            if (cardContainer != null && vWidth > 0 && vHeight > 0) {
-                float videoAspect = (float) vWidth / (float) vHeight;
-                int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
-                int maxCardWidth = (int) (screenWidth * 0.82f);
-                int maxCardHeight = (int) (320 * context.getResources().getDisplayMetrics().density);
-
-                int calcWidth, calcHeight;
-                if (videoAspect < (float) maxCardWidth / maxCardHeight) {
-                    // Portrait / Screen record format (e.g. 9:16)
-                    calcHeight = maxCardHeight;
-                    calcWidth = (int) (maxCardHeight * videoAspect);
-                } else {
-                    // Landscape format (e.g. 16:9)
-                    calcWidth = maxCardWidth;
-                    calcHeight = (int) (maxCardWidth / videoAspect);
-                }
-
-                ViewGroup.LayoutParams params = cardContainer.getLayoutParams();
-                if (params != null) {
-                    params.width = Math.max(calcWidth, (int) (140 * context.getResources().getDisplayMetrics().density));
-                    params.height = calcHeight;
-                    cardContainer.setLayoutParams(params);
-                }
-            }
+            // Hug the video's aspect ratio tightly.
+            sizePlayerCard(dialog, context, mp.getVideoWidth(), mp.getVideoHeight());
 
             videoView.start();
             btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
@@ -197,143 +168,59 @@ public class VideoPlayerDialog {
         // Close Dialog
         btnClose.setOnClickListener(v -> dialog.dismiss());
 
-        // Rename Action
+        // Rename Action — the prompt, validation and MediaStore bookkeeping live
+        // in VideoRenameHelper; this only saves and restores playback around it.
         btnRename.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setTitle("Rename Video");
+            final int[] savedSeekPos = new int[1];
+            final boolean[] shouldResume = new boolean[1];
 
-            final EditText input = new EditText(context);
-            input.setInputType(InputType.TYPE_CLASS_TEXT);
-
-            String name = currentFile[0].getName();
-            if (name.endsWith(".mp4")) {
-                name = name.substring(0, name.length() - 4);
-            }
-            input.setText(name);
-            input.setSelection(name.length());
-
-            int padding = (int) (16 * context.getResources().getDisplayMetrics().density);
-            builder.setView(input);
-            input.setPadding(padding, padding, padding, padding);
-
-            builder.setPositiveButton("Rename", (d, which) -> {
-                String newName = input.getText().toString().trim();
-                if (TextUtils.isEmpty(newName)) {
-                    Toast.makeText(context, "Filename cannot be empty", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                if (!newName.endsWith(".mp4")) {
-                    newName += ".mp4";
-                }
-
-                File oldFile = currentFile[0];
-                if (oldFile.getName().equals(newName)) {
-                    return;
-                }
-
-                File parentDir = oldFile.getParentFile();
-                File newFile = new File(parentDir, newName);
-
-                if (newFile.exists() && !newFile.equals(oldFile)) {
-                    Toast.makeText(context, "A file with this name already exists", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                // 1. Save playback state and stop playback to release active file handle
-                int currentPosition = 0;
-                boolean wasPlaying = false;
-                try {
-                    currentPosition = videoView.getCurrentPosition();
-                    wasPlaying = videoView.isPlaying();
-                    progressHandler.removeCallbacks(progressRunnable);
-                    videoView.stopPlayback();
-                } catch (Exception ignored) {}
-
-                // 2. Perform disk rename
-                boolean success = oldFile.renameTo(newFile);
-                if (success) {
-                    // 3. Update MediaStore record
-                    try {
-                        ContentResolver resolver = context.getContentResolver();
-                        ContentValues values = new ContentValues();
-                        values.put(MediaStore.Video.Media.TITLE, newFile.getName());
-                        values.put(MediaStore.Video.Media.DISPLAY_NAME, newFile.getName());
-                        values.put(MediaStore.Video.Media.DATA, newFile.getAbsolutePath());
-                        resolver.update(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                                values,
-                                MediaStore.Video.Media.DATA + "=?",
-                                new String[]{oldFile.getAbsolutePath()});
-                    } catch (Exception e) {
-                        Log.w(TAG, "ContentResolver rename update fallback", e);
-                    }
-
-                    MediaScannerConnection.scanFile(context, new String[]{oldFile.getAbsolutePath(), newFile.getAbsolutePath()}, null, null);
-
-                    currentFile[0] = newFile;
-                    updateMetadataUI(currentFile[0], tvFileName, tvMetadata);
-
-                    // 4. Re-bind VideoView to new file path and restore playback
-                    final int savedSeekPos = currentPosition;
-                    final boolean shouldResume = wasPlaying;
-
-                    videoView.setVideoPath(newFile.getAbsolutePath());
-                    videoView.setOnPreparedListener(mp -> {
-                        int duration = mp.getDuration();
-                        seekBar.setMax(duration);
-                        tvTotalDuration.setText(formatDuration(duration));
-
-                        View cardContainer = dialog.findViewById(R.id.player_card_container);
-                        int vWidth = mp.getVideoWidth();
-                        int vHeight = mp.getVideoHeight();
-                        if (cardContainer != null && vWidth > 0 && vHeight > 0) {
-                            float videoAspect = (float) vWidth / (float) vHeight;
-                            int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
-                            int maxCardWidth = (int) (screenWidth * 0.82f);
-                            int maxCardHeight = (int) (320 * context.getResources().getDisplayMetrics().density);
-
-                            int calcWidth, calcHeight;
-                            if (videoAspect < (float) maxCardWidth / maxCardHeight) {
-                                calcHeight = maxCardHeight;
-                                calcWidth = (int) (maxCardHeight * videoAspect);
-                            } else {
-                                calcWidth = maxCardWidth;
-                                calcHeight = (int) (maxCardWidth / videoAspect);
-                            }
-
-                            ViewGroup.LayoutParams params = cardContainer.getLayoutParams();
-                            if (params != null) {
-                                params.width = Math.max(calcWidth, (int) (140 * context.getResources().getDisplayMetrics().density));
-                                params.height = calcHeight;
-                                cardContainer.setLayoutParams(params);
-                            }
+            VideoRenameHelper.promptRename(context, currentFile[0],
+                    new VideoRenameHelper.RenameCallback() {
+                        @Override
+                        public void onBeforeRename() {
+                            // Release the open file handle, or the rename fails.
+                            try {
+                                savedSeekPos[0] = videoView.getCurrentPosition();
+                                shouldResume[0] = videoView.isPlaying();
+                                progressHandler.removeCallbacks(progressRunnable);
+                                videoView.stopPlayback();
+                            } catch (Exception ignored) {}
                         }
 
-                        if (savedSeekPos > 0) {
-                            videoView.seekTo(savedSeekPos);
-                        }
+                        @Override
+                        public void onRenamed(File oldFile, File newFile) {
+                            currentFile[0] = newFile;
+                            updateMetadataUI(currentFile[0], tvFileName, tvMetadata);
 
-                        if (shouldResume) {
-                            videoView.start();
-                            btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
-                            btnBarPlayPause.setImageResource(R.drawable.ic_pause);
-                            progressHandler.post(progressRunnable);
-                        } else {
-                            btnCenterPlayPause.setImageResource(R.drawable.ic_play);
-                            btnBarPlayPause.setImageResource(R.drawable.ic_play);
+                            // Re-bind the VideoView to the new path and resume.
+                            videoView.setVideoPath(newFile.getAbsolutePath());
+                            videoView.setOnPreparedListener(mp -> {
+                                int duration = mp.getDuration();
+                                seekBar.setMax(duration);
+                                tvTotalDuration.setText(formatDuration(duration));
+
+                                sizePlayerCard(dialog, context, mp.getVideoWidth(), mp.getVideoHeight());
+
+                                if (savedSeekPos[0] > 0) {
+                                    videoView.seekTo(savedSeekPos[0]);
+                                }
+
+                                if (shouldResume[0]) {
+                                    videoView.start();
+                                    btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
+                                    btnBarPlayPause.setImageResource(R.drawable.ic_pause);
+                                    progressHandler.post(progressRunnable);
+                                } else {
+                                    btnCenterPlayPause.setImageResource(R.drawable.ic_play);
+                                    btnBarPlayPause.setImageResource(R.drawable.ic_play);
+                                }
+                            });
+
+                            if (listener != null) {
+                                listener.onVideoRenamed(oldFile, newFile);
+                            }
                         }
                     });
-
-                    if (listener != null) {
-                        listener.onVideoRenamed(oldFile, newFile);
-                    }
-                    Toast.makeText(context, "Renamed successfully", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(context, "Failed to rename file", Toast.LENGTH_SHORT).show();
-                }
-            });
-
-            builder.setNegativeButton("Cancel", (d, which) -> d.cancel());
-            builder.show();
         });
 
         // Delete Action
@@ -403,6 +290,36 @@ public class VideoPlayerDialog {
 
         dialog.show();
         return dialog;
+    }
+
+    /** Resizes the player card so it hugs the video's aspect ratio. */
+    private static void sizePlayerCard(Dialog dialog, Context context, int vWidth, int vHeight) {
+        View cardContainer = dialog.findViewById(R.id.player_card_container);
+        if (cardContainer == null || vWidth <= 0 || vHeight <= 0) return;
+
+        float videoAspect = (float) vWidth / (float) vHeight;
+        float density = context.getResources().getDisplayMetrics().density;
+        int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+        int maxCardWidth = (int) (screenWidth * 0.82f);
+        int maxCardHeight = (int) (320 * density);
+
+        int calcWidth, calcHeight;
+        if (videoAspect < (float) maxCardWidth / maxCardHeight) {
+            // Portrait / screen-record format (e.g. 9:16)
+            calcHeight = maxCardHeight;
+            calcWidth = (int) (maxCardHeight * videoAspect);
+        } else {
+            // Landscape format (e.g. 16:9)
+            calcWidth = maxCardWidth;
+            calcHeight = (int) (maxCardWidth / videoAspect);
+        }
+
+        ViewGroup.LayoutParams params = cardContainer.getLayoutParams();
+        if (params != null) {
+            params.width = Math.max(calcWidth, (int) (140 * density));
+            params.height = calcHeight;
+            cardContainer.setLayoutParams(params);
+        }
     }
 
     private static void updateMetadataUI(File file, TextView tvFileName, TextView tvMetadata) {

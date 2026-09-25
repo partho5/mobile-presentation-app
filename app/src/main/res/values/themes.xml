@@ -8,6 +8,22 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
+    <!-- Dark overflow menu for the saved-recordings cards. The app theme is
+         DayNight but every screen is hardcoded dark, so the popup is pinned
+         dark here to avoid a white menu over a dark card list in light mode. -->
+    <style name="PopupMenu.Dark" parent="Widget.MaterialComponents.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_popup_menu</item>
+        <item name="android:textColor">#F5F7FA</item>
+        <item name="android:popupElevation">10dp</item>
+    </style>
+
+    <style name="ThemeOverlay.PopupMenu.Dark" parent="ThemeOverlay.MaterialComponents.Dark">
+        <item name="popupMenuStyle">@style/PopupMenu.Dark</item>
+        <item name="android:popupMenuStyle">@style/PopupMenu.Dark</item>
+        <item name="android:textColorPrimary">#F5F7FA</item>
+        <item name="android:colorBackground">#1B1F27</item>
+    </style>
+
     <style name="DialogAnimation">
         <item name="android:windowEnterAnimation">@anim/popup_enter</item>
         <item name="android:windowExitAnimation">@anim/popup_exit</item>

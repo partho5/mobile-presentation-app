@@ -6,8 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.graphics.drawable.Drawable;
 import android.provider.MediaStore;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
@@ -18,6 +22,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -25,6 +30,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
+import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -126,13 +132,22 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
     private void showCardMenu(View anchor, int position) {
         RecordingItem item = itemList.get(position);
-        PopupMenu popup = new PopupMenu(context, anchor);
+
+        // Themed wrapper pins the popup dark; the app theme is DayNight but every
+        // screen here is hardcoded dark, so the system default would go white.
+        Context themedContext = new ContextThemeWrapper(context, R.style.ThemeOverlay_PopupMenu_Dark);
+        PopupMenu popup = new PopupMenu(themedContext, anchor);
         popup.getMenuInflater().inflate(R.menu.recording_card_menu, popup.getMenu());
+        popup.setForceShowIcon(true);
+        tintMenuIcons(popup.getMenu());
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
             if (id == R.id.action_play) {
                 openVideo(item);
+                return true;
+            } else if (id == R.id.action_rename) {
+                renameVideo(item);
                 return true;
             } else if (id == R.id.action_share) {
                 shareVideo(item);
@@ -149,6 +164,32 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         });
 
         popup.show();
+    }
+
+    /** Tints every icon so the menu reads as one set, with Delete called out in red. */
+    private void tintMenuIcons(Menu menu) {
+        for (int i = 0; i < menu.size(); i++) {
+            MenuItem menuItem = menu.getItem(i);
+            Drawable icon = menuItem.getIcon();
+            if (icon == null) continue;
+
+            icon = DrawableCompat.wrap(icon.mutate());
+            DrawableCompat.setTint(icon,
+                    menuItem.getItemId() == R.id.action_delete ? 0xFFFF6B6B : 0xFF22D3EE);
+            menuItem.setIcon(icon);
+        }
+    }
+
+    private void renameVideo(RecordingItem item) {
+        VideoRenameHelper.promptRename(context, item.getFile(),
+                new VideoRenameHelper.RenameCallback() {
+                    @Override
+                    public void onRenamed(File oldFile, File newFile) {
+                        item.setFile(newFile);
+                        int pos = itemList.indexOf(item);
+                        if (pos >= 0) notifyItemChanged(pos);
+                    }
+                });
     }
 
     private void shareVideo(RecordingItem item) {
