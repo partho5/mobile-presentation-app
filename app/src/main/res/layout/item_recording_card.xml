@@ -56,6 +56,22 @@
                 android:textStyle="bold"
                 tools:text="01:45" />
 
+            <!-- Processing Overlay: shown while an auto-crop is still encoding -->
+            <FrameLayout
+                android:id="@+id/processing_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#CC000000"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <ProgressBar
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="#22D3EE" />
+            </FrameLayout>
+
             <!-- Selection Overlay (multi-select mode only) -->
             <FrameLayout
                 android:id="@+id/selection_overlay"
@@ -132,6 +148,21 @@
                     android:textSize="10sp"
                     android:textStyle="bold"
                     tools:text="9:16" />
+
+                <TextView
+                    android:id="@+id/tv_status"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#22D3EE"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:text="Preparing 9:16 version…"
+                    tools:visibility="visible" />
 
                 <TextView
                     android:id="@+id/tv_recorded_time"

@@ -2408,10 +2408,32 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
                 Toast.makeText(this, "Record Settings saved", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
+
+                // A dialog never triggers onResume, so nothing would re-read the new
+                // preferences until the app restarted. Refresh the affected UI here.
+                applyRecordSettings();
             });
         }
 
         dialog.show();
+    }
+
+    /**
+     * Re-applies every preference the main screen renders from.
+     *
+     * Countdown and mic/mute are read fresh at record time, so the crop guide lines
+     * are the only thing that can go stale; this is the single place to extend if
+     * another setting ever becomes visible here.
+     */
+    private void applyRecordSettings() {
+        if (rootLayout == null) return;
+        rootLayout.post(() -> {
+            if (isRecording) {
+                hideCropGuideLines();
+            } else {
+                showCropGuideLines();
+            }
+        });
     }
 
     private void openSavedRecordings() {

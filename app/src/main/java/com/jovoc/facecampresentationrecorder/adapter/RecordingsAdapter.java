@@ -75,37 +75,66 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     public void onBindViewHolder(@NonNull RecordingViewHolder holder, int position) {
         RecordingItem item = itemList.get(position);
 
+        boolean ready = item.isReady();
+
         holder.tvFilename.setText(item.getFileName());
-        holder.tvRecordedTime.setText(item.getFormattedDate());
         holder.tvDuration.setText(item.getFormattedDuration());
         holder.tvFormatTag.setText(item.getFormatTag());
 
-        Glide.with(context)
-                .load(item.getFile())
-                .centerCrop()
-                .placeholder(R.drawable.ic_video_library)
-                .into(holder.ivThumbnail);
+        // An unfinished or broken file gets a status line instead of a date, so the
+        // card never looks like a normal recording that simply refuses to play.
+        holder.tvStatus.setVisibility(ready ? View.GONE : View.VISIBLE);
+        holder.tvRecordedTime.setVisibility(ready ? View.VISIBLE : View.GONE);
+        if (ready) {
+            holder.tvRecordedTime.setText(item.getFormattedDate());
+        } else {
+            holder.tvStatus.setText(item.getStatusLabel());
+            holder.tvStatus.setTextColor(
+                    item.getStatus() == RecordingItem.Status.PROCESSING ? 0xFF22D3EE : 0xFFFFB347);
+        }
 
-        // Selection visuals
-        boolean selected = selectionMode && item.isSelected();
+        holder.processingOverlay.setVisibility(
+                item.getStatus() == RecordingItem.Status.PROCESSING ? View.VISIBLE : View.GONE);
+        holder.card.setAlpha(ready ? 1f : 0.6f);
+
+        if (ready) {
+            Glide.with(context)
+                    .load(item.getFile())
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_video_library)
+                    .into(holder.ivThumbnail);
+        } else {
+            Glide.with(context).clear(holder.ivThumbnail);
+            holder.ivThumbnail.setImageResource(R.drawable.ic_video_library);
+        }
+
+        // Selection visuals. Only ready files can be selected, so a pending crop is
+        // never swept into a bulk delete.
+        boolean selected = ready && selectionMode && item.isSelected();
         holder.selectionOverlay.setVisibility(selected ? View.VISIBLE : View.GONE);
         holder.card.setStrokeColor(selected ? 0xFF06B6D4 : 0x00000000);
-        holder.btnMenu.setVisibility(selectionMode ? View.GONE : View.VISIBLE);
+        holder.btnMenu.setVisibility(ready && !selectionMode ? View.VISIBLE : View.GONE);
 
         // Card tap: toggles selection while selecting, otherwise opens the player popup.
         holder.itemView.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
+            RecordingItem tapped = itemList.get(pos);
+            if (!tapped.isReady()) {
+                Toast.makeText(context, tapped.getStatusLabel(), Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (selectionMode) {
                 toggleSelection(pos);
             } else {
-                openVideo(itemList.get(pos));
+                openVideo(tapped);
             }
         });
 
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return false;
+            if (!itemList.get(pos).isReady()) return true;
             if (!selectionMode) {
                 enterSelectionMode(pos);
             } else {
@@ -117,7 +146,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         // 3-dot menu: its own menu, independent of the card tap.
         holder.btnMenu.setOnClickListener(v -> {
             int pos = holder.getBindingAdapterPosition();
-            if (pos != RecyclerView.NO_POSITION) {
+            if (pos != RecyclerView.NO_POSITION && itemList.get(pos).isReady()) {
                 showCardMenu(v, pos);
             }
         });
@@ -269,7 +298,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     public void selectAll() {
         selectionMode = true;
         for (RecordingItem item : itemList) {
-            item.setSelected(true);
+            item.setSelected(item.isReady());
         }
         notifyDataSetChanged();
         notifySelectionChanged();
@@ -387,8 +416,10 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         TextView tvFilename;
         TextView tvRecordedTime;
         TextView tvFormatTag;
+        TextView tvStatus;
         ImageButton btnMenu;
         View selectionOverlay;
+        View processingOverlay;
 
         public RecordingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -398,8 +429,10 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             tvFilename = itemView.findViewById(R.id.tv_filename);
             tvRecordedTime = itemView.findViewById(R.id.tv_recorded_time);
             tvFormatTag = itemView.findViewById(R.id.tv_format_tag);
+            tvStatus = itemView.findViewById(R.id.tv_status);
             btnMenu = itemView.findViewById(R.id.btn_menu);
             selectionOverlay = itemView.findViewById(R.id.selection_overlay);
+            processingOverlay = itemView.findViewById(R.id.processing_overlay);
         }
     }
 }
