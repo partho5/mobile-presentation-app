@@ -19,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Select an interactive web slide type"
+        android:text="Select more slide types"
         android:textColor="#AAAAAA"
         android:textSize="13sp" />
 
@@ -145,13 +145,16 @@
 
     <Button
         android:id="@+id/btn_cancel_more"
-        style="@style/Widget.Material3.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginTop="12dp"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
         android:text="Cancel"
-        android:textColor="#E0E0E0"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:rippleColor="#33FFFFFF"
+        app:strokeColor="#80FFFFFF"
+        app:strokeWidth="1.5dp" />
 </LinearLayout>
