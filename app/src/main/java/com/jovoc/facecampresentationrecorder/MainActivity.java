@@ -151,6 +151,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private View guideLineView916, guideLineView45, guideLineView11;
     private TextView guideLabel916, guideLabel45, guideLabel11;
 
+    /**
+     * Transient collision feedback for the crop guide lines.
+     *
+     * The camera may be dragged anywhere on screen, so a line is flashed for
+     * {@link #GUIDE_FLASH_DURATION_MS} the moment the camera starts overlapping it.
+     * The flash is edge-triggered: parking the camera on a line shows it once, not
+     * continuously. Index order is {9:16, 4:5, 1:1}.
+     */
+    private static final long GUIDE_FLASH_DURATION_MS = 300L;
+    private static final int GUIDE_9_16 = 0, GUIDE_4_5 = 1, GUIDE_1_1 = 2;
+    private final boolean[] guideOverlapState = new boolean[3];
+    private final Runnable[] guideFlashHideRunnables = new Runnable[3];
+    private final Handler guideFlashHandler = new Handler(Looper.getMainLooper());
+
     // Draggable & Resizable Camera Components
     private FrameLayout cameraRootWrapper;
     private MaterialCardView cameraCardContainer;
@@ -398,10 +412,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         int wrapperHeight = cameraRootWrapper.getHeight();
 
         if (posX >= 0 && posY >= 0 && parentWidth > 0 && parentHeight > 0) {
+            // Only screen bounds constrain the camera; crop zones no longer restrict it.
             float boundedX = Math.max(0, Math.min(parentWidth - wrapperWidth, posX));
-            int cropLimit = getSmallestCropHeight();
-            int maxYRestore = Math.min(parentHeight - wrapperHeight, cropLimit - wrapperHeight);
-            float boundedY = Math.max(0, Math.min(maxYRestore, posY));
+            float boundedY = Math.max(0, Math.min(parentHeight - wrapperHeight, posY));
             cameraRootWrapper.setX(boundedX);
             cameraRootWrapper.setY(boundedY);
         } else {
@@ -410,35 +423,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (cameraCardContainer != null) {
             updateResizeHandlePosition(cameraCardContainer.getWidth());
         }
-    }
-
-    /**
-     * Returns the pixel height of the tightest (smallest) crop zone
-     * based on currently selected auto-crop ratios in Settings.
-     * If no ratio is selected, returns the full screen height (no constraint).
-     */
-    private int getSmallestCropHeight() {
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        int screenWidth = rootLayout.getWidth();
-        int screenHeight = rootLayout.getHeight();
-        if (screenWidth <= 0 || screenHeight <= 0) return screenHeight;
-
-        int smallest = screenHeight;
-
-        if (prefs.getBoolean(KEY_AUTOCROP_9_16, true)) {
-            int h = screenWidth * 16 / 9;
-            if (h < smallest) smallest = h;
-        }
-        if (prefs.getBoolean(KEY_AUTOCROP_4_5, false)) {
-            int h = screenWidth * 5 / 4;
-            if (h < smallest) smallest = h;
-        }
-        if (prefs.getBoolean(KEY_AUTOCROP_1_1, false)) {
-            int h = screenWidth; // 1:1 means height = width
-            if (h < smallest) smallest = h;
-        }
-
-        return Math.min(smallest, screenHeight);
     }
 
     /**
@@ -505,12 +489,106 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void hideCropGuideLines() {
+        cancelGuideLineFlashes();
         if (guideLineView916 != null) guideLineView916.setVisibility(View.GONE);
         if (guideLabel916 != null) guideLabel916.setVisibility(View.GONE);
         if (guideLineView45 != null) guideLineView45.setVisibility(View.GONE);
         if (guideLabel45 != null) guideLabel45.setVisibility(View.GONE);
         if (guideLineView11 != null) guideLineView11.setVisibility(View.GONE);
         if (guideLabel11 != null) guideLabel11.setVisibility(View.GONE);
+    }
+
+    /**
+     * Flashes any crop guide line the camera has just started overlapping.
+     *
+     * Only runs while recording — outside recording the lines are already
+     * permanently visible, so there is nothing to reveal. Safe to call on every
+     * drag/resize frame: it does nothing unless an overlap state actually changes.
+     */
+    private void flashOverlappedGuideLines() {
+        if (!isRecording || cameraRootWrapper == null || rootLayout == null) {
+            // Reset so the first overlap after recording starts always flashes.
+            guideOverlapState[GUIDE_9_16] = false;
+            guideOverlapState[GUIDE_4_5] = false;
+            guideOverlapState[GUIDE_1_1] = false;
+            return;
+        }
+
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+
+        checkGuideLineOverlap(GUIDE_9_16, guideLineView916, guideLabel916,
+                prefs.getBoolean(KEY_AUTOCROP_9_16, true), 9, 16);
+        checkGuideLineOverlap(GUIDE_4_5, guideLineView45, guideLabel45,
+                prefs.getBoolean(KEY_AUTOCROP_4_5, false), 4, 5);
+        checkGuideLineOverlap(GUIDE_1_1, guideLineView11, guideLabel11,
+                prefs.getBoolean(KEY_AUTOCROP_1_1, false), 1, 1);
+    }
+
+    private void checkGuideLineOverlap(int index, View line, TextView label,
+                                       boolean isSelected, int ratioW, int ratioH) {
+        if (line == null || label == null) return;
+
+        if (!isSelected) {
+            guideOverlapState[index] = false;
+            return;
+        }
+
+        int cropHeight = getCropHeightForRatio(ratioW, ratioH);
+        if (cropHeight < 0) {
+            guideOverlapState[index] = false;
+            return;
+        }
+
+        int lineY = Math.min(cropHeight, rootLayout.getHeight() - 2);
+        int lineHeight = Math.max(1, line.getHeight());
+
+        // Lines span the full width, so only the vertical span matters.
+        float camTop = cameraRootWrapper.getY();
+        float camBottom = camTop + cameraRootWrapper.getHeight();
+        boolean overlapping = camBottom >= lineY && camTop <= lineY + lineHeight;
+
+        // Edge-triggered: flash only on entering the overlap, never while held there.
+        if (overlapping && !guideOverlapState[index]) {
+            flashGuideLine(index, line, label, lineY);
+        }
+        guideOverlapState[index] = overlapping;
+    }
+
+    private void flashGuideLine(int index, View line, TextView label, int lineY) {
+        if (guideFlashHideRunnables[index] != null) {
+            guideFlashHandler.removeCallbacks(guideFlashHideRunnables[index]);
+        }
+
+        line.setY(lineY);
+        line.bringToFront();
+        line.setVisibility(View.VISIBLE);
+
+        int labelY = Math.max(0, lineY - label.getHeight() - 4);
+        label.setY(labelY);
+        label.bringToFront();
+        label.setVisibility(View.VISIBLE);
+
+        Runnable hide = () -> {
+            if (isRecording) {
+                line.setVisibility(View.GONE);
+                label.setVisibility(View.GONE);
+            } else {
+                // Recording ended mid-flash — restore the persistent idle lines.
+                showCropGuideLines();
+            }
+        };
+        guideFlashHideRunnables[index] = hide;
+        guideFlashHandler.postDelayed(hide, GUIDE_FLASH_DURATION_MS);
+    }
+
+    private void cancelGuideLineFlashes() {
+        for (int i = 0; i < guideFlashHideRunnables.length; i++) {
+            if (guideFlashHideRunnables[i] != null) {
+                guideFlashHandler.removeCallbacks(guideFlashHideRunnables[i]);
+                guideFlashHideRunnables[i] = null;
+            }
+            guideOverlapState[i] = false;
+        }
     }
 
     private void setupDrawer() {
@@ -580,6 +658,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 cameraCardContainer.setLayoutParams(params);
                 cameraCardContainer.setRadius(newSize / 2f);
                 updateResizeHandlePosition(newSize);
+                flashOverlappedGuideLines();
                 saveCameraState();
                 return true;
             }
@@ -606,14 +685,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     int parentWidth = rootLayout.getWidth();
                     int parentHeight = rootLayout.getHeight();
 
+                    // Free movement: only the screen edges constrain the camera.
                     newX = Math.max(0, Math.min(parentWidth - cameraRootWrapper.getWidth(), newX));
-                    int maxYBound = parentHeight - cameraRootWrapper.getHeight();
-                    int cropMaxY = getSmallestCropHeight() - cameraRootWrapper.getHeight();
-                    if (cropMaxY < maxYBound) maxYBound = cropMaxY;
-                    newY = Math.max(0, Math.min(maxYBound, newY));
+                    newY = Math.max(0, Math.min(parentHeight - cameraRootWrapper.getHeight(), newY));
 
                     cameraRootWrapper.setX(newX);
                     cameraRootWrapper.setY(newY);
+                    flashOverlappedGuideLines();
                     return true;
 
                 case MotionEvent.ACTION_UP:
@@ -681,6 +759,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     cameraCardContainer.setLayoutParams(params);
                     cameraCardContainer.setRadius(newSize / 2f);
                     updateResizeHandlePosition(newSize);
+                    flashOverlappedGuideLines();
                     return true;
 
                 case MotionEvent.ACTION_UP:
@@ -1339,6 +1418,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (slides != null && !slides.isEmpty()) {
             renderCurrentSlide();
         }
+        if (!isRecording && rootLayout != null) {
+            rootLayout.post(this::showCropGuideLines);
+        }
     }
 
     @Override
@@ -1358,9 +1440,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 relativeParams.topMargin = topMargin;
                 view.setLayoutParams(relativeParams);
             }
-        }
-        if (!isRecording && rootLayout != null) {
-            rootLayout.post(this::showCropGuideLines);
         }
     }
 
@@ -2182,36 +2261,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     @Override
-    public void onEditSlide(Slide slide, int position) {
-        if (slide.isDisabled()) {
-            // Offer to re-enable the disabled slide
-            new AlertDialog.Builder(this)
-                    .setTitle("Slide Disabled")
-                    .setMessage("This slide is currently disabled. Would you like to enable it?")
-                    .setPositiveButton("Enable", (dialog, which) -> {
-                        slide.setDisabled(false);
-                        repository.update(slide, () -> {
-                            if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
-                        });
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
-            return;
-        }
-        if (Slide.TYPE_TEXT.equals(slide.getType())) {
-            showAddTextSlideDialog(slide, position);
-        } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
-            launchImageUpdater(slide, position);
-        } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
-            launchVideoUpdater(slide, position);
-        } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
-            showAddWebsiteSlideDialog(slide, position);
-        } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
-            showAddYouTubeSlideDialog(slide, position);
-        }
-    }
-
-    @Override
     public void onMoveUp(int position) {
         if (position > 0) {
             Collections.swap(slides, position, position - 1);
@@ -2677,5 +2726,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             countDownTimer.cancel();
             countDownTimer = null;
         }
+        cancelGuideLineFlashes();
     }
 }

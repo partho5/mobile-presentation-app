@@ -1,13 +1,16 @@
 package com.jovoc.facecampresentationrecorder;
 
+import android.app.AlertDialog;
 import android.media.MediaMetadataRetriever;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -15,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -32,6 +36,11 @@ public class SavedRecordingsActivity extends AppCompatActivity {
     private RecordingsAdapter adapter;
     private final List<RecordingItem> recordingList = new ArrayList<>();
 
+    // Contextual selection toolbar
+    private RelativeLayout mainToolbar;
+    private RelativeLayout selectionToolbar;
+    private TextView tvSelectionCount;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,12 +52,57 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         emptyStateContainer = findViewById(R.id.empty_state_container);
         MaterialButton btnGoMain = findViewById(R.id.btn_go_main);
 
+        mainToolbar = findViewById(R.id.main_toolbar);
+        selectionToolbar = findViewById(R.id.selection_toolbar);
+        tvSelectionCount = findViewById(R.id.tv_selection_count);
+        ImageButton btnCancelSelection = findViewById(R.id.btn_cancel_selection);
+        ImageButton btnSelectAll = findViewById(R.id.btn_select_all);
+        ImageButton btnDeleteSelected = findViewById(R.id.btn_delete_selected);
+
         btnBack.setOnClickListener(v -> finish());
         btnGoMain.setOnClickListener(v -> finish());
 
+        btnCancelSelection.setOnClickListener(v -> {
+            if (adapter != null) adapter.exitSelectionMode();
+        });
+        btnSelectAll.setOnClickListener(v -> {
+            if (adapter != null) adapter.selectAll();
+        });
+        btnDeleteSelected.setOnClickListener(v -> confirmDeleteSelected());
+
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
+        // Back leaves selection mode first, rather than the whole screen.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (adapter != null && adapter.isSelectionMode()) {
+                    adapter.exitSelectionMode();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
+
         loadRecordings();
+    }
+
+    private void confirmDeleteSelected() {
+        if (adapter == null) return;
+        int count = adapter.getSelectedCount();
+        if (count == 0) return;
+
+        String message = count == 1
+                ? "Delete this recording? This cannot be undone."
+                : "Delete these " + count + " recordings? This cannot be undone.";
+
+        new AlertDialog.Builder(this)
+                .setTitle(count == 1 ? "Delete Recording" : "Delete " + count + " Recordings")
+                .setMessage(message)
+                .setPositiveButton("Delete", (d, w) -> adapter.deleteSelected())
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void loadRecordings() {
@@ -70,6 +124,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                 for (File file : files) {
                     long durationMs = 0;
                     String formattedDuration = "00:00";
+                    int videoWidth = 0;
+                    int videoHeight = 0;
                     try {
                         retriever.setDataSource(file.getAbsolutePath());
                         String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
@@ -77,9 +133,15 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                             durationMs = Long.parseLong(durationStr);
                             formattedDuration = formatDuration(durationMs);
                         }
+                        // Dimensions drive the format tag, so it stays correct after a rename.
+                        String w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+                        String h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+                        if (w != null) videoWidth = Integer.parseInt(w);
+                        if (h != null) videoHeight = Integer.parseInt(h);
                     } catch (Exception ignored) {}
 
                     String formattedDate = dateFormat.format(new Date(file.lastModified()));
+                    String formatTag = VideoFormatHelper.getFormatTag(file.getName(), videoWidth, videoHeight);
 
                     recordingList.add(new RecordingItem(
                             file,
@@ -87,7 +149,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                             file.getAbsolutePath(),
                             durationMs,
                             formattedDuration,
-                            formattedDate
+                            formattedDate,
+                            formatTag
                     ));
                 }
 
@@ -118,7 +181,19 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                     emptyStateContainer.setVisibility(View.VISIBLE);
                 }
             });
+            adapter.setOnSelectionChangeListener(this::updateSelectionToolbar);
             recyclerView.setAdapter(adapter);
+        }
+    }
+
+    private void updateSelectionToolbar(boolean inSelectionMode, int selectedCount) {
+        if (selectionToolbar == null || mainToolbar == null) return;
+
+        selectionToolbar.setVisibility(inSelectionMode ? View.VISIBLE : View.GONE);
+        mainToolbar.setVisibility(inSelectionMode ? View.GONE : View.VISIBLE);
+
+        if (inSelectionMode && tvSelectionCount != null) {
+            tvSelectionCount.setText(selectedCount + " selected");
         }
     }
 

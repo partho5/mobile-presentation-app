@@ -9,14 +9,18 @@ public class RecordingItem {
     private long durationMs;
     private String formattedDuration;
     private String formattedDate;
+    private String formatTag;
+    private boolean selected;
 
-    public RecordingItem(File file, String fileName, String filePath, long durationMs, String formattedDuration, String formattedDate) {
+    public RecordingItem(File file, String fileName, String filePath, long durationMs,
+                         String formattedDuration, String formattedDate, String formatTag) {
         this.file = file;
         this.fileName = fileName;
         this.filePath = filePath;
         this.durationMs = durationMs;
         this.formattedDuration = formattedDuration;
         this.formattedDate = formattedDate;
+        this.formatTag = formatTag;
     }
 
     public File getFile() {
@@ -53,5 +57,22 @@ public class RecordingItem {
 
     public String getFormattedDate() {
         return formattedDate;
+    }
+
+    /** Card tag describing the recording's aspect ratio, e.g. "Original" or "9:16". */
+    public String getFormatTag() {
+        return formatTag;
+    }
+
+    public void setFormatTag(String formatTag) {
+        this.formatTag = formatTag;
+    }
+
+    public boolean isSelected() {
+        return selected;
+    }
+
+    public void setSelected(boolean selected) {
+        this.selected = selected;
     }
 }

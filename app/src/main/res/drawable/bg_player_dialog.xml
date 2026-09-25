@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Premium popup surface: near-black vertical gradient with a hairline edge. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#1A1C23" />
-    <corners android:radius="20dp" />
+    <gradient
+        android:angle="270"
+        android:startColor="#171A21"
+        android:centerColor="#12141A"
+        android:endColor="#0D0F14"
+        android:type="linear" />
+    <corners android:radius="24dp" />
+    <stroke
+        android:width="1dp"
+        android:color="#1FFFFFFF" />
 </shape>

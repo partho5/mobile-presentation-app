@@ -6,6 +6,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Handler;
@@ -30,6 +31,7 @@ import androidx.core.content.FileProvider;
 
 import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -59,9 +61,12 @@ public class VideoPlayerDialog {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
-            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            // Inset from the screen edges so the rounded corners and hairline
+            // border are actually visible rather than running off the display.
+            int dialogWidth = (int) (context.getResources().getDisplayMetrics().widthPixels * 0.92f);
+            window.setLayout(dialogWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.setDimAmount(0.75f);
+            window.setDimAmount(0.82f);
         }
 
         // Holder for mutable file reference during rename
@@ -413,7 +418,25 @@ public class VideoPlayerDialog {
             formattedSize = String.format(Locale.US, "%d KB", sizeInBytes / 1024);
         }
 
-        tvMetadata.setText(formattedDate + " • " + formattedSize);
+        String metadata = formattedDate + " • " + formattedSize;
+
+        // Append the aspect ratio so the popup matches the card's format tag.
+        try {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            retriever.setDataSource(file.getAbsolutePath());
+            String w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+            String h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            retriever.release();
+            if (w != null && h != null) {
+                String ratio = VideoFormatHelper.describeRatio(
+                        Integer.parseInt(w), Integer.parseInt(h));
+                if (ratio != null) {
+                    metadata += " • " + ratio;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        tvMetadata.setText(metadata);
     }
 
     private static String formatDuration(long durationMs) {

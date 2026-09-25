@@ -10,6 +10,7 @@
 
     <!-- Top Toolbar Bar -->
     <RelativeLayout
+        android:id="@+id/main_toolbar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:background="#1E1E1E"
@@ -48,6 +49,64 @@
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             tools:text="0 videos" />
+    </RelativeLayout>
+
+    <!-- Contextual Selection Toolbar (replaces the bar above while selecting) -->
+    <RelativeLayout
+        android:id="@+id/selection_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#0E3A44"
+        android:elevation="6dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageButton
+            android:id="@+id/btn_cancel_selection"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Cancel selection"
+            android:src="@drawable/ic_close"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tv_selection_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="8dp"
+            android:layout_toEndOf="@id/btn_cancel_selection"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            tools:text="2 selected" />
+
+        <ImageButton
+            android:id="@+id/btn_delete_selected"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Delete selected"
+            android:src="@drawable/ic_delete"
+            app:tint="#FF6B6B" />
+
+        <ImageButton
+            android:id="@+id/btn_select_all"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerVertical="true"
+            android:layout_toStartOf="@id/btn_delete_selected"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Select all"
+            android:src="@drawable/ic_check_circle"
+            app:tint="#FFFFFF" />
     </RelativeLayout>
 
     <!-- Content Area: RecyclerView or Empty State -->

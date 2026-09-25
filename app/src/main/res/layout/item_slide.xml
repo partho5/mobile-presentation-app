@@ -75,16 +75,6 @@
     </LinearLayout>
 
     <ImageButton
-        android:id="@+id/btn_edit_slide"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Edit Slide"
-        android:src="@drawable/ic_edit"
-        app:tint="#FFFFFF"
-        android:tint="#FFFFFF" />
-
-    <ImageButton
         android:id="@+id/btn_move_up"
         android:layout_width="36dp"
         android:layout_height="36dp"
