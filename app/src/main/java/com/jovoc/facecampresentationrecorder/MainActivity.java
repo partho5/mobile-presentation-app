@@ -860,6 +860,38 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         return trimmed;
     }
 
+    private static final Pattern YOUTUBE_URL_PATTERN = Pattern.compile(
+            "^(?:https?://)?(?:www\\.|m\\.|music\\.)?(?:youtube\\.com/(?:watch\\?(?:.*&)?v=|embed/|v/|e/|shorts/|live/)|youtu\\.be/)([a-zA-Z0-9_-]{11})(?:[?&#/].*)?$",
+            Pattern.CASE_INSENSITIVE);
+
+    /** Strict YouTube parse: returns the 11-char video ID, or null if input is not a valid ID/YouTube URL. */
+    private String parseYouTubeVideoId(String input) {
+        if (input == null) return null;
+        String trimmed = input.trim();
+        if (trimmed.matches("[a-zA-Z0-9_-]{11}")) return trimmed;
+        Matcher matcher = YOUTUBE_URL_PATTERN.matcher(trimmed);
+        return matcher.matches() ? matcher.group(1) : null;
+    }
+
+    /** Returns a normalized http(s) URL, or null if input is not a valid web address. */
+    private String normalizeWebsiteUrl(String input) {
+        if (input == null) return null;
+        String url = input.trim();
+        if (url.isEmpty() || url.matches(".*\\s.*")) return null;
+        if (!url.matches("(?i)^https?://.*")) {
+            if (url.contains("://")) return null; // unsupported scheme
+            url = "https://" + url;
+        }
+        if (!android.util.Patterns.WEB_URL.matcher(url).matches()) return null;
+        try {
+            String host = java.net.URI.create(url).getHost();
+            if (host == null || !(host.contains(".") || host.equalsIgnoreCase("localhost"))) return null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        return url;
+    }
+
     private void startRecordingFlow() {
         if (isRecording) return;
 
@@ -2213,8 +2245,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     return;
                 }
 
-                if (!inputUrl.startsWith("http://") && !inputUrl.startsWith("https://")) {
-                    inputUrl = "https://" + inputUrl;
+                inputUrl = normalizeWebsiteUrl(inputUrl);
+                if (inputUrl == null) {
+                    if (editUrl != null) editUrl.setError("Enter a valid website URL (e.g. example.com)");
+                    return;
                 }
 
                 if (slideToEdit != null) {
@@ -2268,9 +2302,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     return;
                 }
 
-                String videoId = extractYouTubeVideoId(input);
-                if (videoId == null || videoId.isEmpty()) {
-                    Toast.makeText(this, "Could not extract YouTube video ID", Toast.LENGTH_SHORT).show();
+                if (parseYouTubeVideoId(input) == null) {
+                    if (editUrl != null) editUrl.setError("Enter a valid YouTube link or 11-character video ID");
                     return;
                 }
 
