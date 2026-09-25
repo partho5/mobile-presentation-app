@@ -82,7 +82,11 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -189,6 +193,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private GestureDetector gestureDetector;
     private boolean isMenuBarVisible = false;
+
+    /** Height of the top menu bar as declared in XML, before any status-bar inset. */
+    private int topMenuBarBaseHeight = -1;
     private boolean isRecording = false;
 
     // Launchers
@@ -212,11 +219,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         super.onCreate(savedInstanceState);
         SlideLogger.init(this);
         SlideLogger.log("LIFECYCLE", "MainActivity onCreate started");
+
+        // Edge-to-edge on every API level, not just 15+. Without it the content view
+        // is physically inset by the visible system bars, so hiding them for
+        // presentation/recording mode re-lays out root_layout: the face cam jumps and
+        // the crop guide lines stop lining up with the recorded frame. Laid out
+        // full-bleed, root_layout's pixels are the same pixels MediaProjection
+        // captures, and bar visibility changes nothing.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
         setContentView(R.layout.activity_main);
 
         repository = new SlideRepository(this);
 
         initViews();
+        applySystemBarInsets();
         setupDrawer();
         setupGestureDetector();
         setupPhotoPicker();
@@ -1087,10 +1104,61 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }, ContextCompat.getMainExecutor(this));
     }
 
+    /**
+     * Insets the chrome, never the canvas.
+     *
+     * The window is edge-to-edge so root_layout always spans the whole physical
+     * display: what you see is exactly what gets recorded, and the crop guide lines
+     * mean the same thing in every mode. That leaves the top menu bar sitting under
+     * the status bar in Edit Mode, so the bar (and the drawer) pad themselves by the
+     * live inset instead. When the bars are hidden the insets are zero and the
+     * padding collapses on its own.
+     */
+    private void applySystemBarInsets() {
+        if (topMenuBar != null) {
+            if (topMenuBarBaseHeight < 0) {
+                ViewGroup.LayoutParams lp = topMenuBar.getLayoutParams();
+                topMenuBarBaseHeight = (lp != null && lp.height > 0)
+                        ? lp.height
+                        : (int) (56 * getResources().getDisplayMetrics().density);
+            }
+            ViewCompat.setOnApplyWindowInsetsListener(topMenuBar, (v, insets) -> {
+                Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                v.setPadding(v.getPaddingLeft(), bars.top,
+                        v.getPaddingRight(), v.getPaddingBottom());
+                ViewGroup.LayoutParams lp = v.getLayoutParams();
+                int wanted = topMenuBarBaseHeight + bars.top;
+                if (lp != null && lp.height != wanted) {
+                    lp.height = wanted;
+                    v.setLayoutParams(lp);
+                }
+                return insets;
+            });
+        }
+
+        if (navigationView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(navigationView, (v, insets) -> {
+                Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                v.setPadding(v.getPaddingLeft(), bars.top,
+                        v.getPaddingRight(), bars.bottom);
+                return insets;
+            });
+        }
+    }
+
+    /**
+     * Full physical display height in pixels — the same source ScreenRecordService
+     * measures the capture from, so slide sizing agrees with the recorded frame
+     * regardless of whether the system bars happen to be showing.
+     */
+    private int getRealScreenHeightPx() {
+        DisplayMetrics metrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+        return metrics.heightPixels;
+    }
+
     private void setupTop30PercentLayout() {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int screenHeight = displayMetrics.heightPixels;
+        int screenHeight = getRealScreenHeightPx();
 
         // Set Top 30% container height dynamically
         int top30Height = (int) (screenHeight * 0.30);
@@ -1100,9 +1168,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void setupBottom40PercentLayout() {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int screenHeight = displayMetrics.heightPixels;
+        int screenHeight = getRealScreenHeightPx();
 
         // Set Bottom 40% container height dynamically
         int bottom40Height = (int) (screenHeight * 0.40);

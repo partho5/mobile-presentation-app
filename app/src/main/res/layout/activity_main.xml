@@ -151,12 +151,19 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Draggable & Resizable Circular Camera Overlay Container -->
+        <!-- Draggable & Resizable Circular Camera Overlay Container.
+
+             Anchored to the top-start corner on purpose, never centred: the
+             position is driven by setX()/setY(), which are translations from the
+             laid-out slot. A centred slot moves whenever the parent is re-measured,
+             which would drag the face cam with it. Pinned at (0,0) the translation
+             IS the absolute position, so the cam holds still across every relayout. -->
         <FrameLayout
             android:id="@+id/camera_root_wrapper"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
             android:clipChildren="false"
             android:clipToPadding="false">
 
