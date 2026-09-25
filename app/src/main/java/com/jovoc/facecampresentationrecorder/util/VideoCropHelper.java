@@ -108,19 +108,23 @@ public class VideoCropHelper {
                 String outputPath = inputPath.replace(".mp4",
                         "_" + ratioLabel + ".mp4");
 
-                // Build FFmpeg command
+                // Build FFmpeg command arguments array
                 // -y = overwrite if exists
                 // -i = input
                 // -vf crop=W:H:X:Y = crop filter (X=0, Y=0 = from top-left)
                 // -c:a copy = copy audio stream without re-encoding
-                String command = String.format(
-                        "-y -i \"%s\" -vf \"crop=%d:%d:0:0\" -c:a copy \"%s\"",
-                        inputPath, cropW, cropH, outputPath);
+                String[] args = new String[] {
+                        "-y",
+                        "-i", inputPath,
+                        "-vf", String.format("crop=%d:%d:0:0", cropW, cropH),
+                        "-c:a", "copy",
+                        outputPath
+                };
 
-                Log.d(TAG, "FFmpeg command for " + ratioLabel + ": " + command);
+                Log.d(TAG, "FFmpeg args for " + ratioLabel + ": " + String.join(" ", args));
 
                 // Execute FFmpeg synchronously (we're already on background thread)
-                FFmpegSession session = FFmpegKit.execute(command);
+                FFmpegSession session = FFmpegKit.executeWithArguments(args);
 
                 if (ReturnCode.isSuccess(session.getReturnCode())) {
                     Log.d(TAG, "Crop " + ratioLabel + " succeeded: " + outputPath);

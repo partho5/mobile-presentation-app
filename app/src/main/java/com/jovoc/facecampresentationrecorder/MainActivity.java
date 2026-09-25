@@ -225,6 +225,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         // Register post-recording completion receiver to launch VideoPlayerDialog
         registerRecordingFinishedReceiver();
+
+        if (rootLayout != null) {
+            rootLayout.post(this::showCropGuideLines);
+        }
     }
 
     private void initViews() {
@@ -442,16 +446,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
      * or -1 if that ratio is not selected or doesn't need cropping.
      */
     private int getCropHeightForRatio(int ratioW, int ratioH) {
+        if (rootLayout == null) return -1;
         int screenWidth = rootLayout.getWidth();
         int screenHeight = rootLayout.getHeight();
-        if (screenWidth <= 0) return -1;
+        if (screenWidth <= 0 || screenHeight <= 0) return -1;
 
         int cropHeight = screenWidth * ratioH / ratioW;
-        if (cropHeight >= screenHeight) return -1; // screen already fits, no crop
+        if (cropHeight > screenHeight) return -1; // screen height is shorter than target ratio
         return cropHeight;
     }
 
     private void showCropGuideLines() {
+        if (isRecording) {
+            hideCropGuideLines();
+            return;
+        }
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
         showOneGuideLine(guideLineView916, guideLabel916,
@@ -474,18 +483,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         int cropHeight = getCropHeightForRatio(ratioW, ratioH);
         if (cropHeight < 0) {
-            // Screen already fits this ratio, no crop needed
             line.setVisibility(View.GONE);
             label.setVisibility(View.GONE);
             return;
         }
 
-        line.setY(cropHeight);
+        int screenHeight = rootLayout.getHeight();
+        int lineY = Math.min(cropHeight, screenHeight - 2);
+
+        line.setY(lineY);
+        line.bringToFront();
         line.setVisibility(View.VISIBLE);
 
         // Position label just above the line
         label.post(() -> {
-            label.setY(cropHeight - label.getHeight() - 4);
+            int labelY = Math.max(0, lineY - label.getHeight() - 4);
+            label.setY(labelY);
+            label.bringToFront();
             label.setVisibility(View.VISIBLE);
         });
     }
@@ -866,6 +880,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
             startService(serviceIntent);
             isRecording = false;
+            showCropGuideLines();
 
             incrementSuccessfulRecordingsCount();
 
@@ -1343,6 +1358,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 relativeParams.topMargin = topMargin;
                 view.setLayoutParams(relativeParams);
             }
+        }
+        if (!isRecording && rootLayout != null) {
+            rootLayout.post(this::showCropGuideLines);
         }
     }
 

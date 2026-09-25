@@ -58,4 +58,5 @@ dependencies {
 
     // FFmpegKit for post-recording video cropping (maintained community release)
     implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-full:8.1.7'
+    implementation 'com.arthenica:smart-exception-java:0.2.1'
 }

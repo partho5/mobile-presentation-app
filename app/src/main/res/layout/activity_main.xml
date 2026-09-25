@@ -194,66 +194,7 @@
 
         </FrameLayout>
 
-        <!-- Crop Guide Lines (visible only during pre-recording countdown, hidden before recording starts) -->
-        <View
-            android:id="@+id/guide_line_9_16"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#33FFFFFF"
-            android:elevation="20dp"
-            android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/guide_label_9_16"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:elevation="20dp"
-            android:paddingEnd="8dp"
-            android:text="9:16"
-            android:textColor="#55FFFFFF"
-            android:textSize="10sp"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/guide_line_4_5"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#33FFFFFF"
-            android:elevation="20dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/guide_label_4_5"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:elevation="20dp"
-            android:paddingEnd="8dp"
-            android:text="4:5"
-            android:textColor="#55FFFFFF"
-            android:textSize="10sp"
-            android:visibility="gone" />
-
-        <View
-            android:id="@+id/guide_line_1_1"
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#33FFFFFF"
-            android:elevation="20dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/guide_label_1_1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:elevation="20dp"
-            android:paddingEnd="8dp"
-            android:text="1:1"
-            android:textColor="#55FFFFFF"
-            android:textSize="10sp"
-            android:visibility="gone" />
 
         <!-- Bottom 20% Navigation Overlay -->
         <LinearLayout
@@ -329,6 +270,67 @@
             </FrameLayout>
 
         </LinearLayout>
+
+        <!-- Crop Guide Lines (visible during presentation preview/browsing and countdown, hidden during active recording) -->
+        <View
+            android:id="@+id/guide_line_9_16"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33FFFFFF"
+            android:elevation="20dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/guide_label_9_16"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:elevation="20dp"
+            android:paddingEnd="8dp"
+            android:text="9:16"
+            android:textColor="#55FFFFFF"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/guide_line_4_5"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33FFFFFF"
+            android:elevation="20dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/guide_label_4_5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:elevation="20dp"
+            android:paddingEnd="8dp"
+            android:text="4:5"
+            android:textColor="#55FFFFFF"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/guide_line_1_1"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33FFFFFF"
+            android:elevation="20dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/guide_label_1_1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:elevation="20dp"
+            android:paddingEnd="8dp"
+            android:text="1:1"
+            android:textColor="#55FFFFFF"
+            android:textSize="10sp"
+            android:visibility="gone" />
 
         <!-- Minimal Low-Opacity Floating Stop Icon for Recording Mode -->
         <ImageButton
