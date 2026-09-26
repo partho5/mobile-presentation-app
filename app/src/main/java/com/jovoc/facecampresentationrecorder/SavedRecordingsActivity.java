@@ -220,7 +220,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         List<VideoCropHelper.PendingCrop> pending = VideoCropHelper.getPendingCrops();
         deleteOrphanedPartFiles(appDir, pending);
 
-        File[] files = appDir.listFiles((dir, name) -> name.toLowerCase(Locale.US).endsWith(".mp4"));
+        File[] files = appDir.listFiles((dir, name) ->
+                !name.startsWith(".") && name.toLowerCase(Locale.US).endsWith(".mp4"));
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.US);
 
         if (files != null && files.length > 0) {

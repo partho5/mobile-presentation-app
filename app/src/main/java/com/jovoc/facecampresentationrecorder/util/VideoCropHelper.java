@@ -32,8 +32,13 @@ public class VideoCropHelper {
     public static final String ACTION_CROP_STATE_CHANGED =
             "com.jovoc.facecampresentationrecorder.CROP_STATE_CHANGED";
 
-    /** Suffix for the in-progress encode. Not ".mp4", so recording lists skip it. */
-    private static final String PART_SUFFIX = ".mp4.part";
+    /**
+     * Suffix for the in-progress encode. It must still end in ".mp4": on shared
+     * storage MediaProvider derives the MIME type from the extension and refuses to
+     * create anything but video/* under DCIM, so a ".part" name fails with EPERM.
+     * Recording lists skip it by its leading dot instead.
+     */
+    private static final String PART_SUFFIX = ".part.mp4";
 
     /**
      * Crops still being encoded. The Saved Recordings screen reads this to show a
@@ -182,7 +187,7 @@ public class VideoCropHelper {
                     // -i = input
                     // -vf crop=W:H:X:Y = crop filter (X=0, Y=0 = from top-left)
                     // -c:a copy = copy audio stream without re-encoding
-                    // -f mp4 = the ".part" extension hides the container, so name it
+                    // -f mp4 = name the container explicitly rather than trust the temp name
                     String[] args = new String[] {
                             "-y",
                             "-i", inputPath,
@@ -280,9 +285,9 @@ public class VideoCropHelper {
     }
 
     /**
-     * Hidden sibling of the destination: "/dir/clip_9x16.mp4" -> "/dir/.clip_9x16.mp4.part".
-     * Dot-prefixed so the media scanner ignores it, and not ending in ".mp4" so the
-     * recordings list skips it; same directory, so the final rename is atomic.
+     * Hidden sibling of the destination: "/dir/clip_9x16.mp4" -> "/dir/.clip_9x16.part.mp4".
+     * Dot-prefixed so the media scanner and the recordings list skip it; same
+     * directory, so the final rename is atomic.
      */
     private static File partFileFor(String outputPath) {
         File out = new File(outputPath);
@@ -307,6 +312,6 @@ public class VideoCropHelper {
 
     /** True for the temp file an in-progress crop writes to. */
     public static boolean isPartialFile(String fileName) {
-        return fileName != null && fileName.endsWith(PART_SUFFIX);
+        return fileName != null && fileName.startsWith(".") && fileName.endsWith(PART_SUFFIX);
     }
 }
