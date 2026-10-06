@@ -1,11 +1,9 @@
 package com.jovoc.facecampresentationrecorder.util;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import com.jovoc.facecampresentationrecorder.BuildConfig;
-import com.jovoc.facecampresentationrecorder.R;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -25,9 +23,7 @@ public class SlideLogger {
             return;
         }
         try {
-            String appName = context.getString(R.string.app_name);
-            File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
-            File appDir = new File(dcimDir, appName);
+            File appDir = RecordingStorage.getAppDir(context);
             if (!appDir.exists()) {
                 boolean created = appDir.mkdirs();
                 if (!created) {

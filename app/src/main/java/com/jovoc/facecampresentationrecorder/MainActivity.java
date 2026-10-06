@@ -1436,6 +1436,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
+    private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
     private boolean isInitialAppLaunchCheck = true;
 
     private void loadSlidesFromDb() {
@@ -1478,13 +1479,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void seedInitialSlides() {
-        Slide textSlide1 = new Slide(Slide.TYPE_TEXT, 0, "Double-tap anywhere to toggle Menu & Edit Slides", null);
-        Slide textSlide2 = new Slide(Slide.TYPE_TEXT, 1, "Welcome to Presentation Viewer", null);
+        Slide textSlide = new Slide(Slide.TYPE_TEXT, 0, "(Example topic)\nHow to get rid of anxiety ?", null);
 
-        repository.insert(textSlide1, id1 -> {
-            repository.insert(textSlide2, id2 -> {
+        // The example image ships in assets/ so the first run works offline. It is
+        // copied in like a picked photo, so editing or deleting it behaves the same.
+        String imagePath = ImageStorageHelper.copyAssetImageToInternalStorage(this, SEED_IMAGE_ASSET);
+
+        repository.insert(textSlide, id1 -> {
+            if (imagePath == null) {
                 loadSlidesFromDb();
-            });
+                return;
+            }
+            Slide imageSlide = new Slide(Slide.TYPE_IMAGE, 1, null, imagePath);
+            repository.insert(imageSlide, id2 -> loadSlidesFromDb());
         });
     }
 

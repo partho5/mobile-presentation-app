@@ -16,7 +16,6 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
 import android.os.Build;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -29,6 +28,7 @@ import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -143,8 +143,8 @@ public class ScreenRecordService extends Service {
 
             // Determine target directory in public DCIM / Camera
             String appName = getString(R.string.app_name);
-            File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
-            File appDir = new File(dcimDir, appName);
+            File appDir = RecordingStorage.getAppDir(this);
+            File dcimDir = appDir.getParentFile();
             if (!appDir.exists()) {
                 boolean created = appDir.mkdirs();
                 if (!created) {

@@ -37,6 +37,33 @@ public class ImageStorageHelper {
         }
     }
 
+    /** Copies an image bundled in assets/ into the slide image folder, like a picked photo. */
+    public static String copyAssetImageToInternalStorage(Context context, String assetName) {
+        try {
+            File imagesDir = new File(context.getFilesDir(), "slides_images");
+            if (!imagesDir.exists()) {
+                imagesDir.mkdirs();
+            }
+
+            File destFile = new File(imagesDir, "slide_img_" + System.currentTimeMillis() + "_" + assetName);
+
+            try (InputStream in = context.getAssets().open(assetName);
+                 OutputStream out = new FileOutputStream(destFile)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+            }
+
+            return destFile.getAbsolutePath();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public static String saveVideoToInternalStorage(Context context, Uri uri) {
         try {
             File videosDir = new File(context.getFilesDir(), "slides_videos");

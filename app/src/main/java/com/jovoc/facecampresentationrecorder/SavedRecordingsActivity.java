@@ -8,7 +8,6 @@ import android.content.IntentFilter;
 import android.media.MediaMetadataRetriever;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
@@ -26,6 +25,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 
@@ -209,22 +209,21 @@ public class SavedRecordingsActivity extends AppCompatActivity {
     private List<RecordingItem> scanRecordings() {
         List<RecordingItem> items = new ArrayList<>();
 
-        String appName = getString(R.string.app_name);
-        File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
-        File appDir = new File(dcimDir, appName);
-
-        if (!appDir.exists() || !appDir.isDirectory()) {
-            return items;
-        }
-
         List<VideoCropHelper.PendingCrop> pending = VideoCropHelper.getPendingCrops();
-        deleteOrphanedPartFiles(appDir, pending);
 
-        File[] files = appDir.listFiles((dir, name) ->
-                !name.startsWith(".") && name.toLowerCase(Locale.US).endsWith(".mp4"));
+        // Current folder plus the one used before the app was renamed.
+        List<File> found = new ArrayList<>();
+        for (File appDir : RecordingStorage.getAllDirs(this)) {
+            if (!appDir.exists() || !appDir.isDirectory()) continue;
+            deleteOrphanedPartFiles(appDir, pending);
+            File[] dirFiles = appDir.listFiles((dir, name) ->
+                    !name.startsWith(".") && name.toLowerCase(Locale.US).endsWith(".mp4"));
+            if (dirFiles != null) found.addAll(Arrays.asList(dirFiles));
+        }
+        File[] files = found.toArray(new File[0]);
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.US);
 
-        if (files != null && files.length > 0) {
+        if (files.length > 0) {
             // Sort by last modified descending (newest first)
             Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
 
