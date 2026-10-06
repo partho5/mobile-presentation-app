@@ -184,6 +184,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
 
+                <!-- Last frame shown while the camera is being flipped -->
+                <ImageView
+                    android:id="@+id/iv_camera_freeze_frame"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@null"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Resize Handle Icon (visible for 3s upon tap on camera circle) -->
@@ -197,6 +206,19 @@
                 android:elevation="16dp"
                 android:padding="6dp"
                 android:src="@drawable/ic_aspect_ratio"
+                android:visibility="gone" />
+
+            <!-- Flip camera icon (bottom-left 45 degrees, shown together with the resize handle) -->
+            <ImageView
+                android:id="@+id/btn_flip_camera"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|start"
+                android:background="@drawable/bg_rect_resize_handle"
+                android:contentDescription="Flip Camera"
+                android:elevation="16dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_flip_camera"
                 android:visibility="gone" />
 
         </FrameLayout>

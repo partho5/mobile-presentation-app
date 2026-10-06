@@ -82,6 +82,7 @@ import androidx.camera.core.CameraSelector;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.lifecycle.Observer;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
@@ -183,6 +184,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private MaterialCardView cameraCardContainer;
     private PreviewView cameraPreviewView;
     private ImageView btnResizeHandle;
+    private ImageView btnFlipCamera;
+    private ImageView ivCameraFreezeFrame;
+    private boolean flipAvailable = true;
+    private Observer<PreviewView.StreamState> flipStreamObserver;
+    private final Runnable flipFreezeTimeoutRunnable = this::hideFreezeFrame;
 
     private ScaleGestureDetector scaleGestureDetector;
     private float dX, dY;
@@ -196,6 +202,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .alpha(0f)
                     .setDuration(250)
                     .withEndAction(() -> btnResizeHandle.setVisibility(View.GONE))
+                    .start();
+        }
+        if (btnFlipCamera != null) {
+            btnFlipCamera.animate()
+                    .alpha(0f)
+                    .setDuration(250)
+                    .withEndAction(() -> btnFlipCamera.setVisibility(View.GONE))
                     .start();
         }
     };
@@ -383,6 +396,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_CAM_SIZE = "key_cam_size";
     private static final String KEY_CAM_POS_X = "key_cam_pos_x";
     private static final String KEY_CAM_POS_Y = "key_cam_pos_y";
+    private static final String KEY_CAM_LENS_FACING = "key_cam_lens_facing";
     private static final String KEY_COUNTDOWN_SECONDS = "key_countdown_seconds";
     private static final String KEY_RECORD_AUDIO = "key_record_audio";
     private static final String KEY_AUTOCROP_9_16 = "key_autocrop_9_16";
@@ -414,6 +428,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         float borderPos = cardSize * 0.85355f;
         btnResizeHandle.setTranslationX(borderPos - (handleSize / 2f));
         btnResizeHandle.setTranslationY(borderPos - (handleSize / 2f));
+
+        if (btnFlipCamera != null) {
+            // Mirror of the resize handle: bottom-left 45 degrees on the circle border.
+            float flipSize = btnFlipCamera.getWidth() > 0 ? btnFlipCamera.getWidth() : handleSize;
+            btnFlipCamera.setTranslationX(cardSize * 0.14645f - (flipSize / 2f));
+            btnFlipCamera.setTranslationY(borderPos - (flipSize / 2f));
+        }
     }
 
     private void restoreCameraState() {
@@ -662,6 +683,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         cameraCardContainer = findViewById(R.id.camera_card_container);
         cameraPreviewView = findViewById(R.id.camera_preview_view);
         btnResizeHandle = findViewById(R.id.btn_resize_handle);
+        btnFlipCamera = findViewById(R.id.btn_flip_camera);
+        ivCameraFreezeFrame = findViewById(R.id.iv_camera_freeze_frame);
 
         restoreCameraState();
 
@@ -738,6 +761,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         });
 
         setupResizeHandleTouch();
+        setupFlipCameraButton();
     }
 
     private void showResizeHandleFor3Seconds() {
@@ -745,8 +769,89 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnResizeHandle.animate().cancel();
         btnResizeHandle.setAlpha(1f);
         btnResizeHandle.setVisibility(View.VISIBLE);
+        if (btnFlipCamera != null && flipAvailable) {
+            btnFlipCamera.animate().cancel();
+            btnFlipCamera.setAlpha(1f);
+            btnFlipCamera.setVisibility(View.VISIBLE);
+        }
         hideHandleHandler.removeCallbacks(hideHandleRunnable);
         hideHandleHandler.postDelayed(hideHandleRunnable, 3000);
+    }
+
+    private void setupFlipCameraButton() {
+        if (btnFlipCamera == null) return;
+        btnFlipCamera.setOnClickListener(v -> flipCamera());
+    }
+
+    private int getSavedLensFacing() {
+        return getSharedPreferences(PREF_NAME, MODE_PRIVATE)
+                .getInt(KEY_CAM_LENS_FACING, CameraSelector.LENS_FACING_FRONT);
+    }
+
+    private void flipCamera() {
+        if (!flipAvailable) return;
+        // Tapping flip keeps the icons around for another 3s
+        showResizeHandleFor3Seconds();
+
+        int next = getSavedLensFacing() == CameraSelector.LENS_FACING_FRONT
+                ? CameraSelector.LENS_FACING_BACK : CameraSelector.LENS_FACING_FRONT;
+        getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putInt(KEY_CAM_LENS_FACING, next).apply();
+
+        btnFlipCamera.animate().rotationBy(180f).setDuration(300).start();
+
+        // Freeze the last frame so the swap doesn't flash black
+        if (ivCameraFreezeFrame != null && cameraPreviewView != null) {
+            android.graphics.Bitmap frame = null;
+            try {
+                frame = cameraPreviewView.getBitmap();
+            } catch (Exception e) {
+                Log.w(TAG, "Could not grab freeze frame", e);
+            }
+            if (frame != null) {
+                ivCameraFreezeFrame.setImageBitmap(frame);
+                ivCameraFreezeFrame.animate().cancel();
+                ivCameraFreezeFrame.setAlpha(1f);
+                ivCameraFreezeFrame.setVisibility(View.VISIBLE);
+                watchForStreamingThenHideFreezeFrame();
+            }
+        }
+        startCameraPreview();
+    }
+
+    private void watchForStreamingThenHideFreezeFrame() {
+        clearFlipStreamObserver();
+        final boolean[] sawNotStreaming = {false};
+        flipStreamObserver = state -> {
+            if (state != PreviewView.StreamState.STREAMING) {
+                sawNotStreaming[0] = true;
+            } else if (sawNotStreaming[0]) {
+                hideFreezeFrame();
+            }
+        };
+        cameraPreviewView.getPreviewStreamState().observe(this, flipStreamObserver);
+        hideHandleHandler.removeCallbacks(flipFreezeTimeoutRunnable);
+        hideHandleHandler.postDelayed(flipFreezeTimeoutRunnable, 1500);
+    }
+
+    private void clearFlipStreamObserver() {
+        if (flipStreamObserver != null && cameraPreviewView != null) {
+            cameraPreviewView.getPreviewStreamState().removeObserver(flipStreamObserver);
+        }
+        flipStreamObserver = null;
+    }
+
+    private void hideFreezeFrame() {
+        hideHandleHandler.removeCallbacks(flipFreezeTimeoutRunnable);
+        clearFlipStreamObserver();
+        if (ivCameraFreezeFrame == null || ivCameraFreezeFrame.getVisibility() != View.VISIBLE) return;
+        ivCameraFreezeFrame.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .withEndAction(() -> {
+                    ivCameraFreezeFrame.setVisibility(View.GONE);
+                    ivCameraFreezeFrame.setImageDrawable(null);
+                })
+                .start();
     }
 
     private void setupResizeHandleTouch() {
@@ -1140,15 +1245,27 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
                 Preview preview = new Preview.Builder().build();
-                CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-                        .build();
+
+                CameraSelector frontSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
+                CameraSelector backSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
+                boolean hasFront = cameraProvider.hasCamera(frontSelector);
+                boolean hasBack = cameraProvider.hasCamera(backSelector);
+                flipAvailable = hasFront && hasBack;
+                if (!flipAvailable && btnFlipCamera != null) {
+                    btnFlipCamera.setVisibility(View.GONE);
+                }
+
+                CameraSelector cameraSelector =
+                        (getSavedLensFacing() == CameraSelector.LENS_FACING_BACK && hasBack)
+                                ? backSelector : (hasFront ? frontSelector : backSelector);
 
                 preview.setSurfaceProvider(cameraPreviewView.getSurfaceProvider());
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview);
             } catch (Exception e) {
-                Log.e(TAG, "Error starting front camera preview", e);
+                Log.e(TAG, "Error starting camera preview", e);
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -3026,6 +3143,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     protected void onDestroy() {
         super.onDestroy();
         hideSwipeHint();
+        hideHandleHandler.removeCallbacks(flipFreezeTimeoutRunnable);
         unregisterRecordingFinishedReceiver();
         stopVideoIfPlaying();
         if (countDownTimer != null) {

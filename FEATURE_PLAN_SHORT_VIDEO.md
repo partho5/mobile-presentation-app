@@ -13,7 +13,7 @@ Line numbers are approximate (as of commit after Part 1) — grep the method nam
 |---|---|---|
 | 1 | Rename app, recordings folder, new seed slides | ✅ Done |
 | 2 | First-run swipe-finger tutorial | ✅ Done |
-| 3 | Flip camera button (front/back) | ⬜ Todo |
+| 3 | Flip camera button (front/back) | ✅ Done |
 | 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ⬜ Todo |
 | 5 | Floating face cam overlay over other apps | ⬜ Todo |
 | 6 | Overlay permission onboarding + final QA pass | ⬜ Todo |
@@ -85,7 +85,7 @@ toast once; restart app → no hints. Existing users (appOpenedTimes > 0) never 
 
 ---
 
-## Part 3 — Flip camera
+## Part 3 — Flip camera ✅
 
 Facts: camera is `camera_root_wrapper` → `camera_card_container` (MaterialCardView) → `camera_preview_view`.
 Resize icon `btn_resize_handle` is placed by `updateResizeHandlePosition(cardSize)` at
@@ -93,19 +93,19 @@ Resize icon `btn_resize_handle` is placed by `updateResizeHandlePosition(cardSiz
 `hideHandleRunnable`. `startCameraPreview()` hard-codes `LENS_FACING_FRONT` and calls `unbindAll()`.
 
 Steps:
-- [ ] Drawable `ic_flip_camera.xml` (Material "flip_camera_android"/"cameraswitch").
-- [ ] `activity_main.xml`: `btn_flip_camera` ImageView (40dp, `bg_rect_resize_handle`, elevation 16dp,
+- [x] Drawable `ic_flip_camera.xml` (Material "flip_camera_android"/"cameraswitch").
+- [x] `activity_main.xml`: `btn_flip_camera` ImageView (40dp, `bg_rect_resize_handle`, elevation 16dp,
       `gone`) inside `camera_root_wrapper`; add `iv_camera_freeze_frame` ImageView (match_parent,
       `gone`, centerCrop) inside the card above the PreviewView.
-- [ ] Position: translationX = `cardSize*0.14645 - h/2`, translationY = `cardSize*0.85355 - h/2`;
+- [x] Position: translationX = `cardSize*0.14645 - h/2`, translationY = `cardSize*0.85355 - h/2`;
       update everywhere `updateResizeHandlePosition` is called (or fold into it).
-- [ ] Show/hide together with the resize icon (same 3s timer, same fade). Tapping flip resets the timer.
-- [ ] `KEY_CAM_LENS_FACING` pref; `startCameraPreview()` uses it; if `!cameraProvider.hasCamera(selector)`
+- [x] Show/hide together with the resize icon (same 3s timer, same fade). Tapping flip resets the timer.
+- [x] `KEY_CAM_LENS_FACING` pref; `startCameraPreview()` uses it; if `!cameraProvider.hasCamera(selector)`
       fall back to front and hide the flip button permanently.
-- [ ] Flip UX: grab `cameraPreviewView.getBitmap()` into the freeze frame, spin the flip icon 180°,
+- [x] Flip UX: grab `cameraPreviewView.getBitmap()` into the freeze frame, spin the flip icon 180°,
       rebind, then fade the freeze frame out when `getPreviewStreamState()` reaches `STREAMING`
       (fallback timeout 1500ms). Do **not** rotate the card (SurfaceView ignores 3D transforms).
-- [ ] Works during recording too (lets the user show something with the back camera).
+- [x] Works during recording too (lets the user show something with the back camera).
 
 Verify: tap cam → both icons appear; flip toggles front/back with no long black flash;
 choice survives restart; device with one camera shows no flip icon.
