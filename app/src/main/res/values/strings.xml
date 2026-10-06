@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Short Video Recorder</string>
+    <string name="camera_permission_hint">Your face will be here after you grant all the permissions</string>
 </resources>

@@ -187,6 +187,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageView btnResizeHandle;
     private ImageView btnFlipCamera;
     private ImageView ivCameraFreezeFrame;
+    private TextView tvCameraPermissionHint;
     private boolean flipAvailable = true;
     private Observer<PreviewView.StreamState> flipStreamObserver;
     private final Runnable flipFreezeTimeoutRunnable = this::hideFreezeFrame;
@@ -688,6 +689,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnResizeHandle = findViewById(R.id.btn_resize_handle);
         btnFlipCamera = findViewById(R.id.btn_flip_camera);
         ivCameraFreezeFrame = findViewById(R.id.iv_camera_freeze_frame);
+        tvCameraPermissionHint = findViewById(R.id.tv_camera_permission_hint);
 
         restoreCameraState();
 
@@ -1208,6 +1210,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             break;
                         }
                     }
+                    updateCameraPermissionHint();
                     if (allGranted) {
                         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                             startCameraPreview();
@@ -1253,6 +1256,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCameraPreview();
         }
+    }
+
+    /** The empty circle means nothing to a first-time user, so explain it until all permissions are in. */
+    private void updateCameraPermissionHint() {
+        if (tvCameraPermissionHint == null) return;
+        tvCameraPermissionHint.setVisibility(getMissingPermissions().isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void startCameraPreview() {
@@ -1677,6 +1686,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onResume() {
         super.onResume();
+        updateCameraPermissionHint();
         if (slides != null && !slides.isEmpty()) {
             renderCurrentSlide();
         }

@@ -193,6 +193,24 @@
                     android:scaleType="centerCrop"
                     android:visibility="gone" />
 
+                <!-- First-run hint: shown inside the circle until every permission is granted.
+                     Padding keeps the text inside the circle's inscribed square, and auto-size
+                     shrinks it to fit however small the user resizes the circle. -->
+                <TextView
+                    android:id="@+id/tv_camera_permission_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:autoSizeMaxTextSize="20sp"
+                    android:autoSizeMinTextSize="8sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:gravity="center"
+                    android:padding="32dp"
+                    android:text="@string/camera_permission_hint"
+                    android:textColor="#FFC857"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Resize Handle Icon (visible for 3s upon tap on camera circle) -->
