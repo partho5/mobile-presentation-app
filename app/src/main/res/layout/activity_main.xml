@@ -194,8 +194,8 @@
                     android:visibility="gone" />
 
                 <!-- First-run hint: shown inside the circle until every permission is granted.
-                     Padding keeps the text inside the circle's inscribed square, and auto-size
-                     shrinks it to fit however small the user resizes the circle. -->
+                     Four fixed centered lines; maxLines=4 makes auto-size shrink the font
+                     (rather than wrap a line) when the longest line doesn't fit the circle. -->
                 <TextView
                     android:id="@+id/tv_camera_permission_hint"
                     android:layout_width="match_parent"
@@ -205,8 +205,10 @@
                     android:autoSizeStepGranularity="1sp"
                     android:autoSizeTextType="uniform"
                     android:gravity="center"
+                    android:maxLines="4"
                     android:padding="32dp"
                     android:text="@string/camera_permission_hint"
+                    android:textAlignment="center"
                     android:textColor="#FFC857"
                     android:textStyle="bold"
                     android:visibility="gone" />
