@@ -23,14 +23,17 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Toast;
 
+import androidx.camera.core.CameraSelector;
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 
 import java.io.File;
@@ -46,6 +49,11 @@ public class ScreenRecordService extends Service {
 
     public static final String ACTION_START = "ACTION_START";
     public static final String ACTION_STOP = "ACTION_STOP";
+    public static final String ACTION_SHOW_OVERLAY = "ACTION_SHOW_OVERLAY";
+    public static final String ACTION_HIDE_OVERLAY = "ACTION_HIDE_OVERLAY";
+    public static final String EXTRA_OVERLAY_X = "EXTRA_OVERLAY_X";
+    public static final String EXTRA_OVERLAY_Y = "EXTRA_OVERLAY_Y";
+    public static final String EXTRA_OVERLAY_SIZE = "EXTRA_OVERLAY_SIZE";
     public static final String ACTION_RECORDING_FINISHED = "com.jovoc.facecampresentationrecorder.ACTION_RECORDING_FINISHED";
     public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
     public static final String EXTRA_RESULT_DATA = "EXTRA_RESULT_DATA";
@@ -56,6 +64,8 @@ public class ScreenRecordService extends Service {
     private MediaProjection mediaProjection;
     private MediaRecorder mediaRecorder;
     private VirtualDisplay virtualDisplay;
+
+    private FloatingCamOverlay overlay;
 
     private boolean isRecording = false;
     private String currentVideoPath = null;
@@ -89,9 +99,55 @@ public class ScreenRecordService extends Service {
                 }
             } else if (ACTION_STOP.equals(action)) {
                 stopRecordingInternal();
+            } else if (ACTION_SHOW_OVERLAY.equals(action)) {
+                showOverlay(intent.getIntExtra(EXTRA_OVERLAY_X, 0),
+                        intent.getIntExtra(EXTRA_OVERLAY_Y, 0),
+                        intent.getIntExtra(EXTRA_OVERLAY_SIZE, 0));
+            } else if (ACTION_HIDE_OVERLAY.equals(action)) {
+                hideOverlay();
             }
         }
         return START_NOT_STICKY;
+    }
+
+    private void showOverlay(int x, int y, int size) {
+        // Stray command (no recording running): don't leave an idle service behind
+        if (!isRecording) {
+            if (mediaRecorder == null) stopSelf();
+            return;
+        }
+        if (size <= 0 || !Settings.canDrawOverlays(this)
+                || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        if (overlay == null) {
+            overlay = new FloatingCamOverlay(this, this::onOverlayStopClicked);
+        }
+        int lens = getSharedPreferences("app_prefs", MODE_PRIVATE)
+                .getInt("key_cam_lens_facing", CameraSelector.LENS_FACING_FRONT);
+        overlay.show(x, y, size, lens);
+    }
+
+    private void hideOverlay() {
+        if (overlay != null) {
+            overlay.hide();
+            overlay = null;
+        }
+        if (!isRecording && mediaRecorder == null) stopSelf();
+    }
+
+    private void onOverlayStopClicked() {
+        // Launch first: the visible overlay window is what exempts us from background-launch limits
+        try {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                startActivity(launch);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not bring app to front", e);
+        }
+        stopRecordingInternal();
     }
 
     private void createNotificationChannel() {
@@ -260,6 +316,10 @@ public class ScreenRecordService extends Service {
     }
 
     private void stopRecordingInternal() {
+        if (overlay != null) {
+            overlay.hide();
+            overlay = null;
+        }
         if (!isRecording && mediaRecorder == null) {
             try {
                 stopForeground(STOP_FOREGROUND_REMOVE);

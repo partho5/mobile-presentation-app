@@ -220,6 +220,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     /** Height of the top menu bar as declared in XML, before any status-bar inset. */
     private int topMenuBarBaseHeight = -1;
     private boolean isRecording = false;
+    private boolean overlayRequested = false;
 
     // Launchers
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
@@ -1683,9 +1684,51 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        hideFloatingCamOverlay();
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         stopVideoIfPlaying();
+        if (isRecording && !isChangingConfigurations()) {
+            showFloatingCamOverlay();
+        }
+    }
+
+    /** Hands the face cam over to the service-owned bubble while the user is in another app. */
+    private void showFloatingCamOverlay() {
+        if (cameraRootWrapper == null || cameraCardContainer == null
+                || !Settings.canDrawOverlays(this)) {
+            return;
+        }
+        int size = cameraCardContainer.getWidth();
+        if (size <= 0) return;
+        Intent intent = new Intent(this, ScreenRecordService.class);
+        intent.setAction(ScreenRecordService.ACTION_SHOW_OVERLAY);
+        intent.putExtra(ScreenRecordService.EXTRA_OVERLAY_X, Math.round(cameraRootWrapper.getX()));
+        intent.putExtra(ScreenRecordService.EXTRA_OVERLAY_Y, Math.round(cameraRootWrapper.getY()));
+        intent.putExtra(ScreenRecordService.EXTRA_OVERLAY_SIZE, size);
+        try {
+            startService(intent);
+            overlayRequested = true;
+        } catch (Exception e) {
+            Log.w(TAG, "Could not request camera overlay", e);
+        }
+    }
+
+    private void hideFloatingCamOverlay() {
+        if (!overlayRequested) return;
+        overlayRequested = false;
+        Intent intent = new Intent(this, ScreenRecordService.class);
+        intent.setAction(ScreenRecordService.ACTION_HIDE_OVERLAY);
+        try {
+            startService(intent);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not hide camera overlay", e);
+        }
     }
 
     private void applyMediaTopMargin(View view, int mediaHeight) {

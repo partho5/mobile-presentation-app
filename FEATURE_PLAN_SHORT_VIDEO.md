@@ -15,7 +15,7 @@ Line numbers are approximate (as of commit after Part 1) — grep the method nam
 | 2 | First-run swipe-finger tutorial | ✅ Done |
 | 3 | Flip camera button (front/back) | ✅ Done |
 | 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ✅ Done |
-| 5 | Floating face cam overlay over other apps | ⬜ Todo |
+| 5 | Floating face cam overlay over other apps | ✅ Done |
 | 6 | Overlay permission onboarding + final QA pass | ⬜ Todo |
 
 ## Decisions already confirmed by the user (do not re-ask)
@@ -139,23 +139,23 @@ app on screen **and audio**; app UI is back in edit mode.
 
 ---
 
-## Part 5 — Floating face cam overlay
+## Part 5 — Floating face cam overlay ✅
 
 Design: overlay owned by `ScreenRecordService` (outlives the activity).
 
-- [ ] New `ui/FloatingCamOverlay.java`: own `LifecycleOwner` (`LifecycleRegistry`), `PreviewView` in a
+- [x] New `ui/FloatingCamOverlay.java`: own `LifecycleOwner` (`LifecycleRegistry`), `PreviewView` in a
       circular `MaterialCardView` + small low-alpha stop button below it, added via `WindowManager`
       with `TYPE_APPLICATION_OVERLAY`, `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`,
       `layoutInDisplayCutoutMode = ALWAYS`, gravity TOP|START (rootLayout is full-bleed, so in-app
       x/y == screen x/y). Draggable via `updateViewLayout`; position not persisted.
-- [ ] Binds CameraX with lens from `KEY_CAM_LENS_FACING`; on hide → lifecycle DESTROYED (unbinds).
+- [x] Binds CameraX with lens from `KEY_CAM_LENS_FACING`; on hide → lifecycle DESTROYED (unbinds).
       CameraX suspends the older lifecycle camera automatically when the activity restarts.
-- [ ] Service actions `ACTION_SHOW_OVERLAY` (extras: x, y, size) / `ACTION_HIDE_OVERLAY`.
-- [ ] `MainActivity.onStop()`: if `isRecording && !isChangingConfigurations() && Settings.canDrawOverlays()`
+- [x] Service actions `ACTION_SHOW_OVERLAY` (extras: x, y, size) / `ACTION_HIDE_OVERLAY`.
+- [x] `MainActivity.onStop()`: if `isRecording && !isChangingConfigurations() && Settings.canDrawOverlays()`
       → send SHOW with current `cameraRootWrapper` x/y and card size. `onStart()` → send HIDE.
-- [ ] Overlay stop button → `ACTION_STOP`, then start launcher intent (overlay-permission apps are
+- [x] Overlay stop button → `ACTION_STOP`, then start launcher intent (overlay-permission apps are
       exempt from background-activity-launch limits) so the user lands on the playback dialog.
-- [ ] Remove overlay in `stopRecordingInternal()` and `onDestroy()`.
+- [x] Remove overlay in `stopRecordingInternal()` and `onDestroy()`.
 
 Verify: bubble appears at the same spot when leaving the app, follows drags, is in the video,
 disappears on return, ~0.5s black on handoff is the accepted trade-off.
