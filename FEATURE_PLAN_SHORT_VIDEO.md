@@ -14,7 +14,7 @@ Line numbers are approximate (as of commit after Part 1) — grep the method nam
 | 1 | Rename app, recordings folder, new seed slides | ✅ Done |
 | 2 | First-run swipe-finger tutorial | ✅ Done |
 | 3 | Flip camera button (front/back) | ✅ Done |
-| 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ⬜ Todo |
+| 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ✅ Done |
 | 5 | Floating face cam overlay over other apps | ⬜ Todo |
 | 6 | Overlay permission onboarding + final QA pass | ⬜ Todo |
 
@@ -112,7 +112,7 @@ choice survives restart; device with one camera shows no flip icon.
 
 ---
 
-## Part 4 — Full-screen recording foundation
+## Part 4 — Full-screen recording foundation ✅
 
 Conflicts found in the existing system:
 1. `ScreenRecordService` is declared only as `mediaProjection` → **mic is silenced when the app is
@@ -122,15 +122,15 @@ Conflicts found in the existing system:
    (`recordingFinishedReceiver` shows the player but never resets UI).
 
 Steps:
-- [ ] Manifest: `FOREGROUND_SERVICE_CAMERA`, `FOREGROUND_SERVICE_MICROPHONE`, `SYSTEM_ALERT_WINDOW`;
+- [x] Manifest: `FOREGROUND_SERVICE_CAMERA`, `FOREGROUND_SERVICE_MICROPHONE`, `SYSTEM_ALERT_WINDOW`;
       service `foregroundServiceType="mediaProjection|camera|microphone"`.
-- [ ] `startForeground(...)`: build the type mask dynamically — add CAMERA / MICROPHONE only if the
+- [x] `startForeground(...)`: build the type mask dynamically — add CAMERA / MICROPHONE only if the
       runtime permission is granted (else SecurityException).
-- [ ] `MainActivity.proceedToScreenCapture()`: on API 34+ use
+- [x] `MainActivity.proceedToScreenCapture()`: on API 34+ use
       `createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())`.
-- [ ] Notification: `contentIntent` = launcher intent (brings existing task to front) + "Stop" action
+- [x] Notification: `contentIntent` = launcher intent (brings existing task to front) + "Stop" action
       (`PendingIntent.getService` → `ACTION_STOP`).
-- [ ] `recordingFinishedReceiver`: if `isRecording` is still true, reset UI exactly like
+- [x] `recordingFinishedReceiver`: if `isRecording` is still true, reset UI exactly like
       `stopRecordingFlow()` minus sending ACTION_STOP (extract `onRecordingStoppedUi()`).
       Also covers the system "stop sharing" chip.
 

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -1049,7 +1050,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             MediaProjectionManager projectionManager =
                     (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (projectionManager != null) {
-                screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent());
+                Intent captureIntent;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    // Skip the "single app" option so leaving the app keeps recording the whole screen
+                    captureIntent = projectionManager.createScreenCaptureIntent(
+                            MediaProjectionConfig.createConfigForDefaultDisplay());
+                } else {
+                    captureIntent = projectionManager.createScreenCaptureIntent();
+                }
+                screenCaptureLauncher.launch(captureIntent);
             }
         }
     }
@@ -1128,16 +1137,21 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             Intent serviceIntent = new Intent(this, ScreenRecordService.class);
             serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
             startService(serviceIntent);
-            isRecording = false;
-            showCropGuideLines();
-
-            incrementSuccessfulRecordingsCount();
-
-            // Return to Edit Mode UI
-            isMenuBarVisible = true;
-            setPresentationMode(false);
-            updateUIState();
+            onRecordingStoppedUi();
         }
+    }
+
+    /** Resets the UI to Edit Mode after a recording ends (stop button, notification, or system chip). */
+    private void onRecordingStoppedUi() {
+        isRecording = false;
+        showCropGuideLines();
+
+        incrementSuccessfulRecordingsCount();
+
+        // Return to Edit Mode UI
+        isMenuBarVisible = true;
+        setPresentationMode(false);
+        updateUIState();
     }
 
     private void updateUIState() {
@@ -2931,6 +2945,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent != null && ScreenRecordService.ACTION_RECORDING_FINISHED.equals(intent.getAction())) {
+                if (isRecording) {
+                    // Stopped externally (notification action / system "stop sharing")
+                    onRecordingStoppedUi();
+                }
                 String path = intent.getStringExtra(ScreenRecordService.EXTRA_VIDEO_PATH);
                 if (path != null) {
                     File file = new File(path);
