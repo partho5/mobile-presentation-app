@@ -10,11 +10,47 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Record Settings"
+        android:text="Settings"
         android:textColor="#1F1F1F"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fillViewport="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+    <!-- Permissions still missing; rows are built at runtime, hidden when none are missing -->
+    <LinearLayout
+        android:id="@+id/permissions_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Permissions not granted yet"
+            android:textColor="#6200EE"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
+
+        <LinearLayout
+            android:id="@+id/permissions_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </LinearLayout>
 
     <!-- Countdown Timer Setting -->
     <TextView
@@ -131,6 +167,9 @@
         android:text="1:1 (square)"
         android:textSize="14sp"
         android:layout_marginBottom="20dp" />
+
+        </LinearLayout>
+    </ScrollView>
 
     <!-- Action Buttons -->
     <LinearLayout

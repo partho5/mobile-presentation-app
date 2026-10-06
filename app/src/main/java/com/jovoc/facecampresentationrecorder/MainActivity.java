@@ -230,6 +230,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ActivityResultLauncher<PickVisualMediaRequest> videoPickerLauncher;
     private ActivityResultLauncher<PickVisualMediaRequest> updateVideoPickerLauncher;
     private ActivityResultLauncher<String[]> permissionLauncher;
+    /** Single-permission requests started from the Settings dialog. */
+    private ActivityResultLauncher<String> settingsPermissionLauncher;
+    private String pendingSettingsPermission;
+    /** Rebuilds the Settings dialog's permission rows; non-null only while that dialog is open. */
+    private Runnable refreshPermissionRows;
     private ActivityResultLauncher<Intent> screenCaptureLauncher;
 
     private Slide slideToUpdateImage = null;
@@ -1222,6 +1227,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
         );
 
+        settingsPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                granted -> {
+                    String permission = pendingSettingsPermission;
+                    pendingSettingsPermission = null;
+                    if (granted) {
+                        if (Manifest.permission.CAMERA.equals(permission)) startCameraPreview();
+                    } else if (permission != null
+                            && !ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
+                        // Denied for good: the system dialog won't appear again, only app settings can help.
+                        openAppSettings();
+                    }
+                    updateCameraPermissionHint();
+                    if (refreshPermissionRows != null) refreshPermissionRows.run();
+                }
+        );
+
         screenCaptureLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -1599,7 +1621,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_SWIPE_TUTORIAL_ACTIVE = "swipeTutorialActive";
     private static final String KEY_SWIPE_HINT_NEXT_DONE = "swipeHintNextDone";
     private static final String KEY_SWIPE_HINT_PREV_DONE = "swipeHintPrevDone";
-    private static final String KEY_OVERLAY_PROMPT_SHOWN = "overlayPromptShown";
     private static final String KEY_DOUBLE_TAP_TIP_SHOWN = "doubleTapTipShown";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
     private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
@@ -1687,6 +1708,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     protected void onResume() {
         super.onResume();
         updateCameraPermissionHint();
+        if (refreshPermissionRows != null) refreshPermissionRows.run();
         if (slides != null && !slides.isEmpty()) {
             renderCurrentSlide();
         }
@@ -1716,16 +1738,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     /**
-     * Explains the missing face cam once, after the user left the app mid-recording without the
-     * overlay permission. Never asked at record start, and held back while recording so the dialog
-     * doesn't end up in the video.
+     * Explains the missing face cam once per failure: every time the user leaves the app
+     * mid-recording without the overlay permission and comes back. Never asked at record start,
+     * and held back while recording so the dialog doesn't end up in the video.
      */
     private void maybeShowOverlayPermissionPrompt() {
         if (!leftAppWithoutOverlayPermission || isRecording) return;
         leftAppWithoutOverlayPermission = false;
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        if (prefs.getBoolean(KEY_OVERLAY_PROMPT_SHOWN, false) || Settings.canDrawOverlays(this)) return;
-        prefs.edit().putBoolean(KEY_OVERLAY_PROMPT_SHOWN, true).apply();
+        if (Settings.canDrawOverlays(this)) return;
 
         new AlertDialog.Builder(this)
                 .setTitle("Face cam wasn't visible")
@@ -2877,6 +2897,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (cbCrop45 != null) cbCrop45.setChecked(prefs.getBoolean(KEY_AUTOCROP_4_5, false));
         if (cbCrop11 != null) cbCrop11.setChecked(prefs.getBoolean(KEY_AUTOCROP_1_1, false));
 
+        setupPermissionsSection(view, dialog);
+
         Button btnCancel = view.findViewById(R.id.btn_cancel_settings);
         Button btnSave = view.findViewById(R.id.btn_save_settings);
 
@@ -2901,7 +2923,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         .putBoolean(KEY_AUTOCROP_1_1, cbCrop11 != null && cbCrop11.isChecked())
                         .apply();
 
-                Toast.makeText(this, "Record Settings saved", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
 
                 // A dialog never triggers onResume, so nothing would re-read the new
@@ -2911,6 +2933,88 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         dialog.show();
+    }
+
+    /** A permission this app needs that the user hasn't granted yet. */
+    private static final class MissingPermission {
+        final String label;
+        final String runtimePermission; // null for the "display over other apps" special access
+
+        MissingPermission(String label, String runtimePermission) {
+            this.label = label;
+            this.runtimePermission = runtimePermission;
+        }
+    }
+
+    /** Every permission the app asks for anywhere, filtered to the ones not granted. Add new ones here. */
+    private List<MissingPermission> getMissingPermissionRows() {
+        List<MissingPermission> rows = new ArrayList<>();
+        for (String permission : getMissingPermissions()) {
+            if (Manifest.permission.CAMERA.equals(permission)) {
+                rows.add(new MissingPermission("Camera (your face cam)", permission));
+            } else if (Manifest.permission.RECORD_AUDIO.equals(permission)) {
+                rows.add(new MissingPermission("Microphone (your voice)", permission));
+            } else if (Manifest.permission.POST_NOTIFICATIONS.equals(permission)) {
+                rows.add(new MissingPermission("Notifications (stop recording from the shade)", permission));
+            }
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            rows.add(new MissingPermission("Display over other apps (face cam in other apps)", null));
+        }
+        return rows;
+    }
+
+    /**
+     * Fills the Settings dialog's permission section with one row per missing permission.
+     * Rows rebuild whenever the user returns from a system screen, so a granted permission
+     * disappears and the whole section hides once nothing is missing.
+     */
+    private void setupPermissionsSection(View dialogView, AlertDialog dialog) {
+        View section = dialogView.findViewById(R.id.permissions_section);
+        LinearLayout container = dialogView.findViewById(R.id.permissions_container);
+        if (section == null || container == null) return;
+
+        float density = getResources().getDisplayMetrics().density;
+        refreshPermissionRows = () -> {
+            container.removeAllViews();
+            List<MissingPermission> missing = getMissingPermissionRows();
+            section.setVisibility(missing.isEmpty() ? View.GONE : View.VISIBLE);
+            for (MissingPermission item : missing) {
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+                TextView label = new TextView(this);
+                label.setText(item.label);
+                label.setTextColor(0xFF1F1F1F);
+                label.setTextSize(14);
+                row.addView(label, new LinearLayout.LayoutParams(0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+                Button allow = new Button(this);
+                allow.setText("Allow");
+                allow.setAllCaps(false);
+                allow.setTextColor(0xFFFFFFFF);
+                allow.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF6200EE));
+                allow.setOnClickListener(v -> requestMissingPermission(item));
+                row.addView(allow, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, Math.round(40 * density)));
+
+                container.addView(row);
+            }
+        };
+        refreshPermissionRows.run();
+        dialog.setOnDismissListener(d -> refreshPermissionRows = null);
+    }
+
+    private void requestMissingPermission(MissingPermission item) {
+        if (item.runtimePermission == null) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.fromParts("package", getPackageName(), null)));
+        } else {
+            pendingSettingsPermission = item.runtimePermission;
+            settingsPermissionLauncher.launch(item.runtimePermission);
+        }
     }
 
     /**
