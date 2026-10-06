@@ -1,4 +1,4 @@
-# FaceCam Presentation Recorder — Presentation Viewer App Specification
+# Short Video Recorder — Presentation Viewer App Specification
 
 ## Purpose
 
@@ -30,6 +30,14 @@ The app has two distinct visual modes: a normal **Edit Mode** with full UI, and 
 > The double-tap toggle **replaces** the previous standalone full-screen toggle. There is no separate full-screen action — entering Presentation Mode IS the full-screen action.
 
 ---
+
+## Recording
+
+- **Face cam:** draggable, resizable circle (front or back camera, flip icon on the border). Recordings go to `DCIM/Short Video Recorder`; Saved Recordings also lists the legacy `DCIM/FaceCam Presentation Recorder` folder.
+- **Entire-screen capture:** on Android 14+ the capture prompt only offers the whole screen, so leaving the app keeps recording. The foreground service holds `mediaProjection|camera|microphone` types so mic and camera keep working in the background.
+- **Floating face cam:** while recording, if the user leaves the app and has granted "Display over other apps", a draggable bubble (owned by `ScreenRecordService`) follows them and appears in the video. It hides on return. Without the permission the user is asked once, after returning, to grant it.
+- **Stopping:** in-app stop button, the notification's Stop action, the bubble's stop button, or the system "stop sharing" chip. The UI resets to Edit Mode in every case.
+- **First run:** an animated swipe hint teaches next/previous slide gestures until the user actually swipes.
 
 ## Slide Types
 

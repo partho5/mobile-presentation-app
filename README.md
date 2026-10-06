@@ -1,4 +1,4 @@
-# Mobile Presentation App
+# Short Video Recorder
 
 A **screen-recording-focused presentation viewer** for Android, built with native Java and XML.
 
@@ -13,6 +13,10 @@ The normal app view. You can add, edit, reorder, and delete slides. Navigation c
 
 ### Presentation Mode
 Triggered by a **double-tap anywhere on the screen**. All UI disappears — no toolbar, no buttons, no controls. Just your content on a pure black background in immersive full-screen. Double-tap again to return to Edit Mode.
+
+## Recording
+
+Records the screen with a face cam overlay and auto-crops to 9:16 / 4:5 / 1:1. Recording captures the **entire screen**, so you can leave the app mid-recording; with the "Display over other apps" permission a floating face cam bubble follows you into other apps. Stop from the in-app button, the notification, or the bubble. Videos are saved to `DCIM/Short Video Recorder`.
 
 ## Slide Types
 

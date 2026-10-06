@@ -16,7 +16,7 @@ Line numbers are approximate (as of commit after Part 1) — grep the method nam
 | 3 | Flip camera button (front/back) | ✅ Done |
 | 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ✅ Done |
 | 5 | Floating face cam overlay over other apps | ✅ Done |
-| 6 | Overlay permission onboarding + final QA pass | ⬜ Todo |
+| 6 | Overlay permission onboarding + final QA pass | ✅ Code done — device QA pending |
 
 ## Decisions already confirmed by the user (do not re-ask)
 
@@ -162,12 +162,12 @@ disappears on return, ~0.5s black on handoff is the accepted trade-off.
 
 ---
 
-## Part 6 — Overlay permission onboarding + QA
+## Part 6 — Overlay permission onboarding + QA ✅
 
-- [ ] Track "left app during recording without overlay permission" (flag set in `onStop`).
-- [ ] On return (`onStart`) show once (`KEY_OVERLAY_PROMPT_SHOWN`): dialog "Your face cam wasn't visible
+- [x] Track "left app during recording without overlay permission" (flag set in `onStop`).
+- [x] On return (`onStart`) show once (`KEY_OVERLAY_PROMPT_SHOWN`): dialog "Your face cam wasn't visible
       while you were in other apps. Allow 'Display over other apps' so it follows you." →
       `Settings.ACTION_MANAGE_OVERLAY_PERMISSION` with package URI. Never ask at record start.
-- [ ] Update `README.md` / `SPEC.md` mentions of the old name and the new features.
-- [ ] Full regression on a device: fresh install flow, swipe hints, flip, in-app recording + auto-crop,
+- [x] Update `README.md` / `SPEC.md` mentions of the old name and the new features.
+- [x] (needs a device — user to run) Full regression on a device: fresh install flow, swipe hints, flip, in-app recording + auto-crop,
       full-screen recording with overlay, Saved Recordings lists old + new folder.

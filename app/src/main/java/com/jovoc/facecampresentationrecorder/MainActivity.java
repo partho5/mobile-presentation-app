@@ -221,6 +221,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private int topMenuBarBaseHeight = -1;
     private boolean isRecording = false;
     private boolean overlayRequested = false;
+    private boolean leftAppWithoutOverlayPermission = false;
 
     // Launchers
     private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
@@ -1589,6 +1590,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_SWIPE_TUTORIAL_ACTIVE = "swipeTutorialActive";
     private static final String KEY_SWIPE_HINT_NEXT_DONE = "swipeHintNextDone";
     private static final String KEY_SWIPE_HINT_PREV_DONE = "swipeHintPrevDone";
+    private static final String KEY_OVERLAY_PROMPT_SHOWN = "overlayPromptShown";
     private static final String KEY_DOUBLE_TAP_TIP_SHOWN = "doubleTapTipShown";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
     private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
@@ -1687,6 +1689,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     protected void onStart() {
         super.onStart();
         hideFloatingCamOverlay();
+        maybeShowOverlayPermissionPrompt();
     }
 
     @Override
@@ -1694,8 +1697,35 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         super.onStop();
         stopVideoIfPlaying();
         if (isRecording && !isChangingConfigurations()) {
-            showFloatingCamOverlay();
+            if (Settings.canDrawOverlays(this)) {
+                showFloatingCamOverlay();
+            } else {
+                leftAppWithoutOverlayPermission = true;
+            }
         }
+    }
+
+    /**
+     * Explains the missing face cam once, after the user left the app mid-recording without the
+     * overlay permission. Never asked at record start, and held back while recording so the dialog
+     * doesn't end up in the video.
+     */
+    private void maybeShowOverlayPermissionPrompt() {
+        if (!leftAppWithoutOverlayPermission || isRecording) return;
+        leftAppWithoutOverlayPermission = false;
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        if (prefs.getBoolean(KEY_OVERLAY_PROMPT_SHOWN, false) || Settings.canDrawOverlays(this)) return;
+        prefs.edit().putBoolean(KEY_OVERLAY_PROMPT_SHOWN, true).apply();
+
+        new AlertDialog.Builder(this)
+                .setTitle("Face cam wasn't visible")
+                .setMessage("Your face cam wasn't visible while you were in other apps. "
+                        + "Allow \"Display over other apps\" so it follows you.")
+                .setPositiveButton("Allow", (d, w) -> startActivity(new Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.fromParts("package", getPackageName(), null))))
+                .setNegativeButton("Not now", null)
+                .show();
     }
 
     /** Hands the face cam over to the service-owned bubble while the user is in another app. */
