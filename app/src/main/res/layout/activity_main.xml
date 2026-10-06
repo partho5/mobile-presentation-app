@@ -369,6 +369,39 @@
             android:src="@drawable/ic_arrow_right_red"
             android:visibility="gone" />
 
+        <!-- First-run swipe tutorial hint (non-clickable; positioned in code) -->
+        <LinearLayout
+            android:id="@+id/swipe_hint_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="false"
+            android:focusable="false"
+            android:elevation="22dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_swipe_hint_hand"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:contentDescription="Swipe hint"
+                android:src="@drawable/ic_swipe_hand" />
+
+            <TextView
+                android:id="@+id/tv_swipe_hint_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="#99000000"
+                android:paddingStart="10dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="3dp"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
         <!-- Countdown Overlay UI -->
         <FrameLayout
             android:id="@+id/countdown_overlay_container"

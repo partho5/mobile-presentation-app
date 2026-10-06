@@ -12,7 +12,7 @@ Line numbers are approximate (as of commit after Part 1) — grep the method nam
 | Part | Scope | Status |
 |---|---|---|
 | 1 | Rename app, recordings folder, new seed slides | ✅ Done |
-| 2 | First-run swipe-finger tutorial | ⬜ Todo |
+| 2 | First-run swipe-finger tutorial | ✅ Done |
 | 3 | Flip camera button (front/back) | ⬜ Todo |
 | 4 | Full-screen recording foundation (FGS types, entire-screen capture, external stop) | ⬜ Todo |
 | 5 | Floating face cam overlay over other apps | ⬜ Todo |
@@ -44,7 +44,7 @@ the old "Double-tap anywhere to toggle Menu" seed slide is gone → Part 2 adds 
 
 ---
 
-## Part 2 — Swipe-finger tutorial
+## Part 2 — Swipe-finger tutorial ✅
 
 **Goal:** first launch → animated hand swiping LEFT on slide 1; once on slide 2 → hand swiping RIGHT.
 
@@ -58,26 +58,26 @@ Facts from the code:
 - `updateNavigationButtonsState()` is called from `renderCurrentSlide()` and `updateUIState()` — a good hook.
 
 Steps:
-- [ ] Drawable `res/drawable/ic_swipe_hand.xml` — white Material "touch_app" hand
+- [x] Drawable `res/drawable/ic_swipe_hand.xml` — white Material "touch_app" hand
       (path `M9,11.24V7.5C9,6.12 10.12,5 11.5,5S14,6.12 14,7.5v3.74c1.21,-0.81 2,-2.18 2,-3.74C16,5.01 13.99,3 11.5,3S7,5.01 7,7.5C7,9.06 7.79,10.43 9,11.24zM18.84,15.87l-4.54,-2.26c-0.17,-0.07 -0.35,-0.11 -0.54,-0.11H13v-6C13,6.67 12.33,6 11.5,6S10,6.67 10,7.5v10.74l-3.43,-0.72c-0.08,-0.01 -0.15,-0.03 -0.24,-0.03c-0.31,0 -0.59,0.13 -0.79,0.33l-0.79,0.8l4.94,4.94C9.96,23.83 10.34,24 10.75,24h6.79c0.75,0 1.33,-0.55 1.44,-1.28l0.75,-5.27c0.01,-0.07 0.02,-0.14 0.02,-0.2C19.75,16.63 19.37,16.09 18.84,15.87z`),
       thin dark stroke for contrast.
-- [ ] `activity_main.xml`: after `iv_stop_arrow_hint`, add non-clickable `swipe_hint_container`
+- [x] `activity_main.xml`: after `iv_stop_arrow_hint`, add non-clickable `swipe_hint_container`
       (vertical LinearLayout, `gone`, elevation ~22dp) with `iv_swipe_hint_hand` (56dp) and a small
       label `tv_swipe_hint_label` ("Swipe left for next slide" / "Swipe right to go back").
-- [ ] Prefs: `KEY_SWIPE_TUTORIAL_ACTIVE` (set true in `onCreate` only if appOpenedTimes was 0
+- [x] Prefs: `KEY_SWIPE_TUTORIAL_ACTIVE` (set true in `onCreate` only if appOpenedTimes was 0
       before increment), `KEY_SWIPE_HINT_NEXT_DONE`, `KEY_SWIPE_HINT_PREV_DONE`, `KEY_DOUBLE_TAP_TIP_SHOWN`.
-- [ ] `updateSwipeHint()`: hide if tutorial inactive, recording, countdown visible, or < 2 active slides.
+- [x] `updateSwipeHint()`: hide if tutorial inactive, recording, countdown visible, or < 2 active slides.
       Else: `!nextDone && hasNext` → LEFT hint; else `!prevDone && hasPrev` → RIGHT hint; else hide.
       Call it from `updateNavigationButtonsState()`.
-- [ ] Mark done **only on real swipes** in `onFling` (left → nextDone, right → prevDone). Arrow taps
+- [x] Mark done **only on real swipes** in `onFling` (left → nextDone, right → prevDone). Arrow taps
       do not count, so the hint keeps teaching until the gesture is used.
-- [ ] Positioning (post ~400ms after render, image loads async): free band = bottom of
+- [x] Positioning (post ~400ms after render, image loads async): free band = bottom of
       `getActiveSlideView()` → top of `btnRecord`; if the camera rect overlaps it, use the larger
       sub-band above/below the camera; centre the hint in it.
-- [ ] Animation: one infinite `ValueAnimator` (~1800ms) — fade in + press (scale 1.1→0.95),
+- [x] Animation: one infinite `ValueAnimator` (~1800ms) — fade in + press (scale 1.1→0.95),
       slide ±56dp with decelerate, fade out, short pause. Cancel on hide and in `onDestroy`.
-- [ ] Hide instantly on recording start (`updateUIState` with `isRecording`) so it never gets recorded.
-- [ ] When both done: one-time toast "Double-tap anywhere for menu & slide editing", then
+- [x] Hide instantly on recording start (`updateUIState` with `isRecording`) so it never gets recorded.
+- [x] When both done: one-time toast "Double-tap anywhere for menu & slide editing", then
       clear `KEY_SWIPE_TUTORIAL_ACTIVE`.
 
 Verify: fresh install → hint left on slide 1; swipe → slide 2 shows right hint; swipe back → hints gone,

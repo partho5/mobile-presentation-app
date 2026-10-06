@@ -7,6 +7,7 @@ import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
@@ -144,6 +145,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnStopRecordFloating;
     private ImageView ivStopArrowHint;
 
+    // First-run swipe tutorial
+    private View swipeHintContainer;
+    private ImageView ivSwipeHintHand;
+    private TextView tvSwipeHintLabel;
+    private ValueAnimator swipeHintAnimator;
+    private boolean swipeHintShowingNext;
+    private final Runnable swipeHintPositionRunnable = this::positionAndStartSwipeHint;
+
     // Countdown & Start Flash Components
     private View countdownOverlayContainer;
     private TextView tvCountdownNumber;
@@ -245,7 +254,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         setupRecordButton();
         setupPermissionsAndCamera();
 
-        // Track app opened count
+        // Track app opened count (first launch also arms the swipe tutorial)
+        SharedPreferences launchPrefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        if (launchPrefs.getInt(KEY_APP_OPENED_TIMES, 0) == 0) {
+            launchPrefs.edit().putBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, true).apply();
+        }
         incrementAppOpenedTimes();
 
         // Start directly in Presentation Mode (system bars hidden)
@@ -344,6 +357,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         btnCancelCountdown = findViewById(R.id.btn_cancel_countdown);
         flashOverlayView = findViewById(R.id.flash_overlay_view);
         ivStopArrowHint = findViewById(R.id.iv_stop_arrow_hint);
+        swipeHintContainer = findViewById(R.id.swipe_hint_container);
+        ivSwipeHintHand = findViewById(R.id.iv_swipe_hint_hand);
+        tvSwipeHintLabel = findViewById(R.id.tv_swipe_hint_label);
 
         if (btnCancelCountdown != null) {
             btnCancelCountdown.setOnClickListener(v -> cancelCountdown());
@@ -1027,6 +1043,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (isRecording) {
             // In Recording Mode: hide top bar, hide red start button, show ONLY floating gray stop button
             topMenuBar.setVisibility(View.GONE);
+            hideSwipeHint();
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
 
@@ -1249,9 +1266,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
                         if (diffX > 0) {
                             // Swipe Right -> Previous Slide
+                            markSwipeGestureDone(false);
                             goToPreviousSlide();
                         } else {
                             // Swipe Left -> Next Slide
+                            markSwipeGestureDone(true);
                             goToNextSlide();
                         }
                         return true;
@@ -1435,6 +1454,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private static final String KEY_APP_OPENED_TIMES = "appOpenedTimes";
+    private static final String KEY_SWIPE_TUTORIAL_ACTIVE = "swipeTutorialActive";
+    private static final String KEY_SWIPE_HINT_NEXT_DONE = "swipeHintNextDone";
+    private static final String KEY_SWIPE_HINT_PREV_DONE = "swipeHintPrevDone";
+    private static final String KEY_DOUBLE_TAP_TIP_SHOWN = "doubleTapTipShown";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
     private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
     private boolean isInitialAppLaunchCheck = true;
@@ -1967,6 +1990,158 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             btnPrev.setVisibility(View.INVISIBLE);
             btnNext.setVisibility(View.INVISIBLE);
         }
+
+        updateSwipeHint(hasPrev, hasNext);
+    }
+
+    // --- First-run swipe tutorial ---
+
+    private int countActiveSlides() {
+        int n = 0;
+        for (Slide s : slides) if (!s.isDisabled()) n++;
+        return n;
+    }
+
+    private void markSwipeGestureDone(boolean next) {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        if (!prefs.getBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false)) return;
+        prefs.edit().putBoolean(next ? KEY_SWIPE_HINT_NEXT_DONE : KEY_SWIPE_HINT_PREV_DONE, true).apply();
+        boolean nextDone = next || prefs.getBoolean(KEY_SWIPE_HINT_NEXT_DONE, false);
+        boolean prevDone = !next || prefs.getBoolean(KEY_SWIPE_HINT_PREV_DONE, false);
+        if (nextDone && prevDone) {
+            prefs.edit().putBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false).apply();
+            if (!prefs.getBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, false)) {
+                prefs.edit().putBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, true).apply();
+                Toast.makeText(this, "Double-tap anywhere for menu & slide editing", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void updateSwipeHint(boolean hasPrev, boolean hasNext) {
+        if (swipeHintContainer == null) return;
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        boolean countdownVisible = countdownOverlayContainer != null
+                && countdownOverlayContainer.getVisibility() == View.VISIBLE;
+        boolean show = prefs.getBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false)
+                && !isRecording && !countdownVisible && countActiveSlides() >= 2;
+        Boolean wantNext = null;
+        if (show) {
+            if (!prefs.getBoolean(KEY_SWIPE_HINT_NEXT_DONE, false) && hasNext) wantNext = true;
+            else if (!prefs.getBoolean(KEY_SWIPE_HINT_PREV_DONE, false) && hasPrev) wantNext = false;
+        }
+        if (wantNext == null) {
+            hideSwipeHint();
+            return;
+        }
+        if (swipeHintAnimator != null && swipeHintShowingNext == wantNext) {
+            // Same hint already running; just re-centre it (slide size may have changed)
+            swipeHintContainer.removeCallbacks(swipeHintPositionRunnable);
+            swipeHintContainer.postDelayed(swipeHintPositionRunnable, 400);
+            return;
+        }
+        hideSwipeHint();
+        swipeHintShowingNext = wantNext;
+        tvSwipeHintLabel.setText(wantNext ? "Swipe left for next slide" : "Swipe right to go back");
+        swipeHintContainer.setVisibility(View.INVISIBLE);
+        swipeHintContainer.postDelayed(swipeHintPositionRunnable, 400);
+    }
+
+    private void hideSwipeHint() {
+        if (swipeHintContainer == null) return;
+        swipeHintContainer.removeCallbacks(swipeHintPositionRunnable);
+        if (swipeHintAnimator != null) {
+            swipeHintAnimator.cancel();
+            swipeHintAnimator = null;
+        }
+        swipeHintContainer.setVisibility(View.GONE);
+    }
+
+    private void positionAndStartSwipeHint() {
+        if (swipeHintContainer == null || rootLayout == null || btnRecord == null) return;
+        if (isRecording) return;
+        if (swipeHintAnimator != null) {
+            swipeHintAnimator.cancel();
+            swipeHintAnimator = null;
+        }
+        swipeHintContainer.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        final int hintW = swipeHintContainer.getMeasuredWidth();
+        final int hintH = swipeHintContainer.getMeasuredHeight();
+        final float density = getResources().getDisplayMetrics().density;
+
+        int[] rootLoc = new int[2];
+        rootLayout.getLocationOnScreen(rootLoc);
+        int[] tmp = new int[2];
+
+        // Free band: bottom of active slide -> top of the record button
+        View slideView = getActiveSlideView();
+        int bandTop = rootLoc[1];
+        if (slideView != null) {
+            slideView.getLocationOnScreen(tmp);
+            bandTop = tmp[1] + slideView.getHeight();
+        }
+        btnRecord.getLocationOnScreen(tmp);
+        int bandBottom = tmp[1];
+        int bandLeft = rootLoc[0];
+        int bandRight = rootLoc[0] + rootLayout.getWidth();
+
+        // If the camera overlaps the band, use the larger sub-band above/below it
+        if (cameraRootWrapper != null && cameraRootWrapper.getVisibility() == View.VISIBLE) {
+            cameraRootWrapper.getLocationOnScreen(tmp);
+            int camTop = tmp[1];
+            int camBottom = tmp[1] + cameraRootWrapper.getHeight();
+            if (camBottom > bandTop && camTop < bandBottom) {
+                int above = camTop - bandTop;
+                int below = bandBottom - camBottom;
+                if (above >= below) bandBottom = camTop; else bandTop = camBottom;
+            }
+        }
+
+        float cx = (bandLeft + bandRight) / 2f;
+        float cy = (bandTop + bandBottom) / 2f;
+        swipeHintContainer.setX(cx - hintW / 2f - rootLoc[0]);
+        swipeHintContainer.setY(cy - hintH / 2f - rootLoc[1]);
+        swipeHintContainer.setAlpha(0f);
+        swipeHintContainer.setVisibility(View.VISIBLE);
+
+        final float dir = swipeHintShowingNext ? -1f : 1f;
+        final float travel = 56f * density;
+        swipeHintAnimator = ValueAnimator.ofFloat(0f, 1f);
+        swipeHintAnimator.setDuration(1800);
+        swipeHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        swipeHintAnimator.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            float alpha, scale, move;
+            if (t < 0.15f) {                       // fade in + press
+                float p = t / 0.15f;
+                alpha = p;
+                scale = 1.1f - 0.15f * p;
+                move = -travel / 2f;
+            } else if (t < 0.75f) {                // swipe
+                float p = (t - 0.15f) / 0.6f;
+                float e = 1f - (1f - p) * (1f - p); // decelerate
+                alpha = 1f;
+                scale = 0.95f;
+                move = -travel / 2f + travel * e;
+            } else if (t < 0.9f) {                 // fade out
+                float p = (t - 0.75f) / 0.15f;
+                alpha = 1f - p;
+                scale = 0.95f + 0.15f * p;
+                move = travel / 2f;
+            } else {                               // pause
+                alpha = 0f;
+                scale = 1.1f;
+                move = travel / 2f;
+            }
+            ivSwipeHintHand.setAlpha(alpha);
+            ivSwipeHintHand.setScaleX(scale);
+            ivSwipeHintHand.setScaleY(scale);
+            ivSwipeHintHand.setTranslationX(dir * move);
+            tvSwipeHintLabel.setAlpha(0.6f + 0.4f * alpha);
+        });
+        swipeHintContainer.setAlpha(1f);
+        swipeHintAnimator.start();
     }
 
     // --- Slide Manager Dialog ---
@@ -2567,6 +2742,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             countdownOverlayContainer.setVisibility(View.VISIBLE);
             countdownOverlayContainer.setAlpha(1.0f);
         }
+        hideSwipeHint();
 
         if (tvCountdownNumber != null) {
             tvCountdownNumber.setText(String.valueOf(countdownSeconds));
@@ -2610,6 +2786,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             countdownOverlayContainer.setVisibility(View.GONE);
         }
         hideCropGuideLines();
+        updateNavigationButtonsState();
         Toast.makeText(this, "Recording cancelled", Toast.LENGTH_SHORT).show();
     }
 
@@ -2848,6 +3025,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        hideSwipeHint();
         unregisterRecordingFinishedReceiver();
         stopVideoIfPlaying();
         if (countDownTimer != null) {
