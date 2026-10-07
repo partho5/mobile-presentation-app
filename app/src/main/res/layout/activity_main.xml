@@ -166,17 +166,60 @@
             android:padding="5dp"
             android:visibility="gone">
 
-            <View
+            <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
                 android:id="@+id/drawing_board_canvas"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:background="@android:color/black" />
 
-            <FrameLayout
+            <LinearLayout
                 android:id="@+id/drawing_board_tool_bar"
                 android:layout_width="match_parent"
-                android:layout_height="72dp" />
+                android:layout_height="72dp"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/tool_pen"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="Pen"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_pen" />
+                <ImageView
+                    android:id="@+id/tool_eraser"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="Eraser"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_eraser" />
+                <ImageView
+                    android:id="@+id/tool_undo"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="Undo"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_undo" />
+                <ImageView
+                    android:id="@+id/tool_redo"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="Redo"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_redo" />
+                <ImageView
+                    android:id="@+id/tool_clear"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:contentDescription="Clear"
+                    android:scaleType="center"
+                    android:src="@drawable/ic_clear_all" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Draggable & Resizable Circular Camera Overlay Container.

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pen: the fill layer is tinted with the active colour in code, the outline stays black. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/pen_fill"
+        android:drawable="@drawable/ic_pen_fill" />
+    <item android:drawable="@drawable/ic_pen_outline" />
+</layer-list>

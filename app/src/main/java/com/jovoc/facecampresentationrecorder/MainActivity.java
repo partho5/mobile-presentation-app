@@ -4,6 +4,7 @@ import android.Manifest;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
+import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import android.animation.ObjectAnimator;
@@ -150,6 +151,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     // Drawing board (shown only while recording)
     private ImageButton btnDrawingBoard;
     private View drawingBoardContainer;
+    private DrawingBoardController drawingBoardController;
+    private boolean boardTouchActive = false;
     private boolean isDrawingBoardVisible = false;
     private boolean isDrawingBoardAnimating = false;
     private static final long DRAWING_BOARD_ANIM_MS = 250L;
@@ -956,6 +959,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         btnDrawingBoard = findViewById(R.id.btn_drawing_board);
         drawingBoardContainer = findViewById(R.id.drawing_board_container);
+        if (drawingBoardContainer != null) {
+            drawingBoardController = new DrawingBoardController(drawingBoardContainer);
+        }
         if (btnDrawingBoard != null) {
             btnDrawingBoard.setOnClickListener(v -> toggleDrawingBoard());
         }
@@ -1540,7 +1546,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        gestureDetector.onTouchEvent(ev);
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            boardTouchActive = isDrawingBoardVisible && isTouchInsideView(ev, drawingBoardContainer);
+        }
+        // Touches on the board only draw: no double-tap menu toggle, no slide swipe.
+        if (!boardTouchActive) gestureDetector.onTouchEvent(ev);
         return super.dispatchTouchEvent(ev);
     }
 

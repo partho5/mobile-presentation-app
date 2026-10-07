@@ -12,10 +12,12 @@ Line numbers drift; grep method names. Original Q&A is archived in `DRAWING_BOAR
 | Part | Scope | Status |
 |---|---|---|
 | 1 | Stop button opacity, board button, board shell, slide animation | ✅ Done (device QA pending) |
-| 2 | Drawing engine: pen, eraser, undo, redo, clear, tool bar | ⬜ Not started |
+| 2 | Drawing engine: pen, eraser, undo, redo, clear, tool bar | ✅ Done (device QA pending) |
 | 3 | Palette, persistence, swipe-outside-hides, docs, device QA | ⬜ Not started |
 
 Part 1 notes: board is `LinearLayout#drawing_board_container` (silver bg, 5dp padding) holding `drawing_board_canvas` (black View) and `drawing_board_tool_bar` (72dp FrameLayout, empty — Part 2 fills it). Logic is in `MainActivity`: `toggleDrawingBoard / showDrawingBoard / hideDrawingBoard / sizeDrawingBoard`. Board hides instantly in `updateUIState()` when not recording. Landscape/cam-over-board/button tap checks still need a device.
+
+Part 2 notes: `ui/DrawingBoardView` (canvas, id `drawing_board_canvas`) and `ui/DrawingBoardController` (tool bar wiring, `setPenColor`, `onActionCommitted` is an empty hook for Part 3 persistence). Cap 200 limits undo depth only (older actions stay so the picture is intact; compacted after a clear). `exportStrokes()` returns actions after the last clear; `importStrokes()` resets undo/redo. `MainActivity.dispatchTouchEvent` skips `gestureDetector` for touches that start inside the visible board (so Part 3 must still handle swipe-outside-hides in `onFling`).
 
 (Mark a part ✅ Done when finished; add a one-line note if something deviated.)
 
@@ -69,19 +71,19 @@ Goal: tapping the new button smoothly shows/hides an empty silver/black square b
 - [x] Check Stop + board buttons stay above the board and tappable (portrait and landscape).
 - [x] Compile, tick boxes, update Status table, commit.
 
-## Part 2 — Drawing engine + tool bar   ⬜
+## Part 2 — Drawing engine + tool bar   ✅
 
 Goal: fully working drawing inside the board; no palette, no persistence yet (pen is white).
 
-- [ ] `ui/DrawingBoardView.java`: transparent drawing layer over black. Action list (`STROKE`, `ERASE`, `CLEAR`) with an undo cursor, cap 200, redo dropped on new action. Render by replaying into an offscreen bitmap; erase via `PorterDuff.Mode.CLEAR` (never paints black over strokes).
-- [ ] Pen 4dp round; eraser 40dp round; smooth strokes (quadratic midpoint smoothing); a single tap draws a dot.
-- [ ] Touch handling: `requestDisallowInterceptTouchEvent(true)`; canvas consumes all touches; multi-touch ignored (second finger doesn't draw).
-- [ ] Block double-tap menu toggle on the canvas (skip `gestureDetector` for touches inside the board).
-- [ ] Tool bar icons in the silver bar: Pen, Eraser, Undo, Redo, Clear (`ic_pen` with fixed black outline layer + fillable layer, `ic_eraser`, `ic_undo`, `ic_redo`, `ic_clear_all`).
-- [ ] Mode switch Pen/Eraser; active icon scales to 2× (animated, ~150ms); default mode Pen.
-- [ ] Undo/Redo buttons disabled-look when nothing to do; Clear is one undoable action (no confirm).
-- [ ] Expose API for Part 3: `setPenColor(int)`, `exportStrokes()` / `importStrokes(...)` (normalised 0..1 points + type + colour), listener `onActionCommitted`.
-- [ ] Compile, tick boxes, update Status table, commit.
+- [x] `ui/DrawingBoardView.java`: transparent drawing layer over black. Action list (`STROKE`, `ERASE`, `CLEAR`) with an undo cursor, cap 200, redo dropped on new action. Render by replaying into an offscreen bitmap; erase via `PorterDuff.Mode.CLEAR` (never paints black over strokes).
+- [x] Pen 4dp round; eraser 40dp round; smooth strokes (quadratic midpoint smoothing); a single tap draws a dot.
+- [x] Touch handling: `requestDisallowInterceptTouchEvent(true)`; canvas consumes all touches; multi-touch ignored (second finger doesn't draw).
+- [x] Block double-tap menu toggle on the canvas (skip `gestureDetector` for touches inside the board).
+- [x] Tool bar icons in the silver bar: Pen, Eraser, Undo, Redo, Clear (`ic_pen` with fixed black outline layer + fillable layer, `ic_eraser`, `ic_undo`, `ic_redo`, `ic_clear_all`).
+- [x] Mode switch Pen/Eraser; active icon scales to 2× (animated, ~150ms); default mode Pen.
+- [x] Undo/Redo buttons disabled-look when nothing to do; Clear is one undoable action (no confirm).
+- [x] Expose API for Part 3: `setPenColor(int)`, `exportStrokes()` / `importStrokes(...)` (normalised 0..1 points + type + colour), listener `onActionCommitted`.
+- [x] Compile, tick boxes, update Status table, commit.
 
 ## Part 3 — Palette, persistence, gesture rule, docs, QA   ⬜
 
