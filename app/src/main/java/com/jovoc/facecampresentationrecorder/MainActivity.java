@@ -147,6 +147,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnStopRecordFloating;
     private ImageView ivStopArrowHint;
 
+    // Drawing board (shown only while recording)
+    private ImageButton btnDrawingBoard;
+    private View drawingBoardContainer;
+    private boolean isDrawingBoardVisible = false;
+    private boolean isDrawingBoardAnimating = false;
+    private static final long DRAWING_BOARD_ANIM_MS = 250L;
+
     // First-run swipe tutorial
     private View swipeHintContainer;
     private ImageView ivSwipeHintHand;
@@ -946,6 +953,79 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (btnStopRecordFloating != null) {
             btnStopRecordFloating.setOnClickListener(v -> stopRecordingFlow());
         }
+
+        btnDrawingBoard = findViewById(R.id.btn_drawing_board);
+        drawingBoardContainer = findViewById(R.id.drawing_board_container);
+        if (btnDrawingBoard != null) {
+            btnDrawingBoard.setOnClickListener(v -> toggleDrawingBoard());
+        }
+        if (rootLayout != null) {
+            // Keep the board square if the window changes size (rotation, bars) while it is open.
+            rootLayout.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (isDrawingBoardVisible && !isDrawingBoardAnimating) sizeDrawingBoard();
+            });
+        }
+    }
+
+    /** Board side = screen width in portrait, min(width, height) in landscape. */
+    private void sizeDrawingBoard() {
+        if (drawingBoardContainer == null || rootLayout == null) return;
+        int side = Math.min(rootLayout.getWidth(), rootLayout.getHeight());
+        if (side <= 0) return;
+        RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) drawingBoardContainer.getLayoutParams();
+        if (lp.width == side && lp.height == side) return;
+        lp.width = side;
+        lp.height = side;
+        lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        lp.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        drawingBoardContainer.setLayoutParams(lp);
+    }
+
+    private void toggleDrawingBoard() {
+        if (drawingBoardContainer == null || isDrawingBoardAnimating) return;
+        if (isDrawingBoardVisible) {
+            hideDrawingBoard(true);
+        } else {
+            showDrawingBoard();
+        }
+    }
+
+    private void showDrawingBoard() {
+        sizeDrawingBoard();
+        int side = drawingBoardContainer.getLayoutParams().height;
+        drawingBoardContainer.setTranslationY(-side);
+        drawingBoardContainer.setVisibility(View.VISIBLE);
+        isDrawingBoardVisible = true;
+        isDrawingBoardAnimating = true;
+        drawingBoardContainer.animate()
+                .translationY(0f)
+                .setDuration(DRAWING_BOARD_ANIM_MS)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> isDrawingBoardAnimating = false)
+                .start();
+    }
+
+    private void hideDrawingBoard(boolean animate) {
+        if (drawingBoardContainer == null) return;
+        drawingBoardContainer.animate().cancel();
+        isDrawingBoardVisible = false;
+        if (!animate || drawingBoardContainer.getVisibility() != View.VISIBLE) {
+            isDrawingBoardAnimating = false;
+            drawingBoardContainer.setVisibility(View.GONE);
+            drawingBoardContainer.setTranslationY(0f);
+            return;
+        }
+        isDrawingBoardAnimating = true;
+        drawingBoardContainer.animate()
+                .translationY(-drawingBoardContainer.getHeight())
+                .setDuration(DRAWING_BOARD_ANIM_MS)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                .withEndAction(() -> {
+                    isDrawingBoardAnimating = false;
+                    drawingBoardContainer.setVisibility(View.GONE);
+                    drawingBoardContainer.setTranslationY(0f);
+                })
+                .start();
     }
 
     private List<String> getMissingPermissions() {
@@ -1174,6 +1254,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             hideSwipeHint();
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
+            if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.VISIBLE);
 
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             int successfulRecordings = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
@@ -1194,6 +1275,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
+            if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.GONE);
+            hideDrawingBoard(false);
 
             if (ivStopArrowHint != null) {
                 ivStopArrowHint.clearAnimation();

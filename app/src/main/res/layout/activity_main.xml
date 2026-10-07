@@ -151,6 +151,34 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Drawing board: square silver panel with a black canvas and a bottom tool bar.
+             Declared before the camera wrapper so the face cam always draws above it; sized
+             and slid in from the top in code. Stays hidden until the user taps the board button. -->
+        <LinearLayout
+            android:id="@+id/drawing_board_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:background="#C0C0C0"
+            android:clickable="true"
+            android:focusable="false"
+            android:orientation="vertical"
+            android:padding="5dp"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/drawing_board_canvas"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@android:color/black" />
+
+            <FrameLayout
+                android:id="@+id/drawing_board_tool_bar"
+                android:layout_width="match_parent"
+                android:layout_height="72dp" />
+        </LinearLayout>
+
         <!-- Draggable & Resizable Circular Camera Overlay Container.
 
              Anchored to the top-start corner on purpose, never centred: the
@@ -389,12 +417,29 @@
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
             android:layout_marginBottom="70dp"
-            android:alpha="0.25"
+            android:alpha="0.8"
             android:background="@drawable/bg_circle_stop_minimal"
             android:contentDescription="Stop Recording"
             android:elevation="12dp"
             android:padding="7dp"
             android:src="@drawable/ic_stop"
+            android:visibility="gone" />
+
+        <!-- Drawing board toggle, right of the stop button (10dp gap) -->
+        <ImageButton
+            android:id="@+id/btn_drawing_board"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentBottom="true"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="70dp"
+            android:layout_toEndOf="@id/btn_stop_record_floating"
+            android:alpha="0.8"
+            android:background="@drawable/bg_circle_stop_minimal"
+            android:contentDescription="Drawing board"
+            android:elevation="12dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_drawing_board"
             android:visibility="gone" />
 
         <!-- Red Arrow Hint for First-Time Users (appOpenedTimes <= 2) -->
