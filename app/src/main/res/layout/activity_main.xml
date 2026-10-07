@@ -491,13 +491,13 @@
             android:src="@drawable/ic_stop"
             android:visibility="gone" />
 
-        <!-- Drawing board toggle, right of the stop button (10dp gap) -->
+        <!-- Drawing board toggle, right of the stop button (50dp gap) -->
         <ImageButton
             android:id="@+id/btn_drawing_board"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="50dp"
             android:layout_marginBottom="70dp"
             android:layout_toEndOf="@id/btn_stop_record_floating"
             android:alpha="0.8"

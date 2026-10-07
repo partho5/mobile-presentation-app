@@ -34,7 +34,7 @@ User-facing name is always **"Drawing board"** (never "blackboard").
 
 | Topic | Decision |
 |---|---|
-| Availability | Button only **while recording**, always visible, **right of Stop**, **10dp** gap. Stop stays where it is. |
+| Availability | Button only **while recording**, always visible, **right of Stop**, **50dp** gap. Stop stays where it is. |
 | Opacity | Stop and board buttons both **0.8** (Stop was 0.25). |
 | Geometry | Square. Side = screen width (portrait); `min(width, available height)` in landscape. **5dp** silver margin top/left/right, silver **bottom tool bar** inside the square, black canvas. No other frame/decoration. |
 | Z-order | Above slides, **below the face cam** (cam is never covered). Stop + board buttons above the board. |
@@ -65,7 +65,7 @@ Goal: tapping the new button smoothly shows/hides an empty silver/black square b
 
 - [x] `activity_main.xml`: Stop alpha 0.25 → 0.8.
 - [x] `res/drawable/ic_drawing_board.xml` vector.
-- [x] `btn_drawing_board` (32dp, alpha 0.8, elevation 12dp) right of Stop, 10dp gap; visible only in recording mode (`updateUIState()`); circular background like `bg_circle_stop_minimal`.
+- [x] `btn_drawing_board` (32dp, alpha 0.8, elevation 12dp) right of Stop, 50dp gap; visible only in recording mode (`updateUIState()`); circular background like `bg_circle_stop_minimal`.
 - [x] Board container (`drawing_board_container`): declared **before** `camera_root_wrapper`, `visibility=gone`. Black canvas area, 5dp silver margin, silver bottom bar (empty for now, tall enough for 2× icons ≈ 72dp).
 - [x] Size at runtime: `side = min(screenWidth, availableHeight)`, anchored top (below system insets if shown), centred horizontally in landscape.
 - [x] Toggle animation with `ViewPropertyAnimator` on `translationY`: 250ms, `DecelerateInterpolator` in, `AccelerateInterpolator` out; set `GONE` at end of hide. Ignore taps mid-animation.
@@ -101,7 +101,7 @@ Goal: finish the feature.
 
 ## Side effects to keep in mind
 
-- Mis-tapping Stop next to the board button → keep the 10dp gap, do not move Stop.
+- Mis-tapping Stop next to the board button → keep the 50dp gap, do not move Stop.
 - Face cam stays on top, so the canvas under it can't be drawn on until the cam is moved.
 - A persisted old drawing may appear at the start of a new recording → Clear is one tap, undoable.
 - Landscape square equals screen height and may sit under Stop/board buttons → buttons are drawn above the board.
