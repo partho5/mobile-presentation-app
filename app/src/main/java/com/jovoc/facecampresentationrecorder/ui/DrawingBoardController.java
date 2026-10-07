@@ -131,7 +131,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     /** Call when the board slides away: closes the palette and saves right away. */
     public void onBoardHidden() {
         handler.removeCallbacks(hidePalette);
-        palette.setVisibility(View.GONE);
+        palette.setVisibility(View.INVISIBLE);
         intro.animate().cancel();
         intro.setVisibility(View.GONE);
         flush();
@@ -170,10 +170,11 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         sw.setBackground(bg);
     }
 
+    // INVISIBLE, never GONE: a GONE palette is not laid out, so layoutArc() would see a 0x0 size.
     private void showPalette(boolean show) {
         handler.removeCallbacks(hidePalette);
         if (!show) {
-            palette.setVisibility(View.GONE);
+            palette.setVisibility(View.INVISIBLE);
             return;
         }
         layoutArc();
