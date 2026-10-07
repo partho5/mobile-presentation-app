@@ -475,52 +475,65 @@
             android:textSize="10sp"
             android:visibility="gone" />
 
-        <!-- Minimal Low-Opacity Floating Stop Icon for Recording Mode -->
-        <ImageButton
-            android:id="@+id/btn_stop_record_floating"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+        <!-- Recording buttons row: Stop, Drawing board (and any future buttons), centred together
+             at the bottom. The first-run arrow hint hangs off Stop's left edge so it never shifts the row. -->
+        <LinearLayout
+            android:id="@+id/recording_buttons_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
             android:layout_marginBottom="70dp"
-            android:alpha="0.8"
-            android:background="@drawable/bg_circle_stop_minimal"
-            android:contentDescription="Stop Recording"
-            android:elevation="12dp"
-            android:padding="7dp"
-            android:src="@drawable/ic_stop"
-            android:visibility="gone" />
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <!-- Drawing board toggle, right of the stop button (50dp gap) -->
-        <ImageButton
-            android:id="@+id/btn_drawing_board"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginStart="50dp"
-            android:layout_marginBottom="70dp"
-            android:layout_toEndOf="@id/btn_stop_record_floating"
-            android:alpha="0.8"
-            android:background="@drawable/bg_circle_stop_minimal"
-            android:contentDescription="Drawing board"
-            android:elevation="12dp"
-            android:padding="6dp"
-            android:src="@drawable/ic_drawing_board"
-            android:visibility="gone" />
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clipChildren="false">
 
-        <!-- Red Arrow Hint for First-Time Users (appOpenedTimes <= 2) -->
-        <ImageView
-            android:id="@+id/iv_stop_arrow_hint"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="66dp"
-            android:layout_marginEnd="4dp"
-            android:layout_toLeftOf="@id/btn_stop_record_floating"
-            android:contentDescription="Stop Button Arrow Hint"
-            android:elevation="13dp"
-            android:src="@drawable/ic_arrow_right_red"
-            android:visibility="gone" />
+                <!-- Minimal Low-Opacity Floating Stop Icon for Recording Mode -->
+                <ImageButton
+                    android:id="@+id/btn_stop_record_floating"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:alpha="0.8"
+                    android:background="@drawable/bg_circle_stop_minimal"
+                    android:contentDescription="Stop Recording"
+                    android:elevation="12dp"
+                    android:padding="7dp"
+                    android:src="@drawable/ic_stop"
+                    android:visibility="gone" />
+
+                <!-- Red Arrow Hint for First-Time Users (appOpenedTimes <= 2) -->
+                <ImageView
+                    android:id="@+id/iv_stop_arrow_hint"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="-44dp"
+                    android:contentDescription="Stop Button Arrow Hint"
+                    android:elevation="13dp"
+                    android:src="@drawable/ic_arrow_right_red"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- Drawing board toggle, 50dp right of the stop button -->
+            <ImageButton
+                android:id="@+id/btn_drawing_board"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="50dp"
+                android:alpha="0.8"
+                android:background="@drawable/bg_circle_stop_minimal"
+                android:contentDescription="Drawing board"
+                android:elevation="12dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_drawing_board"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <!-- First-run swipe tutorial hint (non-clickable; positioned in code) -->
         <LinearLayout

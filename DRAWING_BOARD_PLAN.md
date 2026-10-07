@@ -65,7 +65,7 @@ Goal: tapping the new button smoothly shows/hides an empty silver/black square b
 
 - [x] `activity_main.xml`: Stop alpha 0.25 → 0.8.
 - [x] `res/drawable/ic_drawing_board.xml` vector.
-- [x] `btn_drawing_board` (32dp, alpha 0.8, elevation 12dp) right of Stop, 50dp gap; visible only in recording mode (`updateUIState()`); circular background like `bg_circle_stop_minimal`.
+- [x] `btn_drawing_board` (32dp, alpha 0.8, elevation 12dp) right of Stop, 50dp gap, both centred as a row (`recording_buttons_row`); visible only in recording mode (`updateUIState()`); circular background like `bg_circle_stop_minimal`.
 - [x] Board container (`drawing_board_container`): declared **before** `camera_root_wrapper`, `visibility=gone`. Black canvas area, 5dp silver margin, silver bottom bar (empty for now, tall enough for 2× icons ≈ 72dp).
 - [x] Size at runtime: `side = min(screenWidth, availableHeight)`, anchored top (below system insets if shown), centred horizontally in landscape.
 - [x] Toggle animation with `ViewPropertyAnimator` on `translationY`: 250ms, `DecelerateInterpolator` in, `AccelerateInterpolator` out; set `GONE` at end of hide. Ignore taps mid-animation.
