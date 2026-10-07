@@ -41,7 +41,7 @@ The app has two distinct visual modes: a normal **Edit Mode** with full UI, and 
 
 ## Drawing Board
 
-While recording, a **Drawing board** button (right of Stop) slides a square board over the slide from the top; tap it again to hide. Draw with the pen (6 colours: white, cyan, amber, green, red, purple — tap the pen to open the palette, it closes 2 s after a pick), erase (about 40dp wide), Undo, Redo and Clear (Clear is one undoable action). The face cam always stays above the board. Because the app draws it, the screen recording captures it.
+While recording, a **Drawing board** button (right of Stop) slides a square board over the slide from the top; tap it again to hide. Draw with the pen (6 colours: white, cyan, amber, green, red, purple — tap the pen to open the palette, it closes 0.5 s after a pick, or 3 s after opening with no pick), erase (about 40dp wide), Undo, Redo and Clear (Clear is one undoable action). The face cam always stays above the board. Because the app draws it, the screen recording captures it.
 
 - Any drag on the board draws; it never hides the board. A slide-change swipe made outside the board hides the board, then changes the slide. Double-tap on the board does not toggle the menu bar.
 - Hiding keeps the drawing. The drawing is saved and restored on the next launch until you Clear; undo/redo history is not kept across restarts.

@@ -37,7 +37,8 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             0xFFFF1744, // red
             0xFFD500F9, // purple
     };
-    private static final long PALETTE_HIDE_MS = 2000L;
+    private static final long PALETTE_HIDE_MS = 3000L;
+    private static final long PALETTE_PICK_HIDE_MS = 500L;
     private static final long SAVE_DEBOUNCE_MS = 1000L;
     private static final float SWATCH_DP = 36f;
     private static final float ARC_RADIUS_DP = 150f;
@@ -54,7 +55,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     private final ImageView toolEraser;
     private final ImageView toolUndo;
     private final ImageView toolRedo;
-    private final ImageView toolClear;
+    private final View toolClear;
     private final FrameLayout palette;
     private final List<View> swatches = new ArrayList<>();
 
@@ -139,7 +140,8 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             sw.setOnClickListener(v -> {
                 setPenColor(color);
                 DrawingBoardStorage.savePenColor(context, color);
-                scheduleHidePalette();
+                bounce(sw);
+                scheduleHidePalette(PALETTE_PICK_HIDE_MS);
             });
             swatches.add(sw);
         }
@@ -163,12 +165,21 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         palette.setAlpha(0f);
         palette.setVisibility(View.VISIBLE);
         palette.animate().alpha(1f).setDuration(SCALE_ANIM_MS).start();
-        scheduleHidePalette();
+        scheduleHidePalette(PALETTE_HIDE_MS);
     }
 
-    private void scheduleHidePalette() {
+    private void scheduleHidePalette(long delayMs) {
         handler.removeCallbacks(hidePalette);
-        handler.postDelayed(hidePalette, PALETTE_HIDE_MS);
+        handler.postDelayed(hidePalette, delayMs);
+    }
+
+    /** Quick pop on the tapped swatch. */
+    private void bounce(View sw) {
+        sw.animate().cancel();
+        sw.animate().scaleX(1.4f).scaleY(1.4f).setDuration(110L)
+                .withEndAction(() -> sw.animate().scaleX(1f).scaleY(1f).setDuration(140L)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator()).start())
+                .start();
     }
 
     /** Fans the swatches out above the Pen button, bottom-anchored to the canvas. */
