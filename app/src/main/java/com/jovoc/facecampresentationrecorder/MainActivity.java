@@ -1013,6 +1013,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void hideDrawingBoard(boolean animate) {
         if (drawingBoardContainer == null) return;
+        if (drawingBoardController != null) drawingBoardController.onBoardHidden();
         drawingBoardContainer.animate().cancel();
         isDrawingBoardVisible = false;
         if (!animate || drawingBoardContainer.getVisibility() != View.VISIBLE) {
@@ -1506,9 +1507,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (isSlideZoomed()) {
                     return false;
                 }
-                View activeSlideView = getActiveSlideView();
-                if (activeSlideView != null && isTouchInsideView(e1, activeSlideView)) {
-                    return false;
+                if (isDrawingBoardVisible) {
+                    // With the board open, only the board itself blocks swipes; the slide may extend under it.
+                    if (isTouchInsideView(e1, drawingBoardContainer)) return false;
+                } else {
+                    View activeSlideView = getActiveSlideView();
+                    if (activeSlideView != null && isTouchInsideView(e1, activeSlideView)) {
+                        return false;
+                    }
                 }
 
                 float diffX = e2.getX() - e1.getX();
@@ -1517,6 +1523,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 // Check if horizontal swipe is dominant and exceeds thresholds
                 if (Math.abs(diffX) > Math.abs(diffY)) {
                     if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                        if (isDrawingBoardVisible) hideDrawingBoard(true);
                         if (diffX > 0) {
                             // Swipe Right -> Previous Slide
                             markSwipeGestureDone(false);
@@ -1820,6 +1827,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onStop() {
         super.onStop();
+        if (drawingBoardController != null) drawingBoardController.flush();
         stopVideoIfPlaying();
         if (isRecording && !isChangingConfigurations()) {
             if (Settings.canDrawOverlays(this)) {

@@ -166,12 +166,24 @@
             android:padding="5dp"
             android:visibility="gone">
 
-            <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
-                android:id="@+id/drawing_board_canvas"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="1"
-                android:background="@android:color/black" />
+                android:layout_weight="1">
+
+                <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
+                    android:id="@+id/drawing_board_canvas"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/black" />
+
+                <!-- Colour swatches are added in code. Not clickable itself, so it never blocks the canvas. -->
+                <FrameLayout
+                    android:id="@+id/drawing_board_palette"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
+            </FrameLayout>
 
             <LinearLayout
                 android:id="@+id/drawing_board_tool_bar"

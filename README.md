@@ -23,6 +23,13 @@ Records the screen with a face cam overlay and auto-crops to 9:16 / 4:5 / 1:1. R
 - **Text Slide** — White text displayed in the top 30% of the screen. On slide entry, the text animates subtly from the top of the zone downward to its resting position in the middle of the zone.
 - **Image Slide** — Image anchored to the top of the screen, fitted to screen width, aspect ratio preserved. Never cropped or stretched.
 
+## Drawing Board
+
+While recording, a **Drawing board** button (right of Stop) slides a square board over the slide from the top; tap it again to hide. Draw with the pen (6 colours: white, cyan, amber, green, red, purple — tap the pen to open the palette, it closes 2 s after a pick), erase (about 40dp wide), Undo, Redo and Clear (Clear is one undoable action). The face cam always stays above the board. Because the app draws it, the screen recording captures it.
+
+- Any drag on the board draws; it never hides the board. A slide-change swipe made outside the board hides the board, then changes the slide. Double-tap on the board does not toggle the menu bar.
+- Hiding keeps the drawing. The drawing is saved and restored on the next launch until you Clear; undo/redo history is not kept across restarts.
+
 ## Navigation (in Presentation Mode)
 
 The bottom corners of the screen are invisible tap zones:

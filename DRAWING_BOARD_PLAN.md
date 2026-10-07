@@ -13,11 +13,13 @@ Line numbers drift; grep method names. Original Q&A is archived in `DRAWING_BOAR
 |---|---|---|
 | 1 | Stop button opacity, board button, board shell, slide animation | ✅ Done (device QA pending) |
 | 2 | Drawing engine: pen, eraser, undo, redo, clear, tool bar | ✅ Done (device QA pending) |
-| 3 | Palette, persistence, swipe-outside-hides, docs, device QA | ⬜ Not started |
+| 3 | Palette, persistence, swipe-outside-hides, docs, device QA | ✅ Done (device QA pending) |
 
 Part 1 notes: board is `LinearLayout#drawing_board_container` (silver bg, 5dp padding) holding `drawing_board_canvas` (black View) and `drawing_board_tool_bar` (72dp FrameLayout, empty — Part 2 fills it). Logic is in `MainActivity`: `toggleDrawingBoard / showDrawingBoard / hideDrawingBoard / sizeDrawingBoard`. Board hides instantly in `updateUIState()` when not recording. Landscape/cam-over-board/button tap checks still need a device.
 
 Part 2 notes: `ui/DrawingBoardView` (canvas, id `drawing_board_canvas`) and `ui/DrawingBoardController` (tool bar wiring, `setPenColor`, `onActionCommitted` is an empty hook for Part 3 persistence). Cap 200 limits undo depth only (older actions stay so the picture is intact; compacted after a clear). `exportStrokes()` returns actions after the last clear; `importStrokes()` resets undo/redo. `MainActivity.dispatchTouchEvent` skips `gestureDetector` for touches that start inside the visible board (so Part 3 must still handle swipe-outside-hides in `onFling`).
+
+Part 3 notes: palette/persistence live in `DrawingBoardController` + `util/DrawingBoardStorage` (debounced 1s save, flushed on hide and `onStop`; undo/redo also re-save). Palette overlay `drawing_board_palette` sits above the canvas in a wrapper FrameLayout and is non-clickable. `onFling` blocks only on the board rect while it is open, and hides the board before changing slide.
 
 (Mark a part ✅ Done when finished; add a one-line note if something deviated.)
 
@@ -85,17 +87,17 @@ Goal: fully working drawing inside the board; no palette, no persistence yet (pe
 - [x] Expose API for Part 3: `setPenColor(int)`, `exportStrokes()` / `importStrokes(...)` (normalised 0..1 points + type + colour), listener `onActionCommitted`.
 - [x] Compile, tick boxes, update Status table, commit.
 
-## Part 3 — Palette, persistence, gesture rule, docs, QA   ⬜
+## Part 3 — Palette, persistence, gesture rule, docs, QA   ✅
 
 Goal: finish the feature.
 
-- [ ] Palette arc above the Pen button: white `#FFFFFF`, cyan `#00E5FF`, amber `#FFB300`, green `#00E676`, red `#FF1744`, purple `#D500F9`. Tap pen → show (if pen already active, tap re-opens palette); pick → apply colour; hide 2s after pick or 2s idle. Palette is drawn inside the board and never blocks the canvas when hidden.
-- [ ] Pen icon fully tinted with the chosen colour; outline stays black.
-- [ ] `util/DrawingBoardStorage.java`: save/load `filesDir/drawing_board.json` (type, colour, normalised points). Save debounced after each action, on hide, and in `onStop`. Load on launch before first show. Remember last pen colour too (SharedPreferences).
-- [ ] Gesture rule: touches **on the board** only draw. A slide-change swipe made **outside the board** (e.g. in the area below it, or on the face-cam-free margin) hides the board then changes the slide. While the board is open, treat the board's rectangle (not the slide view) as the blocked area in `onFling`, so swipes below the board still work even if the slide image extends under it.
-- [ ] Update `README.md` / `SPEC.md` (feature, "Drawing board" naming, behaviours above).
-- [ ] Device QA: portrait + landscape; cam over canvas; recording captures drawing; restart restores drawing; Clear + Undo; palette timing; Stop button not mis-tapped; slide types (image, text, video, web) all covered by the board.
-- [ ] Compile, tick boxes, update Status table, commit.
+- [x] Palette arc above the Pen button: white `#FFFFFF`, cyan `#00E5FF`, amber `#FFB300`, green `#00E676`, red `#FF1744`, purple `#D500F9`. Tap pen → show (if pen already active, tap re-opens palette); pick → apply colour; hide 2s after pick or 2s idle. Palette is drawn inside the board and never blocks the canvas when hidden.
+- [x] Pen icon fully tinted with the chosen colour; outline stays black.
+- [x] `util/DrawingBoardStorage.java`: save/load `filesDir/drawing_board.json` (type, colour, normalised points). Save debounced after each action, on hide, and in `onStop`. Load on launch before first show. Remember last pen colour too (SharedPreferences).
+- [x] Gesture rule: touches **on the board** only draw. A slide-change swipe made **outside the board** (e.g. in the area below it, or on the face-cam-free margin) hides the board then changes the slide. While the board is open, treat the board's rectangle (not the slide view) as the blocked area in `onFling`, so swipes below the board still work even if the slide image extends under it.
+- [x] Update `README.md` / `SPEC.md` (feature, "Drawing board" naming, behaviours above).
+- [ ] Device QA (still to do on a device): portrait + landscape; cam over canvas; recording captures drawing; restart restores drawing; Clear + Undo; palette timing; Stop button not mis-tapped; slide types (image, text, video, web) all covered by the board.
+- [x] Compile, tick boxes, update Status table, commit.
 
 ## Side effects to keep in mind
 
