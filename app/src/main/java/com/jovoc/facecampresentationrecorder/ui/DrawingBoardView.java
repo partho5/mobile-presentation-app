@@ -128,6 +128,10 @@ public class DrawingBoardView extends View {
         eraserMode = eraser;
     }
 
+    public boolean isEraserMode() {
+        return eraserMode;
+    }
+
     public boolean canUndo() {
         return cursor > undoFloor;
     }

@@ -39,7 +39,10 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             0xFFD500F9, // purple
     };
     private static final long PALETTE_HIDE_MS = 3000L;
-    private static final long PALETTE_PICK_HIDE_MS = 500L;
+    private static final long PALETTE_PICK_HIDE_MS = 200L;
+    private static final long PALETTE_FADE_OUT_MS = 120L;
+    private static final long SWATCH_STAGGER_MS = 45L;
+    private static final long SWATCH_FLY_MS = 260L;
     private static final long SAVE_DEBOUNCE_MS = 1000L;
     private static final float SWATCH_DP = 36f;
     private static final float ARC_RADIUS_DP = 150f;
@@ -78,8 +81,10 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         intro = container.findViewById(R.id.drawing_board_intro);
 
         toolPen.setOnClickListener(v -> {
+            boolean wasEraser = board.isEraserMode();
             setEraser(false, true);
-            showPalette(true);
+            // Pen already active and palette open: a second tap closes it.
+            showPalette(wasEraser || palette.getVisibility() != View.VISIBLE);
         });
         toolEraser.setOnClickListener(v -> {
             setEraser(true, true);
@@ -131,6 +136,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     /** Call when the board slides away: closes the palette and saves right away. */
     public void onBoardHidden() {
         handler.removeCallbacks(hidePalette);
+        palette.animate().cancel();
         palette.setVisibility(View.INVISIBLE);
         intro.animate().cancel();
         intro.setVisibility(View.GONE);
@@ -155,6 +161,10 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             sw.setOnClickListener(v -> {
                 setPenColor(color);
                 DrawingBoardStorage.savePenColor(context, color);
+                // A pick mid-cascade: snap this swatch to its slot so the pop happens in place.
+                sw.animate().cancel();
+                layoutArc();
+                sw.setAlpha(1f);
                 bounce(sw);
                 scheduleHidePalette(PALETTE_PICK_HIDE_MS);
             });
@@ -173,15 +183,39 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     // INVISIBLE, never GONE: a GONE palette is not laid out, so layoutArc() would see a 0x0 size.
     private void showPalette(boolean show) {
         handler.removeCallbacks(hidePalette);
+        palette.animate().cancel();
         if (!show) {
-            palette.setVisibility(View.INVISIBLE);
+            if (palette.getVisibility() != View.VISIBLE) return;
+            palette.animate().alpha(0f).setDuration(PALETTE_FADE_OUT_MS)
+                    .withEndAction(() -> palette.setVisibility(View.INVISIBLE)).start();
             return;
         }
         layoutArc();
-        palette.setAlpha(0f);
+        palette.setAlpha(1f);
         palette.setVisibility(View.VISIBLE);
-        palette.animate().alpha(1f).setDuration(SCALE_ANIM_MS).start();
+        flowSwatchesIn();
         scheduleHidePalette(PALETTE_HIDE_MS);
+    }
+
+    /** Swatches fly out from the Pen button to their arc slots, one after another. */
+    private void flowSwatchesIn() {
+        float penX = toolPen.getLeft() + toolPen.getWidth() / 2f;
+        float penY = palette.getHeight();
+        float half = SWATCH_DP * density / 2f;
+        for (int i = 0; i < swatches.size(); i++) {
+            View sw = swatches.get(i);
+            float tx = sw.getX();
+            float ty = sw.getY();
+            sw.animate().cancel();
+            sw.setX(penX - half);
+            sw.setY(penY - half);
+            sw.setScaleX(0f);
+            sw.setScaleY(0f);
+            sw.setAlpha(0f);
+            sw.animate().x(tx).y(ty).scaleX(1f).scaleY(1f).alpha(1f)
+                    .setStartDelay(i * SWATCH_STAGGER_MS).setDuration(SWATCH_FLY_MS)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
+        }
     }
 
     private void scheduleHidePalette(long delayMs) {
