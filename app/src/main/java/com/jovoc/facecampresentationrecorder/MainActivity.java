@@ -1002,6 +1002,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         drawingBoardContainer.setTranslationY(-side);
         drawingBoardContainer.setVisibility(View.VISIBLE);
         isDrawingBoardVisible = true;
+        if (drawingBoardController != null) drawingBoardController.onBoardShown();
         isDrawingBoardAnimating = true;
         drawingBoardContainer.animate()
                 .translationY(0f)

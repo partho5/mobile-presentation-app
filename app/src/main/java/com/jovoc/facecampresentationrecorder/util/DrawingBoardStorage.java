@@ -23,6 +23,7 @@ public final class DrawingBoardStorage {
     private static final String FILE_NAME = "drawing_board.json";
     private static final String PREFS = "drawing_board_prefs";
     private static final String KEY_PEN_COLOR = "pen_color";
+    private static final String KEY_INTRO_SHOWN = "intro_shown";
 
     private DrawingBoardStorage() {}
 
@@ -78,6 +79,13 @@ public final class DrawingBoardStorage {
 
     public static void savePenColor(Context context, int color) {
         prefs(context).edit().putInt(KEY_PEN_COLOR, color).apply();
+    }
+
+    /** True exactly once: the first time the board is ever shown. */
+    public static boolean consumeIntro(Context context) {
+        if (prefs(context).getBoolean(KEY_INTRO_SHOWN, false)) return false;
+        prefs(context).edit().putBoolean(KEY_INTRO_SHOWN, true).apply();
+        return true;
     }
 
     private static SharedPreferences prefs(Context context) {

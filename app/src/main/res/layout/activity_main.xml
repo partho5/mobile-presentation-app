@@ -177,6 +177,18 @@
                     android:layout_height="match_parent"
                     android:background="@android:color/black" />
 
+                <!-- First-ever open: names the feature, then fades out. -->
+                <TextView
+                    android:id="@+id/drawing_board_intro"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="Drawing Board"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
                 <!-- Colour swatches are added in code. Not clickable itself, so it never blocks the canvas. -->
                 <FrameLayout
                     android:id="@+id/drawing_board_palette"
@@ -188,7 +200,7 @@
             <LinearLayout
                 android:id="@+id/drawing_board_tool_bar"
                 android:layout_width="match_parent"
-                android:layout_height="72dp"
+                android:layout_height="60dp"
                 android:orientation="horizontal">
 
                 <ImageView

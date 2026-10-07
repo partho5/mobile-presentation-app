@@ -10,6 +10,7 @@ import android.os.Looper;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
@@ -57,6 +58,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     private final ImageView toolRedo;
     private final View toolClear;
     private final FrameLayout palette;
+    private final TextView intro;
     private final List<View> swatches = new ArrayList<>();
 
     private boolean dirty = false;
@@ -73,6 +75,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         toolRedo = container.findViewById(R.id.tool_redo);
         toolClear = container.findViewById(R.id.tool_clear);
         palette = container.findViewById(R.id.drawing_board_palette);
+        intro = container.findViewById(R.id.drawing_board_intro);
 
         toolPen.setOnClickListener(v -> {
             setEraser(false, true);
@@ -115,10 +118,22 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         for (int i = 0; i < swatches.size(); i++) styleSwatch(swatches.get(i), PALETTE[i] == color);
     }
 
+    /** Call when the board starts to slide in: the very first time, label it "Drawing Board". */
+    public void onBoardShown() {
+        if (!DrawingBoardStorage.consumeIntro(context)) return;
+        intro.animate().cancel();
+        intro.setAlpha(1f);
+        intro.setVisibility(View.VISIBLE);
+        intro.animate().alpha(0f).setStartDelay(1800L).setDuration(500L)
+                .withEndAction(() -> intro.setVisibility(View.GONE)).start();
+    }
+
     /** Call when the board slides away: closes the palette and saves right away. */
     public void onBoardHidden() {
         handler.removeCallbacks(hidePalette);
         palette.setVisibility(View.GONE);
+        intro.animate().cancel();
+        intro.setVisibility(View.GONE);
         flush();
     }
 

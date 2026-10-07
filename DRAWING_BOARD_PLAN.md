@@ -15,7 +15,7 @@ Line numbers drift; grep method names. Original Q&A is archived in `DRAWING_BOAR
 | 2 | Drawing engine: pen, eraser, undo, redo, clear, tool bar | ✅ Done (device QA pending) |
 | 3 | Palette, persistence, swipe-outside-hides, docs, device QA | ✅ Done (device QA pending) |
 
-Part 1 notes: board is `LinearLayout#drawing_board_container` (silver bg, 5dp padding) holding `drawing_board_canvas` (black View) and `drawing_board_tool_bar` (72dp FrameLayout, empty — Part 2 fills it). Logic is in `MainActivity`: `toggleDrawingBoard / showDrawingBoard / hideDrawingBoard / sizeDrawingBoard`. Board hides instantly in `updateUIState()` when not recording. Landscape/cam-over-board/button tap checks still need a device.
+Part 1 notes: board is `LinearLayout#drawing_board_container` (silver bg, 5dp padding) holding `drawing_board_canvas` (black View) and `drawing_board_tool_bar` (60dp bar, empty — Part 2 fills it). Logic is in `MainActivity`: `toggleDrawingBoard / showDrawingBoard / hideDrawingBoard / sizeDrawingBoard`. Board hides instantly in `updateUIState()` when not recording. Landscape/cam-over-board/button tap checks still need a device.
 
 Part 2 notes: `ui/DrawingBoardView` (canvas, id `drawing_board_canvas`) and `ui/DrawingBoardController` (tool bar wiring, `setPenColor`, `onActionCommitted` is an empty hook for Part 3 persistence). Cap 200 limits undo depth only (older actions stay so the picture is intact; compacted after a clear). `exportStrokes()` returns actions after the last clear; `importStrokes()` resets undo/redo. `MainActivity.dispatchTouchEvent` skips `gestureDetector` for touches that start inside the visible board (so Part 3 must still handle swipe-outside-hides in `onFling`).
 
