@@ -7,6 +7,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.jovoc.facecampresentationrecorder.BuildConfig;
+import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -34,6 +35,7 @@ public final class SessionManager {
 
     private final Context appContext;
     private final AuthRepository repo;
+    private final ApiClient api;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
 
@@ -44,10 +46,54 @@ public final class SessionManager {
 
     private SessionManager(Context appContext) {
         this.appContext = appContext;
-        ApiClient api = new ApiClient(BuildConfig.API_BASE_URL, BuildConfig.DEBUG);
+        this.api = new ApiClient(initialBaseUrl(appContext), BuildConfig.DEBUG);
         TokenStore store = new TokenStore(new SecureKeyValueStore(appContext));
         this.repo = new AuthRepository(api, store);
         repo.setForcedSignOutListener(() -> main.post(() -> openSignIn(appContext)));
+    }
+
+    // ---- debug-only backend URL ----
+
+    private static final String DEBUG_PREFS = "debug_settings";
+    private static final String DEBUG_KEY_URL = "api_base_url";
+
+    private static String initialBaseUrl(Context context) {
+        if (BuildConfig.DEBUG) {
+            String saved = context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                    .getString(DEBUG_KEY_URL, null);
+            if (saved != null && !saved.isEmpty()) {
+                try {
+                    new ApiClient(saved, true); // validates only
+                    return saved;
+                } catch (IllegalArgumentException ignored) {
+                    // fall through to the built-in URL
+                }
+            }
+        }
+        return BuildConfig.API_BASE_URL;
+    }
+
+    public String baseUrl() {
+        return api.baseUrl();
+    }
+
+    /**
+     * Debug builds only: points the app at another backend. The session belongs to the old
+     * backend, so it is dropped locally and the user signs in again.
+     * @return false when the URL is not acceptable (or this is not a debug build)
+     */
+    public boolean changeBaseUrl(String url) {
+        if (!BuildConfig.DEBUG || url == null) return false;
+        try {
+            api.setBaseUrl(url.trim());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                .edit().putString(DEBUG_KEY_URL, api.baseUrl()).apply();
+        AccountApi.resetBalanceProbe();
+        repo.endLocalSession();
+        return true;
     }
 
     public AuthRepository repository() {

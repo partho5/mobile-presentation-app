@@ -8,10 +8,10 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 | Step | Scope | Status |
 |---|---|---|
 | 1 | Contracts + backend routes checked, plan | ✅ Done |
-| 2 | Core: workspace in TokenStore + `x-workspace-id` on every authed call, WORKSPACE_FORBIDDEN fallback, `account/` API + models + tests | ⬜ |
-| 3 | Room v4: `publish_jobs.workspace_id` (jobs stay in the workspace they were made in) | ⬜ |
-| 4 | UI: WorkspaceActivity, DevicesActivity, Account screen rows (workspace, credits, devices), debug backend URL | ⬜ |
-| 5 | Build, tests, report | ⬜ |
+| 2 | Core: workspace in TokenStore + `x-workspace-id` on every authed call, WORKSPACE_FORBIDDEN fallback, `account/` API + models + tests | ✅ Done |
+| 3 | Room v4: `publish_jobs.workspace_id` (jobs stay in the workspace they were made in) | ✅ Done |
+| 4 | UI: WorkspaceActivity, DevicesActivity, Account screen rows (workspace, credits, devices), debug backend URL | ✅ Done (device QA pending) |
+| 5 | Build, tests (85 pass), report | ✅ Done |
 
 ## Contract / route facts used (exact)
 

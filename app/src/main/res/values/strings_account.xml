@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acct_workspace_label">Workspace</string>
+    <string name="acct_workspace_default">Default workspace</string>
+    <string name="acct_credits_label">Credits</string>
+    <string name="acct_credits_loading">Loading…</string>
+    <string name="acct_credits_available">%1$s available</string>
+    <string name="acct_credits_available_reserved">%1$s available · %2$s reserved</string>
+    <string name="acct_credits_low">%1$s (running low)</string>
+    <string name="acct_credits_unavailable">Balance unavailable. Tap to retry.</string>
+    <string name="acct_devices_label">Devices</string>
+    <string name="acct_devices_hint">See where you are signed in and sign devices out</string>
+    <string name="acct_backend_label">Backend URL (debug build)</string>
+    <string name="acct_backend_title">Backend URL</string>
+    <string name="acct_backend_message">Changing the backend signs you out of this phone, because the session belongs to the old backend.</string>
+    <string name="acct_backend_save">Save and sign out</string>
+    <string name="acct_backend_invalid">Enter a valid http(s) URL.</string>
+
+    <string name="acct_err_signed_out">You were signed out. Please sign in again.</string>
+    <string name="acct_err_workspace">You no longer have access to that workspace. Switched back to your default workspace.</string>
+    <string name="acct_err_gone">That item no longer exists. The list was refreshed.</string>
+    <string name="acct_retry">Retry</string>
+
+    <string name="ws_title">Workspace</string>
+    <string name="ws_hint">Posts, channels and credits belong to the workspace you pick. This choice is only for this phone.</string>
+    <string name="ws_empty">You are not a member of any workspace yet. Create or join one on the web.</string>
+    <string name="ws_current">Current</string>
+    <string name="ws_role_admin">Admin</string>
+    <string name="ws_role_owner">Owner</string>
+    <string name="ws_role_member">Member</string>
+    <string name="ws_switched">Workspace: %1$s</string>
+
+    <string name="dev_title">Devices</string>
+    <string name="dev_hint">Every phone and browser signed in to your account.</string>
+    <string name="dev_empty">No other sessions found.</string>
+    <string name="dev_this_device">This device</string>
+    <string name="dev_unknown">Unknown device</string>
+    <string name="dev_last_active">Last active %1$s</string>
+    <string name="dev_sign_out">Sign out</string>
+    <string name="dev_sign_out_others">Sign out all other devices</string>
+    <string name="dev_confirm_one">Sign out “%1$s”? It will be asked to sign in again on its next request.</string>
+    <string name="dev_confirm_this">This is the phone you are using. Signing it out takes you back to the sign-in screen. Your slides and recordings stay on the device.</string>
+    <string name="dev_confirm_others">Sign out every device except this one?</string>
+    <string name="dev_signed_out_one">Device signed out</string>
+    <string name="dev_signed_out_others">Other devices signed out</string>
+</resources>

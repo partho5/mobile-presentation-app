@@ -47,6 +47,18 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ui.WorkspaceActivity"
+            android:exported="false"
+            android:label="@string/ws_title"
+            android:parentActivityName=".ui.AccountActivity" />
+
+        <activity
+            android:name=".ui.DevicesActivity"
+            android:exported="false"
+            android:label="@string/dev_title"
+            android:parentActivityName=".ui.AccountActivity" />
+
+        <activity
             android:name=".ui.PublishActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
