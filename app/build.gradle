@@ -63,6 +63,9 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
 
+    // Background upload/publish jobs that survive the app being closed
+    implementation 'androidx.work:work-runtime:2.9.1'
+
     // Room DB
     implementation 'androidx.room:room-runtime:2.6.1'
     annotationProcessor 'androidx.room:room-compiler:2.6.1'

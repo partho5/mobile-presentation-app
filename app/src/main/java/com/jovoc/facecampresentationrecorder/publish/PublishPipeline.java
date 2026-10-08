@@ -1,0 +1,152 @@
+package com.jovoc.facecampresentationrecorder.publish;
+
+import com.jovoc.facecampresentationrecorder.db.PublishJob;
+
+import java.io.File;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
+
+/**
+ * Runs one publish job: upload the video once, then create the post with the job's
+ * Idempotency-Key. Every step is written to the {@link Store} first, so a killed process or a
+ * dropped connection resumes where it stopped and never posts twice:
+ *
+ * - the media id is saved right after the upload, so a retry skips the upload;
+ * - the same key is sent on every retry of the post call, so the server replays the first
+ *   answer instead of creating a second post;
+ * - the key is replaced only after the server gave a final 4xx answer (which it would replay).
+ */
+public final class PublishPipeline {
+
+    public enum Outcome {
+        /** Post accepted by the backend. */
+        DONE,
+        /** Try again later (offline, 5xx, 429); the job is back to QUEUED. */
+        RETRY,
+        /** Gave up; the job is FAILED with a reason. */
+        FAILED,
+        /** The job was cancelled or deleted while running. */
+        GONE
+    }
+
+    /** Where jobs live (Room in the app, memory in tests). */
+    public interface Store {
+        PublishJob load(long id);
+
+        void save(PublishJob job);
+    }
+
+    public interface Listener {
+        /** Called after a state or progress change has been saved. */
+        void onChanged(PublishJob job);
+    }
+
+    private final PublishApi api;
+    private final Store store;
+    private final Listener listener;
+    private final BooleanSupplier cancelled;
+    private final int maxAttempts;
+    private final LongSupplier clock;
+
+    public PublishPipeline(PublishApi api, Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock) {
+        this.api = api;
+        this.store = store;
+        this.listener = listener;
+        this.cancelled = cancelled;
+        this.maxAttempts = maxAttempts;
+        this.clock = clock;
+    }
+
+    /** @param attempt zero-based run count of this job (WorkManager's run attempt count) */
+    public Outcome run(long jobId, int attempt) {
+        PublishJob job = store.load(jobId);
+        if (job == null) return Outcome.GONE;
+        if (PublishJob.DONE.equals(job.status)) return Outcome.DONE;
+        job.errorKind = null;
+        job.errorDetail = null;
+
+        try {
+            if (job.mediaId == null || job.mediaId.isEmpty()) upload(job);
+            // A job deleted while uploading (cancelled) must not go on to post.
+            if (store.load(jobId) == null) return Outcome.GONE;
+            createPost(job);
+            return Outcome.DONE;
+        } catch (PublishException e) {
+            return fail(job, e, attempt);
+        }
+    }
+
+    private void upload(PublishJob job) throws PublishException {
+        File file = new File(job.filePath);
+        if (!file.isFile() || file.length() == 0) throw new PublishException(PublishException.Kind.FILE);
+        if (file.length() > PublishApi.MAX_VIDEO_BYTES) {
+            throw new PublishException(PublishException.Kind.TOO_LARGE);
+        }
+        if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
+
+        job.progress = 0;
+        move(job, PublishJob.UPLOADING);
+
+        final int[] lastSaved = {0};
+        PublishApi.Media media = api.upload(file, (sent, total) -> {
+            int pct = total <= 0 ? 0 : (int) Math.min(99, sent * 100 / total);
+            // Saving every chunk would hammer the database; every few percent is plenty.
+            if (pct >= lastSaved[0] + 2) {
+                lastSaved[0] = pct;
+                job.progress = pct;
+                save(job);
+            }
+        }, cancelled);
+
+        job.mediaId = media.id;
+        job.mediaPath = media.path;
+        job.progress = 100;
+        save(job);
+    }
+
+    private void createPost(PublishJob job) throws PublishException {
+        if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
+        move(job, PublishJob.PUBLISHING);
+        List<String> ids = api.createPost(job, clock.getAsLong());
+        job.postIds = String.join(",", ids);
+        job.errorKind = null;
+        job.errorDetail = null;
+        move(job, PublishJob.DONE);
+    }
+
+    private Outcome fail(PublishJob job, PublishException e, int attempt) {
+        if (e.kind == PublishException.Kind.CANCELLED) return Outcome.GONE;
+
+        if (e.isRetryable() && attempt + 1 < maxAttempts) {
+            // Waiting for a connection / the server: keep the key, the media id and the progress.
+            job.errorKind = e.kind.name();
+            job.errorDetail = null;
+            move(job, PublishJob.QUEUED);
+            return Outcome.RETRY;
+        }
+
+        job.errorKind = e.kind.name();
+        job.errorDetail = e.detail;
+        if (e.spendsKey()) job.idempotencyKey = newKey();
+        move(job, PublishJob.FAILED);
+        return Outcome.FAILED;
+    }
+
+    public static String newKey() {
+        return UUID.randomUUID().toString();
+    }
+
+    private void move(PublishJob job, String status) {
+        job.status = status;
+        save(job);
+    }
+
+    private void save(PublishJob job) {
+        job.updatedAt = clock.getAsLong();
+        store.save(job);
+        if (listener != null) listener.onChanged(job);
+    }
+}

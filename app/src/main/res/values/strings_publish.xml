@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="publish_title">Publish</string>
+    <string name="publish_menu">Publish…</string>
+    <string name="publish_menu_again">Publish again…</string>
+    <string name="publish_menu_retry">Retry publish</string>
+    <string name="publish_menu_cancel">Cancel publishing</string>
+
+    <string name="publish_channels_label">Publish to</string>
+    <string name="publish_caption_label">Caption</string>
+    <string name="publish_caption_hint">Write a caption (optional)</string>
+    <string name="publish_when_label">When</string>
+    <string name="publish_now">Now</string>
+    <string name="publish_schedule">Schedule</string>
+    <string name="publish_pick_date">Date</string>
+    <string name="publish_pick_time">Time</string>
+    <string name="publish_schedule_past">Pick a time at least a few minutes from now.</string>
+    <string name="publish_loading_channels">Loading your channels…</string>
+    <string name="publish_no_channels">No channels connected yet. Connect a channel on the web, then try again.</string>
+    <string name="publish_channel_disabled">Disabled</string>
+    <string name="publish_retry">Try again</string>
+    <string name="publish_cost_loading">Checking cost…</string>
+    <string name="publish_cost_unavailable">Cost unavailable. Tap to retry.</string>
+    <string name="publish_cost_free">No credits needed</string>
+    <string name="publish_cost_credits">%1$d credits</string>
+    <string name="publish_cost_one_credit">1 credit</string>
+    <string name="publish_confirm_none">Choose a channel</string>
+    <string name="publish_confirm_one">Publish to 1 channel</string>
+    <string name="publish_confirm_many">Publish to %1$d channels</string>
+    <string name="publish_confirm_one_cost">Publish to 1 channel · %1$s</string>
+    <string name="publish_confirm_many_cost">Publish to %1$d channels · %2$s</string>
+    <string name="publish_started">Publishing started. You can leave the app.</string>
+    <string name="publish_already_running">This recording is already being published.</string>
+    <string name="publish_cancel_confirm">Stop publishing this recording?</string>
+    <string name="publish_cancel_yes">Stop</string>
+    <string name="publish_cancel_no">Keep going</string>
+
+    <!-- Card status lines -->
+    <string name="status_waiting">Waiting for connection…</string>
+    <string name="status_queued">Queued…</string>
+    <string name="status_uploading">Uploading %1$d%%</string>
+    <string name="status_publishing">Publishing…</string>
+    <string name="status_published">Published</string>
+    <string name="status_scheduled">Scheduled for %1$s</string>
+    <string name="status_failed">Failed: %1$s</string>
+
+    <!-- Failure reasons -->
+    <string name="pub_err_network">no connection</string>
+    <string name="pub_err_signed_out">please sign in again</string>
+    <string name="pub_err_credits">not enough credits</string>
+    <string name="pub_err_rejected">the server rejected the post</string>
+    <string name="pub_err_too_large">video is over the 1 GB limit</string>
+    <string name="pub_err_rate_limited">too many requests, try again soon</string>
+    <string name="pub_err_busy">still being processed, try again</string>
+    <string name="pub_err_server">server problem, try again</string>
+    <string name="pub_err_file">the video file is missing</string>
+    <string name="pub_err_interrupted">publishing was interrupted</string>
+
+    <!-- Notification -->
+    <string name="publish_channel_name">Publishing</string>
+    <string name="publish_notif_title">Publishing recording</string>
+    <string name="publish_notif_cancel">Cancel</string>
+</resources>

@@ -1,17 +1,25 @@
 package com.jovoc.facecampresentationrecorder.auth;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import okhttp3.ConnectionSpec;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.Okio;
+import okio.Source;
 
 /**
  * Thin JSON-over-HTTP client for the backend. No auth logic here; see {@link AuthRepository}.
@@ -85,5 +93,90 @@ public class ApiClient {
 
     public ApiResponse postJson(String path, String jsonBody) throws IOException {
         return send("POST", path, jsonBody, null);
+    }
+
+    /** Bytes sent so far out of the total, called from the uploading thread. */
+    public interface ProgressListener {
+        void onProgress(long sent, long total);
+    }
+
+    /**
+     * POSTs {@code file} as multipart field {@code fieldName}. Streams from disk (no whole-file
+     * buffer), reports progress, and aborts with an InterruptedIOException once {@code cancelled}
+     * turns true. A body that is still being sent when the connection drops is an IOException.
+     */
+    public ApiResponse upload(String path, String fieldName, File file, String mime,
+                              Map<String, String> headers, ProgressListener progress,
+                              BooleanSupplier cancelled) throws IOException {
+        Request request = buildUploadRequest(path, fieldName, file, mime, headers, progress, cancelled);
+        // Large files take a while to receive and to be stored before the server answers.
+        OkHttpClient slow = http.newBuilder()
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
+                .build();
+        try (Response r = slow.newCall(request).execute()) {
+            String text = r.body() == null ? "" : r.body().string();
+            return new ApiResponse(r.code(), text,
+                    ApiResponse.parseRetryAfter(r.header("Retry-After")), false);
+        }
+    }
+
+    Request buildUploadRequest(String path, String fieldName, File file, String mime,
+                               Map<String, String> headers, ProgressListener progress,
+                               BooleanSupplier cancelled) {
+        RequestBody part = new ProgressFileBody(file, MediaType.get(mime), progress, cancelled);
+        RequestBody body = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(fieldName, file.getName(), part)
+                .build();
+        Request.Builder rb = new Request.Builder().url(baseUrl + path).header("Accept", "application/json");
+        if (headers != null) {
+            for (Map.Entry<String, String> h : headers.entrySet()) rb.header(h.getKey(), h.getValue());
+        }
+        return rb.post(body).build();
+    }
+
+    /** A file body that reports how much has been written and can be cancelled mid-stream. */
+    static final class ProgressFileBody extends RequestBody {
+        private static final int CHUNK = 64 * 1024;
+        private final File file;
+        private final MediaType type;
+        private final ProgressListener progress;
+        private final BooleanSupplier cancelled;
+
+        ProgressFileBody(File file, MediaType type, ProgressListener progress, BooleanSupplier cancelled) {
+            this.file = file;
+            this.type = type;
+            this.progress = progress;
+            this.cancelled = cancelled;
+        }
+
+        @Override
+        public MediaType contentType() {
+            return type;
+        }
+
+        @Override
+        public long contentLength() {
+            return file.length();
+        }
+
+        @Override
+        public void writeTo(BufferedSink sink) throws IOException {
+            long total = file.length();
+            long sent = 0;
+            try (Source source = Okio.source(file)) {
+                Buffer buf = new Buffer();
+                long n;
+                while ((n = source.read(buf, CHUNK)) != -1) {
+                    if (cancelled != null && cancelled.getAsBoolean()) {
+                        throw new InterruptedIOException("cancelled");
+                    }
+                    sink.write(buf, n);
+                    sent += n;
+                    if (progress != null) progress.onProgress(sent, total);
+                }
+            }
+        }
     }
 }

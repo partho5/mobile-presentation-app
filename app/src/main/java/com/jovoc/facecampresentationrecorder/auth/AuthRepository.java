@@ -3,11 +3,13 @@ package com.jovoc.facecampresentationrecorder.auth;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
@@ -153,6 +155,19 @@ public class AuthRepository {
      */
     public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers)
             throws AuthException {
+        return executeAuthed(access -> api.send(method, path, jsonBody, withBearer(access, headers)));
+    }
+
+    /** One authenticated attempt with the given access token. */
+    public interface Sender {
+        ApiResponse send(String accessToken) throws IOException;
+    }
+
+    /**
+     * Same refresh / retry / forced-sign-out rules as {@link #execute}, for requests that are not
+     * plain JSON (multipart uploads). The sender must be repeatable: it runs twice after an expiry.
+     */
+    public ApiResponse executeAuthed(Sender sender) throws AuthException {
         if (!store.hasSession()) throw new AuthException(AuthException.Kind.NOT_SIGNED_IN);
 
         String access = store.accessToken();
@@ -160,11 +175,12 @@ public class AuthRepository {
             refreshIfStale(access);
             access = store.accessToken();
         }
-        ApiResponse r = sendBearer(access, method, path, jsonBody, headers);
+        final String first = access;
+        ApiResponse r = call(() -> sender.send(first));
         if (r.is(401, ApiResponse.TOKEN_EXPIRED)) {
             refreshIfStale(access);
-            access = store.accessToken();
-            r = sendBearer(access, method, path, jsonBody, headers);
+            final String renewed = store.accessToken();
+            r = call(() -> sender.send(renewed));
         }
         if (r.is(401, ApiResponse.SESSION_REVOKED)) {
             endSession(true);
@@ -173,12 +189,19 @@ public class AuthRepository {
         return r;
     }
 
-    private ApiResponse sendBearer(String access, String method, String path, String jsonBody,
-                                   Map<String, String> headers) throws AuthException {
+    /** Multipart upload with the access token; see {@link ApiClient#upload}. */
+    public ApiResponse executeUpload(String path, String fieldName, File file, String mime,
+                                     ApiClient.ProgressListener progress, BooleanSupplier cancelled)
+            throws AuthException {
+        return executeAuthed(access -> api.upload(path, fieldName, file, mime,
+                withBearer(access, null), progress, cancelled));
+    }
+
+    private static Map<String, String> withBearer(String access, Map<String, String> headers) {
         Map<String, String> h = new HashMap<>();
         if (headers != null) h.putAll(headers);
         h.put("Authorization", "Bearer " + access);
-        return call(() -> api.send(method, path, jsonBody, h));
+        return h;
     }
 
     // ---- sign out ----
