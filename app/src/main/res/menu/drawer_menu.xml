@@ -14,6 +14,10 @@
             android:icon="@drawable/ic_video_library"
             android:title="Saved Recordings" />
         <item
+            android:id="@+id/nav_account"
+            android:icon="@drawable/ic_account"
+            android:title="@string/nav_account" />
+        <item
             android:id="@+id/nav_help"
             android:icon="@drawable/ic_help"
             android:title="How to Use &amp; Guide" />

@@ -9,11 +9,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -22,14 +25,30 @@
         android:theme="@style/Theme.CustomScreen">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.StartupActivity"
             android:exported="true"
-            android:screenOrientation="unspecified">
+            android:noHistory="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.SignInActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.AccountActivity"
+            android:exported="false"
+            android:label="@string/account_title"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".SavedRecordingsActivity"
@@ -52,6 +71,12 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|camera|microphone" />
+
+        <service
+            android:name=".service.BgReplaceService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

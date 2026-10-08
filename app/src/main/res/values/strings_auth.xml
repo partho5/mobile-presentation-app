@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sign_in_title">Sign in</string>
+    <string name="sign_in_email_hint_text">Enter your email and we will send you a 6-digit code. New here? The same code creates your account.</string>
+    <string name="sign_in_code_hint_text">We sent a 6-digit code to %1$s. It is valid for 10 minutes.</string>
+    <string name="sign_in_email_field">Email address</string>
+    <string name="sign_in_code_field">000000</string>
+    <string name="sign_in_send_code">Send code</string>
+    <string name="sign_in_verify">Sign in</string>
+    <string name="sign_in_resend">Resend code</string>
+    <string name="sign_in_resend_wait">Resend code in %1$ds</string>
+    <string name="sign_in_change_email">Use a different email</string>
+
+    <string name="err_bad_email">Enter a valid email address.</string>
+    <string name="err_bad_code">Enter the 6-digit code from the email.</string>
+    <string name="err_invalid_code">That code is wrong or has expired. Check it, or request a new code.</string>
+    <string name="err_rate_limited">Too many attempts. Try again in %1$s.</string>
+    <string name="err_rate_limited_unknown">Too many attempts. Try again in a few minutes.</string>
+    <string name="err_offline">No connection. Check your internet and try again.</string>
+    <string name="err_mail_failed">We could not send the email. Try again in a moment.</string>
+    <string name="err_server">Something went wrong on our side. Try again in a moment.</string>
+    <string name="sign_in_code_sent">Code sent</string>
+    <string name="sign_in_welcome_new">Account created. Welcome!</string>
+
+    <string name="account_title">Account</string>
+    <string name="account_email_label">Signed in as</string>
+    <string name="account_device_label">This device</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_sign_out_confirm">Sign out of this phone? Your slides and recordings stay on the device.</string>
+    <string name="account_sign_out_offline">Signed out on this phone. Could not reach the server, so remove this device from the web Devices list.</string>
+    <string name="nav_account">Account</string>
+</resources>

@@ -4,9 +4,9 @@ import android.Manifest;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
+import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
-import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.AlertDialog;
@@ -39,12 +39,14 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.content.SharedPreferences;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
@@ -100,6 +102,7 @@ import com.bumptech.glide.Glide;
 import com.jovoc.facecampresentationrecorder.adapter.SlideAdapter;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
+import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.ScreenRecordService;
 import com.jovoc.facecampresentationrecorder.util.ImageStorageHelper;
 import com.jovoc.facecampresentationrecorder.util.SlideLogger;
@@ -208,6 +211,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private int initialCardWidth;
 
     private final Handler hideHandleHandler = new Handler(Looper.getMainLooper());
+    // While the activity is visible during a recording, logs where the face cam circle is
+    // so its background can be replaced after recording (see BubbleTrack)
+    private final Handler bubbleTrackHandler = new Handler(Looper.getMainLooper());
+    private final Runnable bubbleTrackRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isRecording && cameraCardContainer != null) {
+                BubbleTrack.report(cameraCardContainer, cameraCardContainer.getStrokeWidth());
+            }
+            bubbleTrackHandler.postDelayed(this, 33);
+        }
+    };
     private final Runnable hideHandleRunnable = () -> {
         if (btnResizeHandle != null) {
             btnResizeHandle.animate()
@@ -442,17 +457,39 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (btnResizeHandle.getWidth() > 0) {
             handleSize = btnResizeHandle.getWidth();
         }
-        // Center of circle is at (cardSize / 2, cardSize / 2).
-        // 45-degree angle on circle border is at (cardSize * 0.85355f, cardSize * 0.85355f).
-        float borderPos = cardSize * 0.85355f;
-        btnResizeHandle.setTranslationX(borderPos - (handleSize / 2f));
-        btnResizeHandle.setTranslationY(borderPos - (handleSize / 2f));
-
-        if (btnFlipCamera != null) {
+        float center = cardSize / 2f;
+        float resizeX;
+        float resizeY;
+        float flipX;
+        float flipY;
+        if (isRecording) {
+            // The icons are part of the screen recording, so while recording they sit fully
+            // outside the circle; inside it they would be mistaken for background and replaced.
+            float flipSize = btnFlipCamera != null && btnFlipCamera.getWidth() > 0
+                    ? btnFlipCamera.getWidth() : handleSize;
+            float diag = 0.70711f;
+            float resizeDist = cardSize / 2f + handleSize * 0.6f;
+            float flipDist = cardSize / 2f + flipSize * 0.6f;
+            resizeX = center + resizeDist * diag - handleSize / 2f;
+            resizeY = center + resizeDist * diag - handleSize / 2f;
+            flipX = center - flipDist * diag - flipSize / 2f;
+            flipY = center + flipDist * diag - flipSize / 2f;
+        } else {
+            // 45-degree angle on circle border is at (cardSize * 0.85355f, cardSize * 0.85355f).
+            float borderPos = cardSize * 0.85355f;
+            float flipSize = btnFlipCamera != null && btnFlipCamera.getWidth() > 0
+                    ? btnFlipCamera.getWidth() : handleSize;
+            resizeX = borderPos - handleSize / 2f;
+            resizeY = borderPos - handleSize / 2f;
             // Mirror of the resize handle: bottom-left 45 degrees on the circle border.
-            float flipSize = btnFlipCamera.getWidth() > 0 ? btnFlipCamera.getWidth() : handleSize;
-            btnFlipCamera.setTranslationX(cardSize * 0.14645f - (flipSize / 2f));
-            btnFlipCamera.setTranslationY(borderPos - (flipSize / 2f));
+            flipX = cardSize * 0.14645f - flipSize / 2f;
+            flipY = borderPos - flipSize / 2f;
+        }
+        btnResizeHandle.setTranslationX(resizeX);
+        btnResizeHandle.setTranslationY(resizeY);
+        if (btnFlipCamera != null) {
+            btnFlipCamera.setTranslationX(flipX);
+            btnFlipCamera.setTranslationY(flipY);
         }
     }
 
@@ -684,6 +721,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     openRecordSettingsDialog();
                 } else if (itemId == R.id.nav_saved_recordings) {
                     openSavedRecordings();
+                } else if (itemId == R.id.nav_account) {
+                    startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.AccountActivity.class));
                 } else if (itemId == R.id.nav_help) {
                     openHowToUseDialog();
                 } else if (itemId == R.id.nav_about) {
@@ -1252,6 +1291,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void updateUIState() {
+        if (cameraCardContainer != null) updateResizeHandlePosition(cameraCardContainer.getWidth());
         if (toolbarTitle != null) {
             toolbarTitle.setText(isRecording ? "Recording Mode" : "Edit Mode");
         }
@@ -1822,12 +1862,22 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     protected void onStart() {
         super.onStart();
         hideFloatingCamOverlay();
+        bubbleTrackHandler.post(bubbleTrackRunnable);
+        BgReplaceService.setListener(processingListener);
+        if (BgReplaceService.isBusy() && !BgReplaceService.getCurrentStage().isEmpty()) {
+            showProcessingDialog(BgReplaceService.getCurrentStage(), BgReplaceService.getCurrentPercent());
+        }
         maybeShowOverlayPermissionPrompt();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        // While stopped, BgReplaceService reports through its notification instead
+        BgReplaceService.setListener(null);
+        dismissProcessingDialog();
+        bubbleTrackHandler.removeCallbacks(bubbleTrackRunnable);
+        BubbleTrack.reportHidden();
         if (drawingBoardController != null) drawingBoardController.flush();
         stopVideoIfPlaying();
         if (isRecording && !isChangingConfigurations()) {
@@ -2999,6 +3049,102 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (cbCrop45 != null) cbCrop45.setChecked(prefs.getBoolean(KEY_AUTOCROP_4_5, false));
         if (cbCrop11 != null) cbCrop11.setChecked(prefs.getBoolean(KEY_AUTOCROP_1_1, false));
 
+        // AI Virtual Background settings
+        SharedPreferences bgPrefs = getSharedPreferences("facecam_prefs", MODE_PRIVATE);
+        CheckBox cbBgReplace = view.findViewById(R.id.cb_bg_replace);
+        if (cbBgReplace != null) {
+            cbBgReplace.setChecked(bgPrefs.getBoolean("bg_replace_enabled", true));
+        }
+
+        // Background picker: one card per sample (preview + name), 2 per row
+        // Every image in assets/bg_samples/ becomes a card, so adding an image needs no code change.
+        final List<String> bgAssets = new ArrayList<>();
+        try {
+            String[] files = getAssets().list("bg_samples");
+            if (files != null) {
+                java.util.Arrays.sort(files);
+                for (String f : files) {
+                    String lower = f.toLowerCase(java.util.Locale.ROOT);
+                    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp")) {
+                        bgAssets.add("bg_samples/" + f);
+                    }
+                }
+            }
+        } catch (java.io.IOException e) {
+            Log.w(TAG, "Listing bg_samples failed", e);
+        }
+        final List<View> bgCards = new ArrayList<>();
+        final List<View> bgChecks = new ArrayList<>();
+        final int[] selectedBg = {0};
+        String currentAsset = bgPrefs.getString("bg_asset_path", "");
+        int bgIdx = bgAssets.indexOf(currentAsset);
+        if (bgIdx >= 0) selectedBg[0] = bgIdx;
+        Runnable refreshBgCards = () -> {
+            for (int i = 0; i < bgCards.size(); i++) {
+                boolean sel = i == selectedBg[0];
+                bgCards.get(i).setSelected(sel);
+                bgChecks.get(i).setVisibility(sel ? View.VISIBLE : View.GONE);
+            }
+        };
+        GridLayout bgGrid = view.findViewById(R.id.grid_bg_sample);
+        if (bgGrid != null) {
+            float d = getResources().getDisplayMetrics().density;
+            for (int i = 0; i < bgAssets.size(); i++) {
+                final int idx = i;
+                String assetPath = bgAssets.get(i);
+
+                FrameLayout card = new FrameLayout(this);
+                card.setBackgroundResource(R.drawable.bg_bg_sample_card);
+                card.setPadding((int) (4 * d), (int) (4 * d), (int) (4 * d), (int) (4 * d));
+                card.setClickable(true);
+                card.setFocusable(true);
+
+                LinearLayout col = new LinearLayout(this);
+                col.setOrientation(LinearLayout.VERTICAL);
+                ImageView preview = new ImageView(this);
+                preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                preview.setImageBitmap(loadAssetThumbnail(assetPath, 320));
+                col.addView(preview, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, (int) (80 * d)));
+                TextView name = new TextView(this);
+                name.setText(bgDisplayName(assetPath));
+                name.setTextColor(0xFF1F1F1F);
+                name.setTextSize(12);
+                name.setGravity(android.view.Gravity.CENTER);
+                name.setMaxLines(2);
+                name.setPadding(0, (int) (4 * d), 0, (int) (2 * d));
+                col.addView(name, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                card.addView(col, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                ImageView check = new ImageView(this);
+                check.setImageResource(R.drawable.ic_check_circle);
+                check.setBackgroundResource(R.drawable.bg_circle_nav);
+                check.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF6200EE));
+                check.setVisibility(View.GONE);
+                check.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                FrameLayout.LayoutParams checkLp = new FrameLayout.LayoutParams((int) (22 * d), (int) (22 * d),
+                        android.view.Gravity.TOP | android.view.Gravity.END);
+                checkLp.setMargins((int) (4 * d), (int) (4 * d), (int) (4 * d), (int) (4 * d));
+                card.addView(check, checkLp);
+
+                card.setOnClickListener(v -> {
+                    selectedBg[0] = idx;
+                    refreshBgCards.run();
+                });
+                bgCards.add(card);
+                bgChecks.add(check);
+
+                GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
+                        GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f));
+                lp.width = 0;
+                lp.setMargins((int) (6 * d), (int) (6 * d), (int) (6 * d), (int) (6 * d));
+                bgGrid.addView(card, lp);
+            }
+        }
+        refreshBgCards.run();
+
         setupPermissionsSection(view, dialog);
 
         Button btnCancel = view.findViewById(R.id.btn_cancel_settings);
@@ -3024,6 +3170,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         .putBoolean(KEY_AUTOCROP_4_5, cbCrop45 != null && cbCrop45.isChecked())
                         .putBoolean(KEY_AUTOCROP_1_1, cbCrop11 != null && cbCrop11.isChecked())
                         .apply();
+
+                SharedPreferences.Editor bgEdit = bgPrefs.edit()
+                        .putBoolean("bg_replace_enabled", cbBgReplace != null && cbBgReplace.isChecked());
+                if (!bgAssets.isEmpty()) bgEdit.putString("bg_asset_path", bgAssets.get(selectedBg[0]));
+                bgEdit.apply();
 
                 Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
@@ -3071,6 +3222,39 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
      * Rows rebuild whenever the user returns from a system screen, so a granted permission
      * disappears and the whole section hides once nothing is missing.
      */
+    /** "bg_samples/modern-office_1.png" -> "Modern Office 1". */
+    private static String bgDisplayName(String assetPath) {
+        String n = assetPath.substring(assetPath.lastIndexOf('/') + 1);
+        int dot = n.lastIndexOf('.');
+        if (dot > 0) n = n.substring(0, dot);
+        StringBuilder sb = new StringBuilder();
+        for (String w : n.split("[-_\\s]+")) {
+            if (w.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));
+        }
+        return sb.toString();
+    }
+
+    /** Decodes an asset image downsampled to roughly {@code maxWidth} px wide; null on failure. */
+    private android.graphics.Bitmap loadAssetThumbnail(String assetPath, int maxWidth) {
+        try (java.io.InputStream in = getAssets().open(assetPath)) {
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+            int sample = 1;
+            while (bounds.outWidth / (sample * 2) >= maxWidth) sample *= 2;
+            try (java.io.InputStream in2 = getAssets().open(assetPath)) {
+                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+                opts.inSampleSize = sample;
+                return android.graphics.BitmapFactory.decodeStream(in2, null, opts);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Background thumbnail failed: " + assetPath, e);
+            return null;
+        }
+    }
+
     private void setupPermissionsSection(View dialogView, AlertDialog dialog) {
         View section = dialogView.findViewById(R.id.permissions_section);
         LinearLayout container = dialogView.findViewById(R.id.permissions_container);
@@ -3239,50 +3423,87 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     onRecordingStoppedUi();
                 }
                 String path = intent.getStringExtra(ScreenRecordService.EXTRA_VIDEO_PATH);
-                if (path != null) {
-                    File file = new File(path);
-                    if (file.exists() && file.length() > 0) {
-                        Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
-
-                        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-                        List<int[]> ratios = new ArrayList<>();
-                        if (prefs.getBoolean(KEY_AUTOCROP_9_16, true)) ratios.add(new int[]{9, 16});
-                        if (prefs.getBoolean(KEY_AUTOCROP_4_5, false)) ratios.add(new int[]{4, 5});
-                        if (prefs.getBoolean(KEY_AUTOCROP_1_1, false)) ratios.add(new int[]{1, 1});
-
-                        if (!ratios.isEmpty() && dialog != null) {
-                            TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
-                            if (tvCropStatus != null) {
-                                tvCropStatus.setText("⏳ Auto-cropping as per your settings…");
-                                tvCropStatus.setVisibility(View.VISIBLE);
-                            }
-
-                            VideoCropHelper.cropAsync(
-                                getApplicationContext(), path, ratios,
-                                new VideoCropHelper.CropCallback() {
-                                    @Override
-                                    public void onProgress(String ratioLabel, boolean success) {
-                                    }
-
-                                    @Override
-                                    public void onAllComplete(int successCount, int failCount) {
-                                        if (tvCropStatus != null) {
-                                            if (failCount == 0) {
-                                                tvCropStatus.setText("✓ Cropped versions saved");
-                                            } else {
-                                                tvCropStatus.setText("⚠ " + failCount +
-                                                    " crop(s) failed, " + successCount + " saved");
-                                            }
-                                        }
-                                    }
-                                }
-                            );
-                        }
-                    }
+                if (path == null) return;
+                // With processing, BgReplaceService reports progress and the result through
+                // processingListener; the file is only shown once background replace and
+                // auto-crop are both done
+                if (!intent.getBooleanExtra(ScreenRecordService.EXTRA_PROCESSING, false)) {
+                    onRecordingReady(path, 0, 0);
                 }
             }
         }
     };
+
+    private android.app.Dialog processingDialog;
+    private final BgReplaceService.Listener processingListener = new BgReplaceService.Listener() {
+        @Override
+        public void onProgress(String stage, int percent) {
+            showProcessingDialog(stage, percent);
+        }
+
+        @Override
+        public void onFinished(String path, int cropSuccess, int cropFail) {
+            dismissProcessingDialog();
+            onRecordingReady(path, cropSuccess, cropFail);
+        }
+    };
+
+    private void showProcessingDialog(String stage, int percent) {
+        if (isFinishing() || isDestroyed()) return;
+        if (processingDialog == null) {
+            processingDialog = new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar_Fullscreen);
+            processingDialog.setContentView(R.layout.dialog_processing);
+            processingDialog.setCancelable(false);
+            processingDialog.show();
+            View halo = processingDialog.findViewById(R.id.processing_halo);
+            if (halo != null) {
+                android.animation.ObjectAnimator pulse = android.animation.ObjectAnimator.ofPropertyValuesHolder(halo,
+                        android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 0.8f, 1f),
+                        android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.8f, 1f),
+                        android.animation.PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0.35f));
+                pulse.setDuration(1200);
+                pulse.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+                pulse.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+                pulse.start();
+                processingDialog.setOnDismissListener(d -> pulse.cancel());
+            }
+        }
+        TextView title = processingDialog.findViewById(R.id.processing_title);
+        ProgressBar bar = processingDialog.findViewById(R.id.processing_bar);
+        TextView pct = processingDialog.findViewById(R.id.processing_percent);
+        if (title != null) title.setText(stage);
+        if (bar != null) {
+            bar.setIndeterminate(percent < 0);
+            if (percent >= 0) bar.setProgress(percent);
+        }
+        if (pct != null) pct.setText(percent >= 0 ? percent + "%" : "");
+    }
+
+    private void dismissProcessingDialog() {
+        if (processingDialog != null) {
+            try {
+                processingDialog.dismiss();
+            } catch (Exception ignored) {}
+            processingDialog = null;
+        }
+    }
+
+    /** Shows the finished recording; the auto-crops were already made by BgReplaceService. */
+    private void onRecordingReady(String path, int cropSuccess, int cropFail) {
+        if (isFinishing() || isDestroyed()) return;
+        File file = new File(path);
+        if (file.exists() && file.length() > 0) {
+            Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
+            if (dialog != null && cropSuccess + cropFail > 0) {
+                TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
+                if (tvCropStatus != null) {
+                    tvCropStatus.setText(cropFail == 0 ? "✓ Cropped versions saved"
+                            : "⚠ " + cropFail + " crop(s) failed, " + cropSuccess + " saved");
+                    tvCropStatus.setVisibility(View.VISIBLE);
+                }
+            }
+        }
+    }
 
     private void registerRecordingFinishedReceiver() {
         IntentFilter filter = new IntentFilter(ScreenRecordService.ACTION_RECORDING_FINISHED);
