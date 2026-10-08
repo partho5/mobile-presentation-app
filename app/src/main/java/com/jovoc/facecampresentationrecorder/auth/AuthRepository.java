@@ -1,0 +1,274 @@
+package com.jovoc.facecampresentationrecorder.auth;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.LongSupplier;
+import java.util.regex.Pattern;
+
+/**
+ * Sign-in, refresh and sign-out against the backend token endpoints, plus {@link #execute} for
+ * authenticated calls (M2/M3 use it). All methods block; call them off the main thread.
+ *
+ * Contracts: api.email-otp, api.token-auth, api.mobile-access.
+ */
+public class AuthRepository {
+
+    static final String PATH_OTP_REQUEST = "/auth/otp/request";
+    static final String PATH_TOKEN = "/auth/token";
+    static final String PATH_REVOKE = "/auth/token/revoke";
+    static final int MAX_DEVICE_NAME = 100;
+
+    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern CODE = Pattern.compile("^\\d{6}$");
+
+    private final ApiClient api;
+    private final TokenStore store;
+    private final LongSupplier clock;
+    private final Object refreshLock = new Object();
+    private volatile Runnable forcedSignOutListener;
+
+    public AuthRepository(ApiClient api, TokenStore store) {
+        this(api, store, System::currentTimeMillis);
+    }
+
+    public AuthRepository(ApiClient api, TokenStore store, LongSupplier clock) {
+        this.api = api;
+        this.store = store;
+        this.clock = clock;
+    }
+
+    /** Called (on the calling thread) when the session ended without the user asking. */
+    public void setForcedSignOutListener(Runnable listener) {
+        this.forcedSignOutListener = listener;
+    }
+
+    public TokenStore store() {
+        return store;
+    }
+
+    // ---- input rules (the backend lower-cases and trims; we do the same) ----
+
+    public static String normalizeEmail(String raw) {
+        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isValidEmail(String email) {
+        return email.length() <= 254 && EMAIL.matcher(email).matches();
+    }
+
+    /** Strips everything but digits and keeps the first six (paste-friendly). */
+    public static String sanitizeCode(String raw) {
+        if (raw == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < raw.length() && sb.length() < 6; i++) {
+            char c = raw.charAt(i);
+            if (c >= '0' && c <= '9') sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    public static boolean isValidCode(String code) {
+        return CODE.matcher(code).matches();
+    }
+
+    // ---- sign in ----
+
+    /** POST /auth/otp/request. Same outcome for known and new addresses. */
+    public void requestCode(String rawEmail) throws AuthException {
+        String email = normalizeEmail(rawEmail);
+        if (!isValidEmail(email)) throw new AuthException(AuthException.Kind.BAD_INPUT);
+        ApiResponse r = call(() -> api.postJson(PATH_OTP_REQUEST, obj("email", email).toString()));
+        if (r.isSuccess()) return;
+        throw mapSignInFailure(r);
+    }
+
+    /**
+     * POST /auth/token with the email_otp grant. Stores the session.
+     * @return true when the backend created a new account (header onboarding: true)
+     */
+    public boolean exchangeCode(String rawEmail, String rawCode, String deviceName) throws AuthException {
+        String email = normalizeEmail(rawEmail);
+        String code = sanitizeCode(rawCode);
+        if (!isValidEmail(email) || !isValidCode(code)) {
+            throw new AuthException(AuthException.Kind.BAD_INPUT);
+        }
+        String device = clampDeviceName(deviceName);
+        JSONObject body = obj("grant_type", "email_otp");
+        put(body, "email", email);
+        put(body, "code", code);
+        put(body, "device_name", device);
+        ApiResponse r = call(() -> api.postJson(PATH_TOKEN, body.toString()));
+        if (!r.isSuccess()) throw mapSignInFailure(r);
+        saveTokenPair(r);
+        store.saveIdentity(email, device);
+        return r.onboarding;
+    }
+
+    // ---- refresh ----
+
+    /**
+     * Renews the pair. {@code staleAccess} is the access token the caller just used (or saw):
+     * if another thread already replaced it, nothing is sent. Concurrent callers therefore
+     * produce one refresh request.
+     */
+    public void refreshIfStale(String staleAccess) throws AuthException {
+        synchronized (refreshLock) {
+            String refresh = store.refreshToken();
+            if (refresh == null || refresh.isEmpty()) {
+                throw new AuthException(AuthException.Kind.NOT_SIGNED_IN);
+            }
+            if (!Objects.equals(staleAccess, store.accessToken())) return;
+
+            JSONObject body = obj("grant_type", "refresh_token");
+            put(body, "refresh_token", refresh);
+            ApiResponse r = call(() -> api.postJson(PATH_TOKEN, body.toString()));
+            if (r.isSuccess()) {
+                saveTokenPair(r);
+                return;
+            }
+            if (r.status == 401) {
+                endSession(true);
+                throw new AuthException(AuthException.Kind.SESSION_ENDED);
+            }
+            if (r.status == 429) {
+                throw new AuthException(AuthException.Kind.RATE_LIMITED, r.retryAfterSeconds, null);
+            }
+            throw new AuthException(AuthException.Kind.SERVER);
+        }
+    }
+
+    // ---- authenticated calls ----
+
+    /**
+     * Sends an authenticated request. Refreshes first when the access token is about to expire,
+     * and once more (then retries once, same headers) on 401 TOKEN_EXPIRED. 401 SESSION_REVOKED
+     * clears the session, fires the forced-sign-out listener and throws SESSION_ENDED. Any other
+     * response, including errors, is returned for the caller to interpret.
+     */
+    public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers)
+            throws AuthException {
+        if (!store.hasSession()) throw new AuthException(AuthException.Kind.NOT_SIGNED_IN);
+
+        String access = store.accessToken();
+        if (store.accessNeedsRefresh(clock.getAsLong())) {
+            refreshIfStale(access);
+            access = store.accessToken();
+        }
+        ApiResponse r = sendBearer(access, method, path, jsonBody, headers);
+        if (r.is(401, ApiResponse.TOKEN_EXPIRED)) {
+            refreshIfStale(access);
+            access = store.accessToken();
+            r = sendBearer(access, method, path, jsonBody, headers);
+        }
+        if (r.is(401, ApiResponse.SESSION_REVOKED)) {
+            endSession(true);
+            throw new AuthException(AuthException.Kind.SESSION_ENDED);
+        }
+        return r;
+    }
+
+    private ApiResponse sendBearer(String access, String method, String path, String jsonBody,
+                                   Map<String, String> headers) throws AuthException {
+        Map<String, String> h = new HashMap<>();
+        if (headers != null) h.putAll(headers);
+        h.put("Authorization", "Bearer " + access);
+        return call(() -> api.send(method, path, jsonBody, h));
+    }
+
+    // ---- sign out ----
+
+    /**
+     * Ends the session on this device. Tries to revoke it on the server first (best effort);
+     * the local session is always cleared.
+     * @return true if the server confirmed the revoke, false if it could not be reached
+     */
+    public boolean signOut() {
+        String refresh = store.refreshToken();
+        boolean revoked = refresh == null || refresh.isEmpty();
+        if (!revoked) {
+            try {
+                ApiResponse r = api.postJson(PATH_REVOKE, obj("refresh_token", refresh).toString());
+                revoked = r.isSuccess();
+            } catch (IOException ignored) {
+                // offline: still sign out locally
+            }
+        }
+        store.clear();
+        return revoked;
+    }
+
+    // ---- internals ----
+
+    private void endSession(boolean forced) {
+        store.clear();
+        Runnable l = forcedSignOutListener;
+        if (forced && l != null) l.run();
+    }
+
+    private void saveTokenPair(ApiResponse r) throws AuthException {
+        try {
+            JSONObject j = r.json();
+            String access = j.getString("access_token");
+            String refresh = j.getString("refresh_token");
+            String sid = j.optString("session_id", "");
+            long expiresIn = j.optLong("expires_in", 900L);
+            if (access.isEmpty() || refresh.isEmpty()) throw new JSONException("empty token");
+            store.saveTokens(access, refresh, sid, expiresIn, clock.getAsLong());
+        } catch (JSONException e) {
+            throw new AuthException(AuthException.Kind.SERVER, -1, e);
+        }
+    }
+
+    private static AuthException mapSignInFailure(ApiResponse r) {
+        switch (r.status) {
+            case 400:
+                return new AuthException(AuthException.Kind.BAD_INPUT);
+            case 401:
+                return new AuthException(AuthException.Kind.INVALID_CODE);
+            case 429:
+                return new AuthException(AuthException.Kind.RATE_LIMITED, r.retryAfterSeconds, null);
+            case 503:
+                return new AuthException(AuthException.Kind.MAIL_FAILED);
+            default:
+                return new AuthException(AuthException.Kind.SERVER);
+        }
+    }
+
+    private interface Net {
+        ApiResponse run() throws IOException;
+    }
+
+    private static ApiResponse call(Net net) throws AuthException {
+        try {
+            return net.run();
+        } catch (IOException e) {
+            throw new AuthException(AuthException.Kind.NETWORK, -1, e);
+        }
+    }
+
+    static String clampDeviceName(String name) {
+        String n = name == null ? "" : name.trim();
+        if (n.isEmpty()) n = "Android";
+        return n.length() > MAX_DEVICE_NAME ? n.substring(0, MAX_DEVICE_NAME) : n;
+    }
+
+    private static JSONObject obj(String k, String v) {
+        JSONObject o = new JSONObject();
+        put(o, k, v);
+        return o;
+    }
+
+    private static void put(JSONObject o, String k, String v) {
+        try {
+            o.put(k, v);
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+}
