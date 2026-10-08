@@ -91,7 +91,7 @@ public final class PublishPipeline {
         move(job, PublishJob.UPLOADING);
 
         final int[] lastSaved = {0};
-        PublishApi.Media media = api.upload(file, (sent, total) -> {
+        PublishApi.Media media = api.upload(file, job.workspaceId, (sent, total) -> {
             int pct = total <= 0 ? 0 : (int) Math.min(99, sent * 100 / total);
             // Saving every chunk would hammer the database; every few percent is plenty.
             if (pct >= lastSaved[0] + 2) {

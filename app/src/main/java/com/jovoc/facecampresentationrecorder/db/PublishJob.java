@@ -55,6 +55,13 @@ public class PublishJob {
     @ColumnInfo(name = "media_path")
     public String mediaPath;
 
+    /**
+     * Workspace the job was made in (sent as x-workspace-id), so switching workspace later cannot
+     * move a queued post. Null = whatever the server picks by default.
+     */
+    @ColumnInfo(name = "workspace_id")
+    public String workspaceId;
+
     public String status;
 
     /** Upload progress, 0-100. */

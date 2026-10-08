@@ -13,6 +13,7 @@ import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
@@ -58,6 +59,10 @@ public final class PublishManager {
             PublishJob existing = dao.latestFor(job.filePath);
             if (existing == null || !existing.isActive()) {
                 long now = System.currentTimeMillis();
+                // The job stays in the workspace picked now, even if the user switches later.
+                if (job.workspaceId == null) {
+                    job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
+                }
                 job.status = PublishJob.QUEUED;
                 job.progress = 0;
                 job.idempotencyKey = PublishPipeline.newKey();
@@ -84,6 +89,14 @@ public final class PublishManager {
             schedule(app, id);
             broadcast(app);
         });
+    }
+
+    /**
+     * Called before the user picks a workspace while none was picked: jobs made under the server's
+     * default are pinned to it ({@code defaultWorkspaceId}) so they do not follow the switch.
+     */
+    public void pinDefaultWorkspace(String defaultWorkspaceId) {
+        io.execute(() -> dao.pinUnpinned(defaultWorkspaceId));
     }
 
     /** Stops the job and forgets it; the recording goes back to "not published". */

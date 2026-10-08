@@ -171,6 +171,45 @@ public class PublishPipelineTest {
     // ---- dropped connection: no duplicate post, no second upload ----
 
     @Test
+    public void aJobKeepsItsOwnWorkspace_evenAfterTheDevicePickChanged() throws Exception {
+        PublishJob job = newJob();
+        job.workspaceId = "w-A";
+        tokens.saveWorkspace("w-B", "Beta");
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+
+        assertEquals("w-A", server.takeRequest().getHeader("x-workspace-id")); // upload
+        assertEquals("w-A", server.takeRequest().getHeader("x-workspace-id")); // post
+        assertEquals("w-B", tokens.workspaceId());
+    }
+
+    @Test
+    public void aJobWithoutWorkspace_followsTheDevicePick() throws Exception {
+        newJob();
+        tokens.saveWorkspace("w-B", "Beta");
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+
+        assertEquals("w-B", server.takeRequest().getHeader("x-workspace-id"));
+    }
+
+    @Test
+    public void forbiddenWorkspaceFailsTheJobWithoutRetry() throws Exception {
+        PublishJob job = newJob();
+        job.workspaceId = "w-gone";
+        server.enqueue(new MockResponse().setResponseCode(403)
+                .setBody("{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}"));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        assertEquals("WORKSPACE_FORBIDDEN", rows.get(7L).errorKind);
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
     public void droppedConnectionOnPostRetriesWithTheSameKeyAndSkipsTheUpload() throws Exception {
         newJob();
         server.enqueue(new MockResponse().setBody(UPLOAD_OK));

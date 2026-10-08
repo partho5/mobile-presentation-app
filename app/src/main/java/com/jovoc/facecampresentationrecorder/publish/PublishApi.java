@@ -74,11 +74,12 @@ public class PublishApi {
     }
 
     /** POST /public/v1/upload (multipart "file"). */
-    public Media upload(File file, ApiClient.ProgressListener progress, BooleanSupplier cancelled)
-            throws PublishException {
+    public Media upload(File file, String workspaceId, ApiClient.ProgressListener progress,
+                        BooleanSupplier cancelled) throws PublishException {
         ApiResponse r;
         try {
-            r = repo.executeUpload(PATH_UPLOAD, "file", file, "video/mp4", progress, cancelled);
+            r = repo.executeUpload(PATH_UPLOAD, "file", file, "video/mp4", progress, cancelled,
+                    workspaceHeaders(workspaceId, null));
         } catch (AuthException e) {
             if (isCancelled(e, cancelled)) throw new PublishException(PublishException.Kind.CANCELLED);
             throw PublishException.from(e);
@@ -100,7 +101,7 @@ public class PublishApi {
      * @return the created post ids (never empty)
      */
     public List<String> createPost(PublishJob job, long nowMs) throws PublishException {
-        Map<String, String> headers = new HashMap<>();
+        Map<String, String> headers = workspaceHeaders(job.workspaceId, null);
         headers.put(HEADER_IDEMPOTENCY, job.idempotencyKey);
         String body = PublishRequestBuilder.createPostBody(job, nowMs);
         ApiResponse r = authed(() -> repo.execute("POST", PATH_POSTS, body, headers));
@@ -118,6 +119,16 @@ public class PublishApi {
     }
 
     // ---- internals ----
+
+    /** A job keeps the workspace it was made in; without one the device's pick / default applies. */
+    static Map<String, String> workspaceHeaders(String workspaceId, Map<String, String> base) {
+        Map<String, String> h = new HashMap<>();
+        if (base != null) h.putAll(base);
+        if (workspaceId != null && !workspaceId.isEmpty()) {
+            h.put(AuthRepository.HEADER_WORKSPACE, workspaceId);
+        }
+        return h;
+    }
 
     private interface Call {
         ApiResponse run() throws AuthException;

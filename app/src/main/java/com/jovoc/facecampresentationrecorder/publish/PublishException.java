@@ -21,6 +21,8 @@ public class PublishException extends Exception {
         INSUFFICIENT_CREDITS,
         /** 4xx with a readable reason from the server (validation, forbidden, ...). */
         REJECTED,
+        /** 403 WORKSPACE_FORBIDDEN: the user is no longer a member of the job's workspace. */
+        WORKSPACE_FORBIDDEN,
         /** 413 / over the 1 GB video cap. */
         TOO_LARGE,
         /** 429 (too many requests). */
@@ -89,6 +91,9 @@ public class PublishException extends Exception {
         String message = readMessage(r.body);
         if (r.status == 402 && "INSUFFICIENT_CREDITS".equals(r.errorCode)) {
             return new PublishException(Kind.INSUFFICIENT_CREDITS, 402, message, -1);
+        }
+        if (r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)) {
+            return new PublishException(Kind.WORKSPACE_FORBIDDEN, 403, null, -1);
         }
         if (r.status == 413) return new PublishException(Kind.TOO_LARGE, 413, message, -1);
         if (r.status == 429) {

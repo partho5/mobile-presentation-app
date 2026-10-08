@@ -33,6 +33,10 @@ public interface PublishJobDao {
     @Query("DELETE FROM publish_jobs WHERE id = :id")
     void deleteById(long id);
 
+    /** Pins jobs made under the server's default workspace to it before the user picks another. */
+    @Query("UPDATE publish_jobs SET workspace_id = :workspaceId WHERE workspace_id IS NULL")
+    void pinUnpinned(String workspaceId);
+
     @Query("UPDATE publish_jobs SET file_path = :newPath, file_name = :newName WHERE file_path = :oldPath")
     void rename(String oldPath, String newPath, String newName);
 }

@@ -58,6 +58,8 @@ public final class PublishLabels {
                 return hasDetail ? detail : c.getString(R.string.pub_err_credits);
             case "REJECTED":
                 return hasDetail ? detail : c.getString(R.string.pub_err_rejected);
+            case "WORKSPACE_FORBIDDEN":
+                return c.getString(R.string.pub_err_workspace);
             case "TOO_LARGE":
                 return c.getString(R.string.pub_err_too_large);
             case "RATE_LIMITED":
