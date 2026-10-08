@@ -15,6 +15,8 @@ public class TokenStore {
     private static final String K_EXPIRES = "access_expires_at";
     private static final String K_EMAIL = "email";
     private static final String K_DEVICE = "device_name";
+    private static final String K_WORKSPACE = "workspace_id";
+    private static final String K_WORKSPACE_NAME = "workspace_name";
 
     private final KeyValueStore kv;
     private final Object lock = new Object();
@@ -69,6 +71,35 @@ public class TokenStore {
 
     public String deviceName() {
         return read(K_DEVICE);
+    }
+
+    /** The workspace picked on this device, or null for the server's default. */
+    public String workspaceId() {
+        String v = read(K_WORKSPACE);
+        return v == null || v.isEmpty() ? null : v;
+    }
+
+    public String workspaceName() {
+        return read(K_WORKSPACE_NAME);
+    }
+
+    public void saveWorkspace(String id, String name) {
+        Map<String, String> m = new HashMap<>();
+        m.put(K_WORKSPACE, id);
+        m.put(K_WORKSPACE_NAME, name == null ? "" : name);
+        synchronized (lock) {
+            kv.putAll(m);
+        }
+    }
+
+    /** Back to the server's default workspace (a null value removes the key). */
+    public void clearWorkspace() {
+        Map<String, String> m = new HashMap<>();
+        m.put(K_WORKSPACE, null);
+        m.put(K_WORKSPACE_NAME, null);
+        synchronized (lock) {
+            kv.putAll(m);
+        }
     }
 
     public long accessExpiresAtMs() {

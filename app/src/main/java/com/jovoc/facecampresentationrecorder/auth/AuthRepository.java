@@ -25,6 +25,7 @@ public class AuthRepository {
     static final String PATH_TOKEN = "/auth/token";
     static final String PATH_REVOKE = "/auth/token/revoke";
     static final int MAX_DEVICE_NAME = 100;
+    public static final String HEADER_WORKSPACE = "x-workspace-id";
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern CODE = Pattern.compile("^\\d{6}$");
@@ -155,7 +156,20 @@ public class AuthRepository {
      */
     public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers)
             throws AuthException {
-        return executeAuthed(access -> api.send(method, path, jsonBody, withBearer(access, headers)));
+        return execute(method, path, jsonBody, headers, true);
+    }
+
+    /**
+     * Like {@link #execute(String, String, String, Map)}. {@code withWorkspace} adds the
+     * {@code x-workspace-id} of the workspace picked on this device (unless {@code headers}
+     * already names one). A 403 WORKSPACE_FORBIDDEN for the stored workspace drops the pick, so
+     * the next call uses the server's default; the 403 is still returned to the caller.
+     */
+    public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers,
+                               boolean withWorkspace) throws AuthException {
+        Map<String, String> h = withWorkspace ? withWorkspaceHeader(headers) : headers;
+        ApiResponse r = executeAuthed(access -> api.send(method, path, jsonBody, withBearer(access, h)));
+        return noteWorkspaceResult(r, h);
     }
 
     /** One authenticated attempt with the given access token. */
@@ -193,8 +207,33 @@ public class AuthRepository {
     public ApiResponse executeUpload(String path, String fieldName, File file, String mime,
                                      ApiClient.ProgressListener progress, BooleanSupplier cancelled)
             throws AuthException {
-        return executeAuthed(access -> api.upload(path, fieldName, file, mime,
-                withBearer(access, null), progress, cancelled));
+        return executeUpload(path, fieldName, file, mime, progress, cancelled, null);
+    }
+
+    /** As above; {@code headers} may name a workspace (a queued job keeps the one it was made in). */
+    public ApiResponse executeUpload(String path, String fieldName, File file, String mime,
+                                     ApiClient.ProgressListener progress, BooleanSupplier cancelled,
+                                     Map<String, String> headers) throws AuthException {
+        Map<String, String> h = withWorkspaceHeader(headers);
+        ApiResponse r = executeAuthed(access -> api.upload(path, fieldName, file, mime,
+                withBearer(access, h), progress, cancelled));
+        return noteWorkspaceResult(r, h);
+    }
+
+    private Map<String, String> withWorkspaceHeader(Map<String, String> headers) {
+        Map<String, String> h = new HashMap<>();
+        if (headers != null) h.putAll(headers);
+        String workspace = store.workspaceId();
+        if (workspace != null && !h.containsKey(HEADER_WORKSPACE)) h.put(HEADER_WORKSPACE, workspace);
+        return h;
+    }
+
+    private ApiResponse noteWorkspaceResult(ApiResponse r, Map<String, String> sentHeaders) {
+        if (r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)) {
+            String sent = sentHeaders == null ? null : sentHeaders.get(HEADER_WORKSPACE);
+            if (sent != null && sent.equals(store.workspaceId())) store.clearWorkspace();
+        }
+        return r;
     }
 
     private static Map<String, String> withBearer(String access, Map<String, String> headers) {
@@ -224,6 +263,11 @@ public class AuthRepository {
         }
         store.clear();
         return revoked;
+    }
+
+    /** Clears the local session without telling the server (it already ended this session). */
+    public void endLocalSession() {
+        store.clear();
     }
 
     // ---- internals ----

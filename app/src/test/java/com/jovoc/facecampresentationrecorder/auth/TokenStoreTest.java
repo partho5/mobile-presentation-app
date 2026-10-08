@@ -61,6 +61,23 @@ public class TokenStoreTest {
     }
 
     @Test
+    public void workspacePick_isStored_clearable_andWipedOnSignOut() {
+        assertNull(store.workspaceId());
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveWorkspace("w1", "Acme");
+        assertEquals("w1", store.workspaceId());
+        assertEquals("Acme", store.workspaceName());
+        store.saveTokens("acc2", "ref2", "sid", 900, 0); // a refresh keeps the pick
+        assertEquals("w1", store.workspaceId());
+        store.clearWorkspace();
+        assertNull(store.workspaceId());
+        assertTrue(store.hasSession());
+        store.saveWorkspace("w2", "Beta");
+        store.clear();
+        assertNull(store.workspaceId());
+    }
+
+    @Test
     public void garbageExpiryCountsAsExpired() {
         store.saveTokens("acc", "ref", "sid", 900, 0);
         kv.data.put("access_expires_at", "not-a-number");
