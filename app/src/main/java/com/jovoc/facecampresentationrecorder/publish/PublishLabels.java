@@ -1,0 +1,79 @@
+package com.jovoc.facecampresentationrecorder.publish;
+
+import android.content.Context;
+
+import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.db.PublishJob;
+
+import java.text.DateFormat;
+import java.util.Date;
+
+/** The words and colours for publish state, shared by the card and the publish screen. */
+public final class PublishLabels {
+
+    private PublishLabels() {}
+
+    /** One line for a recording card, or null when the recording has no publish history. */
+    public static String status(Context c, PublishJob job) {
+        if (job == null) return null;
+        switch (job.status == null ? "" : job.status) {
+            case PublishJob.QUEUED:
+                return c.getString(job.errorKind != null ? R.string.status_waiting : R.string.status_queued);
+            case PublishJob.UPLOADING:
+                return c.getString(R.string.status_uploading, job.progress);
+            case PublishJob.PUBLISHING:
+                return c.getString(R.string.status_publishing);
+            case PublishJob.DONE:
+                if (PublishJob.MODE_SCHEDULE.equals(job.mode)) {
+                    String when = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                            .format(new Date(job.scheduleAt));
+                    return c.getString(R.string.status_scheduled, when);
+                }
+                return c.getString(R.string.status_published);
+            case PublishJob.FAILED:
+                return c.getString(R.string.status_failed, reason(c, job.errorKind, job.errorDetail));
+            default:
+                return null;
+        }
+    }
+
+    public static int color(PublishJob job) {
+        if (job == null) return 0xFFBBBBBB;
+        if (PublishJob.DONE.equals(job.status)) return 0xFF4ADE80;
+        if (PublishJob.FAILED.equals(job.status)) return 0xFFFF6B6B;
+        if (PublishJob.QUEUED.equals(job.status) && job.errorKind != null) return 0xFFFFB347;
+        return 0xFF22D3EE;
+    }
+
+    /** A short human reason for a failure kind ({@link PublishException.Kind} name). */
+    public static String reason(Context c, String kind, String detail) {
+        boolean hasDetail = detail != null && !detail.isEmpty();
+        if (kind == null) return c.getString(R.string.pub_err_server);
+        switch (kind) {
+            case "NETWORK":
+                return c.getString(R.string.pub_err_network);
+            case "SIGNED_OUT":
+                return c.getString(R.string.pub_err_signed_out);
+            case "INSUFFICIENT_CREDITS":
+                return hasDetail ? detail : c.getString(R.string.pub_err_credits);
+            case "REJECTED":
+                return hasDetail ? detail : c.getString(R.string.pub_err_rejected);
+            case "TOO_LARGE":
+                return c.getString(R.string.pub_err_too_large);
+            case "RATE_LIMITED":
+                return c.getString(R.string.pub_err_rate_limited);
+            case "IN_PROGRESS":
+                return c.getString(R.string.pub_err_busy);
+            case "FILE":
+                return c.getString(R.string.pub_err_file);
+            case "INTERRUPTED":
+                return c.getString(R.string.pub_err_interrupted);
+            default:
+                return c.getString(R.string.pub_err_server);
+        }
+    }
+
+    public static String reason(Context c, PublishException e) {
+        return reason(c, e.kind.name(), e.detail);
+    }
+}

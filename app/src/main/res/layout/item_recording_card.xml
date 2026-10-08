@@ -176,6 +176,31 @@
                     android:textSize="12sp"
                     tools:text="Sep 22, 2026 • 12:00 PM" />
             </LinearLayout>
+
+            <!-- Publish state: shown only for recordings that have been sent to channels -->
+            <TextView
+                android:id="@+id/tv_publish_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="#22D3EE"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="Uploading 42%"
+                tools:visibility="visible" />
+
+            <ProgressBar
+                android:id="@+id/pb_publish"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_marginTop="4dp"
+                android:max="100"
+                android:progressTint="#22D3EE"
+                android:visibility="gone" />
         </LinearLayout>
 
     </RelativeLayout>

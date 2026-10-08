@@ -7,12 +7,12 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 
 | Step | Scope | Status |
 |---|---|---|
-| 1 | Plan, WorkManager dep, multipart upload in ApiClient/AuthRepository | ⬜ |
-| 2 | `publish/` core: PublishApi, PublishPipeline, request builder, policy + unit tests | ⬜ |
-| 3 | Room v3: `publish_jobs` table + migration, DAO | ⬜ |
-| 4 | PublishWorker (expedited, foreground notif, cancel) + PublishManager | ⬜ |
-| 5 | UI: PublishActivity, card status + menu entries in SavedRecordings | ⬜ |
-| 6 | Build, tests, report | ⬜ |
+| 1 | Plan, WorkManager dep, multipart upload in ApiClient/AuthRepository | ✅ Done |
+| 2 | `publish/` core: PublishApi, PublishPipeline, request builder, error policy + unit tests (61 pass) | ✅ Done |
+| 3 | Room v3: `publish_jobs` table + migration (SQL checked against Room's generated schema), DAO | ✅ Done |
+| 4 | PublishWorker (expedited, foreground notif, cancel) + PublishManager | ✅ Done (device QA pending) |
+| 5 | UI: PublishActivity, card status + menu entries in SavedRecordings | ✅ Done (device QA pending) |
+| 6 | Build, tests, report | ✅ Done |
 
 ## Contract facts used (exact)
 

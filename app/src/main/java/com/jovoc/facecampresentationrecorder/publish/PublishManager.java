@@ -104,6 +104,11 @@ public final class PublishManager {
         });
     }
 
+    /** The newest job of one recording, or null. Blocking: call off the main thread. */
+    public PublishJob latestFor(String filePath) {
+        return dao.latestFor(filePath);
+    }
+
     /** The newest job of every recording, by file path. Blocking: call off the main thread. */
     public Map<String, PublishJob> latestByPath() {
         Map<String, PublishJob> map = new HashMap<>();

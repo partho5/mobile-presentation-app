@@ -24,7 +24,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
+import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
@@ -36,6 +38,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -63,6 +66,14 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             loadRecordings(false);
+        }
+    };
+
+    /** Updates the publish status line of the affected cards as an upload progresses. */
+    private final BroadcastReceiver publishStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            refreshPublishStatus();
         }
     };
 
@@ -140,6 +151,12 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         } else {
             registerReceiver(cropStateReceiver, filter);
         }
+        IntentFilter publishFilter = new IntentFilter(PublishManager.ACTION_STATE_CHANGED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(publishStateReceiver, publishFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(publishStateReceiver, publishFilter);
+        }
     }
 
     @Override
@@ -154,6 +171,9 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         super.onStop();
         try {
             unregisterReceiver(cropStateReceiver);
+        } catch (Exception ignored) {}
+        try {
+            unregisterReceiver(publishStateReceiver);
         } catch (Exception ignored) {}
     }
 
@@ -277,7 +297,45 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         }
 
         insertPendingPlaceholders(items, pending, dateFormat);
+        attachPublishJobs(items);
         return items;
+    }
+
+    /** Tags every card with the newest publish attempt of its file (if any). */
+    private void attachPublishJobs(List<RecordingItem> items) {
+        PublishManager publish = PublishManager.get(this);
+        publish.reconcile();
+        Map<String, PublishJob> jobs = publish.latestByPath();
+        for (RecordingItem item : items) {
+            if (item.isReady()) item.setPublishJob(jobs.get(item.getFilePath()));
+        }
+    }
+
+    /** Re-reads publish state and redraws only the cards whose state moved. */
+    private void refreshPublishStatus() {
+        if (scanExecutor.isShutdown()) return;
+        scanExecutor.execute(() -> {
+            Map<String, PublishJob> jobs = PublishManager.get(this).latestByPath();
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                for (int i = 0; i < recordingList.size(); i++) {
+                    RecordingItem item = recordingList.get(i);
+                    if (!item.isReady()) continue;
+                    PublishJob now = jobs.get(item.getFilePath());
+                    if (publishChanged(item.getPublishJob(), now)) {
+                        item.setPublishJob(now);
+                        adapter.notifyItemChanged(i);
+                    }
+                }
+            });
+        });
+    }
+
+    private static boolean publishChanged(PublishJob before, PublishJob after) {
+        if (before == null || after == null) return before != after;
+        return before.id != after.id || before.updatedAt != after.updatedAt
+                || before.progress != after.progress
+                || !java.util.Objects.equals(before.status, after.status);
     }
 
     /**

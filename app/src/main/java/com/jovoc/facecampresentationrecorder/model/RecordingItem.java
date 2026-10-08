@@ -1,5 +1,7 @@
 package com.jovoc.facecampresentationrecorder.model;
 
+import com.jovoc.facecampresentationrecorder.db.PublishJob;
+
 import java.io.File;
 
 public class RecordingItem {
@@ -24,6 +26,7 @@ public class RecordingItem {
     private boolean selected;
     private Status status = Status.READY;
     private String statusLabel;
+    private PublishJob publishJob;
 
     public RecordingItem(File file, String fileName, String filePath, long durationMs,
                          String formattedDuration, String formattedDate, String formatTag) {
@@ -116,6 +119,15 @@ public class RecordingItem {
     /** True when the file is complete and safe to play, share, rename or select. */
     public boolean isReady() {
         return status == Status.READY;
+    }
+
+    /** The latest publish attempt of this recording, or null if it was never published. */
+    public PublishJob getPublishJob() {
+        return publishJob;
+    }
+
+    public void setPublishJob(PublishJob publishJob) {
+        this.publishJob = publishJob;
     }
 
     public boolean isSelected() {

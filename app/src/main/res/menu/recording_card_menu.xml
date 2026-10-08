@@ -5,6 +5,18 @@
         android:icon="@drawable/ic_play"
         android:title="Play" />
     <item
+        android:id="@+id/action_publish"
+        android:icon="@drawable/ic_share"
+        android:title="@string/publish_menu" />
+    <item
+        android:id="@+id/action_publish_retry"
+        android:icon="@drawable/ic_refresh"
+        android:title="@string/publish_menu_retry" />
+    <item
+        android:id="@+id/action_publish_cancel"
+        android:icon="@drawable/ic_close"
+        android:title="@string/publish_menu_cancel" />
+    <item
         android:id="@+id/action_rename"
         android:icon="@drawable/ic_edit"
         android:title="Rename" />

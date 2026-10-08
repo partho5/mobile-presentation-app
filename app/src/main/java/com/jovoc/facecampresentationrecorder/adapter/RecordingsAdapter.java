@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,7 +29,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
@@ -92,6 +97,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             holder.tvStatus.setTextColor(
                     item.getStatus() == RecordingItem.Status.PROCESSING ? 0xFF22D3EE : 0xFFFFB347);
         }
+
+        bindPublishStatus(holder, item);
 
         holder.processingOverlay.setVisibility(
                 item.getStatus() == RecordingItem.Status.PROCESSING ? View.VISIBLE : View.GONE);
@@ -157,10 +164,49 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         return itemList.size();
     }
 
+    // --- Publish state ---
+
+    /** Status line (and upload bar) for a recording that has been sent to channels. */
+    private void bindPublishStatus(RecordingViewHolder holder, RecordingItem item) {
+        PublishJob job = item.isReady() ? item.getPublishJob() : null;
+        String text = PublishLabels.status(context, job);
+        if (text == null) {
+            holder.tvPublishStatus.setVisibility(View.GONE);
+            holder.pbPublish.setVisibility(View.GONE);
+            return;
+        }
+        holder.tvPublishStatus.setVisibility(View.VISIBLE);
+        holder.tvPublishStatus.setText(text);
+        holder.tvPublishStatus.setTextColor(PublishLabels.color(job));
+        boolean uploading = PublishJob.UPLOADING.equals(job.status);
+        holder.pbPublish.setVisibility(uploading ? View.VISIBLE : View.GONE);
+        if (uploading) holder.pbPublish.setProgress(job.progress);
+    }
+
+    private void startPublish(RecordingItem item) {
+        File file = item.getFile();
+        if (file == null || !file.exists()) {
+            Toast.makeText(context, "File no longer exists", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        context.startActivity(new Intent(context, PublishActivity.class)
+                .putExtra(PublishActivity.EXTRA_FILE_PATH, file.getAbsolutePath()));
+    }
+
+    private void confirmCancelPublish(PublishJob job) {
+        new AlertDialog.Builder(context)
+                .setMessage(R.string.publish_cancel_confirm)
+                .setPositiveButton(R.string.publish_cancel_yes,
+                        (d, w) -> PublishManager.get(context).cancel(job.id))
+                .setNegativeButton(R.string.publish_cancel_no, null)
+                .show();
+    }
+
     // --- Overflow menu ---
 
     private void showCardMenu(View anchor, int position) {
         RecordingItem item = itemList.get(position);
+        PublishJob job = item.getPublishJob();
 
         // Themed wrapper pins the popup dark; the app theme is DayNight but every
         // screen here is hardcoded dark, so the system default would go white.
@@ -170,10 +216,29 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         popup.setForceShowIcon(true);
         tintMenuIcons(popup.getMenu());
 
+        // Publish entries follow the recording's publish state: start, again, retry or cancel.
+        boolean running = job != null && job.isActive();
+        boolean failed = job != null && PublishJob.FAILED.equals(job.status);
+        Menu menu = popup.getMenu();
+        menu.findItem(R.id.action_publish).setVisible(!running);
+        menu.findItem(R.id.action_publish).setTitle(
+                job != null && !running ? R.string.publish_menu_again : R.string.publish_menu);
+        menu.findItem(R.id.action_publish_retry).setVisible(failed);
+        menu.findItem(R.id.action_publish_cancel).setVisible(running);
+
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
             if (id == R.id.action_play) {
                 openVideo(item);
+                return true;
+            } else if (id == R.id.action_publish) {
+                startPublish(item);
+                return true;
+            } else if (id == R.id.action_publish_retry) {
+                if (job != null) PublishManager.get(context).retry(job.id);
+                return true;
+            } else if (id == R.id.action_publish_cancel) {
+                if (job != null) confirmCancelPublish(job);
                 return true;
             } else if (id == R.id.action_rename) {
                 renameVideo(item);
@@ -214,6 +279,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 new VideoRenameHelper.RenameCallback() {
                     @Override
                     public void onRenamed(File oldFile, File newFile) {
+                        PublishManager.get(context).onRenamed(oldFile, newFile);
                         item.setFile(newFile);
                         int pos = itemList.indexOf(item);
                         if (pos >= 0) notifyItemChanged(pos);
@@ -387,6 +453,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             VideoPlayerDialog.show(context, file, new VideoPlayerDialog.OnVideoActionListener() {
                 @Override
                 public void onVideoRenamed(File oldFile, File newFile) {
+                    PublishManager.get(context).onRenamed(oldFile, newFile);
                     item.setFile(newFile);
                     int pos = itemList.indexOf(item);
                     if (pos >= 0) {
@@ -417,6 +484,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         TextView tvRecordedTime;
         TextView tvFormatTag;
         TextView tvStatus;
+        TextView tvPublishStatus;
+        ProgressBar pbPublish;
         ImageButton btnMenu;
         View selectionOverlay;
         View processingOverlay;
@@ -430,6 +499,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             tvRecordedTime = itemView.findViewById(R.id.tv_recorded_time);
             tvFormatTag = itemView.findViewById(R.id.tv_format_tag);
             tvStatus = itemView.findViewById(R.id.tv_status);
+            tvPublishStatus = itemView.findViewById(R.id.tv_publish_status);
+            pbPublish = itemView.findViewById(R.id.pb_publish);
             btnMenu = itemView.findViewById(R.id.btn_menu);
             selectionOverlay = itemView.findViewById(R.id.selection_overlay);
             processingOverlay = itemView.findViewById(R.id.processing_overlay);
