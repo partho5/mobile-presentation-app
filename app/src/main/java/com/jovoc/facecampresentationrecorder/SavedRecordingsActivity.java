@@ -448,10 +448,15 @@ public class SavedRecordingsActivity extends AppCompatActivity {
 
     private void updateUI() {
         int count = 0;
+        // One "original" per recording, however many ratio versions it has.
+        java.util.Set<String> originals = new java.util.HashSet<>();
         for (RecordingItem item : recordingList) {
-            if (item.isReady()) count++;
+            if (!item.isReady()) continue;
+            count++;
+            originals.add(item.getGroupId() != null ? item.getGroupId() : item.getFilePath());
         }
-        tvCountHeader.setText(count == 1 ? "1 video" : count + " videos");
+        String total = count == 1 ? "1 video" : count + " videos";
+        tvCountHeader.setText(total + " (" + originals.size() + " original)");
 
         boolean empty = recordingList.isEmpty();
         recyclerView.setVisibility(empty ? View.GONE : View.VISIBLE);
