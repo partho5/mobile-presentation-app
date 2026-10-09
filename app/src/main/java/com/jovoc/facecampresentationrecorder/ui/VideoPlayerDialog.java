@@ -26,6 +26,7 @@ import android.widget.VideoView;
 import androidx.core.content.FileProvider;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
@@ -81,6 +82,7 @@ public class VideoPlayerDialog {
         ImageButton btnRename = dialog.findViewById(R.id.btn_rename_video);
         ImageButton btnDelete = dialog.findViewById(R.id.btn_delete_video);
         ImageButton btnShare = dialog.findViewById(R.id.btn_share_video);
+        ImageButton btnAllVideos = dialog.findViewById(R.id.btn_all_videos);
 
         // Populate Metadata
         updateMetadataUI(currentFile[0], tvFileName, tvMetadata);
@@ -272,6 +274,16 @@ public class VideoPlayerDialog {
                 Toast.makeText(context, "Unable to share video: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+
+        // "See all videos": opens My Videos; pointless when the player was opened from there
+        if (context instanceof SavedRecordingsActivity) {
+            btnAllVideos.setVisibility(View.GONE);
+        } else {
+            btnAllVideos.setOnClickListener(v -> {
+                dialog.dismiss();
+                context.startActivity(new Intent(context, SavedRecordingsActivity.class));
+            });
+        }
 
         // Cleanup on dismiss
         dialog.setOnDismissListener(d -> {

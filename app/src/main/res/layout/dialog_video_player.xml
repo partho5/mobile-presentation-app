@@ -280,6 +280,17 @@
                 android:padding="10dp"
                 android:src="@drawable/ic_share"
                 app:tint="#22D3EE" />
+
+            <ImageButton
+                android:id="@+id/btn_all_videos"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="See all videos"
+                android:padding="10dp"
+                android:src="@drawable/ic_video_stack"
+                app:tint="#B8C4D0" />
         </LinearLayout>
     </LinearLayout>
 
