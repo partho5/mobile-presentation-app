@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- Two film-frame outlines peeking out behind the front frame: "all videos" -->
+  <path
+      android:pathData="M7,5.5V4.5Q7,3 8.5,3H19.5Q21,3 21,4.5V15.5Q21,17 19.5,17H18.5"
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="1.3"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <path
+      android:pathData="M4.5,8V7Q4.5,5.5 6,5.5H17Q18.5,5.5 18.5,7V18Q18.5,19.5 17,19.5H16"
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="1.3"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round" />
+  <!-- Front frame: film perforations and the play triangle are cut out -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillType="evenOdd"
+      android:pathData="M3.5,8H14.5Q16,8 16,9.5V20.5Q16,22 14.5,22H3.5Q2,22 2,20.5V9.5Q2,8 3.5,8Z M3.2,9.4h1.6v1.6h-1.6z M3.2,12.6h1.6v1.6h-1.6z M3.2,15.8h1.6v1.6h-1.6z M3.2,19h1.6v1.6h-1.6z M13.2,9.4h1.6v1.6h-1.6z M13.2,12.6h1.6v1.6h-1.6z M13.2,15.8h1.6v1.6h-1.6z M13.2,19h1.6v1.6h-1.6z M7,12.2L7,17.8L11.4,15Z" />
+</vector>
