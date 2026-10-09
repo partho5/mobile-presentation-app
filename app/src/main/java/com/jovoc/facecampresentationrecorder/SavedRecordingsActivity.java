@@ -456,7 +456,9 @@ public class SavedRecordingsActivity extends AppCompatActivity {
             originals.add(item.getGroupId() != null ? item.getGroupId() : item.getFilePath());
         }
         String total = count == 1 ? "1 video" : count + " videos";
-        tvCountHeader.setText(total + " (" + originals.size() + " original)");
+        // Only worth explaining when some cards are edited versions of another.
+        tvCountHeader.setText(originals.size() == count ? total
+                : total + " (" + originals.size() + " recorded, others edited versions)");
 
         boolean empty = recordingList.isEmpty();
         recyclerView.setVisibility(empty ? View.GONE : View.VISIBLE);
