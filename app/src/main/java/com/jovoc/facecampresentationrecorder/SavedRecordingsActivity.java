@@ -269,6 +269,10 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                     if (h != null) videoHeight = Integer.parseInt(h);
                 } catch (Exception ignored) {}
 
+                // No readable duration means a broken or half-written file. It cannot
+                // be played, and a card for it cannot be acted on, so leave it out.
+                if (durationMs <= 0) continue;
+
                 String formattedDate = dateFormat.format(new Date(file.lastModified()));
                 String formatTag = VideoFormatHelper.getFormatTag(file.getName(), videoWidth, videoHeight);
 
@@ -281,13 +285,6 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                         formattedDate,
                         formatTag
                 );
-
-                // No readable duration means no playable video. Say so on the card
-                // instead of offering a 00:00 thumbnail that dies on tap.
-                if (durationMs <= 0) {
-                    item.setStatus(RecordingItem.Status.UNAVAILABLE);
-                    item.setStatusLabel("Unavailable — this file is incomplete");
-                }
 
                 items.add(item);
             }
