@@ -13,26 +13,26 @@ android {
         versionCode 4
         versionName "1.0"
 
-        // Pages on WEB_BASE_URL (set per build type). Assumed until the backend work reports final URLs.
+        // Connect-channels page on WEB_BASE_URL (the frontend's /launches route).
         buildConfigField 'String', 'CHANNELS_PATH', '"/launches"'
-        buildConfigField 'String', 'PRIVACY_PATH', '"/privacy"'
-        buildConfigField 'String', 'TERMS_PATH', '"/terms"'
+        // TODO(LEGAL-URLS): no privacy / terms page exists yet. Put the full https URLs here;
+        // while empty the Account screen hides the two links. Google Play needs a privacy URL.
+        buildConfigField 'String', 'PRIVACY_URL', '""'
+        buildConfigField 'String', 'TERMS_URL', '""'
     }
 
     buildTypes {
         debug {
             // Backend for local testing: 10.0.2.2 is the host machine from the emulator;
             // use the LAN IP of the dev machine on a real phone.
-            buildConfigField 'String', 'API_BASE_URL', '"http://10.0.2.2:3000"'
-            // Website the app links to (connect channels, privacy, terms). Debug: the local web app.
-            buildConfigField 'String', 'WEB_BASE_URL', '"http://10.0.2.2:3000"'
+            buildConfigField 'String', 'API_BASE_URL', '"http://localhost:3000"'
+            // Website the app links to (connect channels). Local web app: FRONTEND_URL in the backend .env.example.
+            buildConfigField 'String', 'WEB_BASE_URL', '"http://localhost:4200"'
         }
         release {
-            // TODO(PROD-URLS): the production API and website hosts are not confirmed yet
-            // (proposal: https://api.nanybot.com). Both must be https; a release build refuses
-            // anything else. Replace these two values only; nothing else needs to change.
-            buildConfigField 'String', 'API_BASE_URL', '"https://backend.invalid"'
-            buildConfigField 'String', 'WEB_BASE_URL', '"https://web.invalid"'
+            // Production host. Must be https; a release build refuses anything else.
+            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com"'
+            buildConfigField 'String', 'WEB_BASE_URL', '"https://social-media-schedular.nanybot.com"'
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

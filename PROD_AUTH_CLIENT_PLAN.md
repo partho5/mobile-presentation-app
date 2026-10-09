@@ -32,8 +32,10 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 - Delete account: `AccountApi.deleteAccount()` = `DELETE /auth/account` (TODO: the backend contract is not
   written yet; path is one constant). 404/405 = "not available yet" message and the user stays signed in.
   Success: local session cleared, back to home.
-- Web URLs: `WEB_BASE_URL` per build type; `CHANNELS_URL`, `PRIVACY_URL`, `TERMS_URL` derived from it
-  (`/launches`, `/privacy`, `/terms` are assumptions until the backend prompt reports final URLs).
+- URLs: debug API `http://localhost:3000` (needs `adb reverse tcp:3000 tcp:3000`); release API and web
+  `https://social-media-schedular.nanybot.com`. Channels page = frontend route `/launches` (exists in
+  the backend repo). Privacy/terms: no page exists, `PRIVACY_URL`/`TERMS_URL` are empty (TODO) and the
+  Account links hide until set.
 - Product name "Nany Social" in `strings_auth.xml` (`product_name`), not the launcher label.
 
 ## Files
@@ -54,7 +56,7 @@ Edited: `StartupActivity`, `SignInActivity`, `SessionManager`, `AccountActivity`
 - [ ] Paste "123 456": digits only, auto-submits at 6; button disabled while the request runs.
 - [ ] Wrong/expired code, 429 (wait time shown, buttons locked), offline, 5xx: each own message; retry works.
 - [ ] Resend disabled for 30 s; rotate the phone mid-cooldown and mid-typing: email, step and countdown kept.
-- [ ] Signed in: drawer shows "Account"; Account shows email, device, Sign out, Delete account, Privacy, Terms.
+- [ ] Signed in: drawer shows "Account"; Account shows email, device, Sign out, Delete account (Privacy and Terms only once their URLs are set).
 - [ ] Signed in with no channels: Publish explains channels are connected on the website; Open website + Refresh.
 - [ ] Sign out lands on main (not sign-in). Revoke from web: next call toasts and lands on main.
 - [ ] Delete account: confirm dialog; with backend missing shows "not available yet" and stays signed in.

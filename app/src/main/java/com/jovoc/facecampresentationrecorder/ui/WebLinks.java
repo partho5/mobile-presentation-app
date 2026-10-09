@@ -15,15 +15,19 @@ public final class WebLinks {
     private WebLinks() {}
 
     public static String channelsUrl() {
-        return BuildConfig.WEB_BASE_URL + BuildConfig.CHANNELS_PATH;
+        String base = BuildConfig.WEB_BASE_URL;
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return base + BuildConfig.CHANNELS_PATH;
     }
 
+    /** Empty until a privacy page exists (see build.gradle). */
     public static String privacyUrl() {
-        return BuildConfig.WEB_BASE_URL + BuildConfig.PRIVACY_PATH;
+        return BuildConfig.PRIVACY_URL;
     }
 
+    /** Empty until a terms page exists (see build.gradle). */
     public static String termsUrl() {
-        return BuildConfig.WEB_BASE_URL + BuildConfig.TERMS_PATH;
+        return BuildConfig.TERMS_URL;
     }
 
     public static void open(Context context, String url) {

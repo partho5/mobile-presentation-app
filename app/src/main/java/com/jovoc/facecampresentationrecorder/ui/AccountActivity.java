@@ -92,8 +92,8 @@ public class AccountActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.acct_delete_yes, (d, w) -> deleteAccount())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show());
-        findViewById(R.id.btn_privacy).setOnClickListener(v -> WebLinks.open(this, WebLinks.privacyUrl()));
-        findViewById(R.id.btn_terms).setOnClickListener(v -> WebLinks.open(this, WebLinks.termsUrl()));
+        bindLegalLink(R.id.btn_privacy, WebLinks.privacyUrl());
+        bindLegalLink(R.id.btn_terms, WebLinks.termsUrl());
 
         btnSignOut.setOnClickListener(v -> new MaterialAlertDialogBuilder(this)
                 .setMessage(R.string.account_sign_out_confirm)
@@ -211,6 +211,16 @@ public class AccountActivity extends AppCompatActivity {
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
         });
+    }
+
+    /** Shows the link only when its URL is configured. */
+    private void bindLegalLink(int viewId, String url) {
+        View v = findViewById(viewId);
+        if (url == null || url.isEmpty()) {
+            v.setVisibility(View.GONE);
+            return;
+        }
+        v.setOnClickListener(x -> WebLinks.open(this, url));
     }
 
     // ---- delete account ----
