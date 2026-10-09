@@ -224,25 +224,6 @@
                 android:src="@drawable/ic_edit"
                 app:tint="#22D3EE" />
 
-            <ImageButton
-                android:id="@+id/btn_delete_video"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Delete Video"
-                android:padding="9dp"
-                android:src="@drawable/ic_delete"
-                app:tint="#FF6B6B" />
-
-            <ImageButton
-                android:id="@+id/btn_share_video"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Share Video"
-                android:padding="9dp"
-                android:src="@drawable/ic_share"
-                app:tint="#22D3EE" />
         </LinearLayout>
 
         <TextView
@@ -253,6 +234,45 @@
             android:textColor="#8FA0B0"
             android:textSize="12sp"
             android:visibility="gone" />
+
+        <!-- Divider + icon-only actions on their own row at the bottom of the card -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="-14dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="-8dp"
+            android:background="#1FFFFFFF" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="6dp"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_delete_video"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Delete Video"
+                android:padding="10dp"
+                android:src="@drawable/ic_delete"
+                app:tint="#FF6B6B" />
+
+            <ImageButton
+                android:id="@+id/btn_share_video"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Share Video"
+                android:padding="10dp"
+                android:src="@drawable/ic_share"
+                app:tint="#22D3EE" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
