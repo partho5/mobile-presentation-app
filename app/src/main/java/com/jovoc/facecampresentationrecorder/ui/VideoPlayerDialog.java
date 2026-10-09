@@ -25,7 +25,6 @@ import android.widget.VideoView;
 
 import androidx.core.content.FileProvider;
 
-import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
@@ -80,8 +79,8 @@ public class VideoPlayerDialog {
         TextView tvFileName = dialog.findViewById(R.id.tv_player_filename);
         TextView tvMetadata = dialog.findViewById(R.id.tv_player_metadata);
         ImageButton btnRename = dialog.findViewById(R.id.btn_rename_video);
-        MaterialButton btnDelete = dialog.findViewById(R.id.btn_delete_video);
-        MaterialButton btnShare = dialog.findViewById(R.id.btn_share_video);
+        ImageButton btnDelete = dialog.findViewById(R.id.btn_delete_video);
+        ImageButton btnShare = dialog.findViewById(R.id.btn_share_video);
 
         // Populate Metadata
         updateMetadataUI(currentFile[0], tvFileName, tvMetadata);
@@ -295,7 +294,10 @@ public class VideoPlayerDialog {
         float density = context.getResources().getDisplayMetrics().density;
         int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
         int maxCardWidth = (int) (screenWidth * 0.82f);
-        int maxCardHeight = (int) (320 * density);
+        // Let the video take whatever height the dialog's other rows (header, controls,
+        // file card, paddings: ~270dp) leave within 90% of the screen
+        int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
+        int maxCardHeight = Math.max((int) (200 * density), (int) (screenHeight * 0.90f - 270 * density));
 
         int calcWidth, calcHeight;
         if (videoAspect < (float) maxCardWidth / maxCardHeight) {
