@@ -30,6 +30,7 @@ import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
+import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -297,8 +298,74 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         }
 
         insertPendingPlaceholders(items, pending, dateFormat);
-        attachPublishJobs(items);
-        return items;
+        List<RecordingItem> grouped = clusterByGroup(items, pending);
+        attachPublishJobs(grouped);
+        return grouped;
+    }
+
+    /** Left-strip colours, cycled across recordings. */
+    private static final int[] GROUP_COLORS = {
+            0xFF22D3EE, 0xFFF59E0B, 0xFFA78BFA, 0xFF34D399, 0xFFF472B6
+    };
+
+    /**
+     * Puts every version of a recording side by side (original first, then its
+     * crops) and gives each recording one strip colour. Recordings are ordered by
+     * their newest file; a lone file with no group counts as a recording of one.
+     */
+    private List<RecordingItem> clusterByGroup(List<RecordingItem> items,
+                                               List<VideoCropHelper.PendingCrop> pending) {
+        java.util.Set<String> keep = new java.util.HashSet<>();
+        for (VideoCropHelper.PendingCrop crop : pending) keep.add(crop.outputPath);
+        VideoGroupStore.prune(this, keep);
+
+        Map<String, List<RecordingItem>> groups = new java.util.LinkedHashMap<>();
+        for (RecordingItem item : items) {
+            String id = VideoGroupStore.getGroupId(this, item.getFilePath());
+            item.setGroupId(id);
+            String key = id != null ? id : item.getFilePath();
+            List<RecordingItem> members = groups.get(key);
+            if (members == null) {
+                members = new ArrayList<>();
+                groups.put(key, members);
+            }
+            members.add(item);
+        }
+
+        List<Map.Entry<String, List<RecordingItem>>> ordered = new ArrayList<>(groups.entrySet());
+        ordered.sort((g1, g2) -> Long.compare(newestModified(g2.getValue()), newestModified(g1.getValue())));
+
+        List<RecordingItem> result = new ArrayList<>(items.size());
+        int previousColor = -1;
+        for (Map.Entry<String, List<RecordingItem>> group : ordered) {
+            List<RecordingItem> members = group.getValue();
+            // Original was recorded first; a crop still encoding goes last.
+            members.sort((m1, m2) -> Long.compare(orderKey(m1), orderKey(m2)));
+
+            int colorIndex = Math.floorMod(group.getKey().hashCode(), GROUP_COLORS.length);
+            // Never repeat the colour of the card block right above.
+            if (GROUP_COLORS[colorIndex] == previousColor) {
+                colorIndex = (colorIndex + 1) % GROUP_COLORS.length;
+            }
+            previousColor = GROUP_COLORS[colorIndex];
+
+            for (RecordingItem member : members) {
+                member.setAccentColor(previousColor);
+                result.add(member);
+            }
+        }
+        return result;
+    }
+
+    private static long newestModified(List<RecordingItem> members) {
+        long newest = 0;
+        for (RecordingItem m : members) newest = Math.max(newest, m.getFile().lastModified());
+        return newest;
+    }
+
+    private static long orderKey(RecordingItem item) {
+        return item.getStatus() == RecordingItem.Status.PROCESSING
+                ? Long.MAX_VALUE : item.getFile().lastModified();
     }
 
     /** Tags every card with the newest publish attempt of its file (if any). */
@@ -339,8 +406,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
     }
 
     /**
-     * Adds a "preparing" card for each crop still encoding, directly beneath the
-     * recording it came from so the relationship is obvious.
+     * Adds a "preparing" card for each crop still encoding; clustering then files it
+     * under the recording it came from.
      */
     private void insertPendingPlaceholders(List<RecordingItem> items,
                                            List<VideoCropHelper.PendingCrop> pending,
@@ -355,14 +422,7 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                     crop.ratioLabel,
                     "Preparing " + crop.ratioLabel + " version…");
 
-            int sourceIndex = -1;
-            for (int i = 0; i < items.size(); i++) {
-                if (items.get(i).getFileName().equals(crop.sourceName)) {
-                    sourceIndex = i;
-                    break;
-                }
-            }
-            items.add(sourceIndex >= 0 ? sourceIndex + 1 : 0, placeholder);
+            items.add(placeholder);
         }
     }
 

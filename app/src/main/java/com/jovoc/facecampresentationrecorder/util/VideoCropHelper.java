@@ -105,8 +105,10 @@ public class VideoCropHelper {
         // Register every job up front so the placeholder cards appear immediately,
         // not only once FFmpeg reaches that ratio.
         List<PendingCrop> jobs = new ArrayList<>();
+        String groupId = VideoGroupStore.ensureGroup(context, inputPath);
         for (int[] ratio : ratios) {
             String outputPath = buildOutputPath(inputPath, ratio[0] + "x" + ratio[1]);
+            VideoGroupStore.assign(context, outputPath, groupId);
             PendingCrop job = new PendingCrop(inputFile, outputPath, ratio[0] + ":" + ratio[1]);
             jobs.add(job);
             PENDING.add(job);

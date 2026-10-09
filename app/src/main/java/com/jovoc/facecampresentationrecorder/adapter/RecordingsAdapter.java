@@ -99,6 +99,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                     item.getStatus() == RecordingItem.Status.PROCESSING ? 0xFF22D3EE : 0xFFFFB347);
         }
 
+        holder.groupAccent.setBackgroundColor(item.getAccentColor());
+
         bindPublishStatus(holder, item);
 
         holder.processingOverlay.setVisibility(
@@ -496,6 +498,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         ImageButton btnMenu;
         View selectionOverlay;
         View processingOverlay;
+        View groupAccent;
 
         public RecordingViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -511,6 +514,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             btnMenu = itemView.findViewById(R.id.btn_menu);
             selectionOverlay = itemView.findViewById(R.id.selection_overlay);
             processingOverlay = itemView.findViewById(R.id.processing_overlay);
+            groupAccent = itemView.findViewById(R.id.group_accent);
         }
     }
 }

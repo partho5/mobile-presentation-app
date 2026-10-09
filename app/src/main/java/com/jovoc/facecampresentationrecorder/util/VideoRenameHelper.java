@@ -93,6 +93,7 @@ public final class VideoRenameHelper {
             }
 
             updateMediaStore(context, currentFile, newFile);
+            VideoGroupStore.onRenamed(context, currentFile, newFile);
 
             if (callback != null) {
                 callback.onRenamed(currentFile, newFile);

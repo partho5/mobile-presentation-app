@@ -27,6 +27,8 @@ public class RecordingItem {
     private Status status = Status.READY;
     private String statusLabel;
     private PublishJob publishJob;
+    private String groupId;
+    private int accentColor;
 
     public RecordingItem(File file, String fileName, String filePath, long durationMs,
                          String formattedDuration, String formattedDate, String formatTag) {
@@ -128,6 +130,24 @@ public class RecordingItem {
 
     public void setPublishJob(PublishJob publishJob) {
         this.publishJob = publishJob;
+    }
+
+    /** Id shared by every version of the same recording, or null if it stands alone. */
+    public String getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(String groupId) {
+        this.groupId = groupId;
+    }
+
+    /** Colour of the left edge strip; cards of one recording share it. */
+    public int getAccentColor() {
+        return accentColor;
+    }
+
+    public void setAccentColor(int accentColor) {
+        this.accentColor = accentColor;
     }
 
     public boolean isSelected() {
