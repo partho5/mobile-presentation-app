@@ -18,30 +18,35 @@ import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.IntentCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.auth.SignInFlow;
 
 /**
- * Email one-time-code sign-in. Step 1 asks for the email, step 2 for the 6-digit code.
- * New and existing addresses follow the same flow (the backend answers identically).
+ * Email one-time-code sign-in ("Connect publishing"). Step 1 asks for the email, step 2 for the
+ * 6-digit code. New and existing addresses follow the same flow (the backend answers identically).
+ * Signing in is optional: Back / "Not now" return to the previous screen. When started with
+ * {@link #EXTRA_NEXT} the user continues into that screen after signing in.
  */
 public class SignInActivity extends AppCompatActivity {
 
+    /** Intent to start after a successful sign-in (e.g. the Publish screen the user was opening). */
+    public static final String EXTRA_NEXT = "next";
+
     private static final String STATE_STEP_CODE = "step_code";
     private static final String STATE_EMAIL = "email";
-    private static final String STATE_RESEND_LEFT = "resend_left_ms";
-    private static final long RESEND_COOLDOWN_MS = 30_000L;
-    private static final int DEFAULT_LOCK_SECONDS = 60;
+    private static final String STATE_LEFT = "left_ms";
 
     private SessionManager session;
     private final Handler ticker = new Handler(Looper.getMainLooper());
+    private final SignInFlow flow = new SignInFlow(SystemClock::elapsedRealtime);
 
     private View stepEmail;
     private View stepCode;
@@ -53,21 +58,21 @@ public class SignInActivity extends AppCompatActivity {
     private Button btnSend;
     private Button btnVerify;
     private Button btnResend;
+    private Intent next;
 
-    private boolean onCodeStep;
-    private String email = "";
     private boolean busy;
     private boolean sanitizing;
-    // SystemClock.elapsedRealtime() deadlines for the three lockable actions
-    private long sendUntil;
-    private long verifyUntil;
-    private long resendUntil;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_in);
         session = SessionManager.get(this);
+        next = IntentCompat.getParcelableExtra(getIntent(), EXTRA_NEXT, Intent.class);
+        if (session.hasSession()) { // opened while already signed in: nothing to do here
+            finishSignedIn(false);
+            return;
+        }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.sign_in_root), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -90,9 +95,10 @@ public class SignInActivity extends AppCompatActivity {
         btnResend.setOnClickListener(v -> sendCode(true));
         btnVerify.setOnClickListener(v -> verify());
         findViewById(R.id.btn_change_email).setOnClickListener(v -> showEmailStep());
+        findViewById(R.id.btn_not_now).setOnClickListener(v -> finish());
 
         editEmail.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_DONE
+            if (actionId == EditorInfo.IME_ACTION_SEND
                     || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
                 sendCode(false);
                 return true;
@@ -125,7 +131,7 @@ public class SignInActivity extends AppCompatActivity {
                     editCode.setSelection(clean.length());
                     sanitizing = false;
                 }
-                if (clean.length() == 6 && !busy && SystemClock.elapsedRealtime() >= verifyUntil) {
+                if (clean.length() == 6 && !busy && flow.canVerify()) {
                     verify();
                 }
             }
@@ -134,7 +140,7 @@ public class SignInActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (onCodeStep && !busy) {
+                if (flow.step() == SignInFlow.Step.CODE && !busy) {
                     showEmailStep();
                 } else {
                     finish();
@@ -142,21 +148,22 @@ public class SignInActivity extends AppCompatActivity {
             }
         });
 
-        if (savedInstanceState != null && savedInstanceState.getBoolean(STATE_STEP_CODE)) {
-            email = savedInstanceState.getString(STATE_EMAIL, "");
-            resendUntil = SystemClock.elapsedRealtime() + savedInstanceState.getLong(STATE_RESEND_LEFT);
-            showCodeStep();
-        } else {
-            showEmailStep();
+        if (savedInstanceState != null) {
+            flow.restore(savedInstanceState.getBoolean(STATE_STEP_CODE)
+                            ? SignInFlow.Step.CODE : SignInFlow.Step.EMAIL,
+                    savedInstanceState.getString(STATE_EMAIL, ""),
+                    savedInstanceState.getLongArray(STATE_LEFT));
         }
+        if (flow.step() == SignInFlow.Step.CODE) showCodeStep();
+        else showEmailStep(false);
     }
 
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        out.putBoolean(STATE_STEP_CODE, onCodeStep);
-        out.putString(STATE_EMAIL, email);
-        out.putLong(STATE_RESEND_LEFT, Math.max(0, resendUntil - SystemClock.elapsedRealtime()));
+        out.putBoolean(STATE_STEP_CODE, flow.step() == SignInFlow.Step.CODE);
+        out.putString(STATE_EMAIL, flow.email());
+        out.putLongArray(STATE_LEFT, flow.remainingMillis());
     }
 
     @Override
@@ -168,20 +175,23 @@ public class SignInActivity extends AppCompatActivity {
     // ---- steps ----
 
     private void showEmailStep() {
-        onCodeStep = false;
+        showEmailStep(true);
+    }
+
+    private void showEmailStep(boolean clearCode) {
+        flow.onChangeEmail();
         stepEmail.setVisibility(View.VISIBLE);
         stepCode.setVisibility(View.GONE);
         subtitle.setText(R.string.sign_in_email_hint_text);
         clearStatus();
-        editCode.setText("");
+        if (clearCode) editCode.setText("");
         refreshControls();
     }
 
     private void showCodeStep() {
-        onCodeStep = true;
         stepEmail.setVisibility(View.GONE);
         stepCode.setVisibility(View.VISIBLE);
-        subtitle.setText(getString(R.string.sign_in_code_hint_text, email));
+        subtitle.setText(getString(R.string.sign_in_code_hint_text, flow.email()));
         editCode.requestFocus();
         refreshControls();
     }
@@ -189,9 +199,9 @@ public class SignInActivity extends AppCompatActivity {
     // ---- actions ----
 
     private void sendCode(boolean isResend) {
-        if (busy) return;
-        String target = isResend ? email : AuthRepository.normalizeEmail(editEmail.getText().toString());
-        if (!AuthRepository.isValidEmail(target)) {
+        if (busy || (isResend ? !flow.canResend() : !flow.canSend())) return;
+        String target = flow.emailToSend(editEmail.getText().toString(), isResend);
+        if (target == null) {
             showError(getString(R.string.err_bad_email));
             return;
         }
@@ -201,8 +211,7 @@ public class SignInActivity extends AppCompatActivity {
             @Override
             public void onResult(Void result) {
                 if (isFinishing() || isDestroyed()) return;
-                email = target;
-                resendUntil = SystemClock.elapsedRealtime() + RESEND_COOLDOWN_MS;
+                flow.onCodeSent(target);
                 setBusy(false);
                 if (isResend) {
                     editCode.setText("");
@@ -214,19 +223,15 @@ public class SignInActivity extends AppCompatActivity {
             @Override
             public void onError(AuthException e) {
                 if (isFinishing() || isDestroyed()) return;
-                long until = lockUntil(e);
-                if (until > 0) {
-                    if (isResend) resendUntil = until;
-                    else sendUntil = until;
-                }
+                SignInFlow.Problem p = flow.onSendFailed(e, isResend);
                 setBusy(false);
-                showError(messageFor(e));
+                showError(messageFor(p, e.retryAfterSeconds));
             }
         });
     }
 
     private void verify() {
-        if (busy) return;
+        if (busy || !flow.canVerify()) return;
         String code = AuthRepository.sanitizeCode(editCode.getText().toString());
         if (!AuthRepository.isValidCode(code)) {
             showError(getString(R.string.err_bad_code));
@@ -234,33 +239,36 @@ public class SignInActivity extends AppCompatActivity {
         }
         clearStatus();
         setBusy(true);
-        session.exchangeCode(email, code, new SessionManager.Callback<Boolean>() {
+        session.exchangeCode(flow.email(), code, new SessionManager.Callback<Boolean>() {
             @Override
             public void onResult(Boolean created) {
                 if (isFinishing() || isDestroyed()) return;
-                if (created != null && created) {
-                    Toast.makeText(getApplicationContext(), R.string.sign_in_welcome_new,
-                            Toast.LENGTH_SHORT).show();
-                }
-                Intent i = new Intent(SignInActivity.this, MainActivity.class);
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(i);
-                finish();
+                finishSignedIn(created != null && created);
             }
 
             @Override
             public void onError(AuthException e) {
                 if (isFinishing() || isDestroyed()) return;
-                long until = lockUntil(e);
-                if (until > 0) verifyUntil = until;
+                SignInFlow.Problem p = flow.onVerifyFailed(e);
                 setBusy(false);
-                if (e.kind == AuthException.Kind.INVALID_CODE) {
+                if (p == SignInFlow.Problem.WRONG_CODE) {
                     editCode.setText("");
                     editCode.requestFocus();
                 }
-                showError(messageFor(e));
+                showError(messageFor(p, e.retryAfterSeconds));
             }
         });
+    }
+
+    /** Signed in: continue into the queued screen, or just return to the one that opened this. */
+    private void finishSignedIn(boolean accountCreated) {
+        if (accountCreated) {
+            Toast.makeText(getApplicationContext(), R.string.sign_in_welcome_new, Toast.LENGTH_SHORT).show();
+        }
+        if (SignInFlow.afterSignIn(next != null) == SignInFlow.Destination.NEXT) {
+            startActivity(next);
+        }
+        finish();
     }
 
     // ---- state / messages ----
@@ -274,35 +282,29 @@ public class SignInActivity extends AppCompatActivity {
     /** Enables/disables the buttons and runs the resend countdown while a deadline is pending. */
     private void refreshControls() {
         ticker.removeCallbacksAndMessages(null);
-        long now = SystemClock.elapsedRealtime();
-        btnSend.setEnabled(!busy && now >= sendUntil);
-        btnVerify.setEnabled(!busy && now >= verifyUntil);
-        boolean resendReady = now >= resendUntil;
-        btnResend.setEnabled(!busy && resendReady);
-        btnResend.setText(resendReady ? getString(R.string.sign_in_resend)
-                : getString(R.string.sign_in_resend_wait, (int) ((resendUntil - now + 999) / 1000)));
-        if (!(now >= sendUntil && now >= verifyUntil && resendReady)) {
-            ticker.postDelayed(this::refreshControls, 1000);
-        }
+        btnSend.setEnabled(!busy && flow.canSend());
+        btnVerify.setEnabled(!busy && flow.canVerify());
+        btnResend.setEnabled(!busy && flow.canResend());
+        btnResend.setText(flow.canResend() ? getString(R.string.sign_in_resend)
+                : getString(R.string.sign_in_resend_wait, flow.resendSecondsLeft()));
+        editEmail.setEnabled(!busy);
+        editCode.setEnabled(!busy);
+        if (flow.hasPendingDeadline()) ticker.postDelayed(this::refreshControls, 1000);
     }
 
-    private static long lockUntil(AuthException e) {
-        if (e.kind != AuthException.Kind.RATE_LIMITED) return 0;
-        int secs = e.retryAfterSeconds > 0 ? e.retryAfterSeconds : DEFAULT_LOCK_SECONDS;
-        return SystemClock.elapsedRealtime() + secs * 1000L;
-    }
-
-    private String messageFor(AuthException e) {
-        switch (e.kind) {
-            case NETWORK:
+    private String messageFor(SignInFlow.Problem p, int retryAfterSeconds) {
+        switch (p) {
+            case OFFLINE:
                 return getString(R.string.err_offline);
-            case BAD_INPUT:
-                return getString(onCodeStep ? R.string.err_bad_code : R.string.err_bad_email);
-            case INVALID_CODE:
+            case BAD_EMAIL:
+                return getString(R.string.err_bad_email);
+            case BAD_CODE:
+                return getString(R.string.err_bad_code);
+            case WRONG_CODE:
                 return getString(R.string.err_invalid_code);
             case RATE_LIMITED:
-                return e.retryAfterSeconds > 0
-                        ? getString(R.string.err_rate_limited, formatWait(e.retryAfterSeconds))
+                return retryAfterSeconds > 0
+                        ? getString(R.string.err_rate_limited, formatWait(retryAfterSeconds))
                         : getString(R.string.err_rate_limited_unknown);
             case MAIL_FAILED:
                 return getString(R.string.err_mail_failed);

@@ -701,6 +701,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    /** "Connect publishing" while signed out, "Account" once this device holds a session. */
+    private void updateAccountMenuItem() {
+        if (navigationView == null) return;
+        android.view.MenuItem item = navigationView.getMenu().findItem(R.id.nav_account);
+        if (item == null) return;
+        boolean signedIn = com.jovoc.facecampresentationrecorder.auth.SessionManager.get(this).hasSession();
+        item.setTitle(signedIn ? R.string.nav_account : R.string.nav_connect_publishing);
+    }
+
     private void setupDrawer() {
         ImageButton btnOpenDrawer = findViewById(R.id.btn_open_drawer);
 
@@ -722,7 +731,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 } else if (itemId == R.id.nav_saved_recordings) {
                     openSavedRecordings();
                 } else if (itemId == R.id.nav_account) {
-                    startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.AccountActivity.class));
+                    // Signed out: "Connect publishing" opens sign-in; signed in: the account screen.
+                    if (com.jovoc.facecampresentationrecorder.auth.SessionManager.get(this).hasSession()) {
+                        startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.AccountActivity.class));
+                    } else {
+                        com.jovoc.facecampresentationrecorder.auth.SessionManager.openSignIn(this, null);
+                    }
                 } else if (itemId == R.id.nav_help) {
                     openHowToUseDialog();
                 } else if (itemId == R.id.nav_about) {
@@ -1848,6 +1862,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onResume() {
         super.onResume();
+        updateAccountMenuItem();
         updateCameraPermissionHint();
         if (refreshPermissionRows != null) refreshPermissionRows.run();
         if (slides != null && !slides.isEmpty()) {

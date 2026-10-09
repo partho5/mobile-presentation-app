@@ -16,6 +16,16 @@
     <string name="acct_backend_save">Save and sign out</string>
     <string name="acct_backend_invalid">Enter a valid http(s) URL.</string>
 
+    <string name="acct_delete">Delete account</string>
+    <string name="acct_delete_title">Delete your account?</string>
+    <string name="acct_delete_confirm">This permanently deletes your Nany Social account and its data on our servers, and signs you out on all your devices. Your slides and recordings stay on this phone. This cannot be undone.</string>
+    <string name="acct_delete_yes">Delete permanently</string>
+    <string name="acct_delete_done">Your account was deleted.</string>
+    <string name="acct_delete_unavailable">Account deletion is not available yet, so nothing was deleted. Please try again later.</string>
+    <string name="acct_privacy">Privacy policy</string>
+    <string name="acct_terms">Terms of service</string>
+    <string name="web_no_browser">No browser app found to open this page.</string>
+    <string name="session_ended_toast">Your publishing session ended. Use Connect publishing to sign in again.</string>
     <string name="acct_err_signed_out">You were signed out. Please sign in again.</string>
     <string name="acct_err_workspace">You no longer have access to that workspace. Switched back to your default workspace.</string>
     <string name="acct_err_gone">That item no longer exists. The list was refreshed.</string>

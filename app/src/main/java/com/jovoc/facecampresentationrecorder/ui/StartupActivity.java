@@ -6,19 +6,17 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.jovoc.facecampresentationrecorder.MainActivity;
-import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 
 /**
- * Launcher gate: MainActivity when this device holds a session, the sign-in screen otherwise.
- * Looks at local storage only, so the offline features open without a connection.
+ * Launcher entry: always opens MainActivity. Signing in is optional (it is only needed to
+ * publish), so there is no gate and no network or storage work at launch.
  */
 public class StartupActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Class<?> target = SessionManager.get(this).hasSession() ? MainActivity.class : SignInActivity.class;
-        startActivity(new Intent(this, target));
+        startActivity(new Intent(this, MainActivity.class));
         finish();
     }
 }

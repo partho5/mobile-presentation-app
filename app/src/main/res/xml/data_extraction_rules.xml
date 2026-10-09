@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Session tokens are bound to this device's Keystore; never back them up or transfer them. -->
+<!-- Session tokens are bound to this device's Keystore; never back them up or transfer them.
+     auth_secure is the encrypted file; the __androidx_security_crypto_* files hold its keysets. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="auth_secure.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_key_keyset__.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_value_keyset__.xml" />
         <exclude domain="sharedpref" path="MasterKey" />
+        <exclude domain="sharedpref" path="debug_settings.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="auth_secure.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_key_keyset__.xml" />
+        <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_value_keyset__.xml" />
+        <exclude domain="sharedpref" path="MasterKey" />
+        <exclude domain="sharedpref" path="debug_settings.xml" />
     </device-transfer>
 </data-extraction-rules>

@@ -1,12 +1,16 @@
 package com.jovoc.facecampresentationrecorder.auth;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.widget.Toast;
 
 import com.jovoc.facecampresentationrecorder.BuildConfig;
+import com.jovoc.facecampresentationrecorder.MainActivity;
+import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
@@ -49,7 +53,11 @@ public final class SessionManager {
         this.api = new ApiClient(initialBaseUrl(appContext), BuildConfig.DEBUG);
         TokenStore store = new TokenStore(new SecureKeyValueStore(appContext));
         this.repo = new AuthRepository(api, store);
-        repo.setForcedSignOutListener(() -> main.post(() -> openSignIn(appContext)));
+        repo.setForcedSignOutListener(() -> main.post(() -> {
+            // Signing in is optional, so a dead session is not a wall: say so and go home.
+            Toast.makeText(appContext, R.string.session_ended_toast, Toast.LENGTH_LONG).show();
+            openHome(appContext);
+        }));
     }
 
     // ---- debug-only backend URL ----
@@ -140,9 +148,21 @@ public final class SessionManager {
         async(repo::signOut, cb);
     }
 
-    /** Launches the sign-in screen as the only screen of a fresh task. */
-    public static void openSignIn(Context context) {
+    /**
+     * Opens the sign-in screen on top of the current one. When {@code next} is given it is started
+     * after a successful sign-in (e.g. the Publish screen the user was heading to); otherwise the
+     * user just returns to where they were.
+     */
+    public static void openSignIn(Context context, Intent next) {
         Intent i = new Intent(context, SignInActivity.class);
+        if (next != null) i.putExtra(SignInActivity.EXTRA_NEXT, next);
+        if (!(context instanceof Activity)) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(i);
+    }
+
+    /** The main screen as the only screen of a fresh task (after sign-out, delete, a dead session). */
+    public static void openHome(Context context) {
+        Intent i = new Intent(context, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         context.startActivity(i);
     }

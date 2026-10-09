@@ -22,6 +22,8 @@ final class ApiErrors {
                         : c.getString(R.string.err_rate_limited_unknown);
             case WORKSPACE_FORBIDDEN:
                 return c.getString(R.string.acct_err_workspace);
+            case UNAVAILABLE:
+                return c.getString(R.string.acct_delete_unavailable);
             case NOT_FOUND:
                 return c.getString(R.string.acct_err_gone);
             default:

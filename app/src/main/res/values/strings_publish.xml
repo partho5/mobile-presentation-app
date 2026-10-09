@@ -16,7 +16,9 @@
     <string name="publish_pick_time">Time</string>
     <string name="publish_schedule_past">Pick a time at least a few minutes from now.</string>
     <string name="publish_loading_channels">Loading your channels…</string>
-    <string name="publish_no_channels">No channels connected yet. Connect a channel on the web, then try again.</string>
+    <string name="publish_no_channels">No channels connected yet. Channels are connected on the Nany Social website: open it, connect a channel, then come back and tap Refresh.</string>
+    <string name="publish_open_web">Open website to connect channels</string>
+    <string name="publish_refresh">Refresh</string>
     <string name="publish_channel_disabled">Disabled</string>
     <string name="publish_retry">Try again</string>
     <string name="publish_cost_loading">Checking cost…</string>

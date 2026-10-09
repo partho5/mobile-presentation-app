@@ -5,6 +5,7 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -68,6 +69,9 @@ public class PublishActivity extends AppCompatActivity {
 
     private ProgressBar progressChannels;
     private View channelsErrorBox;
+    private Button btnChannelsRetry;
+    private Button btnChannelsWeb;
+    private boolean showingNoChannels;
     private TextView tvChannelsError;
     private LinearLayout channelsContainer;
     private EditText editCaption;
@@ -102,7 +106,8 @@ public class PublishActivity extends AppCompatActivity {
         setContentView(R.layout.activity_publish);
         SessionManager session = SessionManager.get(this);
         if (!session.hasSession()) {
-            SessionManager.openSignIn(this);
+            SessionManager.openSignIn(this, new Intent(getIntent()));
+            finish();
             return;
         }
         String path = getIntent().getStringExtra(EXTRA_FILE_PATH);
@@ -136,7 +141,10 @@ public class PublishActivity extends AppCompatActivity {
         tvCost = findViewById(R.id.tv_cost);
         btnPublish = findViewById(R.id.btn_publish);
 
-        findViewById(R.id.btn_channels_retry).setOnClickListener(v -> loadChannels());
+        btnChannelsRetry = findViewById(R.id.btn_channels_retry);
+        btnChannelsWeb = findViewById(R.id.btn_channels_web);
+        btnChannelsRetry.setOnClickListener(v -> loadChannels());
+        btnChannelsWeb.setOnClickListener(v -> WebLinks.open(this, WebLinks.channelsUrl()));
         tvCost.setOnClickListener(v -> {
             if (costState == COST_FAILED) scheduleCostLoad();
         });
@@ -179,6 +187,13 @@ public class PublishActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Back from the browser after connecting a channel: look again without a manual refresh.
+        if (showingNoChannels && api != null) loadChannels();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         main.removeCallbacksAndMessages(null);
@@ -188,6 +203,7 @@ public class PublishActivity extends AppCompatActivity {
     // ---- channels ----
 
     private void loadChannels() {
+        showingNoChannels = false;
         progressChannels.setVisibility(View.VISIBLE);
         channelsErrorBox.setVisibility(View.GONE);
         channelsContainer.removeAllViews();
@@ -205,9 +221,9 @@ public class PublishActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed()) return;
                 progressChannels.setVisibility(View.GONE);
                 if (err != null) {
-                    showChannelsError(PublishLabels.reason(this, err));
+                    showChannelsError(PublishLabels.reason(this, err), false);
                 } else if (result.isEmpty()) {
-                    showChannelsError(getString(R.string.publish_no_channels));
+                    showChannelsError(getString(R.string.publish_no_channels), true);
                 } else {
                     showChannels(result);
                 }
@@ -215,8 +231,12 @@ public class PublishActivity extends AppCompatActivity {
         });
     }
 
-    private void showChannelsError(String message) {
+    /** {@code noChannels}: the account has none, which is fixed on the website, not by retrying. */
+    private void showChannelsError(String message, boolean noChannels) {
         tvChannelsError.setText(message);
+        showingNoChannels = noChannels;
+        btnChannelsWeb.setVisibility(noChannels ? View.VISIBLE : View.GONE);
+        btnChannelsRetry.setText(noChannels ? R.string.publish_refresh : R.string.publish_retry);
         channelsErrorBox.setVisibility(View.VISIBLE);
         refreshConfirm();
     }

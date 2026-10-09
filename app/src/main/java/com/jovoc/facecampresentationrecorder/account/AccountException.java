@@ -17,6 +17,8 @@ public class AccountException extends Exception {
         WORKSPACE_FORBIDDEN,
         /** 404: the thing (a device session) is not there any more. */
         NOT_FOUND,
+        /** The server has no account-deletion route (yet): nothing was deleted. */
+        UNAVAILABLE,
         /** Anything else: 5xx, other 4xx, an unreadable answer. */
         SERVER
     }

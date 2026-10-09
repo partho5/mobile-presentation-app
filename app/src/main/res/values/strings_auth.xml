@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="sign_in_title">Sign in</string>
-    <string name="sign_in_email_hint_text">Enter your email and we will send you a 6-digit code. New here? The same code creates your account.</string>
+    <string name="product_name">Nany Social</string>
+    <string name="sign_in_title">Connect publishing</string>
+    <string name="sign_in_not_now">Not now</string>
+    <string name="sign_in_code_desc">6-digit code</string>
+    <string name="sign_in_working">Working</string>
+    <string name="sign_in_email_hint_text">Sign in to Nany Social to publish your recordings. Enter your email and we will send you a 6-digit code. New here? The same code creates your account.</string>
     <string name="sign_in_code_hint_text">We sent a 6-digit code to %1$s. It is valid for 10 minutes.</string>
     <string name="sign_in_email_field">Email address</string>
     <string name="sign_in_code_field">000000</string>
@@ -29,4 +33,5 @@
     <string name="account_sign_out_confirm">Sign out of this phone? Your slides and recordings stay on the device.</string>
     <string name="account_sign_out_offline">Signed out on this phone. Could not reach the server, so remove this device from the web Devices list.</string>
     <string name="nav_account">Account</string>
+    <string name="nav_connect_publishing">Connect publishing</string>
 </resources>

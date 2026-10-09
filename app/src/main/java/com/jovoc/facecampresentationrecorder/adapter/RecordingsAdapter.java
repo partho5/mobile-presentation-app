@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
@@ -189,8 +190,14 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             Toast.makeText(context, "File no longer exists", Toast.LENGTH_SHORT).show();
             return;
         }
-        context.startActivity(new Intent(context, PublishActivity.class)
-                .putExtra(PublishActivity.EXTRA_FILE_PATH, file.getAbsolutePath()));
+        Intent publish = new Intent(context, PublishActivity.class)
+                .putExtra(PublishActivity.EXTRA_FILE_PATH, file.getAbsolutePath());
+        if (SessionManager.get(context).hasSession()) {
+            context.startActivity(publish);
+        } else {
+            // Publishing needs an account; after signing in the user lands on Publish for this recording.
+            SessionManager.openSignIn(context, publish);
+        }
     }
 
     private void confirmCancelPublish(PublishJob job) {

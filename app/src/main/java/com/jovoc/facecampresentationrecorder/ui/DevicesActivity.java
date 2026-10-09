@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -53,7 +54,8 @@ public class DevicesActivity extends AppCompatActivity {
         setContentView(R.layout.activity_devices);
         session = SessionManager.get(this);
         if (!session.hasSession()) {
-            SessionManager.openSignIn(this);
+            SessionManager.openSignIn(this, new Intent(getIntent()));
+            finish();
             return;
         }
         api = new AccountApi(session.repository());
@@ -179,9 +181,9 @@ public class DevicesActivity extends AppCompatActivity {
                     return;
                 }
                 if (d.current) {
-                    // The server ended this session; drop the local copy and go to sign-in.
+                    // The server ended this session; drop the local copy and go home.
                     session.repository().endLocalSession();
-                    SessionManager.openSignIn(this);
+                    SessionManager.openHome(this);
                     return;
                 }
                 Toast.makeText(this, R.string.dev_signed_out_one, Toast.LENGTH_SHORT).show();

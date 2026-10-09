@@ -44,6 +44,7 @@ public class AccountActivity extends AppCompatActivity {
     private SessionManager session;
     private AccountApi api;
     private Button btnSignOut;
+    private Button btnDelete;
     private ProgressBar progress;
     private TextView tvWorkspace;
     private TextView tvCredits;
@@ -56,7 +57,8 @@ public class AccountActivity extends AppCompatActivity {
         setContentView(R.layout.activity_account);
         session = SessionManager.get(this);
         if (!session.hasSession()) {
-            SessionManager.openSignIn(this);
+            SessionManager.openSignIn(this, new Intent(getIntent()));
+            finish();
             return;
         }
         created = true;
@@ -82,6 +84,16 @@ public class AccountActivity extends AppCompatActivity {
                 v -> startActivity(new Intent(this, DevicesActivity.class)));
         findViewById(R.id.row_credits).setOnClickListener(v -> refresh(false));
         setUpBackendRow();
+
+        btnDelete = findViewById(R.id.btn_delete_account);
+        btnDelete.setOnClickListener(v -> new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.acct_delete_title)
+                .setMessage(R.string.acct_delete_confirm)
+                .setPositiveButton(R.string.acct_delete_yes, (d, w) -> deleteAccount())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show());
+        findViewById(R.id.btn_privacy).setOnClickListener(v -> WebLinks.open(this, WebLinks.privacyUrl()));
+        findViewById(R.id.btn_terms).setOnClickListener(v -> WebLinks.open(this, WebLinks.termsUrl()));
 
         btnSignOut.setOnClickListener(v -> new MaterialAlertDialogBuilder(this)
                 .setMessage(R.string.account_sign_out_confirm)
@@ -191,13 +203,47 @@ public class AccountActivity extends AppCompatActivity {
                     .setView(input)
                     .setPositiveButton(R.string.acct_backend_save, (d, w) -> {
                         if (session.changeBaseUrl(input.getText().toString())) {
-                            SessionManager.openSignIn(this);
+                            SessionManager.openHome(this);
                         } else {
                             Toast.makeText(this, R.string.acct_backend_invalid, Toast.LENGTH_LONG).show();
                         }
                     })
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
+        });
+    }
+
+    // ---- delete account ----
+
+    private void deleteAccount() {
+        btnSignOut.setEnabled(false);
+        btnDelete.setEnabled(false);
+        progress.setVisibility(View.VISIBLE);
+        io.execute(() -> {
+            AccountException error = null;
+            try {
+                api.deleteAccount();
+            } catch (AccountException e) {
+                error = e;
+            }
+            final AccountException err = error;
+            main.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (err == null) {
+                    // The server ended every session of the account; drop the local copy and go home.
+                    session.repository().endLocalSession();
+                    Toast.makeText(getApplicationContext(), R.string.acct_delete_done, Toast.LENGTH_LONG).show();
+                    SessionManager.openHome(this);
+                    return;
+                }
+                btnSignOut.setEnabled(true);
+                btnDelete.setEnabled(true);
+                progress.setVisibility(View.GONE);
+                // SIGNED_OUT: the session manager is already taking the user home.
+                if (err.kind != AccountException.Kind.SIGNED_OUT) {
+                    Toast.makeText(this, ApiErrors.message(this, err), Toast.LENGTH_LONG).show();
+                }
+            });
         });
     }
 
@@ -213,12 +259,12 @@ public class AccountActivity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), R.string.account_sign_out_offline,
                             Toast.LENGTH_LONG).show();
                 }
-                SessionManager.openSignIn(AccountActivity.this);
+                SessionManager.openHome(AccountActivity.this);
             }
 
             @Override
             public void onError(AuthException error) {
-                SessionManager.openSignIn(AccountActivity.this);
+                SessionManager.openHome(AccountActivity.this);
             }
         });
     }

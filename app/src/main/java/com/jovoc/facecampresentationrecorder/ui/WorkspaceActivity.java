@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -53,7 +54,8 @@ public class WorkspaceActivity extends AppCompatActivity {
         setContentView(R.layout.activity_workspace);
         session = SessionManager.get(this);
         if (!session.hasSession()) {
-            SessionManager.openSignIn(this);
+            SessionManager.openSignIn(this, new Intent(getIntent()));
+            finish();
             return;
         }
         api = new AccountApi(session.repository());

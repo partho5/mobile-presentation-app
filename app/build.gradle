@@ -12,6 +12,11 @@ android {
         targetSdk 36
         versionCode 4
         versionName "1.0"
+
+        // Pages on WEB_BASE_URL (set per build type). Assumed until the backend work reports final URLs.
+        buildConfigField 'String', 'CHANNELS_PATH', '"/launches"'
+        buildConfigField 'String', 'PRIVACY_PATH', '"/privacy"'
+        buildConfigField 'String', 'TERMS_PATH', '"/terms"'
     }
 
     buildTypes {
@@ -19,11 +24,15 @@ android {
             // Backend for local testing: 10.0.2.2 is the host machine from the emulator;
             // use the LAN IP of the dev machine on a real phone.
             buildConfigField 'String', 'API_BASE_URL', '"http://10.0.2.2:3000"'
+            // Website the app links to (connect channels, privacy, terms). Debug: the local web app.
+            buildConfigField 'String', 'WEB_BASE_URL', '"http://10.0.2.2:3000"'
         }
         release {
-            // TODO: production backend URL is not decided yet. Must be https; a release
-            // build refuses anything else. Set the real URL (including any /api prefix).
+            // TODO(PROD-URLS): the production API and website hosts are not confirmed yet
+            // (proposal: https://api.nanybot.com). Both must be https; a release build refuses
+            // anything else. Replace these two values only; nothing else needs to change.
             buildConfigField 'String', 'API_BASE_URL', '"https://backend.invalid"'
+            buildConfigField 'String', 'WEB_BASE_URL', '"https://web.invalid"'
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
