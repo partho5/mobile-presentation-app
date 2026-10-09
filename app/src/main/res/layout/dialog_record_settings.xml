@@ -168,6 +168,41 @@
         android:textSize="14sp"
         android:layout_marginBottom="20dp" />
 
+    <!-- AI Virtual Background (Face Cam) Setting -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AI Virtual Background (Face Cam)"
+        android:textColor="#6200EE"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="6dp" />
+
+    <CheckBox
+        android:id="@+id/cb_bg_replace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Replace face cam background (after recording)"
+        android:textSize="14sp"
+        android:checked="true" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Sample Background:"
+        android:textColor="#333333"
+        android:textSize="13sp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp" />
+
+    <GridLayout
+        android:id="@+id/grid_bg_sample"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="2"
+        android:layout_marginBottom="20dp" />
+    <!-- Cards are built in MainActivity.openRecordSettingsDialog from assets/bg_samples/ -->
+
         </LinearLayout>
     </ScrollView>
 

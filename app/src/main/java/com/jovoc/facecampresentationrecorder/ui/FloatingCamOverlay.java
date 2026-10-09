@@ -29,6 +29,7 @@ import androidx.lifecycle.LifecycleRegistry;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 
 /**
  * Circular face cam bubble drawn over other apps while a recording is running.
@@ -51,6 +52,18 @@ public class FloatingCamOverlay implements LifecycleOwner {
     private LinearLayout root;
     private WindowManager.LayoutParams layoutParams;
     private PreviewView previewView;
+    private View circleView;
+    private int ringPx;
+    private final android.os.Handler trackHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    // Logs where the circle is so the background can be replaced inside it after recording
+    private final Runnable trackRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (root == null) return;
+            BubbleTrack.report(circleView, ringPx);
+            trackHandler.postDelayed(this, 33);
+        }
+    };
     private int lensFacing;
 
     public FloatingCamOverlay(Context context, Listener listener) {
@@ -96,7 +109,8 @@ public class FloatingCamOverlay implements LifecycleOwner {
         GradientDrawable ringDrawable = new GradientDrawable();
         ringDrawable.setShape(GradientDrawable.OVAL);
         ringDrawable.setColor(Color.TRANSPARENT);
-        ringDrawable.setStroke((int) (2 * density), Color.WHITE);
+        ringPx = (int) (2 * density);
+        ringDrawable.setStroke(ringPx, Color.WHITE);
         ring.setBackground(ringDrawable);
         circle.addView(ring, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -137,6 +151,7 @@ public class FloatingCamOverlay implements LifecycleOwner {
         }
 
         circle.setOnTouchListener(new DragListener());
+        circleView = circle;
 
         try {
             windowManager.addView(root, layoutParams);
@@ -150,6 +165,7 @@ public class FloatingCamOverlay implements LifecycleOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START);
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME);
         bindCamera();
+        trackHandler.post(trackRunnable);
     }
 
     private void bindCamera() {
@@ -175,6 +191,8 @@ public class FloatingCamOverlay implements LifecycleOwner {
 
     public void hide() {
         if (root == null) return;
+        trackHandler.removeCallbacks(trackRunnable);
+        BubbleTrack.reportHidden();
         // DESTROYED makes CameraX unbind the overlay's use cases
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY);
         try {
@@ -182,6 +200,7 @@ public class FloatingCamOverlay implements LifecycleOwner {
         } catch (Exception ignored) {}
         root = null;
         previewView = null;
+        circleView = null;
     }
 
     private class DragListener implements View.OnTouchListener {

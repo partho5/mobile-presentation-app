@@ -23,11 +23,10 @@ android {
 
     buildTypes {
         debug {
-            // Backend for local testing: 10.0.2.2 is the host machine from the emulator;
-            // use the LAN IP of the dev machine on a real phone.
-            buildConfigField 'String', 'API_BASE_URL', '"http://localhost:3000"'
-            // Website the app links to (connect channels). Local web app: FRONTEND_URL in the backend .env.example.
-            buildConfigField 'String', 'WEB_BASE_URL', '"http://localhost:4200"'
+            // Same production backend as release. For a local backend use the debug backend-URL setting
+            // (10.0.2.2 from the emulator, or the dev machine's LAN IP on a real phone).
+            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com/api"'
+            buildConfigField 'String', 'WEB_BASE_URL', '"https://social-media-schedular.nanybot.com"'
         }
         release {
             // Production host. Must be https; a release build refuses anything else. The deployed backend
