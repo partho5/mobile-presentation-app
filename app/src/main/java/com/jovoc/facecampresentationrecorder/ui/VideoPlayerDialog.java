@@ -72,7 +72,7 @@ public class VideoPlayerDialog {
         // Views
         ImageButton btnClose = dialog.findViewById(R.id.btn_close_dialog);
         VideoView videoView = dialog.findViewById(R.id.player_video_view);
-        ImageButton btnCenterPlayPause = dialog.findViewById(R.id.btn_center_play_pause);
+        View videoTapArea = dialog.findViewById(R.id.btn_center_play_pause);
         ImageButton btnBarPlayPause = dialog.findViewById(R.id.btn_bar_play_pause);
         SeekBar seekBar = dialog.findViewById(R.id.player_seek_bar);
         TextView tvCurrentTime = dialog.findViewById(R.id.tv_current_time);
@@ -112,13 +112,11 @@ public class VideoPlayerDialog {
             sizePlayerCard(dialog, context, mp.getVideoWidth(), mp.getVideoHeight());
 
             videoView.start();
-            btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
             btnBarPlayPause.setImageResource(R.drawable.ic_pause);
             progressHandler.post(progressRunnable);
         });
 
         videoView.setOnCompletionListener(mp -> {
-            btnCenterPlayPause.setImageResource(R.drawable.ic_play);
             btnBarPlayPause.setImageResource(R.drawable.ic_play);
             seekBar.setProgress(0);
             tvCurrentTime.setText("00:00");
@@ -129,18 +127,16 @@ public class VideoPlayerDialog {
         View.OnClickListener togglePlayPause = v -> {
             if (videoView.isPlaying()) {
                 videoView.pause();
-                btnCenterPlayPause.setImageResource(R.drawable.ic_play);
                 btnBarPlayPause.setImageResource(R.drawable.ic_play);
                 progressHandler.removeCallbacks(progressRunnable);
             } else {
                 videoView.start();
-                btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
                 btnBarPlayPause.setImageResource(R.drawable.ic_pause);
                 progressHandler.post(progressRunnable);
             }
         };
 
-        btnCenterPlayPause.setOnClickListener(togglePlayPause);
+        videoTapArea.setOnClickListener(togglePlayPause);
         btnBarPlayPause.setOnClickListener(togglePlayPause);
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -207,11 +203,9 @@ public class VideoPlayerDialog {
 
                                 if (shouldResume[0]) {
                                     videoView.start();
-                                    btnCenterPlayPause.setImageResource(R.drawable.ic_pause);
                                     btnBarPlayPause.setImageResource(R.drawable.ic_pause);
                                     progressHandler.post(progressRunnable);
                                 } else {
-                                    btnCenterPlayPause.setImageResource(R.drawable.ic_play);
                                     btnBarPlayPause.setImageResource(R.drawable.ic_play);
                                 }
                             });

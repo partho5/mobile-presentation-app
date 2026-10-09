@@ -106,18 +106,13 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="center" />
 
-            <!-- Center Play/Pause Touch Overlay Button -->
-            <ImageButton
+            <!-- Invisible tap area: tapping the video toggles play/pause, nothing is drawn -->
+            <View
                 android:id="@+id/btn_center_play_pause"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_circle_nav"
-                android:backgroundTint="#CC0B1015"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:contentDescription="Play or Pause Video"
-                android:padding="14dp"
-                android:src="@drawable/ic_play"
-                app:tint="#FFFFFF" />
+                android:foreground="@null" />
         </FrameLayout>
     </com.google.android.material.card.MaterialCardView>
 
