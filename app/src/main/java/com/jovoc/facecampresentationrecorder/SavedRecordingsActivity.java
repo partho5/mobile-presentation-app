@@ -298,7 +298,7 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         }
 
         insertPendingPlaceholders(items, pending, dateFormat);
-        List<RecordingItem> grouped = clusterByGroup(items, pending);
+        List<RecordingItem> grouped = clusterByGroup(items);
         attachPublishJobs(grouped);
         return grouped;
     }
@@ -311,23 +311,26 @@ public class SavedRecordingsActivity extends AppCompatActivity {
     /**
      * Puts every version of a recording side by side (original first, then its
      * crops) and gives each recording one strip colour. Recordings are ordered by
-     * their newest file; a lone file with no group counts as a recording of one.
+     * their newest file. A file with no group gets its own, so even a lone video has
+     * a colour that survives renames.
      */
-    private List<RecordingItem> clusterByGroup(List<RecordingItem> items,
-                                               List<VideoCropHelper.PendingCrop> pending) {
-        java.util.Set<String> keep = new java.util.HashSet<>();
-        for (VideoCropHelper.PendingCrop crop : pending) keep.add(crop.outputPath);
-        VideoGroupStore.prune(this, keep);
+    private List<RecordingItem> clusterByGroup(List<RecordingItem> items) {
+        VideoGroupStore.prune(this, () -> {
+            java.util.Set<String> keep = new java.util.HashSet<>();
+            for (VideoCropHelper.PendingCrop crop : VideoCropHelper.getPendingCrops()) {
+                keep.add(crop.outputPath);
+            }
+            return keep;
+        });
 
         Map<String, List<RecordingItem>> groups = new java.util.LinkedHashMap<>();
         for (RecordingItem item : items) {
-            String id = VideoGroupStore.getGroupId(this, item.getFilePath());
+            String id = VideoGroupStore.ensureGroup(this, item.getFilePath());
             item.setGroupId(id);
-            String key = id != null ? id : item.getFilePath();
-            List<RecordingItem> members = groups.get(key);
+            List<RecordingItem> members = groups.get(id);
             if (members == null) {
                 members = new ArrayList<>();
-                groups.put(key, members);
+                groups.put(id, members);
             }
             members.add(item);
         }
@@ -335,26 +338,58 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         List<Map.Entry<String, List<RecordingItem>>> ordered = new ArrayList<>(groups.entrySet());
         ordered.sort((g1, g2) -> Long.compare(newestModified(g2.getValue()), newestModified(g1.getValue())));
 
+        int[] colorIndex = assignGroupColors(ordered);
+
         List<RecordingItem> result = new ArrayList<>(items.size());
-        int previousColor = -1;
-        for (Map.Entry<String, List<RecordingItem>> group : ordered) {
-            List<RecordingItem> members = group.getValue();
+        for (int g = 0; g < ordered.size(); g++) {
+            List<RecordingItem> members = ordered.get(g).getValue();
             // Original was recorded first; a crop still encoding goes last.
             members.sort((m1, m2) -> Long.compare(orderKey(m1), orderKey(m2)));
-
-            int colorIndex = Math.floorMod(group.getKey().hashCode(), GROUP_COLORS.length);
-            // Never repeat the colour of the card block right above.
-            if (GROUP_COLORS[colorIndex] == previousColor) {
-                colorIndex = (colorIndex + 1) % GROUP_COLORS.length;
-            }
-            previousColor = GROUP_COLORS[colorIndex];
-
             for (RecordingItem member : members) {
-                member.setAccentColor(previousColor);
+                member.setAccentColor(GROUP_COLORS[colorIndex[g]]);
                 result.add(member);
             }
         }
         return result;
+    }
+
+    /**
+     * Palette slot per group, in list order. A group keeps the slot it was first
+     * given for good; only groups without one are placed, each in the slot whose
+     * nearest user in the list is farthest away, so repeats end up as far apart as
+     * the palette allows.
+     */
+    private int[] assignGroupColors(List<Map.Entry<String, List<RecordingItem>>> ordered) {
+        int n = ordered.size();
+        int[] slot = new int[n];
+        for (int g = 0; g < n; g++) {
+            slot[g] = VideoGroupStore.getColorIndex(this, ordered.get(g).getKey());
+        }
+
+        for (int g = 0; g < n; g++) {
+            if (slot[g] >= 0) continue;
+
+            int best = 0;
+            int bestGap = -1;
+            int bestUses = Integer.MAX_VALUE;
+            for (int c = 0; c < GROUP_COLORS.length; c++) {
+                int gap = Integer.MAX_VALUE; // nearest group already wearing colour c
+                int uses = 0;
+                for (int other = 0; other < n; other++) {
+                    if (slot[other] != c) continue;
+                    uses++;
+                    gap = Math.min(gap, Math.abs(other - g));
+                }
+                if (gap > bestGap || (gap == bestGap && uses < bestUses)) {
+                    best = c;
+                    bestGap = gap;
+                    bestUses = uses;
+                }
+            }
+            slot[g] = best;
+            VideoGroupStore.setColorIndex(this, ordered.get(g).getKey(), best);
+        }
+        return slot;
     }
 
     private static long newestModified(List<RecordingItem> members) {
@@ -453,7 +488,7 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         for (RecordingItem item : recordingList) {
             if (!item.isReady()) continue;
             count++;
-            originals.add(item.getGroupId() != null ? item.getGroupId() : item.getFilePath());
+            originals.add(item.getGroupId());
         }
         String total = count == 1 ? "1 video" : count + " videos";
         // Only worth explaining when some cards are edited versions of another.

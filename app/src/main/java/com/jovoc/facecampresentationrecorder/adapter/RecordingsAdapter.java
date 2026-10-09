@@ -36,6 +36,7 @@ import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
+import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
 import java.io.File;
@@ -439,6 +440,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
         boolean removed = !file.exists() || file.delete();
         if (!removed) return false;
+        VideoGroupStore.remove(context, file.getAbsolutePath());
 
         try {
             ContentResolver resolver = context.getContentResolver();

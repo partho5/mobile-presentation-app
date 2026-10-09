@@ -28,6 +28,7 @@ import androidx.core.content.FileProvider;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
+import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
 import java.io.File;
@@ -234,6 +235,7 @@ public class VideoPlayerDialog {
                         }
 
                         if (deleted || !fileToDelete.exists()) {
+                            VideoGroupStore.remove(context, fileToDelete.getAbsolutePath());
                             try {
                                 ContentResolver resolver = context.getContentResolver();
                                 resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
