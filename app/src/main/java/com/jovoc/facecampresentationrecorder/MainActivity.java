@@ -3439,11 +3439,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
                 String path = intent.getStringExtra(ScreenRecordService.EXTRA_VIDEO_PATH);
                 if (path == null) return;
-                // With processing, BgReplaceService reports progress and the result through
-                // processingListener; the file is only shown once background replace and
-                // auto-crop are both done
+                // With background replace, BgReplaceService reports progress and the result
+                // through processingListener; the file is only shown once that is done.
+                // Auto-crops run silently in the background
                 if (!intent.getBooleanExtra(ScreenRecordService.EXTRA_PROCESSING, false)) {
-                    onRecordingReady(path, 0, 0);
+                    onRecordingReady(path);
                 }
             }
         }
@@ -3457,9 +3457,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         @Override
-        public void onFinished(String path, int cropSuccess, int cropFail) {
+        public void onReady(String path) {
             dismissProcessingDialog();
-            onRecordingReady(path, cropSuccess, cropFail);
+            onRecordingReady(path);
         }
     };
 
@@ -3503,20 +3503,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    /** Shows the finished recording; the auto-crops were already made by BgReplaceService. */
-    private void onRecordingReady(String path, int cropSuccess, int cropFail) {
+    /** Shows the recording; auto-crops, if any, finish in the background (BgReplaceService). */
+    private void onRecordingReady(String path) {
         if (isFinishing() || isDestroyed()) return;
         File file = new File(path);
         if (file.exists() && file.length() > 0) {
-            Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
-            if (dialog != null && cropSuccess + cropFail > 0) {
-                TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
-                if (tvCropStatus != null) {
-                    tvCropStatus.setText(cropFail == 0 ? "✓ Cropped versions saved"
-                            : "⚠ " + cropFail + " crop(s) failed, " + cropSuccess + " saved");
-                    tvCropStatus.setVisibility(View.VISIBLE);
-                }
-            }
+            VideoPlayerDialog.show(MainActivity.this, file, null);
         }
     }
 

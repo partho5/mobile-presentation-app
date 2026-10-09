@@ -33,6 +33,7 @@ import androidx.camera.core.CameraSelector;
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 
@@ -58,6 +59,8 @@ public class ScreenRecordService extends Service {
     public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
     public static final String EXTRA_RESULT_DATA = "EXTRA_RESULT_DATA";
     public static final String EXTRA_VIDEO_PATH = "EXTRA_VIDEO_PATH";
+    /** True when background replace is running; the UI waits for its result before showing the file. */
+    public static final String EXTRA_PROCESSING = "EXTRA_PROCESSING";
 
     private final IBinder binder = new LocalBinder();
 
@@ -304,6 +307,7 @@ public class ScreenRecordService extends Service {
                     );
 
                     mediaRecorder.start();
+                    BubbleTrack.start();
                     isRecording = true;
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
                 }
@@ -380,9 +384,19 @@ public class ScreenRecordService extends Service {
                         (path, uri) -> Log.d(TAG, "MediaScanner Connection scanned " + path + " -> uri=" + uri)
                 );
 
+                // Replace the face cam background and auto-crop in a service of their own, so
+                // it does not depend on the app being open (e.g. stopped from the notification)
+                boolean processing = false;
+                try {
+                    processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop());
+                } catch (Exception e) {
+                    Log.e(TAG, "Could not start post-recording processing", e);
+                }
+
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);
                 finishIntent.setPackage(getPackageName());
                 finishIntent.putExtra(EXTRA_VIDEO_PATH, currentVideoPath);
+                finishIntent.putExtra(EXTRA_PROCESSING, processing);
                 sendBroadcast(finishIntent);
             } else {
                 Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
