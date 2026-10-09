@@ -4,7 +4,7 @@
         <item
             android:id="@+id/nav_edit_slides"
             android:icon="@drawable/ic_slides"
-            android:title="Manage Slides" />
+            android:title="Manage Topics" />
         <item
             android:id="@+id/nav_record_settings"
             android:icon="@drawable/ic_settings"
@@ -12,7 +12,7 @@
         <item
             android:id="@+id/nav_saved_recordings"
             android:icon="@drawable/ic_video_library"
-            android:title="Saved Recordings" />
+            android:title="My Videos" />
         <item
             android:id="@+id/nav_account"
             android:icon="@drawable/ic_account"

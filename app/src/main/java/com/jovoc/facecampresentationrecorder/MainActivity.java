@@ -1173,12 +1173,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (s.isDisabled()) continue;
             if (Slide.TYPE_WEBSITE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    Toast.makeText(this, "Slide " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Topic " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             } else if (Slide.TYPE_YOUTUBE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    Toast.makeText(this, "Slide " + (i + 1) + " is YouTube video, so please turn ON the internet", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Topic " + (i + 1) + " is YouTube video, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             }
@@ -1744,9 +1744,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void showImageSlideOptionsDialog(Slide slide, int position) {
-        String[] options = {"Update / Replace Image", "View Slide"};
+        String[] options = {"Update / Replace Image", "View Image"};
         new AlertDialog.Builder(this)
-                .setTitle("Image Slide Options")
+                .setTitle("Image Options")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
                         launchImageUpdater(slide, position);
@@ -1805,7 +1805,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
                 if (isInitialAppLaunchCheck) {
                     isInitialAppLaunchCheck = false;
-                    Toast.makeText(this, "Double tap to add slides", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Double tap to add topics", Toast.LENGTH_SHORT).show();
                 }
                 renderCurrentSlide();
             } else {
@@ -2413,7 +2413,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             prefs.edit().putBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false).apply();
             if (!prefs.getBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, false)) {
                 prefs.edit().putBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, true).apply();
-                Toast.makeText(this, "Double-tap anywhere for menu & slide editing", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Double-tap anywhere for menu & topic editing", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -2442,7 +2442,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
         hideSwipeHint();
         swipeHintShowingNext = wantNext;
-        tvSwipeHintLabel.setText(wantNext ? "Swipe left for next slide" : "Swipe right to go back");
+        tvSwipeHintLabel.setText(wantNext ? "Swipe left for next topic" : "Swipe right to go back");
         swipeHintContainer.setVisibility(View.INVISIBLE);
         swipeHintContainer.postDelayed(swipeHintPositionRunnable, 400);
     }
@@ -2662,9 +2662,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void showVideoSlideOptionsDialog(Slide slide, int position) {
-        String[] options = {"Update / Replace Video", "View Slide"};
+        String[] options = {"Update / Replace Video", "View Video"};
         new AlertDialog.Builder(this)
-                .setTitle("Video Slide Options")
+                .setTitle("Video Options")
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
                         launchVideoUpdater(slide, position);
@@ -2717,7 +2717,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         editText.addTextChangedListener(textWatcher);
 
         if (slideToEdit != null) {
-            title.setText("Edit Text Slide");
+            title.setText("Edit Topic");
             editText.setText(slideToEdit.getTextContent());
         }
 
@@ -2805,7 +2805,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Button btnSave = dialogView.findViewById(R.id.btn_save_website);
 
         if (slideToEdit != null) {
-            if (title != null) title.setText("Edit Website Slide");
+            if (title != null) title.setText("Edit Website");
             if (editUrl != null) editUrl.setText(slideToEdit.getTextContent());
         }
 
@@ -2862,7 +2862,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Button btnSave = dialogView.findViewById(R.id.btn_save_youtube);
 
         if (slideToEdit != null) {
-            if (title != null) title.setText("Edit YouTube Slide");
+            if (title != null) title.setText("Edit YouTube Video");
             if (editUrl != null) editUrl.setText(slideToEdit.getTextContent());
         }
 
@@ -2917,8 +2917,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (slide.isDisabled()) {
             // Offer to re-enable the disabled slide
             new AlertDialog.Builder(this)
-                    .setTitle("Slide Disabled")
-                    .setMessage("This slide is currently disabled and hidden during presentation. Would you like to enable it?")
+                    .setTitle("Item Disabled")
+                    .setMessage("This item is currently disabled and hidden during presentation. Would you like to enable it?")
                     .setPositiveButton("Enable", (dialog, which) -> {
                         slide.setDisabled(false);
                         repository.update(slide, () -> {
@@ -2973,8 +2973,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (!slide.isDisabled()) {
             // First click: Disable the slide
             new AlertDialog.Builder(this)
-                    .setTitle("Disable Slide?")
-                    .setMessage("This slide will be hidden during presentation mode. You can re-enable it later.")
+                    .setTitle("Disable Item?")
+                    .setMessage("This item will be hidden during presentation mode. You can re-enable it later.")
                     .setPositiveButton("Disable", (dialog, which) -> {
                         slide.setDisabled(true);
                         repository.update(slide, () -> {
@@ -2990,7 +2990,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             // Second click: Permanently delete the disabled slide
             new AlertDialog.Builder(this)
                     .setTitle("Permanently Delete?")
-                    .setMessage("This slide will be permanently deleted. This action cannot be undone.")
+                    .setMessage("This item will be permanently deleted. This action cannot be undone.")
                     .setPositiveButton("Delete", (dialog, which) -> {
                         repository.delete(slide, () -> {
                             slides.remove(position);
@@ -3345,7 +3345,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         String appName = getString(R.string.app_name);
         new AlertDialog.Builder(this)
                 .setTitle("About " + appName)
-                .setMessage("Version 1.0.0\n\nA powerful, simple app for presenting slides with live face cam overlay and screen recording.\n\nPrivacy Notice: Camera and Screen Capture are used exclusively for live preview and recording when initiated by you.")
+                .setMessage("Version 1.0.0\n\nA powerful, simple app for presenting topics with live face cam overlay and screen recording.\n\nPrivacy Notice: Camera and Screen Capture are used exclusively for live preview and recording when initiated by you.")
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .show();
     }
@@ -3513,6 +3513,17 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    /** "Editing video to 9:16, 4:5 and 1:1 format …", listing the ratios ticked in Settings. */
+    private String cropProgressMessage() {
+        java.util.List<int[]> ratios = BgReplaceService.readAutoCropRatios(this);
+        StringBuilder list = new StringBuilder();
+        for (int i = 0; i < ratios.size(); i++) {
+            if (i > 0) list.append(i == ratios.size() - 1 ? " and " : ", ");
+            list.append(ratios.get(i)[0]).append(':').append(ratios.get(i)[1]);
+        }
+        return "Editing video to " + list + " format (You can change from settings)";
+    }
+
     /** Inline auto-crop status in the video player: pending message, then the result. */
     private void bindCropStatus(@androidx.annotation.Nullable Dialog dialog, String path) {
         if (dialog == null || !BgReplaceService.isCropPending(path)) return;
@@ -3521,7 +3532,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
         if (row == null || tvIcon == null || tvCropStatus == null) return;
         tvIcon.setText("⏳");
-        tvCropStatus.setText("Auto-cropping as per your settings…");
+        tvCropStatus.setText(cropProgressMessage());
         row.setVisibility(View.VISIBLE);
 
         // The hourglass ticks round in 30° steps every 300 ms instead of spinning smoothly
@@ -3540,8 +3551,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             tick.cancel();
             tvIcon.setRotation(0f);
             tvIcon.setText(failCount == 0 ? "✓" : "⚠");
-            tvCropStatus.setText(failCount == 0 ? "Cropped versions saved"
-                    : failCount + " crop(s) failed, " + successCount + " saved");
+            tvCropStatus.setText(failCount == 0 ? "Edited versions saved"
+                    : failCount + " edit(s) failed, " + successCount + " saved");
             BgReplaceService.setCropListener(null);
         });
     }

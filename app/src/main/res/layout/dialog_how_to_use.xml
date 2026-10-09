@@ -40,7 +40,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="1. Create &amp; Manage Slides"
+                    android:text="1. Create &amp; Manage Topics"
                     android:textColor="#6200EE"
                     android:textSize="15sp"
                     android:textStyle="bold"
@@ -49,7 +49,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Open menu and select Manage Slides (or tap +) to add text or image slides. Drag items in the manager to reorder your presentation sequence."
+                    android:text="Open menu and select Manage Topics (or tap +) to add topics or images. Drag items in the manager to reorder your presentation sequence."
                     android:textColor="#424242"
                     android:textSize="13sp"
                     android:lineSpacingExtra="2dp" />
@@ -130,7 +130,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Tap the red Record button. Grant screen capture permission when asked. Present your slides while talking to face camera. Tap Stop when finished."
+                    android:text="Tap the red Record button. Grant screen capture permission when asked. Present your topics while talking to face camera. Tap Stop when finished."
                     android:textColor="#424242"
                     android:textSize="13sp"
                     android:lineSpacingExtra="2dp" />

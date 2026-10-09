@@ -16,7 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
-            android:text="Slide Manager"
+            android:text="Topic Manager"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />

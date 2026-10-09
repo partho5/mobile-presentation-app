@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentTop="true"
             android:adjustViewBounds="true"
-            android:contentDescription="Slide Image"
+            android:contentDescription="Image"
             android:scaleType="fitStart"
             android:visibility="gone" />
 
@@ -103,7 +103,7 @@
             android:layout_centerInParent="true"
             android:gravity="center"
             android:padding="32dp"
-            android:text="Double-tap to open Menu &amp; Add Slides"
+            android:text="Double-tap to open Menu &amp; Add Topics"
             android:textColor="#66FFFFFF"
             android:textSize="18sp"
             android:visibility="gone" />
@@ -145,7 +145,7 @@
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Edit Slides"
+                android:text="Edit Topics"
                 android:textColor="#64B5F6"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -376,7 +376,7 @@
                     android:layout_gravity="center"
                     android:background="@drawable/bg_circle_nav"
                     android:clickable="false"
-                    android:contentDescription="Previous Slide"
+                    android:contentDescription="Previous Topic"
                     android:focusable="false"
                     android:src="@drawable/ic_chevron_left" />
             </FrameLayout>
@@ -419,7 +419,7 @@
                     android:layout_gravity="center"
                     android:background="@drawable/bg_circle_nav"
                     android:clickable="false"
-                    android:contentDescription="Previous Slide"
+                    android:contentDescription="Previous Topic"
                     android:focusable="false"
                     android:src="@drawable/ic_chevron_right" />
             </FrameLayout>

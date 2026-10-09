@@ -18,7 +18,7 @@
 
     <string name="acct_delete">Delete account</string>
     <string name="acct_delete_title">Delete your account?</string>
-    <string name="acct_delete_confirm">This permanently deletes your Nany Social account and its data on our servers, and signs you out on all your devices. Your slides and recordings stay on this phone. This cannot be undone.</string>
+    <string name="acct_delete_confirm">This permanently deletes your Nany Social account and its data on our servers, and signs you out on all your devices. Your topics and videos stay on this phone. This cannot be undone.</string>
     <string name="acct_delete_yes">Delete permanently</string>
     <string name="acct_delete_done">Your account was deleted.</string>
     <string name="acct_delete_unavailable">Account deletion is not available yet, so nothing was deleted. Please try again later.</string>
@@ -26,7 +26,7 @@
     <string name="acct_privacy">Privacy policy</string>
     <string name="acct_terms">Terms of service</string>
     <string name="web_no_browser">No browser app found to open this page.</string>
-    <string name="session_ended_toast">Your publishing session ended. Use Connect publishing to sign in again.</string>
+    <string name="session_ended_toast">Your publishing session ended. Click Auto upload to social media to sign in again.</string>
     <string name="acct_err_signed_out">You were signed out. Please sign in again.</string>
     <string name="acct_err_workspace">You no longer have access to that workspace. Switched back to your default workspace.</string>
     <string name="acct_err_gone">That item no longer exists. The list was refreshed.</string>
@@ -50,7 +50,7 @@
     <string name="dev_sign_out">Sign out</string>
     <string name="dev_sign_out_others">Sign out all other devices</string>
     <string name="dev_confirm_one">Sign out “%1$s”? It will be asked to sign in again on its next request.</string>
-    <string name="dev_confirm_this">This is the phone you are using. Signing it out takes you back to the sign-in screen. Your slides and recordings stay on the device.</string>
+    <string name="dev_confirm_this">This is the phone you are using. Signing it out takes you back to the sign-in screen. Your topics and videos stay on the device.</string>
     <string name="dev_confirm_others">Sign out every device except this one?</string>
     <string name="dev_signed_out_one">Device signed out</string>
     <string name="dev_signed_out_others">Other devices signed out</string>

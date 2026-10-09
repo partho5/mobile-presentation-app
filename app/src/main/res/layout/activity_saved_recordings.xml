@@ -35,7 +35,7 @@
             android:layout_centerVertical="true"
             android:layout_marginStart="8dp"
             android:layout_toEndOf="@id/btn_back"
-            android:text="Saved Recordings"
+            android:text="My Videos"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />

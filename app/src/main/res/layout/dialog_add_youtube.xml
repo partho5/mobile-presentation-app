@@ -10,7 +10,7 @@
         android:id="@+id/dialog_youtube_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add YouTube Video Slide"
+        android:text="Add YouTube Video"
         android:textColor="#FFFFFF"
         android:textSize="18sp"
         android:textStyle="bold" />

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="product_name">Nany Social</string>
-    <string name="sign_in_title">Connect publishing</string>
+    <string name="sign_in_title">Auto upload to social media</string>
     <string name="sign_in_not_now">Not now</string>
     <string name="sign_in_code_desc">6-digit code</string>
     <string name="sign_in_working">Working</string>
@@ -30,8 +30,8 @@
     <string name="account_email_label">Signed in as</string>
     <string name="account_device_label">This device</string>
     <string name="account_sign_out">Sign out</string>
-    <string name="account_sign_out_confirm">Sign out of this phone? Your slides and recordings stay on the device.</string>
+    <string name="account_sign_out_confirm">Sign out of this phone? Your topics and videos stay on the device.</string>
     <string name="account_sign_out_offline">Signed out on this phone. Could not reach the server, so remove this device from the web Devices list.</string>
     <string name="nav_account">Account</string>
-    <string name="nav_connect_publishing">Connect publishing</string>
+    <string name="nav_connect_publishing">Auto upload to social media</string>
 </resources>

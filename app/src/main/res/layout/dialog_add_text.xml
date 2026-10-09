@@ -10,7 +10,7 @@
         android:id="@+id/dialog_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Text Slide Content"
+        android:text="Topic Content"
         android:textColor="#FFFFFF"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -22,7 +22,7 @@
         android:layout_marginTop="16dp"
         android:background="#2B2B2B"
         android:gravity="top|start"
-        android:hint="Type slide text here..."
+        android:hint="Type your topic here..."
         android:maxLength="200"
         android:padding="12dp"
         android:textColor="#FFFFFF"
@@ -44,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="If you have more words, create another slide"
+        android:text="If you have more words, create another topic"
         android:textColor="#FF5252"
         android:textSize="12sp"
         android:visibility="gone" />

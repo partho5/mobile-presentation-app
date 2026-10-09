@@ -68,7 +68,7 @@
             android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:maxLines="2"
-            android:text="Slide content snippet..."
+            android:text="Topic content snippet..."
             android:textColor="#EEEEEE"
             android:textSize="14sp"
             android:fontFamily="@font/bitter" />
@@ -97,7 +97,7 @@
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Delete Slide"
+        android:contentDescription="Delete Topic"
         android:src="@drawable/ic_delete" />
 
 </LinearLayout>

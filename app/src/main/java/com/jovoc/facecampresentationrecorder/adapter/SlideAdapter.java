@@ -79,7 +79,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "(Empty Text)");
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
-            holder.slidePreviewText.setText("Image Slide");
+            holder.slidePreviewText.setText("Image");
             if (slide.getImagePath() != null) {
                 Glide.with(holder.itemView.getContext())
                         .load(new File(slide.getImagePath()))
@@ -88,7 +88,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             }
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
-            holder.slidePreviewText.setText("Video Slide");
+            holder.slidePreviewText.setText("Video");
             if (slide.getImagePath() != null) {
                 Glide.with(holder.itemView.getContext())
                         .load(new File(slide.getImagePath()))
@@ -100,7 +100,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
         } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
             holder.slideThumbnail.setImageResource(R.drawable.ic_web);
-            holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "Website Slide");
+            holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "Website");
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
             holder.slideThumbnail.setImageResource(R.drawable.ic_youtube);

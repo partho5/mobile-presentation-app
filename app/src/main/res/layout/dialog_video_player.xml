@@ -46,19 +46,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:letterSpacing="0.01"
-                    android:text="Video Player"
+                    android:text="Video Preview"
                     android:textColor="#F5F7FA"
                     android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_dialog_header_subtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:letterSpacing="0.08"
-                    android:text="SAVED RECORDING"
-                    android:textColor="#5C6B7A"
-                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>

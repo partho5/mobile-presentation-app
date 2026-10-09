@@ -72,7 +72,7 @@
         <activity
             android:name=".SavedRecordingsActivity"
             android:exported="false"
-            android:label="Saved Recordings"
+            android:label="My Videos"
             android:parentActivityName=".MainActivity" />
 
         <provider
