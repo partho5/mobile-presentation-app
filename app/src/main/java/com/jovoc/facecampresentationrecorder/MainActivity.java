@@ -3516,13 +3516,32 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     /** Inline auto-crop status in the video player: pending message, then the result. */
     private void bindCropStatus(@androidx.annotation.Nullable Dialog dialog, String path) {
         if (dialog == null || !BgReplaceService.isCropPending(path)) return;
+        View row = dialog.findViewById(R.id.crop_status_row);
+        TextView tvIcon = dialog.findViewById(R.id.tv_crop_icon);
         TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
-        if (tvCropStatus == null) return;
-        tvCropStatus.setText("⏳ Auto-cropping as per your settings…");
-        tvCropStatus.setVisibility(View.VISIBLE);
+        if (row == null || tvIcon == null || tvCropStatus == null) return;
+        tvIcon.setText("⏳");
+        tvCropStatus.setText("Auto-cropping as per your settings…");
+        row.setVisibility(View.VISIBLE);
+
+        // The hourglass ticks round in 30° steps every 300 ms instead of spinning smoothly
+        final int steps = 12;
+        android.animation.ObjectAnimator tick = android.animation.ObjectAnimator.ofFloat(tvIcon, View.ROTATION, 0f, 360f);
+        tick.setDuration(steps * 300L);
+        tick.setInterpolator(t -> (float) Math.floor(t * steps) / steps);
+        tick.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        tick.start();
+        dialog.getWindow().getDecorView().addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(View v) {}
+            @Override public void onViewDetachedFromWindow(View v) { tick.cancel(); }
+        });
+
         BgReplaceService.setCropListener((successCount, failCount) -> {
-            tvCropStatus.setText(failCount == 0 ? "✓ Cropped versions saved"
-                    : "⚠ " + failCount + " crop(s) failed, " + successCount + " saved");
+            tick.cancel();
+            tvIcon.setRotation(0f);
+            tvIcon.setText(failCount == 0 ? "✓" : "⚠");
+            tvCropStatus.setText(failCount == 0 ? "Cropped versions saved"
+                    : failCount + " crop(s) failed, " + successCount + " saved");
             BgReplaceService.setCropListener(null);
         });
     }
