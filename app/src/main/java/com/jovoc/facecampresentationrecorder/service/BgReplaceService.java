@@ -54,6 +54,11 @@ public class BgReplaceService extends Service {
         void onReady(String path);
     }
 
+    /** Auto-crop completion for the video player dialog, always delivered on the main thread. */
+    public interface CropListener {
+        void onCropsDone(int cropSuccess, int cropFail);
+    }
+
     private static final class Job {
         final File video;
         final List<BubbleTrack.Entry> track;
@@ -72,6 +77,8 @@ public class BgReplaceService extends Service {
     private static final List<Job> QUEUE = new ArrayList<>();
     private static boolean workerRunning;
     private static Listener listener;
+    private static CropListener cropListener;
+    private static final java.util.Set<String> CROP_PENDING = new java.util.HashSet<>();
     private static String currentStage = "";
     private static int currentPercent = -1;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -88,6 +95,7 @@ public class BgReplaceService extends Service {
         if (!replace && ratios.isEmpty()) return false;
         synchronized (LOCK) {
             QUEUE.add(new Job(video, track, replace, ratios));
+            if (!ratios.isEmpty()) CROP_PENDING.add(video.getAbsolutePath());
         }
         context.startForegroundService(new Intent(context, BgReplaceService.class));
         return replace;
@@ -106,6 +114,18 @@ public class BgReplaceService extends Service {
     /** Main thread only. Pass null to detach. */
     public static void setListener(@Nullable Listener l) {
         listener = l;
+    }
+
+    /** True from queuing until the auto-crops of this recording are done. */
+    public static boolean isCropPending(String path) {
+        synchronized (LOCK) {
+            return CROP_PENDING.contains(path);
+        }
+    }
+
+    /** Main thread only. Pass null to detach. */
+    public static void setCropListener(@Nullable CropListener l) {
+        cropListener = l;
     }
 
     public static boolean isBusy() {
@@ -245,9 +265,15 @@ public class BgReplaceService extends Service {
             cropFail = counts[1];
         }
 
-        if (cropOk + cropFail > 0) {
-            toast(cropFail == 0 ? "✓ Cropped versions saved"
-                    : "⚠ " + cropFail + " crop(s) failed, " + cropOk + " saved");
+        if (!job.ratios.isEmpty()) {
+            synchronized (LOCK) {
+                CROP_PENDING.remove(video.getAbsolutePath());
+            }
+            int ok = cropOk;
+            int fail = cropFail;
+            MAIN.post(() -> {
+                if (cropListener != null) cropListener.onCropsDone(ok, fail);
+            });
         }
     }
 

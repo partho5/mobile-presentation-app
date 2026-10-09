@@ -3508,8 +3508,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (isFinishing() || isDestroyed()) return;
         File file = new File(path);
         if (file.exists() && file.length() > 0) {
-            VideoPlayerDialog.show(MainActivity.this, file, null);
+            Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
+            bindCropStatus(dialog, path);
         }
+    }
+
+    /** Inline auto-crop status in the video player: pending message, then the result. */
+    private void bindCropStatus(@androidx.annotation.Nullable Dialog dialog, String path) {
+        if (dialog == null || !BgReplaceService.isCropPending(path)) return;
+        TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
+        if (tvCropStatus == null) return;
+        tvCropStatus.setText("⏳ Auto-cropping as per your settings…");
+        tvCropStatus.setVisibility(View.VISIBLE);
+        BgReplaceService.setCropListener((successCount, failCount) -> {
+            tvCropStatus.setText(failCount == 0 ? "✓ Cropped versions saved"
+                    : "⚠ " + failCount + " crop(s) failed, " + successCount + " saved");
+            BgReplaceService.setCropListener(null);
+        });
     }
 
     private void registerRecordingFinishedReceiver() {
