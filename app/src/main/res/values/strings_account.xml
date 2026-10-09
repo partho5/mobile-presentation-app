@@ -22,6 +22,7 @@
     <string name="acct_delete_yes">Delete permanently</string>
     <string name="acct_delete_done">Your account was deleted.</string>
     <string name="acct_delete_unavailable">Account deletion is not available yet, so nothing was deleted. Please try again later.</string>
+    <string name="acct_delete_blocked">Your account could not be deleted. If other people share one of your workspaces, remove them on the website first; if you have a subscription, make sure it can be cancelled, then try again.</string>
     <string name="acct_privacy">Privacy policy</string>
     <string name="acct_terms">Terms of service</string>
     <string name="web_no_browser">No browser app found to open this page.</string>

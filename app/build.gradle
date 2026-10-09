@@ -30,8 +30,9 @@ android {
             buildConfigField 'String', 'WEB_BASE_URL', '"http://localhost:4200"'
         }
         release {
-            // Production host. Must be https; a release build refuses anything else.
-            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com"'
+            // Production host. Must be https; a release build refuses anything else. The deployed backend
+            // serves its API under /api on the same host as the website (deploy/Caddyfile, NEXT_PUBLIC_BACKEND_URL).
+            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com/api"'
             buildConfigField 'String', 'WEB_BASE_URL', '"https://social-media-schedular.nanybot.com"'
             minifyEnabled true
             shrinkResources true

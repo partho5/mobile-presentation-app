@@ -29,11 +29,12 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
   Title refreshed in `onResume`.
 - `auth/SignInFlow` (pure Java): step, email, resend cooldown, per-action lockouts, error mapping to a
   `Problem` enum, save/restore as remaining-millis (rotation-safe). Activity maps `Problem` to string ids.
-- Delete account: `AccountApi.deleteAccount()` = `DELETE /auth/account` (TODO: the backend contract is not
-  written yet; path is one constant). 404/405 = "not available yet" message and the user stays signed in.
-  Success: local session cleared, back to home.
-- URLs: debug API `http://localhost:3000` (needs `adb reverse tcp:3000 tcp:3000`); release API and web
-  `https://social-media-schedular.nanybot.com`. Channels page = frontend route `/launches` (exists in
+- Delete account: `AccountApi.deleteAccount()` = `POST /user/delete-account` (the backend's existing route, Bearer, no
+  workspace). 400 = refused (teammates share an owned workspace, or billing could not be cancelled): message, user stays
+  signed in. 404/405/501 = "not available". Success: local session cleared, back to home. The backend does not yet
+  revoke the account's other sessions in the list, but a deleted user's tokens stop working (403, then refresh 401).
+- URLs: debug API `http://localhost:3000` (needs `adb reverse tcp:3000 tcp:3000`); release web `https://social-media-schedular.nanybot.com`, release API the same host under `/api`
+  (the deployed backend serves its API at `<host>/api`). Channels page = frontend route `/launches` (exists in
   the backend repo). Privacy/terms: no page exists, `PRIVACY_URL`/`TERMS_URL` are empty (TODO) and the
   Account links hide until set.
 - Product name "Nany Social" in `strings_auth.xml` (`product_name`), not the launcher label.
@@ -62,3 +63,10 @@ Edited: `StartupActivity`, `SignInActivity`, `SessionManager`, `AccountActivity`
 - [ ] Delete account: confirm dialog; with backend missing shows "not available yet" and stays signed in.
 - [ ] Dark theme and a 360x640 screen: nothing clipped, error text readable.
 - [ ] Release build: https only, no cleartext, tokens not in backup, no token/code in logcat.
+
+## After the backend is on the real VPS
+
+Nothing here ran against a live backend; the debug build points at `localhost`. Once deployed:
+1. Backend repo: `node deploy/scripts/e2e-auth.mjs https://social-media-schedular.nanybot.com/api <your email>` must pass (needs real Mailgun).
+2. Install the release build; run the manual QA checklist above on a real phone.
+3. Delete account: test with a throwaway email first; with a teammate in the workspace it must say it was refused.

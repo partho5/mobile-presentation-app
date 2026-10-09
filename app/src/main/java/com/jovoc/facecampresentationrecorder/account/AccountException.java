@@ -19,6 +19,8 @@ public class AccountException extends Exception {
         NOT_FOUND,
         /** The server has no account-deletion route (yet): nothing was deleted. */
         UNAVAILABLE,
+        /** 400 on account deletion: the server refused (teammates share a workspace, billing could not be cancelled). */
+        BLOCKED,
         /** Anything else: 5xx, other 4xx, an unreadable answer. */
         SERVER
     }

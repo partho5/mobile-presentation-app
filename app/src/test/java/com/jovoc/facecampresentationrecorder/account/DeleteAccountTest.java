@@ -56,11 +56,12 @@ public class DeleteAccountTest {
     }
 
     @Test
-    public void sendsAuthedDeleteWithoutWorkspace() throws Exception {
-        server.enqueue(new MockResponse().setResponseCode(204));
+    public void sendsAuthedPostWithoutWorkspace() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(201));
         api.deleteAccount();
         RecordedRequest r = server.takeRequest();
-        assertEquals("DELETE", r.getMethod());
+        assertEquals("POST", r.getMethod());
+        assertEquals("/user/delete-account", r.getPath());
         assertEquals(AccountApi.PATH_DELETE_ACCOUNT, r.getPath());
         assertEquals("Bearer acc", r.getHeader("Authorization"));
         assertNull(r.getHeader("x-workspace-id"));
@@ -72,6 +73,13 @@ public class DeleteAccountTest {
         assertEquals(AccountException.Kind.UNAVAILABLE, failureKind());
         server.enqueue(new MockResponse().setResponseCode(405));
         assertEquals(AccountException.Kind.UNAVAILABLE, failureKind());
+    }
+
+    @Test
+    public void refusalIsBlockedAndNothingIsSignedOut() {
+        server.enqueue(new MockResponse().setResponseCode(400)
+                .setBody("{\"statusCode\":400,\"message\":\"Please remove your team members before deleting your account\"}"));
+        assertEquals(AccountException.Kind.BLOCKED, failureKind());
     }
 
     @Test

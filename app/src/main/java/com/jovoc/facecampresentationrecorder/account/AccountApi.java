@@ -22,11 +22,8 @@ public class AccountApi {
     /** Exists today: {credits} = available only. */
     public static final String PATH_COPILOT_CREDITS = "/copilot/credits";
     public static final String PATH_SESSIONS = "/auth/sessions";
-    /**
-     * TODO(DELETE-ACCOUNT): placeholder route. The backend's account-deletion contract is not
-     * written yet (PROD_AUTH_BACKEND_PROMPT.md item 4); change this one constant to match it.
-     */
-    public static final String PATH_DELETE_ACCOUNT = "/auth/account";
+    /** The backend's existing account-deletion route (POST, Bearer). */
+    public static final String PATH_DELETE_ACCOUNT = "/user/delete-account";
 
     /** Remembered for the process so a backend without /credits/balance costs one probe, not one per screen. */
     private static volatile boolean balanceRouteMissing;
@@ -117,13 +114,18 @@ public class AccountApi {
     // ---- account deletion ----
 
     /**
-     * DELETE the signed-in account and its data on the server (Bearer, no workspace). On success
-     * the server has ended every session of the account; the caller clears the local one. A
-     * missing route (404/405/501) is {@link AccountException.Kind#UNAVAILABLE}: nothing deleted.
+     * POST /user/delete-account for the signed-in account (Bearer, no workspace). On success the
+     * account is gone on the server and its sessions stop working; the caller clears the local one.
+     * 400 is {@link AccountException.Kind#BLOCKED}: the server refused (teammates still share a
+     * workspace of the account, or a subscription could not be cancelled) and nothing was deleted.
+     * A missing route (404/405/501) is {@link AccountException.Kind#UNAVAILABLE}: nothing deleted.
      */
     public void deleteAccount() throws AccountException {
-        ApiResponse r = call("DELETE", PATH_DELETE_ACCOUNT, false);
+        ApiResponse r = call("POST", PATH_DELETE_ACCOUNT, false);
         if (r.isSuccess()) return;
+        if (r.status == 400) {
+            throw new AccountException(AccountException.Kind.BLOCKED);
+        }
         if (r.status == 404 || r.status == 405 || r.status == 501) {
             throw new AccountException(AccountException.Kind.UNAVAILABLE);
         }
