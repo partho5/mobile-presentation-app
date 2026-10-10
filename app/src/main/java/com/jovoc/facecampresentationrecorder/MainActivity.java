@@ -105,6 +105,7 @@ import com.jovoc.facecampresentationrecorder.db.SlideRepository;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.ScreenRecordService;
 import com.jovoc.facecampresentationrecorder.util.ImageStorageHelper;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.SlideLogger;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.card.MaterialCardView;
@@ -202,6 +203,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageView ivCameraFreezeFrame;
     private TextView tvCameraPermissionHint;
     private boolean flipAvailable = true;
+    /** True once the preview is bound; lets onResume start it after permission is granted elsewhere. */
+    private boolean cameraPreviewStarted = false;
     private Observer<PreviewView.StreamState> flipStreamObserver;
     private final Runnable flipFreezeTimeoutRunnable = this::hideFreezeFrame;
 
@@ -255,11 +258,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ActivityResultLauncher<PickVisualMediaRequest> videoPickerLauncher;
     private ActivityResultLauncher<PickVisualMediaRequest> updateVideoPickerLauncher;
     private ActivityResultLauncher<String[]> permissionLauncher;
-    /** Single-permission requests started from the Settings dialog. */
-    private ActivityResultLauncher<String> settingsPermissionLauncher;
-    private String pendingSettingsPermission;
-    /** Rebuilds the Settings dialog's permission rows; non-null only while that dialog is open. */
-    private Runnable refreshPermissionRows;
     private ActivityResultLauncher<Intent> screenCaptureLauncher;
 
     private Slide slideToUpdateImage = null;
@@ -426,16 +424,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         guideLabel11 = findViewById(R.id.guide_label_1_1);
     }
 
-    private static final String PREF_NAME = "app_prefs";
+    private static final String PREF_NAME = RecordSettings.PREF_NAME;
     private static final String KEY_CAM_SIZE = "key_cam_size";
     private static final String KEY_CAM_POS_X = "key_cam_pos_x";
     private static final String KEY_CAM_POS_Y = "key_cam_pos_y";
     private static final String KEY_CAM_LENS_FACING = "key_cam_lens_facing";
-    private static final String KEY_COUNTDOWN_SECONDS = "key_countdown_seconds";
-    private static final String KEY_RECORD_AUDIO = "key_record_audio";
-    private static final String KEY_AUTOCROP_9_16 = "key_autocrop_9_16";
-    private static final String KEY_AUTOCROP_4_5 = "key_autocrop_4_5";
-    private static final String KEY_AUTOCROP_1_1 = "key_autocrop_1_1";
+    private static final String KEY_COUNTDOWN_SECONDS = RecordSettings.KEY_COUNTDOWN_SECONDS;
+    private static final String KEY_AUTOCROP_9_16 = RecordSettings.KEY_AUTOCROP_9_16;
+    private static final String KEY_AUTOCROP_4_5 = RecordSettings.KEY_AUTOCROP_4_5;
+    private static final String KEY_AUTOCROP_1_1 = RecordSettings.KEY_AUTOCROP_1_1;
 
     private void saveCameraState() {
         if (cameraCardContainer == null || cameraRootWrapper == null) return;
@@ -727,7 +724,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (itemId == R.id.nav_edit_slides) {
                     openSlideManagerDialog();
                 } else if (itemId == R.id.nav_record_settings) {
-                    openRecordSettingsDialog();
+                    startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.SettingsActivity.class));
                 } else if (itemId == R.id.nav_saved_recordings) {
                     openSavedRecordings();
                 } else if (itemId == R.id.nav_account) {
@@ -1090,19 +1087,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private List<String> getMissingPermissions() {
-        List<String> neededPermissions = new ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            neededPermissions.add(Manifest.permission.CAMERA);
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            neededPermissions.add(Manifest.permission.RECORD_AUDIO);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                neededPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-        return neededPermissions;
+        return RecordSettings.missingPermissions(this);
     }
 
     private boolean isNetworkConnected() {
@@ -1372,23 +1357,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
         );
 
-        settingsPermissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestPermission(),
-                granted -> {
-                    String permission = pendingSettingsPermission;
-                    pendingSettingsPermission = null;
-                    if (granted) {
-                        if (Manifest.permission.CAMERA.equals(permission)) startCameraPreview();
-                    } else if (permission != null
-                            && !ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
-                        // Denied for good: the system dialog won't appear again, only app settings can help.
-                        openAppSettings();
-                    }
-                    updateCameraPermissionHint();
-                    if (refreshPermissionRows != null) refreshPermissionRows.run();
-                }
-        );
-
         screenCaptureLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -1456,6 +1424,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 preview.setSurfaceProvider(cameraPreviewView.getSurfaceProvider());
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview);
+                cameraPreviewStarted = true;
             } catch (Exception e) {
                 Log.e(TAG, "Error starting camera preview", e);
             }
@@ -1864,13 +1833,16 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         super.onResume();
         updateAccountMenuItem();
         updateCameraPermissionHint();
-        if (refreshPermissionRows != null) refreshPermissionRows.run();
+        // Permission may have been granted on the Settings screen or in system settings.
+        if (!cameraPreviewStarted && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            startCameraPreview();
+        }
         if (slides != null && !slides.isEmpty()) {
             renderCurrentSlide();
         }
-        if (!isRecording && rootLayout != null) {
-            rootLayout.post(this::showCropGuideLines);
-        }
+        // Picks up crop ratios changed on the Settings screen.
+        applyRecordSettings();
     }
 
     @Override
@@ -3025,305 +2997,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         dialog.show();
     }
 
-    private void openRecordSettingsDialog() {
-        View view = LayoutInflater.from(this).inflate(R.layout.dialog_record_settings, null);
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(view)
-                .create();
-
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        }
-
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        int currentCountdown = prefs.getInt(KEY_COUNTDOWN_SECONDS, 3);
-        boolean recordAudio = prefs.getBoolean(KEY_RECORD_AUDIO, true);
-
-        RadioButton rb0 = view.findViewById(R.id.rb_countdown_0);
-        RadioButton rb3 = view.findViewById(R.id.rb_countdown_3);
-        RadioButton rb5 = view.findViewById(R.id.rb_countdown_5);
-        RadioButton rb10 = view.findViewById(R.id.rb_countdown_10);
-
-        if (currentCountdown == 0 && rb0 != null) rb0.setChecked(true);
-        else if (currentCountdown == 5 && rb5 != null) rb5.setChecked(true);
-        else if (currentCountdown == 10 && rb10 != null) rb10.setChecked(true);
-        else if (rb3 != null) rb3.setChecked(true);
-
-        RadioButton rbMic = view.findViewById(R.id.rb_audio_mic);
-        RadioButton rbMute = view.findViewById(R.id.rb_audio_mute);
-
-        if (recordAudio && rbMic != null) rbMic.setChecked(true);
-        else if (!recordAudio && rbMute != null) rbMute.setChecked(true);
-
-        // Auto-crop checkboxes
-        CheckBox cbCrop916 = view.findViewById(R.id.cb_crop_9_16);
-        CheckBox cbCrop45 = view.findViewById(R.id.cb_crop_4_5);
-        CheckBox cbCrop11 = view.findViewById(R.id.cb_crop_1_1);
-
-        if (cbCrop916 != null) cbCrop916.setChecked(prefs.getBoolean(KEY_AUTOCROP_9_16, true));
-        if (cbCrop45 != null) cbCrop45.setChecked(prefs.getBoolean(KEY_AUTOCROP_4_5, false));
-        if (cbCrop11 != null) cbCrop11.setChecked(prefs.getBoolean(KEY_AUTOCROP_1_1, false));
-
-        // AI Virtual Background settings
-        SharedPreferences bgPrefs = getSharedPreferences("facecam_prefs", MODE_PRIVATE);
-        CheckBox cbBgReplace = view.findViewById(R.id.cb_bg_replace);
-        if (cbBgReplace != null) {
-            cbBgReplace.setChecked(bgPrefs.getBoolean("bg_replace_enabled", true));
-        }
-
-        // Background picker: one card per sample (preview + name), 2 per row
-        // Every image in assets/bg_samples/ becomes a card, so adding an image needs no code change.
-        final List<String> bgAssets = new ArrayList<>();
-        try {
-            String[] files = getAssets().list("bg_samples");
-            if (files != null) {
-                java.util.Arrays.sort(files);
-                for (String f : files) {
-                    String lower = f.toLowerCase(java.util.Locale.ROOT);
-                    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp")) {
-                        bgAssets.add("bg_samples/" + f);
-                    }
-                }
-            }
-        } catch (java.io.IOException e) {
-            Log.w(TAG, "Listing bg_samples failed", e);
-        }
-        final List<View> bgCards = new ArrayList<>();
-        final List<View> bgChecks = new ArrayList<>();
-        final int[] selectedBg = {0};
-        String currentAsset = bgPrefs.getString("bg_asset_path", "");
-        int bgIdx = bgAssets.indexOf(currentAsset);
-        if (bgIdx >= 0) selectedBg[0] = bgIdx;
-        Runnable refreshBgCards = () -> {
-            for (int i = 0; i < bgCards.size(); i++) {
-                boolean sel = i == selectedBg[0];
-                bgCards.get(i).setSelected(sel);
-                bgChecks.get(i).setVisibility(sel ? View.VISIBLE : View.GONE);
-            }
-        };
-        GridLayout bgGrid = view.findViewById(R.id.grid_bg_sample);
-        if (bgGrid != null) {
-            float d = getResources().getDisplayMetrics().density;
-            for (int i = 0; i < bgAssets.size(); i++) {
-                final int idx = i;
-                String assetPath = bgAssets.get(i);
-
-                FrameLayout card = new FrameLayout(this);
-                card.setBackgroundResource(R.drawable.bg_bg_sample_card);
-                card.setPadding((int) (4 * d), (int) (4 * d), (int) (4 * d), (int) (4 * d));
-                card.setClickable(true);
-                card.setFocusable(true);
-
-                LinearLayout col = new LinearLayout(this);
-                col.setOrientation(LinearLayout.VERTICAL);
-                ImageView preview = new ImageView(this);
-                preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                preview.setImageBitmap(loadAssetThumbnail(assetPath, 320));
-                col.addView(preview, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, (int) (80 * d)));
-                TextView name = new TextView(this);
-                name.setText(bgDisplayName(assetPath));
-                name.setTextColor(0xFF1F1F1F);
-                name.setTextSize(12);
-                name.setGravity(android.view.Gravity.CENTER);
-                name.setMaxLines(2);
-                name.setPadding(0, (int) (4 * d), 0, (int) (2 * d));
-                col.addView(name, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                card.addView(col, new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-                ImageView check = new ImageView(this);
-                check.setImageResource(R.drawable.ic_check_circle);
-                check.setBackgroundResource(R.drawable.bg_circle_nav);
-                check.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF6200EE));
-                check.setVisibility(View.GONE);
-                check.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                FrameLayout.LayoutParams checkLp = new FrameLayout.LayoutParams((int) (22 * d), (int) (22 * d),
-                        android.view.Gravity.TOP | android.view.Gravity.END);
-                checkLp.setMargins((int) (4 * d), (int) (4 * d), (int) (4 * d), (int) (4 * d));
-                card.addView(check, checkLp);
-
-                card.setOnClickListener(v -> {
-                    selectedBg[0] = idx;
-                    refreshBgCards.run();
-                });
-                bgCards.add(card);
-                bgChecks.add(check);
-
-                GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
-                        GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f));
-                lp.width = 0;
-                lp.setMargins((int) (6 * d), (int) (6 * d), (int) (6 * d), (int) (6 * d));
-                bgGrid.addView(card, lp);
-            }
-        }
-        refreshBgCards.run();
-
-        setupPermissionsSection(view, dialog);
-
-        Button btnCancel = view.findViewById(R.id.btn_cancel_settings);
-        Button btnSave = view.findViewById(R.id.btn_save_settings);
-
-        if (btnCancel != null) {
-            btnCancel.setOnClickListener(v -> dialog.dismiss());
-        }
-
-        if (btnSave != null) {
-            btnSave.setOnClickListener(v -> {
-                int newCountdown = 3;
-                if (rb0 != null && rb0.isChecked()) newCountdown = 0;
-                else if (rb5 != null && rb5.isChecked()) newCountdown = 5;
-                else if (rb10 != null && rb10.isChecked()) newCountdown = 10;
-
-                boolean newAudio = rbMic != null && rbMic.isChecked();
-
-                prefs.edit()
-                        .putInt(KEY_COUNTDOWN_SECONDS, newCountdown)
-                        .putBoolean(KEY_RECORD_AUDIO, newAudio)
-                        .putBoolean(KEY_AUTOCROP_9_16, cbCrop916 != null && cbCrop916.isChecked())
-                        .putBoolean(KEY_AUTOCROP_4_5, cbCrop45 != null && cbCrop45.isChecked())
-                        .putBoolean(KEY_AUTOCROP_1_1, cbCrop11 != null && cbCrop11.isChecked())
-                        .apply();
-
-                SharedPreferences.Editor bgEdit = bgPrefs.edit()
-                        .putBoolean("bg_replace_enabled", cbBgReplace != null && cbBgReplace.isChecked());
-                if (!bgAssets.isEmpty()) bgEdit.putString("bg_asset_path", bgAssets.get(selectedBg[0]));
-                bgEdit.apply();
-
-                Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-
-                // A dialog never triggers onResume, so nothing would re-read the new
-                // preferences until the app restarted. Refresh the affected UI here.
-                applyRecordSettings();
-            });
-        }
-
-        dialog.show();
-    }
-
-    /** A permission this app needs that the user hasn't granted yet. */
-    private static final class MissingPermission {
-        final String label;
-        final String runtimePermission; // null for the "display over other apps" special access
-
-        MissingPermission(String label, String runtimePermission) {
-            this.label = label;
-            this.runtimePermission = runtimePermission;
-        }
-    }
-
-    /** Every permission the app asks for anywhere, filtered to the ones not granted. Add new ones here. */
-    private List<MissingPermission> getMissingPermissionRows() {
-        List<MissingPermission> rows = new ArrayList<>();
-        for (String permission : getMissingPermissions()) {
-            if (Manifest.permission.CAMERA.equals(permission)) {
-                rows.add(new MissingPermission("Camera (your face cam)", permission));
-            } else if (Manifest.permission.RECORD_AUDIO.equals(permission)) {
-                rows.add(new MissingPermission("Microphone (your voice)", permission));
-            } else if (Manifest.permission.POST_NOTIFICATIONS.equals(permission)) {
-                rows.add(new MissingPermission("Notifications (stop recording from the shade)", permission));
-            }
-        }
-        if (!Settings.canDrawOverlays(this)) {
-            rows.add(new MissingPermission("Display over other apps (face cam in other apps)", null));
-        }
-        return rows;
-    }
-
-    /**
-     * Fills the Settings dialog's permission section with one row per missing permission.
-     * Rows rebuild whenever the user returns from a system screen, so a granted permission
-     * disappears and the whole section hides once nothing is missing.
-     */
-    /** "bg_samples/modern-office_1.png" -> "Modern Office 1". */
-    private static String bgDisplayName(String assetPath) {
-        String n = assetPath.substring(assetPath.lastIndexOf('/') + 1);
-        int dot = n.lastIndexOf('.');
-        if (dot > 0) n = n.substring(0, dot);
-        StringBuilder sb = new StringBuilder();
-        for (String w : n.split("[-_\\s]+")) {
-            if (w.isEmpty()) continue;
-            if (sb.length() > 0) sb.append(' ');
-            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));
-        }
-        return sb.toString();
-    }
-
-    /** Decodes an asset image downsampled to roughly {@code maxWidth} px wide; null on failure. */
-    private android.graphics.Bitmap loadAssetThumbnail(String assetPath, int maxWidth) {
-        try (java.io.InputStream in = getAssets().open(assetPath)) {
-            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
-            int sample = 1;
-            while (bounds.outWidth / (sample * 2) >= maxWidth) sample *= 2;
-            try (java.io.InputStream in2 = getAssets().open(assetPath)) {
-                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-                opts.inSampleSize = sample;
-                return android.graphics.BitmapFactory.decodeStream(in2, null, opts);
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Background thumbnail failed: " + assetPath, e);
-            return null;
-        }
-    }
-
-    private void setupPermissionsSection(View dialogView, AlertDialog dialog) {
-        View section = dialogView.findViewById(R.id.permissions_section);
-        LinearLayout container = dialogView.findViewById(R.id.permissions_container);
-        if (section == null || container == null) return;
-
-        float density = getResources().getDisplayMetrics().density;
-        refreshPermissionRows = () -> {
-            container.removeAllViews();
-            List<MissingPermission> missing = getMissingPermissionRows();
-            section.setVisibility(missing.isEmpty() ? View.GONE : View.VISIBLE);
-            for (MissingPermission item : missing) {
-                LinearLayout row = new LinearLayout(this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-
-                TextView label = new TextView(this);
-                label.setText(item.label);
-                label.setTextColor(0xFF1F1F1F);
-                label.setTextSize(14);
-                row.addView(label, new LinearLayout.LayoutParams(0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-                Button allow = new Button(this);
-                allow.setText("Allow");
-                allow.setAllCaps(false);
-                allow.setTextColor(0xFFFFFFFF);
-                allow.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF6200EE));
-                allow.setOnClickListener(v -> requestMissingPermission(item));
-                row.addView(allow, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, Math.round(40 * density)));
-
-                container.addView(row);
-            }
-        };
-        refreshPermissionRows.run();
-        dialog.setOnDismissListener(d -> refreshPermissionRows = null);
-    }
-
-    private void requestMissingPermission(MissingPermission item) {
-        if (item.runtimePermission == null) {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.fromParts("package", getPackageName(), null)));
-        } else {
-            pendingSettingsPermission = item.runtimePermission;
-            settingsPermissionLauncher.launch(item.runtimePermission);
-        }
-    }
-
     /**
      * Re-applies every preference the main screen renders from.
      *
      * Countdown and mic/mute are read fresh at record time, so the crop guide lines
      * are the only thing that can go stale; this is the single place to extend if
-     * another setting ever becomes visible here.
+     * another setting ever becomes visible here. Called from onResume, which is
+     * how changes made on the Settings screen reach this one.
      */
     private void applyRecordSettings() {
         if (rootLayout == null) return;

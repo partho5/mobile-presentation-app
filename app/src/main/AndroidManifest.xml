@@ -48,6 +48,12 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/set_title"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".ui.WorkspaceActivity"
             android:exported="false"
             android:label="@string/ws_title"

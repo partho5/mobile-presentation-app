@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#1E1E1E"
+        android:elevation="4dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="16dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:src="@drawable/ic_chevron_left"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="8dp"
+            android:layout_toEndOf="@id/btn_back"
+            android:text="@string/set_title"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_autosave_hint"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <!-- Permissions still missing; rows are built at runtime, hidden when none are missing -->
+            <LinearLayout
+                android:id="@+id/permissions_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="6dp"
+                    android:text="@string/set_permissions_header"
+                    android:textColor="#FFB347"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/permissions_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- Countdown -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_countdown_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/rg_countdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rb_countdown_0"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_countdown_off"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_countdown_3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_countdown_3"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_countdown_5"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_countdown_5"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_countdown_10"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_countdown_10"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+            </RadioGroup>
+
+            <!-- Audio -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_audio_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/rg_audio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rb_audio_mic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_audio_mic"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_audio_mute"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_audio_mute"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+            </RadioGroup>
+
+            <!-- Auto-crop -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_crop_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <CheckBox
+                android:id="@+id/cb_crop_9_16"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_crop_9_16"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <CheckBox
+                android:id="@+id/cb_crop_4_5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_crop_4_5"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <CheckBox
+                android:id="@+id/cb_crop_1_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_crop_1_1"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <!-- AI virtual background -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_bg_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <CheckBox
+                android:id="@+id/cb_bg_replace"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_bg_replace"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp"
+                android:text="@string/set_bg_pick"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <!-- Cards are built in SettingsActivity from assets/bg_samples/ -->
+            <GridLayout
+                android:id="@+id/grid_bg_sample"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
