@@ -33,7 +33,7 @@ public class VideoCropHelper {
             "com.jovoc.facecampresentationrecorder.CROP_STATE_CHANGED";
 
     /**
-     * Suffix for the in-progress encode. It must still end in ".mp4": on shared
+     * Suffix for the in-progress crop. It must still end in ".mp4": on shared
      * storage MediaProvider derives the MIME type from the extension and refuses to
      * create anything but video/* under DCIM, so a ".part" name fails with EPERM.
      * Recording lists skip it by its leading dot instead.
@@ -41,7 +41,7 @@ public class VideoCropHelper {
     private static final String PART_SUFFIX = ".part.mp4";
 
     /**
-     * Crops still being encoded. The Saved Recordings screen reads this to show a
+     * Crops still being written. The Saved Recordings screen reads this to show a
      * "preparing" placeholder rather than the half-written file, which reports a
      * zero duration and refuses to play.
      */
@@ -87,7 +87,7 @@ public class VideoCropHelper {
     /**
      * Asynchronously crops a video to multiple aspect ratios using FFmpegKit.
      *
-     * Each ratio is encoded to a hidden ".part" file and only renamed into place
+     * Each ratio is written to a hidden ".part" file and only renamed into place
      * once FFmpeg reports success, so a partially written video is never visible
      * to the gallery or to the in-app recordings list.
      *
@@ -162,7 +162,7 @@ public class VideoCropHelper {
                     int cropW = videoWidth;
                     int cropH = videoWidth * ratioH / ratioW;
 
-                    // Ensure even numbers (required by H264 encoder)
+                    // Ensure even numbers (4:2:0 video can only be cropped in 2-pixel steps)
                     if (cropW % 2 != 0) cropW--;
                     if (cropH % 2 != 0) cropH--;
 
@@ -188,17 +188,27 @@ public class VideoCropHelper {
                     //noinspection ResultOfMethodCallIgnored
                     partFile.delete();
 
-                    // Build FFmpeg command arguments array
+                    // Lossless crop: nothing is decoded or re-encoded. The crop only ever
+                    // drops rows from the bottom, which H.264 can express as a crop
+                    // rectangle in its stream header, so the kept pixels stay bit-identical.
+                    // A re-encode here (FFmpeg's default: MPEG-4 at ~200 kbps, as this build
+                    // has no x264) is what used to wreck the picture, the face cam most of all.
+                    //
+                    // The header counts hidden rows from the coded height, which H.264 pads
+                    // up to a multiple of 16, and the value replaces any padding crop already there.
+                    int codedHeight = (videoHeight + 15) / 16 * 16;
+                    int cropBottom = codedHeight - cropH;
+
                     // -y = overwrite if exists
                     // -i = input
-                    // -vf crop=W:H:X:Y = crop filter (X=0, Y=0 = from top-left)
-                    // -c:a copy = copy audio stream without re-encoding
+                    // -c copy = copy video and audio streams without re-encoding
+                    // -bsf:v h264_metadata=crop_bottom=N = hide the bottom N rows
                     // -f mp4 = name the container explicitly rather than trust the temp name
                     String[] args = new String[] {
                             "-y",
                             "-i", inputPath,
-                            "-vf", String.format("crop=%d:%d:0:0", cropW, cropH),
-                            "-c:a", "copy",
+                            "-c", "copy",
+                            "-bsf:v", "h264_metadata=crop_bottom=" + cropBottom,
                             "-f", "mp4",
                             partFile.getAbsolutePath()
                     };
@@ -210,6 +220,13 @@ public class VideoCropHelper {
 
                     boolean ok = ReturnCode.isSuccess(session.getReturnCode())
                             && partFile.exists() && partFile.length() > 0;
+
+                    // FFmpeg copied the container headers too, and they still declare the
+                    // uncropped size; players and the gallery read the size from there.
+                    if (ok && !Mp4VideoSize.set(partFile, cropW, cropH)) {
+                        Log.e(TAG, "Could not update the declared size of " + partFile);
+                        ok = false;
+                    }
 
                     File outFile = new File(outputPath);
                     if (ok) {
