@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 /**
  * Recording settings: missing permissions, countdown, audio source, auto-crop ratios and the
@@ -128,6 +129,23 @@ public class SettingsActivity extends AppCompatActivity {
         super.onResume();
         // Also covers returning from the system app-settings / overlay screens.
         refreshPermissionRows();
+        forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostResume);
+    }
+
+    @Override
+    protected void onPause() {
+        // Stops any help video; onDestroy is covered too since pause always precedes it.
+        forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostPause);
+        super.onPause();
+    }
+
+    private static void forEachHelpView(View root, Consumer<SettingsHelpView> action) {
+        if (root instanceof SettingsHelpView) {
+            action.accept((SettingsHelpView) root);
+        } else if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) forEachHelpView(group.getChildAt(i), action);
+        }
     }
 
     // ---- recording options ----

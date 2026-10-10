@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SettingsHelpView">
+        <!-- Section id from SettingsHelp, e.g. "countdown". -->
+        <attr name="helpSection" format="string" />
+    </declare-styleable>
+</resources>

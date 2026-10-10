@@ -47,6 +47,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:id="@+id/settings_content"
             android:orientation="vertical"
             android:padding="20dp">
 
@@ -62,9 +63,10 @@
                 android:id="@+id/permissions_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:orientation="vertical"
                 android:visibility="gone">
+
+                <include layout="@layout/view_settings_divider" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -80,13 +82,21 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical" />
+
+                <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="vertical"
+                    app:helpSection="permissions" />
             </LinearLayout>
 
             <!-- Countdown -->
+            <include layout="@layout/view_settings_divider" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:layout_marginBottom="6dp"
                 android:text="@string/set_countdown_header"
                 android:textColor="#22D3EE"
@@ -144,11 +154,19 @@
                     android:textSize="13sp" />
             </RadioGroup>
 
+            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical"
+                app:helpSection="countdown" />
+
             <!-- Audio -->
+            <include layout="@layout/view_settings_divider" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:layout_marginBottom="6dp"
                 android:text="@string/set_audio_header"
                 android:textColor="#22D3EE"
@@ -182,11 +200,19 @@
                     android:textSize="14sp" />
             </RadioGroup>
 
+            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical"
+                app:helpSection="audio" />
+
             <!-- Auto-crop -->
+            <include layout="@layout/view_settings_divider" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:layout_marginBottom="6dp"
                 android:text="@string/set_crop_header"
                 android:textColor="#22D3EE"
@@ -223,11 +249,19 @@
                 android:textColor="#FFFFFF"
                 android:textSize="14sp" />
 
+            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical"
+                app:helpSection="auto_crop" />
+
             <!-- AI virtual background -->
+            <include layout="@layout/view_settings_divider" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:layout_marginBottom="6dp"
                 android:text="@string/set_bg_header"
                 android:textColor="#22D3EE"
@@ -259,6 +293,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:columnCount="2" />
+
+            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical"
+                app:helpSection="background" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
