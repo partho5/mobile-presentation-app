@@ -20,6 +20,7 @@ public final class RecordingStorage {
 
     /** Folders used under earlier app names. */
     private static final String[] LEGACY_FOLDER_NAMES = {
+            "TalkPost",
             "Short Video Recorder",
             "FaceCam Presentation Recorder",
     };
