@@ -200,6 +200,30 @@
                     android:textSize="14sp" />
             </RadioGroup>
 
+            <!-- Only shown while an external microphone is connected; filled in by SettingsActivity -->
+            <LinearLayout
+                android:id="@+id/audio_input_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="2dp"
+                    android:text="@string/audio_src_header"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="13sp" />
+
+                <RadioGroup
+                    android:id="@+id/rg_audio_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
             <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

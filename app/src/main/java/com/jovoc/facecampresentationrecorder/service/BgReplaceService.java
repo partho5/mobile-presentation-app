@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -23,6 +24,8 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
+import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
+import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 
 import java.io.File;
@@ -44,6 +47,8 @@ public class BgReplaceService extends Service {
     private static final int NOTIFICATION_ID = 1002;
     private static final int DONE_NOTIFICATION_ID = 1003;
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
+    private static final String REPLACE_STAGE = "Replacing facecam background using AI";
+    private static final long ESTIMATE_TICK_MS = 250;
 
     /** Progress and completion, always delivered on the main thread. */
     public interface Listener {
@@ -219,9 +224,27 @@ public class BgReplaceService extends Service {
             if (!FaceBgReplaceTask.hasEnoughSpace(video)) {
                 toast("Not enough free space to replace the background — original kept");
             } else {
-                setStage("Replacing facecam background using AI", 0);
-                boolean ok = FaceBgReplaceTask.replace(this, video, job.track,
-                        percent -> setStage("Replacing facecam background using AI", percent));
+                // Without the kernel cache the first ~25 s report nothing: show an estimate so the
+                // bar never looks stuck. With the cache the real progress is used from 0.
+                WarmUpProgress warmUp = new WarmUpProgress(OfflineBgProcessor.isWarmUpNeeded(this));
+                long startMs = SystemClock.elapsedRealtime();
+                setStage(REPLACE_STAGE, 0);
+                Runnable estimate = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!warmUp.isEstimating()) return;
+                        setStage(REPLACE_STAGE, warmUp.estimate(SystemClock.elapsedRealtime() - startMs));
+                        MAIN.postDelayed(this, ESTIMATE_TICK_MS);
+                    }
+                };
+                if (warmUp.isEstimating()) MAIN.postDelayed(estimate, ESTIMATE_TICK_MS);
+                boolean ok;
+                try {
+                    ok = FaceBgReplaceTask.replace(this, video, job.track,
+                            percent -> setStage(REPLACE_STAGE, warmUp.real(percent)));
+                } finally {
+                    MAIN.removeCallbacks(estimate);
+                }
                 if (!ok) toast("Background replace failed — original recording kept");
             }
             currentStage = "";
@@ -284,7 +307,9 @@ public class BgReplaceService extends Service {
         }
     }
 
-    private void setStage(String stage, int percent) {
+    private synchronized void setStage(String stage, int percent) {
+        // The estimate ticker (main thread) and the worker report concurrently: never step back
+        if (percent >= 0 && stage.equals(currentStage) && percent < currentPercent) return;
         currentStage = stage;
         currentPercent = percent;
         if (percent != lastNotifiedPercent || percent < 0) {

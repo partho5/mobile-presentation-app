@@ -13,6 +13,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
+import android.media.AudioDeviceInfo;
 import android.media.MediaRecorder;
 import android.media.MediaScannerConnection;
 import android.media.projection.MediaProjection;
@@ -35,6 +36,7 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
+import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 
 import java.io.File;
@@ -252,6 +254,10 @@ public class ScreenRecordService extends Service {
             if (recordAudio) {
                 try {
                     mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                    // External mic (or the phone's, if chosen). A mic unplugged mid-recording makes
+                    // the system fall back to the phone mic on its own, so nothing watches for that.
+                    AudioDeviceInfo input = AudioInputs.resolveDevice(this);
+                    if (input != null) mediaRecorder.setPreferredDevice(input);
                 } catch (Exception e) {
                     Log.w(TAG, "AudioSource.MIC set failed, attempting video-only", e);
                 }

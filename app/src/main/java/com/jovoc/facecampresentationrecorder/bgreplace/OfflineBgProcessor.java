@@ -651,15 +651,24 @@ public class OfflineBgProcessor {
                 gpuOptions.setPrecisionLossAllowed(true);
                 gpuOptions.setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED);
                 // Compiling the OpenCL kernels takes ~18 s on every start; cache them on disk
-                File cacheDir = new File(context.getCacheDir(), "gpu_kernels");
-                if (cacheDir.isDirectory() || cacheDir.mkdirs()) {
+                File cacheDir = kernelCacheDir(context);
+                boolean cacheable = cacheDir.isDirectory() || cacheDir.mkdirs();
+                if (cacheable) {
                     gpuOptions.setSerializationParams(cacheDir.getAbsolutePath(),
-                            MODEL_FILE + "_fp16_v" + BuildConfig.VERSION_CODE + "_" + model.capacity());
+                            kernelCacheToken(model.capacity()));
                 }
                 gpuDelegate = new GpuDelegate(gpuOptions);
                 Interpreter.Options options = new Interpreter.Options();
                 options.addDelegate(gpuDelegate);
                 created = new Interpreter(model, options);
+                // Kernels are on disk now: the next run skips the long warm-up
+                if (cacheable) {
+                    try {
+                        kernelCacheMarker(context, model.capacity()).createNewFile();
+                    } catch (IOException e) {
+                        Log.w(TAG, "Could not mark the kernel cache as ready", e);
+                    }
+                }
             } catch (Throwable t) {
                 Log.w(TAG, "GpuDelegate failed, using CPU", t);
                 if (gpuDelegate != null) {
@@ -983,6 +992,31 @@ public class OfflineBgProcessor {
             if (mime != null && mime.startsWith(mimePrefix)) return i;
         }
         return -1;
+    }
+
+    /**
+     * True when the compiled GPU kernels are not cached yet, so the first frame is preceded by a
+     * ~25 s warm-up. The marker sits beside the cache and goes away with it (cache clear, new
+     * app version or model).
+     */
+    public static boolean isWarmUpNeeded(Context context) {
+        try (AssetFileDescriptor fd = context.getAssets().openFd(MODEL_FILE)) {
+            return !kernelCacheMarker(context, fd.getDeclaredLength()).exists();
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    private static File kernelCacheDir(Context context) {
+        return new File(context.getCacheDir(), "gpu_kernels");
+    }
+
+    private static String kernelCacheToken(long modelBytes) {
+        return MODEL_FILE + "_fp16_v" + BuildConfig.VERSION_CODE + "_" + modelBytes;
+    }
+
+    private static File kernelCacheMarker(Context context, long modelBytes) {
+        return new File(kernelCacheDir(context), kernelCacheToken(modelBytes) + ".ready");
     }
 
     private MappedByteBuffer loadModel() throws IOException {

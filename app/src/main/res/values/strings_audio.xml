@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_src_header">Microphone to use</string>
+    <string name="audio_src_phone">Phone microphone</string>
+    <string name="audio_src_wired">Wired headset microphone</string>
+    <string name="audio_src_usb">USB microphone</string>
+    <string name="audio_src_usb_named">USB microphone (%1$s)</string>
+    <string name="audio_src_connected">External microphone connected: %1$s. Using it for recording.</string>
+</resources>

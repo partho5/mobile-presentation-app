@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
 import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
@@ -104,6 +106,7 @@ import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.ScreenRecordService;
+import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.ImageStorageHelper;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.SlideLogger;
@@ -249,6 +252,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     /** Height of the top menu bar as declared in XML, before any status-bar inset. */
     private int topMenuBarBaseHeight = -1;
     private boolean isRecording = false;
+    private AudioDeviceCallback audioDeviceCallback;
     private boolean overlayRequested = false;
     private boolean leftAppWithoutOverlayPermission = false;
 
@@ -1855,11 +1859,31 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             showProcessingDialog(BgReplaceService.getCurrentStage(), BgReplaceService.getCurrentPercent());
         }
         maybeShowOverlayPermissionPrompt();
+        audioDeviceCallback = AudioInputs.register(this, this::announceExternalMic);
+    }
+
+    /**
+     * Tells the user, once per app process, that an external mic is connected and will be used.
+     * Never while recording: a mic change mid-recording must not disturb it.
+     */
+    private void announceExternalMic() {
+        if (isRecording || isFinishing() || isDestroyed()) return;
+        if (!getSharedPreferences(RecordSettings.PREF_NAME, MODE_PRIVATE)
+                .getBoolean(RecordSettings.KEY_RECORD_AUDIO, true)) return;
+        AudioDeviceInfo device = AudioInputs.resolveDevice(this);
+        if (device == null || device.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC
+                || !AudioInputs.claimAnnouncement()) return;
+        Toast.makeText(this, getString(R.string.audio_src_connected,
+                AudioInputs.label(this, device)), Toast.LENGTH_LONG).show();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        if (audioDeviceCallback != null) {
+            AudioInputs.unregister(this, audioDeviceCallback);
+            audioDeviceCallback = null;
+        }
         // While stopped, BgReplaceService reports through its notification instead
         BgReplaceService.setListener(null);
         dismissProcessingDialog();
@@ -3150,6 +3174,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             processingDialog.setContentView(R.layout.dialog_processing);
             processingDialog.setCancelable(false);
             processingDialog.show();
+            java.util.List<android.animation.Animator> running = new java.util.ArrayList<>();
             View halo = processingDialog.findViewById(R.id.processing_halo);
             if (halo != null) {
                 android.animation.ObjectAnimator pulse = android.animation.ObjectAnimator.ofPropertyValuesHolder(halo,
@@ -3160,8 +3185,23 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 pulse.setRepeatCount(android.animation.ValueAnimator.INFINITE);
                 pulse.setRepeatMode(android.animation.ValueAnimator.REVERSE);
                 pulse.start();
-                processingDialog.setOnDismissListener(d -> pulse.cancel());
+                running.add(pulse);
             }
+            // Same stepped hourglass as the crop status: it moves even when the percentage doesn't
+            TextView tickIcon = processingDialog.findViewById(R.id.processing_tick);
+            if (tickIcon != null) {
+                final int steps = 12;
+                android.animation.ObjectAnimator tick = android.animation.ObjectAnimator.ofFloat(
+                        tickIcon, View.ROTATION, 0f, 360f);
+                tick.setDuration(steps * 300L);
+                tick.setInterpolator(t -> (float) Math.floor(t * steps) / steps);
+                tick.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+                tick.start();
+                running.add(tick);
+            }
+            processingDialog.setOnDismissListener(d -> {
+                for (android.animation.Animator a : running) a.cancel();
+            });
         }
         TextView title = processingDialog.findViewById(R.id.processing_title);
         ProgressBar bar = processingDialog.findViewById(R.id.processing_bar);
@@ -3169,7 +3209,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (title != null) title.setText(stage);
         if (bar != null) {
             bar.setIndeterminate(percent < 0);
-            if (percent >= 0) bar.setProgress(percent);
+            if (percent >= 0) {
+                // Glide to the new value so a jump out of warm-up does not look like a glitch
+                android.animation.ObjectAnimator.ofInt(bar, "progress", bar.getProgress(), percent)
+                        .setDuration(400).start();
+            }
         }
         if (pct != null) pct.setText(percent >= 0 ? percent + "%" : "");
     }

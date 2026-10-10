@@ -46,7 +46,7 @@
     <!-- Help content; wired to sections in ui/SettingsHelp.java -->
     <string name="help_permissions">The camera and microphone let the app record your face and voice. Display over other apps keeps the face cam floating above your slides, and notifications let you stop a recording from the notification shade. Allowing them here avoids interruptions in the middle of a recording.</string>
     <string name="help_countdown">A short countdown gives you time to switch to your slides or app before recording begins, so the start of your video isn\'t spent fumbling with controls.</string>
-    <string name="help_audio">Choose the microphone to record your voice along with the screen, or mute for a silent video, for example when you plan to add a voice-over or music later.</string>
+    <string name="help_audio">Choose the microphone to record your voice along with the screen, or mute for a silent video, for example when you plan to add a voice-over or music later. Plug in a headset or USB microphone and it is used automatically; you can switch back to the phone microphone here.</string>
     <string name="help_auto_crop">After a recording finishes, the app also makes a cropped copy for each ratio you tick, so you get vertical, portrait or square versions ready to post without editing.</string>
     <string name="help_background">After recording, the app can replace the room behind you in the face cam with the sample background you pick, so your video looks tidy wherever you recorded it.</string>
 </resources>

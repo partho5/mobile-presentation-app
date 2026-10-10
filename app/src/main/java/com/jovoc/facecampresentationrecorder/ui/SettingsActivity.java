@@ -16,6 +16,8 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -46,6 +48,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.util.AudioInputSelection;
+import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.UserBackgrounds;
 
@@ -73,6 +77,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private SharedPreferences prefs;
     private SharedPreferences bgPrefs;
+    private AudioDeviceCallback audioDeviceCallback;
 
     private View permissionsSection;
     private LinearLayout permissionsContainer;
@@ -189,8 +194,73 @@ public class SettingsActivity extends AppCompatActivity {
     private void setupAudio() {
         RadioGroup group = findViewById(R.id.rg_audio);
         group.check(prefs.getBoolean(KEY_RECORD_AUDIO, true) ? R.id.rb_audio_mic : R.id.rb_audio_mute);
-        group.setOnCheckedChangeListener((g, id) ->
-                prefs.edit().putBoolean(KEY_RECORD_AUDIO, id == R.id.rb_audio_mic).apply());
+        group.setOnCheckedChangeListener((g, id) -> {
+            prefs.edit().putBoolean(KEY_RECORD_AUDIO, id == R.id.rb_audio_mic).apply();
+            refreshAudioInputs();
+        });
+    }
+
+    /**
+     * "Microphone to use": the phone mic plus every connected external mic, shown only while one
+     * is connected and audio is not muted. The external mic is listed (and preselected) first.
+     */
+    private void refreshAudioInputs() {
+        View section = findViewById(R.id.audio_input_section);
+        RadioGroup group = findViewById(R.id.rg_audio_input);
+        List<AudioDeviceInfo> external = AudioInputs.externalInputs(this);
+        boolean show = !external.isEmpty() && prefs.getBoolean(KEY_RECORD_AUDIO, true);
+        section.setVisibility(show ? View.VISIBLE : View.GONE);
+        group.setOnCheckedChangeListener(null);
+        group.removeAllViews();
+        if (!show) return;
+
+        int selected = AudioInputs.selectedId(this);
+        for (AudioDeviceInfo device : external) {
+            addAudioInputRadio(group, device.getId(), AudioInputs.label(this, device),
+                    selected == device.getId());
+        }
+        addAudioInputRadio(group, AudioInputSelection.PHONE_MIC, getString(R.string.audio_src_phone),
+                selected == AudioInputSelection.PHONE_MIC);
+        group.setOnCheckedChangeListener((g, checkedId) -> {
+            View checked = g.findViewById(checkedId);
+            if (checked == null) return;
+            int deviceId = (Integer) checked.getTag();
+            if (deviceId == AudioInputSelection.PHONE_MIC) {
+                AudioInputs.selectPhoneMic();
+            } else {
+                AudioInputs.selectExternal(deviceId);
+            }
+        });
+    }
+
+    private void addAudioInputRadio(RadioGroup group, int deviceId, String label, boolean checked) {
+        RadioButton button = new RadioButton(this);
+        button.setId(View.generateViewId());
+        button.setTag(deviceId);
+        button.setText(label);
+        button.setTextColor(0xFFFFFFFF);
+        button.setTextSize(14);
+        button.setMinHeight((int) (48 * getResources().getDisplayMetrics().density));
+        button.setButtonTintList(ColorStateList.valueOf(ACCENT));
+        group.addView(button, new RadioGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (checked) group.check(button.getId());
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Mics plugged in or out while this screen is open
+        audioDeviceCallback = AudioInputs.register(this, this::refreshAudioInputs);
+    }
+
+    @Override
+    protected void onStop() {
+        if (audioDeviceCallback != null) {
+            AudioInputs.unregister(this, audioDeviceCallback);
+            audioDeviceCallback = null;
+        }
+        super.onStop();
     }
 
     private void setupAutoCrop() {
