@@ -18,8 +18,11 @@ import java.util.List;
  */
 public final class RecordingStorage {
 
-    /** Folder used before the app was renamed to "Short Video Recorder". */
-    private static final String LEGACY_FOLDER_NAME = "FaceCam Presentation Recorder";
+    /** Folders used under earlier app names. */
+    private static final String[] LEGACY_FOLDER_NAMES = {
+            "Short Video Recorder",
+            "FaceCam Presentation Recorder",
+    };
 
     private RecordingStorage() {}
 
@@ -34,9 +37,11 @@ public final class RecordingStorage {
         List<File> dirs = new ArrayList<>();
         File current = getAppDir(context);
         dirs.add(current);
-        File legacy = new File(current.getParentFile(), LEGACY_FOLDER_NAME);
-        if (!legacy.equals(current)) {
-            dirs.add(legacy);
+        for (String name : LEGACY_FOLDER_NAMES) {
+            File legacy = new File(current.getParentFile(), name);
+            if (!legacy.equals(current)) {
+                dirs.add(legacy);
+            }
         }
         return dirs;
     }
