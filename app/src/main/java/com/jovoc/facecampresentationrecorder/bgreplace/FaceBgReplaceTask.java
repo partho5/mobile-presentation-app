@@ -8,6 +8,8 @@ import android.media.MediaScannerConnection;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.jovoc.facecampresentationrecorder.util.UserBackgrounds;
+
 import java.io.File;
 import java.io.InputStream;
 import java.util.List;
@@ -73,18 +75,34 @@ public final class FaceBgReplaceTask {
         return dot > 0 ? name.substring(0, dot) : name;
     }
 
-    /** The background chosen in Settings, or a plain colour if the asset is missing. */
+    /** Used when nothing is saved or the saved background no longer exists (e.g. a deleted upload). */
+    private static final String DEFAULT_BG_ASSET =
+            "bg_samples/room-2-remove-the-bench-rest-of-the-image-texture-tempera.jpg";
+
+    /** The background chosen in Settings, falling back to the default, then to a plain colour. */
     public static Bitmap loadSelectedBackground(Context context) {
-        String asset = context.getSharedPreferences("facecam_prefs", Context.MODE_PRIVATE)
-                .getString("bg_asset_path", "bg_samples/100ydesign-white-room-2267978.jpg");
-        try (InputStream in = context.getAssets().open(asset)) {
-            Bitmap bitmap = BitmapFactory.decodeStream(in);
-            if (bitmap != null) return bitmap;
-        } catch (Exception e) {
-            Log.w(TAG, "Background asset missing: " + asset, e);
+        String saved = context.getSharedPreferences("facecam_prefs", Context.MODE_PRIVATE)
+                .getString("bg_asset_path", DEFAULT_BG_ASSET);
+        Bitmap bitmap = decodeBackground(context, saved);
+        if (bitmap == null && !DEFAULT_BG_ASSET.equals(saved)) {
+            bitmap = decodeBackground(context, DEFAULT_BG_ASSET);
         }
+        if (bitmap != null) return bitmap;
         Bitmap fallback = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888);
         fallback.eraseColor(Color.rgb(40, 120, 90));
         return fallback;
+    }
+
+    /** Decodes an uploaded file (absolute path) or a bundled asset; null if it can't be read. */
+    private static Bitmap decodeBackground(Context context, String path) {
+        if (UserBackgrounds.isUserPath(path)) {
+            return BitmapFactory.decodeFile(path);
+        }
+        try (InputStream in = context.getAssets().open(path)) {
+            return BitmapFactory.decodeStream(in);
+        } catch (Exception e) {
+            Log.w(TAG, "Background asset missing: " + path, e);
+            return null;
+        }
     }
 }

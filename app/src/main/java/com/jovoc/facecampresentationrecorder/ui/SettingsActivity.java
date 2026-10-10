@@ -33,9 +33,12 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.graphics.Insets;
@@ -44,13 +47,18 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
+import com.jovoc.facecampresentationrecorder.util.UserBackgrounds;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
@@ -71,7 +79,13 @@ public class SettingsActivity extends AppCompatActivity {
     private ActivityResultLauncher<String> permissionLauncher;
     private String pendingPermission;
 
-    private final List<String> bgAssets = new ArrayList<>();
+    /** Bundled "bg_samples/..." asset paths, sorted; the first is the default background. */
+    private final List<String> builtInBackgrounds = new ArrayList<>();
+    /** Selectable value of each card, in grid order: an asset path or an uploaded file's absolute path. */
+    private final List<String> bgPaths = new ArrayList<>();
+    private ActivityResultLauncher<PickVisualMediaRequest> photoPicker;
+    private final ExecutorService importExecutor = Executors.newSingleThreadExecutor();
+    private boolean importing;
     private final List<View> bgCards = new ArrayList<>();
     private final List<View> bgChecks = new ArrayList<>();
 
@@ -133,6 +147,12 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        importExecutor.shutdown();
+        super.onDestroy();
+    }
+
+    @Override
     protected void onPause() {
         // Stops any help video; onDestroy is covered too since pause always precedes it.
         forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostPause);
@@ -187,10 +207,18 @@ public class SettingsActivity extends AppCompatActivity {
 
     // ---- AI background ----
 
-    /** Every image in assets/bg_samples/ becomes a card, so adding an image needs no code change. */
+    /**
+     * Cards: every image in assets/bg_samples/ (adding one needs no code change), then the user's own
+     * photos (deletable, max {@link UserBackgrounds#MAX_UPLOADS}), then an "add your photo" card.
+     */
     private void setupBackground() {
         bindCheckBox(R.id.cb_bg_replace, bgPrefs, KEY_BG_REPLACE_ENABLED, true);
 
+        photoPicker = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+            if (uri != null) importBackground(uri);
+        });
+
+        builtInBackgrounds.clear();
         try {
             String[] files = getAssets().list("bg_samples");
             if (files != null) {
@@ -199,7 +227,7 @@ public class SettingsActivity extends AppCompatActivity {
                     String lower = f.toLowerCase(Locale.ROOT);
                     if (lower.endsWith(".png") || lower.endsWith(".jpg")
                             || lower.endsWith(".jpeg") || lower.endsWith(".webp")) {
-                        bgAssets.add("bg_samples/" + f);
+                        builtInBackgrounds.add("bg_samples/" + f);
                     }
                 }
             }
@@ -207,67 +235,211 @@ public class SettingsActivity extends AppCompatActivity {
             Log.w(TAG, "Listing bg_samples failed", e);
         }
 
+        rebuildBackgroundGrid();
+    }
+
+    /** Re-creates every card from the built-in list and the user's folder, and restores the selection. */
+    private void rebuildBackgroundGrid() {
         GridLayout grid = findViewById(R.id.grid_bg_sample);
+        grid.removeAllViews();
+        bgPaths.clear();
+        bgCards.clear();
+        bgChecks.clear();
+
+        for (String assetPath : builtInBackgrounds) {
+            addBackgroundCard(grid, assetPath, bgDisplayName(assetPath), null);
+        }
+        List<File> mine = UserBackgrounds.list(this);
+        for (int i = 0; i < mine.size(); i++) {
+            File file = mine.get(i);
+            addBackgroundCard(grid, file.getAbsolutePath(),
+                    getString(R.string.set_bg_mine_name, i + 1), file);
+        }
+        addUploadCard(grid, mine.size());
+
+        // Nothing saved (or a removed background): show the first sample, which is what gets used.
+        int selected = bgPaths.indexOf(bgPrefs.getString(KEY_BG_ASSET_PATH, ""));
+        markSelectedBackground(Math.max(selected, 0));
+    }
+
+    /** One selectable card; {@code userFile} is non-null for an uploaded photo, which adds a delete button. */
+    private void addBackgroundCard(GridLayout grid, String path, String label, File userFile) {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = (int) (4 * d);
+
+        FrameLayout card = newCard(grid);
+        ImageView preview = new ImageView(this);
+        preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        preview.setImageBitmap(loadThumbnail(path, 320));
+        addCardContent(card, preview, label);
+
+        ImageView check = new ImageView(this);
+        check.setImageResource(R.drawable.ic_check_circle);
+        check.setBackgroundResource(R.drawable.bg_circle_nav);
+        check.setBackgroundTintList(ColorStateList.valueOf(0xFF6200EE));
+        check.setVisibility(View.GONE);
+        check.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        FrameLayout.LayoutParams checkLp = new FrameLayout.LayoutParams(
+                (int) (22 * d), (int) (22 * d), Gravity.TOP | Gravity.END);
+        checkLp.setMargins(pad, pad, pad, pad);
+        card.addView(check, checkLp);
+
+        if (userFile != null) {
+            ImageButton delete = new ImageButton(this);
+            delete.setImageResource(R.drawable.ic_delete);
+            delete.setBackgroundResource(R.drawable.bg_circle_nav);
+            delete.setBackgroundTintList(ColorStateList.valueOf(0xF2FFFFFF));
+            int inset = (int) (7 * d);
+            delete.setPadding(inset, inset, inset, inset);
+            delete.setContentDescription(getString(R.string.set_bg_delete_desc));
+            delete.setOnClickListener(v -> confirmDeleteBackground(userFile));
+            FrameLayout.LayoutParams deleteLp = new FrameLayout.LayoutParams(
+                    (int) (36 * d), (int) (36 * d), Gravity.TOP | Gravity.START);
+            deleteLp.setMargins(pad, pad, pad, pad);
+            card.addView(delete, deleteLp);
+        }
+
+        final int idx = bgPaths.size();
+        card.setOnClickListener(v -> {
+            bgPrefs.edit().putString(KEY_BG_ASSET_PATH, path).apply();
+            markSelectedBackground(idx);
+        });
+        bgPaths.add(path);
+        bgCards.add(card);
+        bgChecks.add(check);
+    }
+
+    /** Last card: "Add your photo" with how many of the allowed uploads are used. */
+    private void addUploadCard(GridLayout grid, int uploaded) {
+        boolean full = !UserBackgrounds.canAddMore(uploaded);
+        float d = getResources().getDisplayMetrics().density;
+
+        FrameLayout card = newCard(grid);
+        ImageView plus = new ImageView(this);
+        plus.setImageResource(R.drawable.ic_add);
+        plus.setColorFilter(0xFF6200EE);
+        plus.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        int inset = (int) (22 * d);
+        plus.setPadding(inset, inset, inset, inset);
+        plus.setBackgroundColor(0xFFF3EBFF);
+        String label = getString(R.string.set_bg_add) + "\n" + (full
+                ? getString(R.string.set_bg_add_full)
+                : getString(R.string.set_bg_add_count, uploaded, UserBackgrounds.MAX_UPLOADS));
+        addCardContent(card, plus, label);
+        card.setAlpha(full ? 0.6f : 1f);
+        card.setOnClickListener(v -> {
+            if (importing) return;
+            if (!UserBackgrounds.canAddMore(UserBackgrounds.list(this).size())) {
+                Toast.makeText(this,
+                        getString(R.string.set_bg_limit_message, UserBackgrounds.MAX_UPLOADS),
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            photoPicker.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
+    }
+
+    /** Empty clickable card with the shared border and grid placement. */
+    private FrameLayout newCard(GridLayout grid) {
         float d = getResources().getDisplayMetrics().density;
         int pad = (int) (4 * d);
         int margin = (int) (6 * d);
-        for (int i = 0; i < bgAssets.size(); i++) {
-            final String assetPath = bgAssets.get(i);
 
-            FrameLayout card = new FrameLayout(this);
-            card.setBackgroundResource(R.drawable.bg_bg_sample_card);
-            card.setPadding(pad, pad, pad, pad);
-            card.setClickable(true);
-            card.setFocusable(true);
+        FrameLayout card = new FrameLayout(this);
+        card.setBackgroundResource(R.drawable.bg_bg_sample_card);
+        card.setPadding(pad, pad, pad, pad);
+        card.setClickable(true);
+        card.setFocusable(true);
 
-            LinearLayout col = new LinearLayout(this);
-            col.setOrientation(LinearLayout.VERTICAL);
-            ImageView preview = new ImageView(this);
-            preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            preview.setImageBitmap(loadAssetThumbnail(assetPath, 320));
-            col.addView(preview, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, (int) (80 * d)));
-            TextView name = new TextView(this);
-            name.setText(bgDisplayName(assetPath));
-            name.setTextColor(0xFF1F1F1F);
-            name.setTextSize(12);
-            name.setGravity(Gravity.CENTER);
-            name.setMaxLines(2);
-            name.setPadding(0, pad, 0, (int) (2 * d));
-            col.addView(name, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            card.addView(col, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
+                GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f));
+        lp.width = 0;
+        lp.setMargins(margin, margin, margin, margin);
+        grid.addView(card, lp);
+        return card;
+    }
 
-            ImageView check = new ImageView(this);
-            check.setImageResource(R.drawable.ic_check_circle);
-            check.setBackgroundResource(R.drawable.bg_circle_nav);
-            check.setBackgroundTintList(ColorStateList.valueOf(0xFF6200EE));
-            check.setVisibility(View.GONE);
-            check.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            FrameLayout.LayoutParams checkLp = new FrameLayout.LayoutParams(
-                    (int) (22 * d), (int) (22 * d), Gravity.TOP | Gravity.END);
-            checkLp.setMargins(pad, pad, pad, pad);
-            card.addView(check, checkLp);
+    /** Fixed-height image area with the label underneath, inside the card border. */
+    private void addCardContent(FrameLayout card, View image, String label) {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = (int) (4 * d);
 
-            final int idx = i;
-            card.setOnClickListener(v -> {
-                bgPrefs.edit().putString(KEY_BG_ASSET_PATH, assetPath).apply();
-                markSelectedBackground(idx);
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.addView(image, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (80 * d)));
+        TextView name = new TextView(this);
+        name.setText(label);
+        name.setTextColor(0xFF1F1F1F);
+        name.setTextSize(12);
+        name.setGravity(Gravity.CENTER);
+        name.setMaxLines(2);
+        name.setPadding(0, pad, 0, (int) (2 * d));
+        col.addView(name, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        card.addView(col, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    /** Copies the picked photo into app storage off the main thread, then selects it. */
+    private void importBackground(Uri uri) {
+        if (importing) return;
+        importing = true;
+        importExecutor.execute(() -> {
+            File imported = null;
+            try {
+                if (UserBackgrounds.canAddMore(UserBackgrounds.list(this).size())) {
+                    imported = UserBackgrounds.importImage(this, uri);
+                }
+            } catch (IOException | RuntimeException e) {
+                Log.w(TAG, "Background import failed: " + uri, e);
+            }
+            final File result = imported;
+            runOnUiThread(() -> {
+                importing = false;
+                if (isFinishing() || isDestroyed()) return;
+                if (result == null) {
+                    boolean full = !UserBackgrounds.canAddMore(UserBackgrounds.list(this).size());
+                    Toast.makeText(this,
+                            full ? getString(R.string.set_bg_limit_message, UserBackgrounds.MAX_UPLOADS)
+                                    : getString(R.string.set_bg_import_failed),
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                bgPrefs.edit().putString(KEY_BG_ASSET_PATH, result.getAbsolutePath()).apply();
+                rebuildBackgroundGrid();
             });
-            bgCards.add(card);
-            bgChecks.add(check);
+        });
+    }
 
-            GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
-                    GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f));
-            lp.width = 0;
-            lp.setMargins(margin, margin, margin, margin);
-            grid.addView(card, lp);
+    private void confirmDeleteBackground(File file) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.set_bg_delete_title)
+                .setMessage(R.string.set_bg_delete_message)
+                .setPositiveButton(R.string.set_bg_delete_yes, (d, w) -> deleteBackground(file))
+                .setNegativeButton(R.string.set_bg_delete_no, null)
+                .show();
+    }
+
+    /** Deletes an uploaded photo; if it was selected, the first built-in background takes over. */
+    private void deleteBackground(File file) {
+        boolean wasSelected = file.getAbsolutePath()
+                .equals(bgPrefs.getString(KEY_BG_ASSET_PATH, ""));
+        UserBackgrounds.delete(file);
+        if (wasSelected) {
+            if (builtInBackgrounds.isEmpty()) {
+                bgPrefs.edit().remove(KEY_BG_ASSET_PATH).apply();
+            } else {
+                String fallback = builtInBackgrounds.get(0);
+                bgPrefs.edit().putString(KEY_BG_ASSET_PATH, fallback).apply();
+                Toast.makeText(this,
+                        getString(R.string.set_bg_deleted_fallback, bgDisplayName(fallback)),
+                        Toast.LENGTH_LONG).show();
+            }
         }
-
-        // Nothing saved (or a removed asset): show the first sample, which is what the dialog did.
-        int selected = bgAssets.indexOf(bgPrefs.getString(KEY_BG_ASSET_PATH, ""));
-        markSelectedBackground(Math.max(selected, 0));
+        rebuildBackgroundGrid();
     }
 
     private void markSelectedBackground(int selected) {
@@ -292,23 +464,30 @@ public class SettingsActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    /** Decodes an asset image downsampled to roughly {@code maxWidth} px wide; null on failure. */
-    private Bitmap loadAssetThumbnail(String assetPath, int maxWidth) {
-        try (InputStream in = getAssets().open(assetPath)) {
+    /**
+     * Decodes a background (bundled asset or uploaded file) downsampled to roughly {@code maxWidth}
+     * px wide; null on failure.
+     */
+    private Bitmap loadThumbnail(String path, int maxWidth) {
+        try {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
-            BitmapFactory.decodeStream(in, null, bounds);
-            int sample = 1;
-            while (bounds.outWidth / (sample * 2) >= maxWidth) sample *= 2;
-            try (InputStream in2 = getAssets().open(assetPath)) {
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inSampleSize = sample;
-                return BitmapFactory.decodeStream(in2, null, opts);
+            try (InputStream in = openBackground(path)) {
+                BitmapFactory.decodeStream(in, null, bounds);
+            }
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = UserBackgrounds.sampleSizeFor(bounds.outWidth, bounds.outWidth, maxWidth);
+            try (InputStream in = openBackground(path)) {
+                return BitmapFactory.decodeStream(in, null, opts);
             }
         } catch (Exception e) {
-            Log.w(TAG, "Background thumbnail failed: " + assetPath, e);
+            Log.w(TAG, "Background thumbnail failed: " + path, e);
             return null;
         }
+    }
+
+    private InputStream openBackground(String path) throws IOException {
+        return UserBackgrounds.isUserPath(path) ? new FileInputStream(path) : getAssets().open(path);
     }
 
     // ---- permissions ----

@@ -6,7 +6,7 @@
         android:title="Play" />
     <item
         android:id="@+id/action_publish"
-        android:icon="@drawable/ic_share"
+        android:icon="@drawable/ic_publish_social"
         android:title="@string/publish_menu" />
     <item
         android:id="@+id/action_publish_retry"

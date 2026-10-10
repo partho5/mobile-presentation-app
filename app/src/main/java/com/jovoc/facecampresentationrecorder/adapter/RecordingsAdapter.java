@@ -270,12 +270,12 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         popup.show();
     }
 
-    /** Tints every icon so the menu reads as one set, with Delete called out in red. */
+    /** Tints every icon so the menu reads as one set, with Delete called out in red. Publish keeps its full-colour icon. */
     private void tintMenuIcons(Menu menu) {
         for (int i = 0; i < menu.size(); i++) {
             MenuItem menuItem = menu.getItem(i);
             Drawable icon = menuItem.getIcon();
-            if (icon == null) continue;
+            if (icon == null || menuItem.getItemId() == R.id.action_publish) continue;
 
             icon = DrawableCompat.wrap(icon.mutate());
             DrawableCompat.setTint(icon,
