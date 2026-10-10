@@ -31,14 +31,14 @@ import java.util.List;
 /**
  * Collapsible "How it helps you" block for one Settings section. Content comes from
  * {@link SettingsHelp#forSection}; with none, the view is GONE and builds nothing. Put one at the
- * end of each section: {@code <SettingsHelpView app:helpSection="countdown"/>}.
+ * top of each section, right under its label: {@code <SettingsHelpView app:helpSection="countdown"/>}.
  *
  * <p>The host activity forwards {@link #onHostPause}/{@link #onHostResume} so a video never plays
  * in the background.
  */
 public class SettingsHelpView extends LinearLayout {
 
-    private static final int ACCENT = 0xFF22D3EE;
+    private static final int ACCENT = 0xFF4ADE80;
     private static final int BODY_TEXT = 0xFFD0D0D0;
 
     private final List<SettingsHelp.Block> blocks;
