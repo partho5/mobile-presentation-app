@@ -15,7 +15,7 @@
             android:title="My Videos" />
         <item
             android:id="@+id/nav_account"
-            android:icon="@drawable/ic_account"
+            android:icon="@drawable/ic_publish_social"
             android:title="@string/nav_account" />
         <item
             android:id="@+id/nav_help"

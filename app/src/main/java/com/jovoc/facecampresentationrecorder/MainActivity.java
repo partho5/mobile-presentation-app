@@ -711,6 +711,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         item.setTitle(signedIn ? R.string.nav_account : R.string.nav_connect_publishing);
     }
 
+    /** White icons for every drawer entry except the full-colour "Auto upload" one, so the view-wide tint is off. */
+    private void tintDrawerIcons() {
+        navigationView.setItemIconTintList(null);
+        android.view.Menu menu = navigationView.getMenu();
+        for (int i = 0; i < menu.size(); i++) {
+            android.view.MenuItem item = menu.getItem(i);
+            android.graphics.drawable.Drawable icon = item.getIcon();
+            if (icon == null || item.getItemId() == R.id.nav_account) continue;
+            icon = androidx.core.graphics.drawable.DrawableCompat.wrap(icon.mutate());
+            androidx.core.graphics.drawable.DrawableCompat.setTint(icon, 0xFFFFFFFF);
+            item.setIcon(icon);
+        }
+    }
+
     private void setupDrawer() {
         ImageButton btnOpenDrawer = findViewById(R.id.btn_open_drawer);
 
@@ -723,6 +737,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         if (navigationView != null) {
+            tintDrawerIcons();
             navigationView.setNavigationItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 if (itemId == R.id.nav_edit_slides) {
