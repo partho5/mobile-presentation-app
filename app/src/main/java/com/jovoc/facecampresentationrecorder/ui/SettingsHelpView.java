@@ -31,7 +31,7 @@ import java.util.List;
 /**
  * Collapsible "How it helps you" block for one Settings section. Content comes from
  * {@link SettingsHelp#forSection}; with none, the view is GONE and builds nothing. Put one at the
- * top of each section, right under its label: {@code <SettingsHelpView app:helpSection="countdown"/>}.
+ * end of each section, below its settings:{@code <SettingsHelpView app:helpSection="countdown"/>}.
  *
  * <p>The host activity forwards {@link #onHostPause}/{@link #onHostResume} so a video never plays
  * in the background.
