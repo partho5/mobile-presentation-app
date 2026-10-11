@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
+import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
+import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -163,6 +165,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private boolean isDrawingBoardVisible = false;
     private boolean isDrawingBoardAnimating = false;
     private static final long DRAWING_BOARD_ANIM_MS = 250L;
+
+    // Slide pen: marks drawn on the current slide (shown always, drawn only in pen mode while recording)
+    private ImageButton btnSlidePen;
+    private DrawingBoardView slideInkView;
+    private SlideInkController slideInkController;
+    // Cap on the ink layer's height so a very tall image can't force a huge bitmap.
+    private static final int SLIDE_INK_MAX_HEIGHT_SCREENS = 3;
 
     // First-run swipe tutorial
     private View swipeHintContainer;
@@ -1040,6 +1049,83 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (isDrawingBoardVisible && !isDrawingBoardAnimating) sizeDrawingBoard();
             });
         }
+        setupSlideInk();
+    }
+
+    private void setupSlideInk() {
+        btnSlidePen = findViewById(R.id.btn_slide_pen);
+        slideInkView = findViewById(R.id.slide_ink_canvas);
+        if (btnSlidePen == null || slideInkView == null || rootLayout == null) return;
+        slideInkController = new SlideInkController(rootLayout);
+        // One drawing mode at a time: pen mode closes the board (and opening the board ends pen mode).
+        slideInkController.setListener(penMode -> {
+            if (penMode && isDrawingBoardVisible) hideDrawingBoard(true);
+        });
+        // The slide's size changes after the fact (image/video loaded, text container sized): refit the ink.
+        View.OnLayoutChangeListener refit = (v, l, t, r, b, ol, ot, or, ob) -> {
+            if (l != ol || t != ot || r != or || b != ob) slideInkView.post(this::syncSlideInk);
+        };
+        View[] slideViews = {imageSlideView, textSlideContainer, videoSlideContainer, webSlideContainer};
+        for (View v : slideViews) {
+            if (v != null) v.addOnLayoutChangeListener(refit);
+        }
+    }
+
+    /** The view that hosts the current slide, by slide type (not by visibility: an old slide may still be sliding out). */
+    private View getCurrentSlideView() {
+        if (slides == null || currentSlideIndex < 0 || currentSlideIndex >= slides.size()) return null;
+        String type = slides.get(currentSlideIndex).getType();
+        if (Slide.TYPE_TEXT.equals(type)) return textSlideContainer;
+        if (Slide.TYPE_IMAGE.equals(type)) return imageSlideView;
+        if (Slide.TYPE_VIDEO.equals(type)) return videoSlideContainer;
+        return webSlideContainer; // website + YouTube
+    }
+
+    /**
+     * Fits the ink layer exactly over the current slide (same bounds, same zoom), so a stroke's
+     * normalised points are relative to the slide and nothing outside the slide can be drawn on.
+     */
+    private void syncSlideInk() {
+        if (slideInkView == null || rootLayout == null) return;
+        View slideView = getCurrentSlideView();
+        if (slideView == null || slideView.getVisibility() != View.VISIBLE
+                || slideView.getWidth() <= 0 || slideView.getHeight() <= 0) {
+            slideInkView.setVisibility(View.GONE);
+            return;
+        }
+        int w = slideView.getWidth();
+        int h = Math.min(slideView.getHeight(), SLIDE_INK_MAX_HEIGHT_SCREENS * Math.max(1, rootLayout.getHeight()));
+        RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) slideInkView.getLayoutParams();
+        if (lp.width != w || lp.height != h
+                || lp.leftMargin != slideView.getLeft() || lp.topMargin != slideView.getTop()) {
+            lp.width = w;
+            lp.height = h;
+            lp.leftMargin = slideView.getLeft();
+            lp.topMargin = slideView.getTop();
+            slideInkView.setLayoutParams(lp);
+        }
+        // Follow pinch-zoom / pan. Below zoom, ignore translation: that is only the slide-in animation.
+        boolean zoomed = slideView.getScaleX() > 1.05f;
+        slideInkView.setPivotX(slideView.getPivotX());
+        slideInkView.setPivotY(slideView.getPivotY());
+        slideInkView.setScaleX(zoomed ? slideView.getScaleX() : 1f);
+        slideInkView.setScaleY(zoomed ? slideView.getScaleY() : 1f);
+        slideInkView.setTranslationX(zoomed ? slideView.getTranslationX() : 0f);
+        slideInkView.setTranslationY(zoomed ? slideView.getTranslationY() : 0f);
+        slideInkView.setVisibility(View.VISIBLE);
+    }
+
+    private boolean isTouchInsideSlideInk(MotionEvent ev) {
+        if (slideInkController == null || !slideInkController.isPenMode()
+                || slideInkView == null || slideInkView.getVisibility() != View.VISIBLE) {
+            return false;
+        }
+        int[] location = new int[2];
+        slideInkView.getLocationOnScreen(location);
+        float w = slideInkView.getWidth() * slideInkView.getScaleX();
+        float h = slideInkView.getHeight() * slideInkView.getScaleY();
+        return ev.getRawX() >= location[0] && ev.getRawX() <= location[0] + w
+                && ev.getRawY() >= location[1] && ev.getRawY() <= location[1] + h;
     }
 
     /** Board side = screen width in portrait, min(width, height) in landscape. */
@@ -1066,6 +1152,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void showDrawingBoard() {
+        if (slideInkController != null) slideInkController.setPenMode(false);
         sizeDrawingBoard();
         int side = drawingBoardContainer.getLayoutParams().height;
         drawingBoardContainer.setTranslationY(-side);
@@ -1321,6 +1408,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
             if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.VISIBLE);
+            if (btnSlidePen != null) btnSlidePen.setVisibility(View.VISIBLE);
 
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             int successfulRecordings = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
@@ -1342,6 +1430,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
             if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.GONE);
+            if (btnSlidePen != null) btnSlidePen.setVisibility(View.GONE);
+            if (slideInkController != null) slideInkController.setPenMode(false);
             hideDrawingBoard(false);
 
             if (ivStopArrowHint != null) {
@@ -1597,9 +1687,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            boardTouchActive = isDrawingBoardVisible && isTouchInsideView(ev, drawingBoardContainer);
+            boardTouchActive = (isDrawingBoardVisible && isTouchInsideView(ev, drawingBoardContainer))
+                    || isTouchInsideSlideInk(ev);
         }
-        // Touches on the board only draw: no double-tap menu toggle, no slide swipe.
+        // Touches on the board (or on the slide in pen mode) only draw: no double-tap menu toggle, no slide swipe.
         if (!boardTouchActive) gestureDetector.onTouchEvent(ev);
         return super.dispatchTouchEvent(ev);
     }
@@ -1658,6 +1749,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             slideToUpdateImage.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateImage;
                             int posToUpdate = targetSlidePosition;
+                            // Marks belong to the old picture; they would sit on the wrong content.
+                            if (slideInkController != null) slideInkController.discard(slideToSave.getId());
                             repository.update(slideToSave, () -> {
                                 Toast.makeText(this, "Image updated successfully", Toast.LENGTH_SHORT).show();
                                 if (slideAdapter != null && posToUpdate != -1) {
@@ -1698,6 +1791,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             slideToUpdateVideo.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateVideo;
                             int posToUpdate = targetSlidePosition;
+                            if (slideInkController != null) slideInkController.discard(slideToSave.getId());
                             repository.update(slideToSave, () -> {
                                 Toast.makeText(this, "Video updated successfully", Toast.LENGTH_SHORT).show();
                                 if (slideAdapter != null && posToUpdate != -1) {
@@ -1905,6 +1999,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         bubbleTrackHandler.removeCallbacks(bubbleTrackRunnable);
         BubbleTrack.reportHidden();
         if (drawingBoardController != null) drawingBoardController.flush();
+        if (slideInkController != null) slideInkController.flush();
         stopVideoIfPlaying();
         if (isRecording && !isChangingConfigurations()) {
             if (Settings.canDrawOverlays(this)) {
@@ -2075,6 +2170,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (swipeRefreshWebSlide != null) {
                 swipeRefreshWebSlide.setRefreshing(false);
             }
+            if (slideInkController != null) slideInkController.setSlide(SlideInkController.NO_SLIDE);
+            if (slideInkView != null) slideInkView.setVisibility(View.GONE);
             updateNavigationButtonsState();
             return;
         }
@@ -2082,6 +2179,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         emptyStateView.setVisibility(View.GONE);
         Slide slide = slides.get(currentSlideIndex);
         resetAllSlideZoom();
+        if (slideInkController != null) slideInkController.setSlide(slide.getId());
         SlideLogger.log("RENDER", String.format(Locale.US,
                 "renderCurrentSlide: index=%d/%d, type=%s, id=%d, imagePath=%s, textContent=%s",
                 currentSlideIndex, slides.size(), slide.getType(), slide.getId(),
@@ -2324,6 +2422,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }
         }
 
+        // Fit the ink layer once this render's visibility/size changes have been laid out.
+        if (slideInkView != null) slideInkView.post(this::syncSlideInk);
         updateNavigationButtonsState();
     }
 
@@ -3004,6 +3104,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .setMessage("This item will be permanently deleted. This action cannot be undone.")
                     .setPositiveButton("Delete", (dialog, which) -> {
                         repository.delete(slide, () -> {
+                            if (slideInkController != null) slideInkController.discard(slide.getId());
                             slides.remove(position);
                             slideAdapter.setSlides(slides);
                             if (currentSlideIndex >= slides.size()) {
@@ -3409,6 +3510,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         }
                     });
 
+        syncSlideInk();
             targetView.setOnTouchListener(new View.OnTouchListener() {
                 private float lastX, lastY;
 
@@ -3439,6 +3541,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 float maxTranslationX = (v.getWidth() * (scale - 1.0f)) / 2.0f;
                                 float maxTranslationY = (v.getHeight() * (scale - 1.0f)) / 2.0f;
 
+                            syncSlideInk();
                                 float newTx = Math.max(-maxTranslationX, Math.min(maxTranslationX, v.getTranslationX() + dx));
                                 float newTy = Math.max(-maxTranslationY, Math.min(maxTranslationY, v.getTranslationY() + dy));
 
@@ -3454,6 +3557,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
                     return scale > 1.05f || scaleDetector.isInProgress() || event.getPointerCount() > 1;
                 }
+                                        .setUpdateListener(a -> syncSlideInk())
             });
         }
     }
@@ -3471,4 +3575,4 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
         cancelGuideLineFlashes();
     }
-}
+}                                syncSlideInk();

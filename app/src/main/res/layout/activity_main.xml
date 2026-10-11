@@ -95,6 +95,17 @@
                 app:tint="#FFFFFF" />
         </FrameLayout>
 
+        <!-- Slide ink: transparent drawing layer fitted over the current slide in code (so its
+             normalised points are slide-relative and it can never draw outside the slide). Sits
+             above the slides and below the board, face cam and buttons. Touch-through unless pen mode is on. -->
+        <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
+            android:id="@+id/slide_ink_canvas"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:visibility="gone" />
+
         <!-- Empty State View when database has 0 slides -->
         <TextView
             android:id="@+id/empty_state_view"
@@ -546,6 +557,65 @@
                 android:padding="6dp"
                 android:src="@drawable/ic_drawing_board"
                 android:visibility="gone" />
+
+            <!-- Slide pen toggle, 50dp right of the drawing board button -->
+            <ImageButton
+                android:id="@+id/btn_slide_pen"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="50dp"
+                android:alpha="0.8"
+                android:background="@null"
+                android:contentDescription="Pen: draw on the slide"
+                android:elevation="12dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_slide_pen"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Slide pen tools: Undo, colour swatches (added in code), Clear. Only while pen mode is on. -->
+        <LinearLayout
+            android:id="@+id/slide_ink_tools"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/recording_buttons_row"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_slide_ink_tools"
+            android:elevation="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/slide_ink_undo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Undo"
+                android:padding="9dp"
+                android:src="@drawable/ic_undo"
+                app:tint="#FFFFFF" />
+
+            <LinearLayout
+                android:id="@+id/slide_ink_palette"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="4dp"
+                android:orientation="horizontal" />
+
+            <TextView
+                android:id="@+id/slide_ink_clear"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:contentDescription="Clear"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:text="Clear"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- First-run swipe tutorial hint (non-clickable; positioned in code) -->

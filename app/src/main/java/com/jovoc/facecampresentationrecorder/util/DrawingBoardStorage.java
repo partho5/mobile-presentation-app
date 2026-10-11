@@ -32,6 +32,15 @@ public final class DrawingBoardStorage {
     }
 
     public static synchronized void save(Context context, List<DrawingBoardView.Stroke> strokes) {
+        writeStrokes(file(context), strokes);
+    }
+
+    public static synchronized List<DrawingBoardView.Stroke> load(Context context) {
+        return readStrokes(file(context));
+    }
+
+    /** Atomically writes the strokes as JSON (tmp file + rename). Also used by {@link SlideInkStorage}. */
+    static void writeStrokes(File target, List<DrawingBoardView.Stroke> strokes) {
         try {
             JSONArray arr = new JSONArray();
             for (DrawingBoardView.Stroke s : strokes) {
@@ -40,8 +49,7 @@ public final class DrawingBoardStorage {
                 arr.put(new JSONObject().put("t", s.type).put("c", s.color).put("p", pts));
             }
             byte[] data = new JSONObject().put("strokes", arr).toString().getBytes(StandardCharsets.UTF_8);
-            File target = file(context);
-            File tmp = new File(target.getParentFile(), FILE_NAME + ".tmp");
+            File tmp = new File(target.getParentFile(), target.getName() + ".tmp");
             try (FileOutputStream out = new FileOutputStream(tmp)) {
                 out.write(data);
             }
@@ -53,9 +61,8 @@ public final class DrawingBoardStorage {
         }
     }
 
-    public static synchronized List<DrawingBoardView.Stroke> load(Context context) {
+    static List<DrawingBoardView.Stroke> readStrokes(File f) {
         List<DrawingBoardView.Stroke> out = new ArrayList<>();
-        File f = file(context);
         if (!f.exists()) return out;
         try {
             String json = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);

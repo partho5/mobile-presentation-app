@@ -92,6 +92,7 @@ public class DrawingBoardView extends View {
     private final float eraserWidth;
     private int penColor = Color.WHITE;
     private boolean eraserMode = false;
+    private boolean inputEnabled = true;
     private Listener listener;
 
     public DrawingBoardView(Context context) {
@@ -130,6 +131,12 @@ public class DrawingBoardView extends View {
 
     public boolean isEraserMode() {
         return eraserMode;
+    }
+
+    /** When off the view ignores touches entirely, so they fall through to whatever is below it. */
+    public void setInputEnabled(boolean enabled) {
+        inputEnabled = enabled;
+        if (!enabled && current != null) endAction();
     }
 
     public boolean canUndo() {
@@ -196,6 +203,7 @@ public class DrawingBoardView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (!inputEnabled) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
