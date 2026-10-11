@@ -8,6 +8,7 @@ import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
 import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
+import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
@@ -1053,6 +1054,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void setupSlideInk() {
+        if (!SlideInkStorage.isPersistentDrawingSlide) {
+            SlideInkStorage.clearSavedFiles(this);
+        }
         btnSlidePen = findViewById(R.id.btn_slide_pen);
         slideInkView = findViewById(R.id.slide_ink_canvas);
         if (btnSlidePen == null || slideInkView == null || rootLayout == null) return;
