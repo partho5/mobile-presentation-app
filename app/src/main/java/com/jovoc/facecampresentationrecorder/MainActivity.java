@@ -3360,11 +3360,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     /** Asks before cancelling; only a "yes" stops the replace (the crops still run afterwards). */
     private void confirmCancelBackgroundReplace() {
         if (isFinishing() || isDestroyed() || cancelConfirmDialog != null) return;
-        boolean cropsFollow = !BgReplaceService.readAutoCropRatios(this).isEmpty();
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Cancel background replacement?")
-                .setMessage("Your recording will keep its original background"
-                        + (cropsFollow ? ", and the auto-crop will still run." : "."))
+                .setMessage("Your recording will keep its original background.")
                 .setPositiveButton("Yes, cancel", (d, which) -> {
                     if (BgReplaceService.cancelReplace()) {
                         showProcessingDialog(BgReplaceService.STAGE_CANCELLING, -1);
