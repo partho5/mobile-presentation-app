@@ -34,6 +34,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Replaces the background of a recorded video after recording, where there is no per-frame
@@ -46,7 +48,9 @@ import java.util.Objects;
  * upsampled with a joint bilateral filter guided by the full-resolution frame colour. Audio
  * is copied unchanged. Memory use does not grow with video length.
  *
- * Blocking: call from a worker thread.
+ * Blocking: call from a worker thread. Setting the flag given to {@link #withCancelFlag} stops
+ * the run at the next frame: every codec, extractor, muxer and GL object is released and a
+ * {@link CancellationException} is thrown; the (partial) output file is left to the caller.
  */
 public class OfflineBgProcessor {
 
@@ -206,7 +210,13 @@ public class OfflineBgProcessor {
     private static final float[] QUAD_POSITIONS = {-1, -1, 1, -1, -1, 1, 1, 1};
     private static final float[] TEX_FULL = {0, 0, 1, 0, 0, 1, 1, 1};
 
+    /** A release step that may throw; see {@link #quietly}. */
+    private interface Cleanup {
+        void run() throws Exception;
+    }
+
     private final Context context;
+    private AtomicBoolean cancelFlag;
 
     private EGLCore eglCore;
     private EGLSurface pbufferSurface;
@@ -227,6 +237,29 @@ public class OfflineBgProcessor {
 
     public OfflineBgProcessor(Context context) {
         this.context = context.getApplicationContext();
+    }
+
+    /** Lets another thread stop {@link #process}: set the flag and the run unwinds cleanly. */
+    public OfflineBgProcessor withCancelFlag(AtomicBoolean flag) {
+        this.cancelFlag = flag;
+        return this;
+    }
+
+    private boolean isCancelled() {
+        return cancelFlag != null && cancelFlag.get();
+    }
+
+    private void throwIfCancelled() {
+        if (isCancelled()) throw new CancellationException("Background replacement cancelled");
+    }
+
+    /** Runs one release step so a failure there cannot skip the steps after it. */
+    private static void quietly(String what, Cleanup step) {
+        try {
+            step.run();
+        } catch (Exception e) {
+            Log.w(TAG, "Release failed: " + what, e);
+        }
     }
 
     /** Replaces the background of the whole frame (a face clip). */
@@ -294,10 +327,16 @@ public class OfflineBgProcessor {
     private void run(File input, File output, int videoTrack, Bitmap background, int bitRate,
                      RegionProvider regions, int outW, int outH, ProgressListener listener)
             throws IOException {
+        throwIfCancelled();
         Stats stats = new Stats();
         long initStart = SystemClock.elapsedRealtime();
         Segmenter segmenter = new Segmenter(context, loadModel());
         stats.initMs = SystemClock.elapsedRealtime() - initStart;
+        if (isCancelled()) {
+            // Cancelled during the (uninterruptible) GPU warm-up: nothing else is allocated yet
+            segmenter.close();
+            throwIfCancelled();
+        }
 
         MediaFormat encFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, outW, outH);
         encFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
@@ -515,19 +554,31 @@ public class OfflineBgProcessor {
             }
             if (listener != null) listener.onProgress(100);
         } finally {
-            segmenter.close();
-            GLES30.glDeleteFramebuffers(FRAME_RING, frameFbos, 0);
-            GLES30.glDeleteTextures(FRAME_RING, frameTexs, 0);
-            GLES30.glDeleteFramebuffers(1, cropFbo, 0);
-            GLES30.glDeleteTextures(3, new int[]{cropTex[0], maskTex, bgTex}, 0);
-            eglCore.makeCurrent(pbufferSurface);
-            eglCore.releaseSurface(encoderSurface);
-            encoder.stop();
-            encoder.release();
-            encoderInput.release();
-            audioExtractor.release();
-            if (mux.started) muxer.stop();
-            muxer.release();
+            // Every step runs even if an earlier one fails, so a cancel or error leaks nothing
+            quietly("segmenter", segmenter::close);
+            quietly("GL frame resources", () -> {
+                GLES30.glDeleteFramebuffers(FRAME_RING, frameFbos, 0);
+                GLES30.glDeleteTextures(FRAME_RING, frameTexs, 0);
+                GLES30.glDeleteFramebuffers(1, cropFbo, 0);
+                GLES30.glDeleteTextures(3, new int[]{cropTex[0], maskTex, bgTex}, 0);
+            });
+            quietly("encoder surface", () -> {
+                eglCore.makeCurrent(pbufferSurface);
+                eglCore.releaseSurface(encoderSurface);
+            });
+            quietly("encoder stop", encoder::stop);
+            quietly("encoder release", encoder::release);
+            quietly("encoder input", encoderInput::release);
+            quietly("audio extractor", audioExtractor::release);
+            try {
+                if (mux.started) {
+                    // A failed stop of a finished run must still fail it (corrupt output)
+                    if (isCancelled()) quietly("muxer stop", muxer::stop);
+                    else muxer.stop();
+                }
+            } finally {
+                quietly("muxer release", muxer::release);
+            }
         }
     }
 
@@ -785,10 +836,11 @@ public class OfflineBgProcessor {
         }
     }
 
-    private static void copyAudio(MediaExtractor extractor, MuxerState mux) {
+    private void copyAudio(MediaExtractor extractor, MuxerState mux) {
         ByteBuffer buffer = ByteBuffer.allocate(256 * 1024);
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         while (true) {
+            throwIfCancelled();
             int size = extractor.readSampleData(buffer, 0);
             if (size < 0) break;
             info.set(0, size, extractor.getSampleTime(),
@@ -826,6 +878,7 @@ public class OfflineBgProcessor {
         int frameIndex = 0;
         try {
             while (!outputDone) {
+                throwIfCancelled();
                 if (!inputDone) {
                     int inIndex = decoder.dequeueInputBuffer(TIMEOUT_US);
                     if (inIndex >= 0) {
@@ -858,9 +911,9 @@ public class OfflineBgProcessor {
                 }
             }
         } finally {
-            decoder.stop();
-            decoder.release();
-            extractor.release();
+            quietly("decoder stop", decoder::stop);
+            quietly("decoder release", decoder::release);
+            quietly("video extractor", extractor::release);
         }
         return durationUs;
     }

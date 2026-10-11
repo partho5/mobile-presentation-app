@@ -13,6 +13,8 @@ import com.jovoc.facecampresentationrecorder.util.UserBackgrounds;
 import java.io.File;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * After a screen recording stops: replaces the background inside the face cam circle and
@@ -31,23 +33,34 @@ public final class FaceBgReplaceTask {
         return dir != null && dir.getUsableSpace() >= video.length() * 3 / 2;
     }
 
-    /** Returns true if the replaced video now sits at {@code video}. */
+    /**
+     * Returns true if the replaced video now sits at {@code video}. Setting {@code cancel} aborts
+     * the run: all resources and the temp file are released and the original stays as it was.
+     */
     public static boolean replace(Context context, File video, List<BubbleTrack.Entry> track,
+                                  AtomicBoolean cancel,
                                   OfflineBgProcessor.ProgressListener listener) {
         Context app = context.getApplicationContext();
         // DCIM only accepts media file types, so temp files there must end in .mp4
         File processed = new File(video.getParentFile(), baseName(video) + ".bgtmp.mp4");
         long startMs = SystemClock.elapsedRealtime();
         boolean ok = false;
+        Bitmap background = null;
         try {
-            new OfflineBgProcessor(app).processBubble(video, processed,
-                    loadSelectedBackground(app), track, listener);
+            background = loadSelectedBackground(app);
+            new OfflineBgProcessor(app).withCancelFlag(cancel)
+                    .processBubble(video, processed, background, track, listener);
+            // A cancel that arrives as the encode finishes still wins: never swap after it
+            if (cancel.get()) throw new CancellationException("Cancelled before swap");
             ok = swapIn(processed, video);
             Log.d(TAG, "Done in " + (SystemClock.elapsedRealtime() - startMs) + " ms, swapped=" + ok);
+        } catch (CancellationException e) {
+            Log.d(TAG, "Background replacement cancelled; keeping original");
         } catch (Throwable t) {
             Log.e(TAG, "Background replacement failed; keeping original", t);
         } finally {
             if (processed.exists()) processed.delete();
+            if (background != null) background.recycle();
         }
         if (ok) {
             MediaScannerConnection.scanFile(app, new String[]{video.getAbsolutePath()},

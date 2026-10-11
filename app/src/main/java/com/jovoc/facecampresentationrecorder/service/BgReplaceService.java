@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Post-recording work as one foreground job: replace the face cam background, then auto-crop
@@ -48,6 +49,8 @@ public class BgReplaceService extends Service {
     private static final int DONE_NOTIFICATION_ID = 1003;
     private static final long WAKE_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
     private static final String REPLACE_STAGE = "Replacing facecam background using AI";
+    /** Stage reported from the moment the user confirms a cancel until the replace has unwound. */
+    public static final String STAGE_CANCELLING = "Cancelling…";
     private static final long ESTIMATE_TICK_MS = 250;
 
     /** Progress and completion, always delivered on the main thread. */
@@ -69,6 +72,8 @@ public class BgReplaceService extends Service {
         final List<BubbleTrack.Entry> track;
         final boolean replace;
         final List<int[]> ratios;
+        /** Set when the user cancels the background replace; the crops still run. */
+        final AtomicBoolean cancelled = new AtomicBoolean();
 
         Job(File video, List<BubbleTrack.Entry> track, boolean replace, List<int[]> ratios) {
             this.video = video;
@@ -81,6 +86,8 @@ public class BgReplaceService extends Service {
     private static final Object LOCK = new Object();
     private static final List<Job> QUEUE = new ArrayList<>();
     private static boolean workerRunning;
+    /** The job whose background replace is running right now; guarded by LOCK. */
+    private static Job replacing;
     private static Listener listener;
     private static CropListener cropListener;
     private static final java.util.Set<String> CROP_PENDING = new java.util.HashSet<>();
@@ -131,6 +138,27 @@ public class BgReplaceService extends Service {
     /** Main thread only. Pass null to detach. */
     public static void setCropListener(@Nullable CropListener l) {
         cropListener = l;
+    }
+
+    /**
+     * Stops the background replace that is running, if any. The original recording is kept, the
+     * temp file and all codec/GL resources are released, and the job carries on with its
+     * auto-crops; {@link Listener#onReady} still fires. Returns false when nothing was running
+     * (e.g. it finished while the user was confirming).
+     */
+    public static boolean cancelReplace() {
+        synchronized (LOCK) {
+            if (replacing == null) return false;
+            replacing.cancelled.set(true);
+            return true;
+        }
+    }
+
+    /** True while a cancel has been requested and the replace has not finished unwinding. */
+    public static boolean isCancelRequested() {
+        synchronized (LOCK) {
+            return replacing != null && replacing.cancelled.get();
+        }
     }
 
     public static boolean isBusy() {
@@ -228,24 +256,34 @@ public class BgReplaceService extends Service {
                 // bar never looks stuck. With the cache the real progress is used from 0.
                 WarmUpProgress warmUp = new WarmUpProgress(OfflineBgProcessor.isWarmUpNeeded(this));
                 long startMs = SystemClock.elapsedRealtime();
-                setStage(REPLACE_STAGE, 0);
+                synchronized (LOCK) {
+                    replacing = job;
+                }
+                setReplaceStage(job, 0);
                 Runnable estimate = new Runnable() {
                     @Override
                     public void run() {
                         if (!warmUp.isEstimating()) return;
-                        setStage(REPLACE_STAGE, warmUp.estimate(SystemClock.elapsedRealtime() - startMs));
+                        setReplaceStage(job, warmUp.estimate(SystemClock.elapsedRealtime() - startMs));
                         MAIN.postDelayed(this, ESTIMATE_TICK_MS);
                     }
                 };
                 if (warmUp.isEstimating()) MAIN.postDelayed(estimate, ESTIMATE_TICK_MS);
                 boolean ok;
                 try {
-                    ok = FaceBgReplaceTask.replace(this, video, job.track,
-                            percent -> setStage(REPLACE_STAGE, warmUp.real(percent)));
+                    ok = FaceBgReplaceTask.replace(this, video, job.track, job.cancelled,
+                            percent -> setReplaceStage(job, warmUp.real(percent)));
                 } finally {
                     MAIN.removeCallbacks(estimate);
+                    synchronized (LOCK) {
+                        replacing = null;
+                    }
                 }
-                if (!ok) toast("Background replace failed — original recording kept");
+                if (!ok) {
+                    toast(job.cancelled.get()
+                            ? "Background replacement cancelled — original recording kept"
+                            : "Background replace failed — original recording kept");
+                }
             }
             currentStage = "";
             currentPercent = -1;
@@ -305,6 +343,12 @@ public class BgReplaceService extends Service {
         if (notificationManager != null) {
             notificationManager.notify(NOTIFICATION_ID, buildProgressNotification("Cropping videos…", -1));
         }
+    }
+
+    /** Replace-stage progress; turns into "Cancelling…" once the user has cancelled. */
+    private synchronized void setReplaceStage(Job job, int percent) {
+        if (job.cancelled.get()) setStage(STAGE_CANCELLING, -1);
+        else setStage(REPLACE_STAGE, percent);
     }
 
     private synchronized void setStage(String stage, int percent) {

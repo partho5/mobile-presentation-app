@@ -3285,6 +3285,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void showProcessingDialog(String stage, int percent) {
         if (isFinishing() || isDestroyed()) return;
+        // Once the user confirmed a cancel, a late progress report must not bring the bar back
+        boolean cancelling = BgReplaceService.isCancelRequested()
+                || BgReplaceService.STAGE_CANCELLING.equals(stage);
+        if (cancelling) {
+            stage = BgReplaceService.STAGE_CANCELLING;
+            percent = -1;
+        }
         if (processingDialog == null) {
             processingDialog = new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar_Fullscreen);
             processingDialog.setContentView(R.layout.dialog_processing);
@@ -3318,10 +3325,24 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             processingDialog.setOnDismissListener(d -> {
                 for (android.animation.Animator a : running) a.cancel();
             });
+            View cancelButton = processingDialog.findViewById(R.id.processing_cancel);
+            if (cancelButton != null) {
+                cancelButton.setOnClickListener(v -> confirmCancelBackgroundReplace());
+            }
         }
         TextView title = processingDialog.findViewById(R.id.processing_title);
         ProgressBar bar = processingDialog.findViewById(R.id.processing_bar);
         TextView pct = processingDialog.findViewById(R.id.processing_percent);
+        if (cancelling) {
+            Button cancelButton = processingDialog.findViewById(R.id.processing_cancel);
+            TextView hint = processingDialog.findViewById(R.id.processing_hint);
+            if (cancelButton != null) {
+                cancelButton.setEnabled(false);
+                cancelButton.setAlpha(0.5f);
+                cancelButton.setText(BgReplaceService.STAGE_CANCELLING);
+            }
+            if (hint != null) hint.setText("Stopping and cleaning up…");
+        }
         if (title != null) title.setText(stage);
         if (bar != null) {
             bar.setIndeterminate(percent < 0);
@@ -3334,7 +3355,38 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (pct != null) pct.setText(percent >= 0 ? percent + "%" : "");
     }
 
+    private android.app.Dialog cancelConfirmDialog;
+
+    /** Asks before cancelling; only a "yes" stops the replace (the crops still run afterwards). */
+    private void confirmCancelBackgroundReplace() {
+        if (isFinishing() || isDestroyed() || cancelConfirmDialog != null) return;
+        boolean cropsFollow = !BgReplaceService.readAutoCropRatios(this).isEmpty();
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Cancel background replacement?")
+                .setMessage("Your recording will keep its original background"
+                        + (cropsFollow ? ", and the auto-crop will still run." : "."))
+                .setPositiveButton("Yes, cancel", (d, which) -> {
+                    if (BgReplaceService.cancelReplace()) {
+                        showProcessingDialog(BgReplaceService.STAGE_CANCELLING, -1);
+                    }
+                })
+                .setNegativeButton("Keep going", null)
+                .create();
+        dialog.setOnDismissListener(d -> cancelConfirmDialog = null);
+        cancelConfirmDialog = dialog;
+        dialog.show();
+        Button yes = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (yes != null) yes.setTextColor(0xFFE53935);
+    }
+
     private void dismissProcessingDialog() {
+        if (cancelConfirmDialog != null) {
+            // The replace finished while the user was still deciding: nothing left to cancel
+            try {
+                cancelConfirmDialog.dismiss();
+            } catch (Exception ignored) {}
+            cancelConfirmDialog = null;
+        }
         if (processingDialog != null) {
             try {
                 processingDialog.dismiss();
@@ -3458,6 +3510,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 v.setTranslationY(0.0f);
             }
         }
+        syncSlideInk();
     }
 
     private void setupSlideZoomTouchListeners() {
@@ -3488,6 +3541,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 targetView.setTranslationX(0f);
                                 targetView.setTranslationY(0f);
                             }
+                            syncSlideInk();
                             return true;
                         }
                     });
@@ -3503,6 +3557,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                         .translationX(0.0f)
                                         .translationY(0.0f)
                                         .setDuration(200)
+                                        .setUpdateListener(a -> syncSlideInk())
                                         .start();
                                 return true;
                             }
@@ -3510,7 +3565,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         }
                     });
 
-        syncSlideInk();
             targetView.setOnTouchListener(new View.OnTouchListener() {
                 private float lastX, lastY;
 
@@ -3541,12 +3595,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 float maxTranslationX = (v.getWidth() * (scale - 1.0f)) / 2.0f;
                                 float maxTranslationY = (v.getHeight() * (scale - 1.0f)) / 2.0f;
 
-                            syncSlideInk();
                                 float newTx = Math.max(-maxTranslationX, Math.min(maxTranslationX, v.getTranslationX() + dx));
                                 float newTy = Math.max(-maxTranslationY, Math.min(maxTranslationY, v.getTranslationY() + dy));
 
                                 v.setTranslationX(newTx);
                                 v.setTranslationY(newTy);
+                                syncSlideInk();
 
                                 lastX = event.getRawX();
                                 lastY = event.getRawY();
@@ -3557,7 +3611,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
                     return scale > 1.05f || scaleDetector.isInProgress() || event.getPointerCount() > 1;
                 }
-                                        .setUpdateListener(a -> syncSlideInk())
             });
         }
     }
@@ -3575,4 +3628,4 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
         cancelGuideLineFlashes();
     }
-}                                syncSlideInk();
+}
