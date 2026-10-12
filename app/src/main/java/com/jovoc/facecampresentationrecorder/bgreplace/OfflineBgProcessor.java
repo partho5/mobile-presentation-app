@@ -68,14 +68,28 @@ public class OfflineBgProcessor {
         /** Only the inscribed circle is replaced, minus {@code ringPx} at its edge. */
         final boolean circle;
         final int ringPx;
+        /**
+         * Guard-band overscan: the diameter of the circle the user actually sees.
+         * Equals {@code width} when no guard band is used (e.g. processFullFrame).
+         * When set smaller than {@code width}, the composite shader clips to this inner
+         * circle so that edge jitter from the segmentation model stays in the invisible
+         * outer band and never reaches the viewer.
+         */
+        final int visibleSize;
 
         public Region(int left, int top, int width, int height, boolean circle, int ringPx) {
+            this(left, top, width, height, circle, ringPx, width);
+        }
+
+        public Region(int left, int top, int width, int height, boolean circle, int ringPx,
+                      int visibleSize) {
             this.left = left;
             this.top = top;
             this.width = width;
             this.height = height;
             this.circle = circle;
             this.ringPx = ringPx;
+            this.visibleSize = visibleSize;
         }
 
         @Override
@@ -83,12 +97,12 @@ public class OfflineBgProcessor {
             if (!(o instanceof Region)) return false;
             Region r = (Region) o;
             return left == r.left && top == r.top && width == r.width && height == r.height
-                    && circle == r.circle && ringPx == r.ringPx;
+                    && circle == r.circle && ringPx == r.ringPx && visibleSize == r.visibleSize;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(left, top, width, height, circle, ringPx);
+            return Objects.hash(left, top, width, height, circle, ringPx, visibleSize);
         }
     }
 
@@ -277,7 +291,21 @@ public class OfflineBgProcessor {
         process(input, output, background, 12_000_000, (ptsUs, w, h) -> {
             BubbleTrack.Entry e = BubbleTrack.at(track, ptsUs / 1000);
             if (e == null || !e.visible || e.size <= 0) return null;
-            return new Region(e.left, e.top, e.size, e.size, true, e.ringPx);
+
+            // Guard-band overscan: expand the processing region by GUARD_FACTOR so the
+            // segmentation model sees a wider patch of real camera pixels around the person.
+            // Edge jitter is pushed into the invisible outer band; the viewer always sees
+            // only the original e.size circle.
+            final float GUARD_FACTOR = 1.20f; // 20% more radius = 44% more area for the model
+            int outer = Math.round(e.size * GUARD_FACTOR);
+            if (outer % 2 != 0) outer++; // encoder requires even dimensions
+            int oLeft = e.left - (outer - e.size) / 2;
+            int oTop  = e.top  - (outer - e.size) / 2;
+            // Clamp so the expanded box never goes off the screen edge
+            oLeft = Math.max(0, Math.min(oLeft, w - outer));
+            oTop  = Math.max(0, Math.min(oTop,  h - outer));
+
+            return new Region(oLeft, oTop, outer, outer, true, e.ringPx, e.size);
         }, listener);
     }
 
@@ -442,12 +470,17 @@ public class OfflineBgProcessor {
                 float[] uv = regionUv(r, outW, outH);
                 GLES30.glUniform4f(GLES30.glGetUniformLocation(p, "uRegion"), uv[0], uv[1], uv[2], uv[3]);
                 GLES30.glUniform1i(GLES30.glGetUniformLocation(p, "uCircle"), r.circle ? 1 : 0);
-                // Stop one pixel inside the ring so its anti-aliased inner edge stays intact
-                float inner = 0.5f - (r.ringPx + 1f) / Math.max(1, r.width);
+                // Guard-band: uInnerRadius is in region-normalised units (0 = centre, 0.5 = outer
+                // edge of the processing region). The visible circle has diameter r.visibleSize
+                // inside the (possibly larger) processing region of width r.width, so the visible
+                // circle reaches (visibleFraction * 0.5) in normalised units. We then subtract one
+                // pixel inside the ring to keep its anti-aliased inner edge intact.
+                float visibleFraction = (float) r.visibleSize / Math.max(1, r.width);
+                float inner = visibleFraction * 0.5f - (r.ringPx + 1f) / Math.max(1, r.width);
                 GLES30.glUniform1f(GLES30.glGetUniformLocation(p, "uInnerRadius"), inner);
-                GLES30.glUniform1f(GLES30.glGetUniformLocation(p, "uRegionPx"), r.width);
+                GLES30.glUniform1f(GLES30.glGetUniformLocation(p, "uRegionPx"), r.visibleSize);
                 GLES30.glUniform4fv(GLES30.glGetUniformLocation(p, "uBgTransform"), 1,
-                        centerCrop(bgW, bgH, r.width, r.height), 0);
+                        centerCrop(bgW, bgH, r.visibleSize, r.visibleSize), 0);
             }
             GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(p, "uSTMatrix"), 1, false, IDENTITY, 0);
             drawQuad(fullTexBuffer);
