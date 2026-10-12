@@ -1,5 +1,7 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
+
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.BG_PREF_NAME;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_1_1;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_4_5;
@@ -327,8 +329,12 @@ public class SettingsActivity extends AppCompatActivity {
         }
         addUploadCard(grid, mine.size());
 
-        // Nothing saved (or a removed background): show the first sample, which is what gets used.
-        int selected = bgPaths.indexOf(bgPrefs.getString(KEY_BG_ASSET_PATH, ""));
+        // Nothing saved (or a removed background): show the default sample, which is what gets used.
+        String saved = bgPrefs.getString(KEY_BG_ASSET_PATH, FaceBgReplaceTask.DEFAULT_BG_ASSET);
+        int selected = bgPaths.indexOf(saved);
+        if (selected < 0) {
+            selected = bgPaths.indexOf(FaceBgReplaceTask.DEFAULT_BG_ASSET);
+        }
         markSelectedBackground(Math.max(selected, 0));
     }
 

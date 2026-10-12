@@ -89,8 +89,7 @@ public final class FaceBgReplaceTask {
     }
 
     /** Used when nothing is saved or the saved background no longer exists (e.g. a deleted upload). */
-    private static final String DEFAULT_BG_ASSET =
-            "bg_samples/room-2-remove-the-bench-rest-of-the-image-texture-tempera.jpg";
+    public static final String DEFAULT_BG_ASSET = "bg_samples/modern-office.webp";
 
     /** The background chosen in Settings, falling back to the default, then to a plain colour. */
     public static Bitmap loadSelectedBackground(Context context) {

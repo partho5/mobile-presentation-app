@@ -41,7 +41,7 @@ public class BackgroundReplacerRecorder implements TextureView.SurfaceTextureLis
     private int width = 1280;
     private int height = 720;
 
-    private String currentBgAsset = "bg_samples/room-2.png";
+    private String currentBgAsset = FaceBgReplaceTask.DEFAULT_BG_ASSET;
 
     public BackgroundReplacerRecorder(Context context) {
         this.context = context.getApplicationContext();
