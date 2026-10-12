@@ -6,24 +6,15 @@ import android.os.Environment;
 import com.jovoc.facecampresentationrecorder.R;
 
 import java.io.File;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Where recordings live on shared storage.
  *
- * The folder is named after the app, so renaming the app moves where new videos go.
- * Videos recorded under the old name stay in their old folder and are still listed,
- * because moving another app-era file on scoped storage is not reliable.
+ * Recordings are saved under DCIM/&lt;app name&gt;.
  */
 public final class RecordingStorage {
-
-    /** Folders used under earlier app names. */
-    private static final String[] LEGACY_FOLDER_NAMES = {
-            "TalkPost",
-            "Short Video Recorder",
-            "FaceCam Presentation Recorder",
-    };
 
     private RecordingStorage() {}
 
@@ -33,17 +24,8 @@ public final class RecordingStorage {
         return new File(dcimDir, context.getString(R.string.app_name));
     }
 
-    /** Every folder that may hold recordings, current one first. */
+    /** Every folder that may hold recordings. */
     public static List<File> getAllDirs(Context context) {
-        List<File> dirs = new ArrayList<>();
-        File current = getAppDir(context);
-        dirs.add(current);
-        for (String name : LEGACY_FOLDER_NAMES) {
-            File legacy = new File(current.getParentFile(), name);
-            if (!legacy.equals(current)) {
-                dirs.add(legacy);
-            }
-        }
-        return dirs;
+        return Collections.singletonList(getAppDir(context));
     }
 }

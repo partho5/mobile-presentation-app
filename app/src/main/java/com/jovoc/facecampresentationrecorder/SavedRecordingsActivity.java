@@ -232,7 +232,7 @@ public class SavedRecordingsActivity extends AppCompatActivity {
 
         List<VideoCropHelper.PendingCrop> pending = VideoCropHelper.getPendingCrops();
 
-        // Current folder plus the one used before the app was renamed.
+        // Folder where recordings are stored.
         List<File> found = new ArrayList<>();
         for (File appDir : RecordingStorage.getAllDirs(this)) {
             if (!appDir.exists() || !appDir.isDirectory()) continue;
