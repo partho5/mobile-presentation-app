@@ -109,6 +109,17 @@
             app:iconPadding="4dp"
             app:iconSize="14dp"
             app:iconTint="#E0E0E0" />
+
+        <ImageButton
+            android:id="@+id/btn_delete_all_slides"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Delete all topics"
+            android:src="@drawable/ic_delete" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

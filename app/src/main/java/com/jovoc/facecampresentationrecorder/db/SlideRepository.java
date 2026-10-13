@@ -67,4 +67,11 @@ public class SlideRepository {
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
+
+    public void deleteAll(Runnable onComplete) {
+        executor.execute(() -> {
+            slideDao.deleteAll();
+            if (onComplete != null) mainHandler.post(onComplete);
+        });
+    }
 }

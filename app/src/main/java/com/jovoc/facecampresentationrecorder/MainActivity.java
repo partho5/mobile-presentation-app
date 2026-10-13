@@ -1864,6 +1864,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_SWIPE_HINT_PREV_DONE = "swipeHintPrevDone";
     private static final String KEY_DOUBLE_TAP_TIP_SHOWN = "doubleTapTipShown";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
+    private static final String KEY_INITIAL_SLIDES_SEEDED = "initialSlidesSeeded";
     private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
     private boolean isInitialAppLaunchCheck = true;
 
@@ -1885,7 +1886,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
 
             if (slides.isEmpty()) {
-                if (openedTimes <= 1) {
+                if (openedTimes <= 1 && !prefs.getBoolean(KEY_INITIAL_SLIDES_SEEDED, false)) {
                     seedInitialSlides();
                     return;
                 }
@@ -1907,6 +1908,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void seedInitialSlides() {
+        getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putBoolean(KEY_INITIAL_SLIDES_SEEDED, true).apply();
         Slide textSlide = new Slide(Slide.TYPE_TEXT, 0, "(Example topic)\nHow to get rid of anxiety ?", null);
 
         // The example image ships in assets/ so the first run works offline. It is
@@ -2674,6 +2676,32 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         recyclerSlides.setAdapter(slideAdapter);
         slideAdapter.setSlides(new ArrayList<>(slides));
 
+        ImageButton btnDeleteAll = dialogView.findViewById(R.id.btn_delete_all_slides);
+        final SlideAdapter observedAdapter = slideAdapter;
+        Runnable syncDeleteAllState = () -> {
+            boolean hasSlides = observedAdapter.getItemCount() > 0;
+            btnDeleteAll.setEnabled(hasSlides);
+            btnDeleteAll.setAlpha(hasSlides ? 1f : 0.3f);
+        };
+        observedAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                syncDeleteAllState.run();
+            }
+
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                syncDeleteAllState.run();
+            }
+
+            @Override
+            public void onItemRangeRemoved(int positionStart, int itemCount) {
+                syncDeleteAllState.run();
+            }
+        });
+        syncDeleteAllState.run();
+        btnDeleteAll.setOnClickListener(v -> confirmDeleteAllSlides());
+
         ItemTouchHelper.SimpleCallback itemTouchCallback = new ItemTouchHelper.SimpleCallback(
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
             @Override
@@ -3121,6 +3149,56 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .setNegativeButton("Cancel", null)
                     .show();
         }
+    }
+
+    private void confirmDeleteAllSlides() {
+        if (slides == null || slides.isEmpty()) return;
+        int n = slides.size();
+        String what = n == 1 ? "1 topic" : n + " topics";
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Delete all topics?")
+                .setMessage("All " + what + " will be permanently deleted, including their images, videos and drawings. This cannot be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete all", (d, which) -> deleteAllSlides())
+                .create();
+        dialog.show();
+        Button yes = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (yes != null) yes.setTextColor(0xFFE53935);
+    }
+
+    /** Removes every topic and its local files. Single place for a future server-sync hook. */
+    private void deleteAllSlides() {
+        final List<Slide> doomed = new ArrayList<>(slides);
+        repository.deleteAll(() -> {
+            stopVideoIfPlaying();
+            if (slideInkController != null) {
+                for (Slide s : doomed) slideInkController.discard(s.getId());
+            }
+            slides.clear();
+            currentSlideIndex = 0;
+            if (slideAdapter != null) slideAdapter.setSlides(new ArrayList<>());
+            renderCurrentSlide();
+            getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putBoolean(KEY_INITIAL_SLIDES_SEEDED, true).apply();
+
+            final File filesDir = getFilesDir();
+            new Thread(() -> {
+                try {
+                    String root = filesDir.getCanonicalPath();
+                    for (Slide s : doomed) {
+                        String path = s.getImagePath();
+                        if (path == null) continue;
+                        File f = new File(path);
+                        if (f.getCanonicalPath().startsWith(root + File.separator)) {
+                            //noinspection ResultOfMethodCallIgnored
+                            f.delete();
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error deleting topic media files", e);
+                }
+            }).start();
+            Toast.makeText(this, "All topics deleted", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void openHowToUseDialog() {

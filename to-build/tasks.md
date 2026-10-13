@@ -37,7 +37,7 @@ Recommended order (small to large): **1 → 3 → 4 → 2**.
 |------|------|------|--------|
 | 1 | "Please be patient" message after 20 s | S | [x] |
 | 2 | Video preview: swipeable aspect-ratio versions | L | [ ] |
-| 3 | Delete all topics | S | [ ] |
+| 3 | Delete all topics | S | [x] |
 | 4 | Premium slide-change transition | M | [ ] |
 
 Rules for the implementer (read before every part):
