@@ -18,7 +18,7 @@
     <string name="set_crop_1_1">1:1 (Instagram, Facebook, X)</string>
     <string name="set_bg_header">AI Virtual Background (Face Cam)</string>
     <string name="set_bg_tips_title">For a smooth background replacement:</string>
-    <string name="set_bg_tip_wall">1. Stand in front of a plain, single-colour background. Green works best.</string>
+    <string name="set_bg_tip_wall">1. Stand in front of a plain, single-colour background. <font color="#4ADE80">Green</font> works best.</string>
     <string name="set_bg_tip_light">2. Always keep your face in bright light: sunlight, or a white 6500K light like a studio ring light, or even a white LED bulb.</string>
     <string name="set_bg_replace">Replace face cam background (after recording)</string>
     <string name="set_bg_pick">Select a background:</string>
