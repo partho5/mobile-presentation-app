@@ -3593,7 +3593,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             tick.cancel();
             tvIcon.setRotation(0f);
             tvIcon.setText(failCount == 0 ? "✓" : "⚠");
-            tvCropStatus.setText(failCount == 0 ? "Edited versions saved"
+            tvCropStatus.setText(failCount == 0 ? "Edited versions saved · swipe to preview"
                     : failCount + " edit(s) failed, " + successCount + " saved");
             BgReplaceService.setCropListener(null);
         });

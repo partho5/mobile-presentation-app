@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -38,6 +40,22 @@ public final class VideoGroupStore {
             p.edit().putString(path, id).apply();
         }
         return id;
+    }
+
+    /**
+     * Every path sharing {@code path}'s group, {@code path} itself first. A file with no
+     * entry is its own one-element group. Entries can name files that do not exist (yet).
+     */
+    public static synchronized List<String> getGroupPaths(Context context, String path) {
+        List<String> out = new ArrayList<>();
+        out.add(path);
+        SharedPreferences p = prefs(context);
+        String id = p.getString(path, null);
+        if (id == null) return out;
+        for (Map.Entry<String, ?> e : p.getAll().entrySet()) {
+            if (id.equals(e.getValue()) && !path.equals(e.getKey())) out.add(e.getKey());
+        }
+        return out;
     }
 
     public static synchronized void assign(Context context, String path, String groupId) {

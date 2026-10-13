@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One page of the preview carousel. The page itself must be match_parent (ViewPager2);
+     the card inside is sized to the version's aspect ratio in code. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/page_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        app:cardBackgroundColor="#000000"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#1FFFFFFF"
+        app:strokeWidth="1dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <VideoView
+                android:id="@+id/page_video"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/page_thumb"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop" />
+
+            <!-- Invisible tap area: centre = play/pause, side = go to this version -->
+            <View
+                android:id="@+id/page_tap"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Play or Pause Video" />
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>
