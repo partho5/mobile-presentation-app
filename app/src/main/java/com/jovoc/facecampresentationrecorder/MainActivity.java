@@ -8,6 +8,7 @@ import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
 import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
+import com.jovoc.facecampresentationrecorder.ui.SlideTransitionController;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import android.animation.ObjectAnimator;
@@ -131,6 +132,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private SlideRepository repository;
     private List<Slide> slides = new ArrayList<>();
     private int currentSlideIndex = 0;
+
+    // Slide transition: id of the slide whose content is on screen (changes only while the scrim
+    // covers the stage), the next/previous direction of the pending render, and the owner of the fade.
+    private int displayedSlideId = SlideInkController.NO_SLIDE;
+    private int pendingNavDirection = 0;
+    private SlideTransitionController slideTransition;
+    // Released by the web slide's first paint (or error); null when nothing is waiting.
+    private Runnable webSlideReadyCallback;
 
     // UI Components
     private View rootLayout;
@@ -349,6 +358,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         swipeRefreshWebSlide = findViewById(R.id.swipe_refresh_web_slide);
         btnReloadWebSlide = findViewById(R.id.btn_reload_web_slide);
 
+        View slideStage = findViewById(R.id.slide_stage);
+        View slideScrim = findViewById(R.id.slide_transition_scrim);
+        if (slideStage != null && slideScrim != null) {
+            slideTransition = new SlideTransitionController(slideStage, slideScrim);
+        }
+
         if (btnReloadWebSlide != null) {
             btnReloadWebSlide.setVisibility(View.GONE);
         }
@@ -393,11 +408,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
 
                 @Override
+                public void onPageCommitVisible(WebView view, String url) {
+                    super.onPageCommitVisible(view, url);
+                    releaseWebSlideReady();
+                }
+
+                @Override
                 public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                     super.onReceivedError(view, errorCode, description, failingUrl);
                     if (swipeRefreshWebSlide != null) {
                         swipeRefreshWebSlide.setRefreshing(false);
                     }
+                    releaseWebSlideReady();
                 }
             });
             webSlideView.setWebChromeClient(new WebChromeClient());
@@ -1075,14 +1097,31 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    /** The view that hosts the current slide, by slide type (not by visibility: an old slide may still be sliding out). */
+    /**
+     * The view that hosts the slide that is on screen, by slide type. Resolved by displayedSlideId (not
+     * currentSlideIndex): during a transition the index already points at the next slide.
+     */
     private View getCurrentSlideView() {
-        if (slides == null || currentSlideIndex < 0 || currentSlideIndex >= slides.size()) return null;
-        String type = slides.get(currentSlideIndex).getType();
+        if (slides == null || displayedSlideId == SlideInkController.NO_SLIDE) return null;
+        Slide displayed = null;
+        for (Slide s : slides) {
+            if (s.getId() == displayedSlideId) {
+                displayed = s;
+                break;
+            }
+        }
+        if (displayed == null) return null;
+        String type = displayed.getType();
         if (Slide.TYPE_TEXT.equals(type)) return textSlideContainer;
         if (Slide.TYPE_IMAGE.equals(type)) return imageSlideView;
         if (Slide.TYPE_VIDEO.equals(type)) return videoSlideContainer;
         return webSlideContainer; // website + YouTube
+    }
+
+    private void releaseWebSlideReady() {
+        Runnable ready = webSlideReadyCallback;
+        webSlideReadyCallback = null;
+        if (ready != null) ready.run();
     }
 
     /**
@@ -1108,7 +1147,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             lp.topMargin = slideView.getTop();
             slideInkView.setLayoutParams(lp);
         }
-        // Follow pinch-zoom / pan. Below zoom, ignore translation: that is only the slide-in animation.
+        // Follow pinch-zoom / pan. Below zoom there is nothing to follow.
         boolean zoomed = slideView.getScaleX() > 1.05f;
         slideInkView.setPivotX(slideView.getPivotX());
         slideInkView.setPivotY(slideView.getPivotY());
@@ -1930,6 +1969,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             try {
                 videoSlideView.setOnPreparedListener(null);
                 videoSlideView.setOnErrorListener(null);
+                videoSlideView.setOnInfoListener(null);
                 if (videoSlideView.isPlaying()) {
                     videoSlideView.pause();
                 }
@@ -2084,43 +2124,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    private void animateMediaSlideExit(View view) {
-        if (view == null || view.getVisibility() != View.VISIBLE) return;
-        int screenWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
-
-        view.animate().cancel();
-        view.animate()
-                .translationX(-screenWidth)
-                .setDuration(300)
-                .setInterpolator(new DecelerateInterpolator())
-                .withEndAction(() -> {
-                    view.setVisibility(View.GONE);
-                    view.setTranslationX(0f);
-                })
-                .start();
-    }
-
-    private void animateMediaSlideEntry(View view, Runnable onAnimationEnd) {
-        if (view == null) return;
-        view.animate().cancel();
-        int screenWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
-
-        view.setTranslationX(screenWidth);
-        view.setAlpha(1f);
-        view.setVisibility(View.VISIBLE);
-
-        view.animate()
-                .translationX(0f)
-                .setDuration(350)
-                .setInterpolator(new DecelerateInterpolator())
-                .withEndAction(() -> {
-                    if (onAnimationEnd != null) {
-                        onAnimationEnd.run();
-                    }
-                })
-                .start();
-    }
-
     /**
      * Resolves currentSlideIndex to the nearest active (non-disabled) slide.
      * Searches forward first, then backward. If no active slides exist, index stays as-is
@@ -2150,7 +2153,41 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         // All slides are disabled — renderCurrentSlide will handle blank state
     }
 
+    /**
+     * Shows the current slide. A different slide goes through the fade-through transition (direction
+     * from goToNext/PreviousSlide, none otherwise); the same slide is rebound at once.
+     */
     private void renderCurrentSlide() {
+        boolean hasActiveSlide = false;
+        for (Slide s : slides) {
+            if (!s.isDisabled()) {
+                hasActiveSlide = true;
+                break;
+            }
+        }
+        int targetId = (slides.isEmpty() || !hasActiveSlide)
+                ? SlideInkController.NO_SLIDE
+                : slides.get(currentSlideIndex).getId();
+        boolean changed = targetId != displayedSlideId;
+        int direction = pendingNavDirection;
+        pendingNavDirection = 0;
+
+        // Buttons react at once; the content follows under the scrim.
+        updateNavigationButtonsState();
+        if (slideTransition == null) {
+            bindSlideContent(() -> { });
+            return;
+        }
+        slideTransition.show(direction, changed, this::bindSlideContent);
+    }
+
+    /**
+     * Swaps the stage content to the current slide (re-read at call time: it may have changed while the
+     * scrim was fading in). onReady must be reached on every path, or the scrim never lifts.
+     */
+    private void bindSlideContent(Runnable onReady) {
+        webSlideReadyCallback = null;
+
         // Check if all slides are empty or all disabled
         boolean hasActiveSlide = false;
         for (Slide s : slides) {
@@ -2162,12 +2199,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         if (slides.isEmpty() || !hasActiveSlide) {
             SlideLogger.log("RENDER", "renderCurrentSlide: no active slides");
+            displayedSlideId = SlideInkController.NO_SLIDE;
             emptyStateView.setVisibility(View.GONE);
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
-            if (imageSlideView != null) animateMediaSlideExit(imageSlideView);
+            if (imageSlideView != null) imageSlideView.setVisibility(View.GONE);
             if (videoSlideContainer != null) {
                 stopVideoIfPlaying();
-                animateMediaSlideExit(videoSlideContainer);
+                videoSlideContainer.setVisibility(View.GONE);
             }
             if (webSlideContainer != null) {
                 webSlideContainer.setVisibility(View.GONE);
@@ -2178,12 +2216,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }
             if (slideInkController != null) slideInkController.setSlide(SlideInkController.NO_SLIDE);
             if (slideInkView != null) slideInkView.setVisibility(View.GONE);
-            updateNavigationButtonsState();
+            onReady.run();
             return;
         }
 
         emptyStateView.setVisibility(View.GONE);
         Slide slide = slides.get(currentSlideIndex);
+        displayedSlideId = slide.getId();
         resetAllSlideZoom();
         if (slideInkController != null) slideInkController.setSlide(slide.getId());
         SlideLogger.log("RENDER", String.format(Locale.US,
@@ -2194,22 +2233,24 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (Slide.TYPE_TEXT.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
                 stopVideoIfPlaying();
-                animateMediaSlideExit(videoSlideContainer);
+                videoSlideContainer.setVisibility(View.GONE);
             }
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
-                animateMediaSlideExit(imageSlideView);
+                imageSlideView.setVisibility(View.GONE);
             }
             if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
             applyTextSlideFontScaling(textSlideView, slide.getTextContent());
-            animateTextSlideEntry();
+            textSlideView.setTranslationY(0f);
+            textSlideView.setAlpha(1f);
+            textSlideView.post(onReady);
             SlideLogger.log("RENDER_TEXT", "Text slide rendered: " + slide.getTextContent());
         } else if (Slide.TYPE_IMAGE.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
                 stopVideoIfPlaying();
-                animateMediaSlideExit(videoSlideContainer);
+                videoSlideContainer.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
             if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
@@ -2240,6 +2281,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                     imageSlideView.setImageDrawable(null);
                                     applyMediaTopMargin(imageSlideView, 0);
                                     imageSlideView.setVisibility(View.GONE);
+                                    onReady.run();
                                     return false;
                                 }
 
@@ -2257,11 +2299,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                             "Image loaded: intrinsicW=%d, intrinsicH=%d, displayW=%d, calculatedH=%d",
                                             intrinsicWidth, intrinsicHeight, displayWidth, calculatedHeight));
 
-                                    if (imageSlideView.getVisibility() == View.VISIBLE && imageSlideView.getTranslationX() == 0f) {
-                                        imageSlideView.setAlpha(1f);
-                                    } else {
-                                        animateMediaSlideEntry(imageSlideView, null);
-                                    }
+                                    imageSlideView.setAlpha(1f);
+                                    // Glide sets the drawable right after this returns; report ready once it is in.
+                                    imageSlideView.post(onReady);
                                     return false;
                                 }
                             })
@@ -2272,16 +2312,18 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     imageSlideView.setImageDrawable(null);
                     applyMediaTopMargin(imageSlideView, 0);
                     imageSlideView.setVisibility(View.GONE);
+                    onReady.run();
                 }
             } else {
                 SlideLogger.log("IMAGE_ERROR", "Slide imagePath is NULL for slide id=" + slide.getId());
                 imageSlideView.setImageDrawable(null);
                 applyMediaTopMargin(imageSlideView, 0);
                 imageSlideView.setVisibility(View.GONE);
+                onReady.run();
             }
         } else if (Slide.TYPE_VIDEO.equals(slide.getType())) {
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
-                animateMediaSlideExit(imageSlideView);
+                imageSlideView.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
             if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
@@ -2321,11 +2363,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 "Video prepared: videoW=%d, videoH=%d, duration=%d ms, displayW=%d, calculatedH=%d",
                                 videoWidth, videoHeight, duration, displayWidth, calculatedHeight));
 
-                        if (videoSlideContainer.getVisibility() == View.VISIBLE && videoSlideContainer.getTranslationX() == 0f) {
-                            mp.start();
-                        } else {
-                            animateMediaSlideEntry(videoSlideContainer, () -> mp.start());
-                        }
+                        mp.start();
+                    });
+
+                    // The scrim lifts when the first frame is on screen, not when the (black) box is laid out.
+                    videoSlideView.setOnInfoListener((mp, what, extra) -> {
+                        if (what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) onReady.run();
+                        return false;
                     });
 
                     videoSlideView.setOnErrorListener((mp, what, extra) -> {
@@ -2335,6 +2379,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         stopVideoIfPlaying();
                         applyMediaTopMargin(videoSlideContainer, 0);
                         if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
+                        onReady.run();
                         return true;
                     });
                 } else {
@@ -2342,6 +2387,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     stopVideoIfPlaying();
                     applyMediaTopMargin(videoSlideContainer, 0);
                     if (videoSlideContainer != null) videoSlideContainer.setVisibility(View.GONE);
+                    onReady.run();
                 }
             } else {
                 SlideLogger.log("VIDEO_ERROR", "Slide imagePath is NULL or videoSlideView is null for slide id=" + slide.getId());
@@ -2350,14 +2396,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     applyMediaTopMargin(videoSlideContainer, 0);
                     videoSlideContainer.setVisibility(View.GONE);
                 }
+                onReady.run();
             }
         } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
                 stopVideoIfPlaying();
-                animateMediaSlideExit(videoSlideContainer);
+                videoSlideContainer.setVisibility(View.GONE);
             }
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
-                animateMediaSlideExit(imageSlideView);
+                imageSlideView.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
 
@@ -2374,6 +2421,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 swipeRefreshWebSlide.setEnabled(true);
             }
 
+            boolean webLoading = false;
             String url = slide.getTextContent();
             if (url != null && !url.trim().isEmpty()) {
                 url = url.trim();
@@ -2383,17 +2431,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 if (webSlideView != null) {
                     webSlideView.getSettings().setUserAgentString(null);
                     if (!url.equals(webSlideView.getUrl())) {
+                        webSlideReadyCallback = onReady;
+                        webLoading = true;
                         webSlideView.loadUrl(url);
                     }
                 }
             }
+            if (!webLoading) onReady.run();
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
             if (videoSlideContainer != null && videoSlideContainer.getVisibility() == View.VISIBLE) {
                 stopVideoIfPlaying();
-                animateMediaSlideExit(videoSlideContainer);
+                videoSlideContainer.setVisibility(View.GONE);
             }
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
-                animateMediaSlideExit(imageSlideView);
+                imageSlideView.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
 
@@ -2411,7 +2462,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }
 
             String videoId = extractYouTubeVideoId(slide.getTextContent());
-            if (videoId != null && !videoId.isEmpty() && webSlideView != null) {
+            boolean embedLoading = videoId != null && !videoId.isEmpty() && webSlideView != null;
+            if (embedLoading) {
+                webSlideReadyCallback = onReady;
                 webSlideView.getSettings().setUserAgentString(
                         "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                 );
@@ -2426,32 +2479,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         + "</body></html>";
                 webSlideView.loadDataWithBaseURL("https://localhost", html, "text/html", "utf-8", null);
             }
+            if (!embedLoading) onReady.run();
+        } else {
+            onReady.run(); // unknown slide type: never leave the scrim down
         }
 
         // Fit the ink layer once this render's visibility/size changes have been laid out.
         if (slideInkView != null) slideInkView.post(this::syncSlideInk);
-        updateNavigationButtonsState();
-    }
-
-    /**
-     * Entry animation: text slides in from top edge of 30% zone to vertical middle of 30% zone
-     */
-    private void animateTextSlideEntry() {
-        textSlideView.setAlpha(0f);
-        textSlideView.post(() -> {
-            int containerHeight = textSlideContainer.getHeight();
-            int textHeight = textSlideView.getHeight();
-            float startY = -((containerHeight + textHeight) / 2f);
-            float endY = 0f;
-
-            textSlideView.setTranslationY(startY);
-            textSlideView.setAlpha(1f);
-
-            ObjectAnimator animator = ObjectAnimator.ofFloat(textSlideView, "translationY", startY, endY);
-            animator.setDuration(350);
-            animator.setInterpolator(new DecelerateInterpolator());
-            animator.start();
-        });
     }
 
     private void goToPreviousSlide() {
@@ -2459,6 +2493,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
                 SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
+                pendingNavDirection = -1;
                 renderCurrentSlide();
                 return;
             }
@@ -2470,6 +2505,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
                 SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
+                pendingNavDirection = 1;
                 renderCurrentSlide();
                 return;
             }
@@ -3735,6 +3771,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         hideSwipeHint();
         hideHandleHandler.removeCallbacks(flipFreezeTimeoutRunnable);
         unregisterRecordingFinishedReceiver();
+        if (slideTransition != null) slideTransition.cancel();
         stopVideoIfPlaying();
         if (countDownTimer != null) {
             countDownTimer.cancel();

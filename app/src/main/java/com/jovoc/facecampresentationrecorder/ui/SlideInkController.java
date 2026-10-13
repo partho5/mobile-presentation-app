@@ -43,9 +43,6 @@ public class SlideInkController implements DrawingBoardView.Listener {
     private static final float SWATCH_CELL_DP = 34f;
     private static final float SWATCH_INSET_DP = 4f;
     private static final long SAVE_DEBOUNCE_MS = 1000L;
-    // New slide's ink waits for the slide's own entry animation (~350 ms) before fading in.
-    private static final long REVEAL_DELAY_MS = 350L;
-    private static final long REVEAL_FADE_MS = 150L;
     private static final float DISABLED_ALPHA = 0.3f;
     private static final float IDLE_ALPHA = 0.8f;
 
@@ -119,15 +116,10 @@ public class SlideInkController implements DrawingBoardView.Listener {
     public void setSlide(int id) {
         if (id == slideId) return;
         flush();
-        boolean hadSlide = slideId != NO_SLIDE;
         slideId = id;
         ink.animate().cancel();
         ink.setAlpha(1f);
         ink.importStrokes(id == NO_SLIDE ? null : SlideInkStorage.load(context, id));
-        if (hadSlide && id != NO_SLIDE) {
-            ink.setAlpha(0f);
-            ink.animate().alpha(1f).setStartDelay(REVEAL_DELAY_MS).setDuration(REVEAL_FADE_MS).start();
-        }
     }
 
     /** Drops the marks of a slide for good (slide deleted, or its image/video replaced). */

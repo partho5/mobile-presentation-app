@@ -12,98 +12,116 @@
         android:layout_height="match_parent"
         android:background="@android:color/black">
 
-        <!-- Container for Image Slide (anchored to top) -->
-        <ImageView
-            android:id="@+id/image_slide_view"
+        <!-- Slide stage: the five slide layers live in one wrapper so the transition controller can drift
+             them together under a black scrim. Must stay a RelativeLayout (children use RelativeLayout params). -->
+        <RelativeLayout
+            android:id="@+id/slide_stage"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:adjustViewBounds="true"
-            android:contentDescription="Image"
-            android:scaleType="fitStart"
-            android:visibility="gone" />
+            android:layout_height="match_parent">
 
-        <!-- Container for Text Slide (Top 30% of screen height) -->
-        <FrameLayout
-            android:id="@+id/text_slide_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_alignParentTop="true"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/text_slide_view"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:fontFamily="@font/bitter"
-                android:gravity="center"
-                android:lineSpacingMultiplier="1.2"
-                android:paddingHorizontal="24dp"
-                android:textColor="#FFFFFF"
-                android:textSize="26sp" />
-        </FrameLayout>
-
-        <!-- Container for Video Slide (anchored to top) -->
-        <FrameLayout
-            android:id="@+id/video_slide_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:visibility="gone">
-
-            <VideoView
-                android:id="@+id/video_slide_view"
+            <!-- Container for Image Slide (anchored to top) -->
+            <ImageView
+                android:id="@+id/image_slide_view"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="top|center_horizontal" />
-        </FrameLayout>
+                android:layout_alignParentTop="true"
+                android:adjustViewBounds="true"
+                android:contentDescription="Image"
+                android:scaleType="fitStart"
+                android:visibility="gone" />
 
-        <!-- Container for Web / Website & YouTube Slide (1:1 Aspect Ratio) -->
-        <FrameLayout
-            android:id="@+id/web_slide_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:visibility="gone">
-
-            <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-                android:id="@+id/swipe_refresh_web_slide"
+            <!-- Container for Text Slide (Top 30% of screen height) -->
+            <FrameLayout
+                android:id="@+id/text_slide_container"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="0dp"
+                android:layout_alignParentTop="true"
+                android:visibility="gone">
 
-                <WebView
-                    android:id="@+id/web_slide_view"
+                <TextView
+                    android:id="@+id/text_slide_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:fontFamily="@font/bitter"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.2"
+                    android:paddingHorizontal="24dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp" />
+            </FrameLayout>
+
+            <!-- Container for Video Slide (anchored to top) -->
+            <FrameLayout
+                android:id="@+id/video_slide_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:visibility="gone">
+
+                <VideoView
+                    android:id="@+id/video_slide_view"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|center_horizontal" />
+            </FrameLayout>
 
-            <!-- Reload Button overlay for Web slide -->
-            <ImageButton
-                android:id="@+id/btn_reload_web_slide"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_gravity="top|end"
-                android:layout_margin="12dp"
-                android:alpha="0.75"
-                android:background="@drawable/bg_circle_nav"
-                android:contentDescription="Reload Web Page"
-                android:elevation="10dp"
-                android:padding="6dp"
-                android:src="@drawable/ic_refresh"
-                android:visibility="gone"
-                app:tint="#FFFFFF" />
-        </FrameLayout>
+            <!-- Container for Web / Website & YouTube Slide (1:1 Aspect Ratio) -->
+            <FrameLayout
+                android:id="@+id/web_slide_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:visibility="gone">
 
-        <!-- Slide ink: transparent drawing layer fitted over the current slide in code (so its
-             normalised points are slide-relative and it can never draw outside the slide). Sits
-             above the slides and below the board, face cam and buttons. Touch-through unless pen mode is on. -->
-        <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
-            android:id="@+id/slide_ink_canvas"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
+                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                    android:id="@+id/swipe_refresh_web_slide"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <WebView
+                        android:id="@+id/web_slide_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+                <!-- Reload Button overlay for Web slide -->
+                <ImageButton
+                    android:id="@+id/btn_reload_web_slide"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="12dp"
+                    android:alpha="0.75"
+                    android:background="@drawable/bg_circle_nav"
+                    android:contentDescription="Reload Web Page"
+                    android:elevation="10dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_refresh"
+                    android:visibility="gone"
+                    app:tint="#FFFFFF" />
+            </FrameLayout>
+
+            <!-- Slide ink: transparent drawing layer fitted over the current slide in code (so its
+                 normalised points are slide-relative and it can never draw outside the slide). Sits
+                 above the slides and below the board, face cam and buttons. Touch-through unless pen mode is on. -->
+            <com.jovoc.facecampresentationrecorder.ui.DrawingBoardView
+                android:id="@+id/slide_ink_canvas"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_alignParentStart="true"
+                android:layout_alignParentTop="true"
+                android:visibility="gone" />
+        </RelativeLayout>
+
+        <!-- Black scrim for slide transitions (fade-through). Above the slides, below everything else. -->
+        <View
+            android:id="@+id/slide_transition_scrim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:background="@android:color/black"
+            android:importantForAccessibility="no"
             android:visibility="gone" />
 
         <!-- Empty State View when database has 0 slides -->
