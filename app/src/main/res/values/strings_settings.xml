@@ -20,6 +20,7 @@
     <string name="set_bg_tips_title">For a smooth background replacement:</string>
     <string name="set_bg_tip_wall">1. Stand in front of a plain, single-colour background. <font color="#4ADE80">Green</font> works best.</string>
     <string name="set_bg_tip_light">2. Always keep your face in bright light: sunlight, or a white 6500K light like a studio ring light, or even a white LED bulb.</string>
+    <string name="set_bg_tip_gpu">3. Background removal quality depends on your phone\'s GPU, because this app uses a local AI model.</string>
     <string name="set_bg_replace">Replace face cam background (after recording)</string>
     <string name="set_bg_pick">Select a background:</string>
     <string name="set_bg_mine_name">My photo %1$d</string>
