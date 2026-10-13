@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Bundle;
 import android.text.SpannableString;
-import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.text.style.URLSpan;
 import android.text.util.Linkify;
@@ -41,7 +40,7 @@ public class SettingsHelpView extends LinearLayout {
     private static final int ACCENT = 0xFF4ADE80;
     private static final int BODY_TEXT = 0xFFD0D0D0;
 
-    private final List<SettingsHelp.Block> blocks;
+    private List<SettingsHelp.Block> blocks;
     private final List<YouTubeEmbedView> players = new ArrayList<>();
     private LinearLayout body;
     private ImageView chevron;
@@ -62,6 +61,25 @@ public class SettingsHelpView extends LinearLayout {
             return;
         }
         buildHeader();
+    }
+
+    /**
+     * Replaces the content, for a section whose help depends on runtime state. Keeps the
+     * expanded/collapsed state; an empty list hides the view.
+     */
+    public void setBlocks(@NonNull List<SettingsHelp.Block> newBlocks) {
+        if (newBlocks.equals(blocks)) return;
+        blocks = newBlocks;
+        for (YouTubeEmbedView p : players) p.stop();
+        players.clear();
+        if (body != null) {
+            removeView(body);
+            body = null;
+        }
+        setVisibility(blocks.isEmpty() ? GONE : VISIBLE);
+        if (blocks.isEmpty()) return;
+        if (header == null) buildHeader();
+        if (expanded) setExpanded(true);
     }
 
     private float dp(float v) {
@@ -175,7 +193,7 @@ public class SettingsHelpView extends LinearLayout {
         tv.setLinkTextColor(ACCENT);
         tv.setTextSize(14);
         tv.setLineSpacing(0, 1.15f);
-        tv.setTextIsSelectable(false);
+        tv.setTextIsSelectable(true); // long-press to select and copy
 
         // Linkify web URLs, but route taps through WebLinks (ACTION_VIEW, guarded) ourselves.
         SpannableString text = new SpannableString(getContext().getText(block.resId));
@@ -193,7 +211,9 @@ public class SettingsHelpView extends LinearLayout {
             }, start, end, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         tv.setText(text);
-        tv.setMovementMethod(LinkMovementMethod.getInstance());
+        // A selectable TextView can't use LinkMovementMethod; a non-zero mask makes it deliver
+        // taps to our spans instead. Set after setText so the text isn't linkified a second time.
+        tv.setAutoLinkMask(Linkify.WEB_URLS);
         return tv;
     }
 

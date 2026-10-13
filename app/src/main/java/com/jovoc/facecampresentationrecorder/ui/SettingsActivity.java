@@ -83,6 +83,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private View permissionsSection;
     private LinearLayout permissionsContainer;
+    private SettingsHelpView permissionsHelp;
     private ActivityResultLauncher<String> permissionLauncher;
     private String pendingPermission;
 
@@ -100,10 +101,12 @@ public class SettingsActivity extends AppCompatActivity {
     private static final class MissingPermission {
         final int labelRes;
         final String runtimePermission; // null for the "display over other apps" special access
+        final SettingsHelp.Block help;
 
-        MissingPermission(int labelRes, String runtimePermission) {
+        MissingPermission(int labelRes, String runtimePermission, SettingsHelp.Block help) {
             this.labelRes = labelRes;
             this.runtimePermission = runtimePermission;
+            this.help = help;
         }
     }
 
@@ -138,6 +141,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         permissionsSection = findViewById(R.id.permissions_section);
         permissionsContainer = findViewById(R.id.permissions_container);
+        permissionsHelp = findViewById(R.id.permissions_help);
 
         setupCountdown();
         setupAudio();
@@ -574,26 +578,35 @@ public class SettingsActivity extends AppCompatActivity {
         List<MissingPermission> rows = new ArrayList<>();
         for (String permission : RecordSettings.missingPermissions(this)) {
             if (Manifest.permission.CAMERA.equals(permission)) {
-                rows.add(new MissingPermission(R.string.set_perm_camera, permission));
+                rows.add(new MissingPermission(R.string.set_perm_camera, permission,
+                        SettingsHelp.PERM_CAMERA));
             } else if (Manifest.permission.RECORD_AUDIO.equals(permission)) {
-                rows.add(new MissingPermission(R.string.set_perm_mic, permission));
+                rows.add(new MissingPermission(R.string.set_perm_mic, permission,
+                        SettingsHelp.PERM_MIC));
             } else if (Manifest.permission.POST_NOTIFICATIONS.equals(permission)) {
-                rows.add(new MissingPermission(R.string.set_perm_notifications, permission));
+                rows.add(new MissingPermission(R.string.set_perm_notifications, permission,
+                        SettingsHelp.PERM_NOTIFICATIONS));
             }
         }
         if (!Settings.canDrawOverlays(this)) {
-            rows.add(new MissingPermission(R.string.set_perm_overlay, null));
+            rows.add(new MissingPermission(R.string.set_perm_overlay, null,
+                    SettingsHelp.PERM_OVERLAY));
         }
         return rows;
     }
 
-    /** One row per missing permission; a granted one disappears and the section hides once none are left. */
+    /**
+     * One row and one help block per missing permission; a granted one disappears and the section
+     * hides once none are left.
+     */
     private void refreshPermissionRows() {
         permissionsContainer.removeAllViews();
         List<MissingPermission> missing = getMissingPermissionRows();
         permissionsSection.setVisibility(missing.isEmpty() ? View.GONE : View.VISIBLE);
         float density = getResources().getDisplayMetrics().density;
+        List<SettingsHelp.Block> help = new ArrayList<>();
         for (MissingPermission item : missing) {
+            help.add(item.help);
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -615,6 +628,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             permissionsContainer.addView(row);
         }
+        permissionsHelp.setBlocks(help);
     }
 
     private void requestMissingPermission(MissingPermission item) {

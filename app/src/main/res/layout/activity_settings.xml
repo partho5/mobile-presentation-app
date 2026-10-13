@@ -83,12 +83,13 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical" />
 
+                <!-- Content is set in SettingsActivity: only the permissions still missing -->
                 <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                    android:id="@+id/permissions_help"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:orientation="vertical"
-                    app:helpSection="permissions" />
+                    android:orientation="vertical" />
             </LinearLayout>
 
             <!-- Countdown -->

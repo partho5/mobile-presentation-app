@@ -38,7 +38,6 @@ import java.util.regex.Pattern;
 public final class SettingsHelp {
 
     // Section ids; the same string goes in app:helpSection in activity_settings.xml.
-    public static final String PERMISSIONS = "permissions";
     public static final String COUNTDOWN = "countdown";
     public static final String AUDIO = "audio";
     public static final String AUTO_CROP = "auto_crop";
@@ -47,16 +46,18 @@ public final class SettingsHelp {
     private static final Map<String, List<Block>> HELP = new LinkedHashMap<>();
 
     static {
-        HELP.put(PERMISSIONS, help(
-                text(R.string.help_perm_camera),
-                text(R.string.help_perm_mic),
-                text(R.string.help_perm_overlay),
-                text(R.string.help_perm_notifications)));
         HELP.put(COUNTDOWN, help(text(R.string.help_countdown)));
         HELP.put(AUDIO, help(text(R.string.help_audio)));
         HELP.put(AUTO_CROP, help(text(R.string.help_auto_crop)));
         HELP.put(BACKGROUND, help(text(R.string.help_background)));
     }
+
+    // Permissions have no HELP entry: SettingsActivity shows only the blocks of the permissions
+    // still missing, through SettingsHelpView#setBlocks.
+    public static final Block PERM_CAMERA = text(R.string.help_perm_camera);
+    public static final Block PERM_MIC = text(R.string.help_perm_mic);
+    public static final Block PERM_NOTIFICATIONS = text(R.string.help_perm_notifications);
+    public static final Block PERM_OVERLAY = text(R.string.help_perm_overlay);
 
     private SettingsHelp() {}
 
