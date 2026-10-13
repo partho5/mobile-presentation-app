@@ -17,10 +17,14 @@
     <string name="set_crop_4_5">4:5 (Instagram, Facebook feed)</string>
     <string name="set_crop_1_1">1:1 (Instagram, Facebook, X)</string>
     <string name="set_bg_header">AI Virtual Background (Face Cam)</string>
+    <string name="set_bg_tips_title">For a smooth background replacement:</string>
+    <string name="set_bg_tip_wall">1. Stand in front of a plain, single-colour background. Green works best.</string>
+    <string name="set_bg_tip_light">2. Always keep your face in bright light: sunlight, or a white 6500K light like a studio ring light, or even a white LED bulb.</string>
     <string name="set_bg_replace">Replace face cam background (after recording)</string>
     <string name="set_bg_pick">Select a background:</string>
     <string name="set_bg_mine_name">My photo %1$d</string>
     <string name="set_bg_add">Add your photo</string>
+    <string name="set_bg_add_tip">A bright background photo looks smoother.</string>
     <string name="set_bg_add_count">%1$d of %2$d added</string>
     <string name="set_bg_add_full">Limit reached: delete one to add more</string>
     <string name="set_bg_limit_message">You can add up to %1$d of your own backgrounds. Delete one first to add another.</string>
@@ -44,9 +48,12 @@
     <string name="set_help_watch_on_youtube">Watch on YouTube</string>
 
     <!-- Help content; wired to sections in ui/SettingsHelp.java -->
-    <string name="help_permissions">The camera and microphone let the app record your face and voice. Display over other apps keeps the face cam floating above your slides, and notifications let you stop a recording from the notification shade. Allowing them here avoids interruptions in the middle of a recording.</string>
-    <string name="help_countdown">A short countdown gives you time to switch to your slides or app before recording begins, so the start of your video isn\'t spent fumbling with controls.</string>
-    <string name="help_audio">Choose the microphone to record your voice along with the screen, or mute for a silent video, for example when you plan to add a voice-over or music later. Plug in a headset or USB microphone and it is used automatically; you can switch back to the phone microphone here.</string>
-    <string name="help_auto_crop">After a recording finishes, the app also makes a cropped copy for each ratio you tick, so you get vertical, portrait or square versions ready to post without editing.</string>
-    <string name="help_background">After recording, the app can replace the room behind you in the face cam with the sample background you pick, so your video looks tidy wherever you recorded it.</string>
+    <string name="help_perm_camera"><b>Camera.</b> You press record and talk for ten minutes. Later you play the video and you are not in it. Allow the camera, so your audience sees your face.</string>
+    <string name="help_perm_mic"><b>Microphone.</b> You give your best talk, then play it back and hear nothing. Allow the microphone, so your voice is in the video.</string>
+    <string name="help_perm_overlay"><b>Display over other apps.</b> Imagine you are talking to your audience and you need to show something from another app. The moment you leave this app, your face cam is gone. Allow this, and your face stays on screen while you show other apps.</string>
+    <string name="help_perm_notifications"><b>Notifications.</b> You are showing another app and you want to stop recording. Without this, you must come back here first, and that ends up in your video. Allow it, and you stop with one tap from the notification bar.</string>
+    <string name="help_countdown">You press record, then you need a few seconds to open your slides and get ready. Without a countdown, those messy seconds become the start of your video. Pick a delay, and recording starts when you are ready.</string>
+    <string name="help_audio">Talking to your audience? Keep the microphone on. Want to add music or a voice-over later? Choose mute, so no room noise gets into your video. Is your voice not clear enough? Plug in a headset or a USB microphone and the app uses it right away. You can switch back to the phone microphone here.</string>
+    <string name="help_auto_crop">You record one video, but you want to post it on TikTok, Instagram and Facebook. Each one needs a different shape. Tick the shapes you need, and after recording you get a ready-to-post copy of each. Tick nothing, and you have to crop the video yourself in another app.</string>
+    <string name="help_background">You are ready to record, but the room behind you is messy. Or you are in a place you do not want to show. Turn this on and pick a background. After recording, the app swaps everything behind you with it, so people see only you and a clean background.</string>
 </resources>

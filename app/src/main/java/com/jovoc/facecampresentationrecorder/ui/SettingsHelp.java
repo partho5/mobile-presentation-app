@@ -47,7 +47,11 @@ public final class SettingsHelp {
     private static final Map<String, List<Block>> HELP = new LinkedHashMap<>();
 
     static {
-        HELP.put(PERMISSIONS, help(text(R.string.help_permissions)));
+        HELP.put(PERMISSIONS, help(
+                text(R.string.help_perm_camera),
+                text(R.string.help_perm_mic),
+                text(R.string.help_perm_overlay),
+                text(R.string.help_perm_notifications)));
         HELP.put(COUNTDOWN, help(text(R.string.help_countdown)));
         HELP.put(AUDIO, help(text(R.string.help_audio)));
         HELP.put(AUTO_CROP, help(text(R.string.help_auto_crop)));

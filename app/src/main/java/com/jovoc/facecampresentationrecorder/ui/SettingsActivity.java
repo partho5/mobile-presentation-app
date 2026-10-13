@@ -411,6 +411,7 @@ public class SettingsActivity extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
                 return;
             }
+            Toast.makeText(this, R.string.set_bg_add_tip, Toast.LENGTH_LONG).show();
             photoPicker.launch(new PickVisualMediaRequest.Builder()
                     .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
                     .build());
