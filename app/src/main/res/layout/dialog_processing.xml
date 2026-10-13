@@ -79,12 +79,26 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
+        <!-- Space is reserved up front (invisible, not gone) so nothing jumps when it fades in -->
+        <TextView
+            android:id="@+id/processing_patience"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:alpha="0"
+            android:gravity="center"
+            android:minLines="2"
+            android:text="This is the most time consuming part.\nPlease be patient"
+            android:textColor="#CCFFFFFF"
+            android:textSize="13sp"
+            android:visibility="invisible" />
+
         <ProgressBar
             android:id="@+id/processing_bar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="10dp"
-            android:layout_marginTop="36dp"
+            android:layout_marginTop="16dp"
             android:max="100"
             android:progressDrawable="@drawable/progress_processing" />
 

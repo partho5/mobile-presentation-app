@@ -3274,6 +3274,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     };
 
     private android.app.Dialog processingDialog;
+    private static final long PATIENCE_DELAY_MS = 20_000L;
+    private Runnable patienceRunnable;
     private final BgReplaceService.Listener processingListener = new BgReplaceService.Listener() {
         @Override
         public void onProgress(String stage, int percent) {
@@ -3333,6 +3335,28 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (cancelButton != null) {
                 cancelButton.setOnClickListener(v -> confirmCancelBackgroundReplace());
             }
+            // Counted from the start of the replace (owned by the service), not from this dialog
+            TextView patience = processingDialog.findViewById(R.id.processing_patience);
+            if (patience != null) {
+                long remaining = PATIENCE_DELAY_MS - BgReplaceService.getReplaceElapsedMs();
+                if (remaining <= 0) {
+                    patience.setVisibility(View.VISIBLE);
+                    patience.setAlpha(1f);
+                } else {
+                    patienceRunnable = () -> {
+                        patience.setVisibility(View.VISIBLE);
+                        patience.setAlpha(0f);
+                        patience.setTranslationY(8 * getResources().getDisplayMetrics().density);
+                        patience.animate()
+                                .alpha(1f)
+                                .translationY(0f)
+                                .setDuration(600)
+                                .setInterpolator(new DecelerateInterpolator())
+                                .start();
+                    };
+                    patience.postDelayed(patienceRunnable, remaining);
+                }
+            }
         }
         TextView title = processingDialog.findViewById(R.id.processing_title);
         ProgressBar bar = processingDialog.findViewById(R.id.processing_bar);
@@ -3388,6 +3412,16 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 cancelConfirmDialog.dismiss();
             } catch (Exception ignored) {}
             cancelConfirmDialog = null;
+        }
+        if (patienceRunnable != null) {
+            if (processingDialog != null) {
+                View patience = processingDialog.findViewById(R.id.processing_patience);
+                if (patience != null) {
+                    patience.removeCallbacks(patienceRunnable);
+                    patience.animate().cancel();
+                }
+            }
+            patienceRunnable = null;
         }
         if (processingDialog != null) {
             try {

@@ -88,6 +88,8 @@ public class BgReplaceService extends Service {
     private static boolean workerRunning;
     /** The job whose background replace is running right now; guarded by LOCK. */
     private static Job replacing;
+    /** SystemClock.elapsedRealtime() when the running replace started; 0 = none running. */
+    private static volatile long replaceStartedAtMs;
     private static Listener listener;
     private static CropListener cropListener;
     private static final java.util.Set<String> CROP_PENDING = new java.util.HashSet<>();
@@ -121,6 +123,12 @@ public class BgReplaceService extends Service {
         if (prefs.getBoolean("key_autocrop_4_5", false)) ratios.add(new int[]{4, 5});
         if (prefs.getBoolean("key_autocrop_1_1", false)) ratios.add(new int[]{1, 1});
         return ratios;
+    }
+
+    /** How long the current background replace has been running; 0 when none is. */
+    public static long getReplaceElapsedMs() {
+        long startedAt = replaceStartedAtMs;
+        return startedAt == 0 ? 0 : SystemClock.elapsedRealtime() - startedAt;
     }
 
     /** Main thread only. Pass null to detach. */
@@ -256,6 +264,7 @@ public class BgReplaceService extends Service {
                 // bar never looks stuck. With the cache the real progress is used from 0.
                 WarmUpProgress warmUp = new WarmUpProgress(OfflineBgProcessor.isWarmUpNeeded(this));
                 long startMs = SystemClock.elapsedRealtime();
+                replaceStartedAtMs = startMs;
                 synchronized (LOCK) {
                     replacing = job;
                 }
@@ -278,6 +287,7 @@ public class BgReplaceService extends Service {
                     synchronized (LOCK) {
                         replacing = null;
                     }
+                    replaceStartedAtMs = 0;
                 }
                 if (!ok) {
                     toast(job.cancelled.get()
