@@ -26,4 +26,8 @@ For small tasks, execute the entire workflow in one step without further decompo
 
 You, the runner AI agent, must not write or modify code yourself. Your job is to invoke Claude in the background using the -p flag, monitor its status, and determine whether it has finished, paused, or become stuck. Every five minutes, check what Claude is actually doing and take appropriate action based on its status.
 
-Always pass `--model claude-sonnet-5-5 --effort high` to `claude -p`, in order to accomplish tasks.
+After every task completed, run a verifying agent separately which has the proper context.
+
+Always use sub agent to code each task. Monitor from main session.
+
+A sub agent will implement only one task, but you won't stop untill all the tasks are accomplished.
