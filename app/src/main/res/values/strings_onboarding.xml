@@ -3,7 +3,7 @@
     <!-- Each title is also the button text of the screen before it, so the wording stays identical. -->
     <string name="onb_title_what">What does this app do?</string>
     <string name="onb_title_how">How does it do?</string>
-    <string name="onb_title_todo">What do I have to do?</string>
+    <string name="onb_title_todo">What do you have to do?</string>
     <string name="onb_start_recording">Start recording video</string>
     <string name="onb_watch_how">Watch how to use this app</string>
     <string name="onb_close_video">Close video</string>
