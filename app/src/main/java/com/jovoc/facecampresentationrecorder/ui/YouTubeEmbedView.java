@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.ui;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.Log;
@@ -15,6 +16,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.jovoc.facecampresentationrecorder.R;
@@ -32,6 +34,7 @@ final class YouTubeEmbedView extends FrameLayout {
 
     private final String videoId;
     private final TextView fallback;
+    private final ProgressBar spinner;
     private WebView webView;
 
     YouTubeEmbedView(Context context, String videoId) {
@@ -52,6 +55,13 @@ final class YouTubeEmbedView extends FrameLayout {
         fallback.setOnClickListener(v -> WebLinks.open(getContext(), SettingsHelp.watchUrl(this.videoId)));
         addView(fallback, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER));
+
+        // Shown from start() until the page has loaded, so the player is never a blank black box.
+        spinner = new ProgressBar(context);
+        spinner.setIndeterminateTintList(ColorStateList.valueOf(0xFF22D3EE));
+        spinner.setVisibility(GONE);
+        addView(spinner, new LayoutParams(Math.round(40 * getResources().getDisplayMetrics().density),
+                Math.round(40 * getResources().getDisplayMetrics().density), Gravity.CENTER));
     }
 
     @Override
@@ -66,11 +76,13 @@ final class YouTubeEmbedView extends FrameLayout {
     void start() {
         if (webView != null) return;
         fallback.setVisibility(GONE);
+        spinner.setVisibility(VISIBLE);
         WebView view;
         try {
             view = new WebView(getContext());
         } catch (RuntimeException e) { // WebView missing or being updated
             Log.w(TAG, "WebView unavailable", e);
+            spinner.setVisibility(GONE);
             fallback.setVisibility(VISIBLE);
             return;
         }
@@ -99,6 +111,11 @@ final class YouTubeEmbedView extends FrameLayout {
                     return true;
                 }
                 return false;
+            }
+
+            @Override
+            public void onPageFinished(WebView v, String url) {
+                spinner.setVisibility(GONE);
             }
 
             @Override
@@ -140,6 +157,7 @@ final class YouTubeEmbedView extends FrameLayout {
     private void showFallback() {
         WebView view = webView;
         if (view != null) view.setVisibility(View.INVISIBLE);
+        spinner.setVisibility(GONE);
         fallback.setVisibility(VISIBLE);
     }
 
