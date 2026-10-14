@@ -2,9 +2,14 @@ package com.jovoc.facecampresentationrecorder.ui;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 import android.view.animation.Interpolator;
 import android.view.animation.PathInterpolator;
+
+import com.jovoc.facecampresentationrecorder.util.SlideLogger;
+
+import java.util.Locale;
 
 /**
  * Fade-through slide transition: a black scrim fades in over the slide stage while the stage drifts a
@@ -24,8 +29,10 @@ public class SlideTransitionController {
 
     private enum State { IDLE, OUT, WAITING, IN }
 
-    private static final long OUT_MS = 180L;
-    private static final long IN_MS = 320L;
+    // Close to Material's fade-through (90ms out, 210ms in). It was 180 + 320, which measured about
+    // 600ms per slide change even for text, and felt slow.
+    private static final long OUT_MS = 100L;
+    private static final long IN_MS = 220L;
     private static final long READY_TIMEOUT_MS = 700L;
     private static final float DRIFT_DP = 20f;
 
@@ -44,6 +51,9 @@ public class SlideTransitionController {
     // Incremented whenever an animation is (re)started or cancelled, so a stale end action is ignored.
     private int animGen;
     private Ready readyRunnable;
+    // Debug timing (SlideLogger, debug builds only): when the running transition was requested / swapped.
+    private long startedAt;
+    private long swappedAt;
 
     public SlideTransitionController(View stage, View scrim) {
         this.stage = stage;
@@ -61,6 +71,7 @@ public class SlideTransitionController {
             binder.bind(() -> { });
             return;
         }
+        if (state == State.IDLE) startedAt = SystemClock.uptimeMillis();
         pendingBinder = binder;
         pendingDir = direction;
         token++;
@@ -119,6 +130,7 @@ public class SlideTransitionController {
     private void swap() {
         // WAITING first: ready may fire synchronously inside bind (cache hit, text).
         state = State.WAITING;
+        swappedAt = SystemClock.uptimeMillis();
         stage.setTranslationX(0f);
         if (readyRunnable != null) handler.removeCallbacks(readyRunnable);
         Ready ready = new Ready(token);
@@ -147,6 +159,8 @@ public class SlideTransitionController {
                     scrim.setVisibility(View.GONE);
                     stage.setTranslationX(0f);
                     state = State.IDLE;
+                    SlideLogger.log("TRANSITION", String.format(Locale.US, "done: total=%dms",
+                            SystemClock.uptimeMillis() - startedAt));
                 })
                 .start();
     }
@@ -166,6 +180,11 @@ public class SlideTransitionController {
             done = true;
             handler.removeCallbacks(this);
             if (ownToken != token || state != State.WAITING) return;
+            long now = SystemClock.uptimeMillis();
+            SlideLogger.log("TRANSITION", String.format(Locale.US,
+                    "content ready: fadeOut=%dms, waitForContent=%dms%s",
+                    swappedAt - startedAt, now - swappedAt,
+                    now - swappedAt >= READY_TIMEOUT_MS ? " (TIMEOUT, content not ready)" : ""));
             startIn();
         }
     }

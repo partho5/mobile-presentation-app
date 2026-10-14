@@ -27,6 +27,7 @@ import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
@@ -105,6 +106,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.RequestBuilder;
 import com.jovoc.facecampresentationrecorder.adapter.SlideAdapter;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
@@ -2267,8 +2269,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     imageSlideView.animate().cancel();
                     imageSlideView.setVisibility(View.VISIBLE);
 
-                    Glide.with(this)
-                            .load(imgFile)
+                    final long loadStartedAt = SystemClock.uptimeMillis();
+                    slideImageRequest(imgFile)
                             .listener(new RequestListener<Drawable>() {
                                 @Override
                                 public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
@@ -2296,8 +2298,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                     }
                                     applyMediaTopMargin(imageSlideView, calculatedHeight);
                                     SlideLogger.log("IMAGE_SUCCESS", String.format(Locale.US,
-                                            "Image loaded: intrinsicW=%d, intrinsicH=%d, displayW=%d, calculatedH=%d",
-                                            intrinsicWidth, intrinsicHeight, displayWidth, calculatedHeight));
+                                            "Image loaded: intrinsicW=%d, intrinsicH=%d, displayW=%d, calculatedH=%d, source=%s, %dms",
+                                            intrinsicWidth, intrinsicHeight, displayWidth, calculatedHeight,
+                                            dataSource, SystemClock.uptimeMillis() - loadStartedAt));
 
                                     imageSlideView.setAlpha(1f);
                                     // Glide sets the drawable right after this returns; report ready once it is in.
@@ -2305,7 +2308,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                     return false;
                                 }
                             })
-                            .fitCenter()
                             .into(imageSlideView);
                 } else {
                     SlideLogger.log("IMAGE_ERROR", "Image file does not exist on disk: " + slide.getImagePath());
@@ -2486,6 +2488,49 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         // Fit the ink layer once this render's visibility/size changes have been laid out.
         if (slideInkView != null) slideInkView.post(this::syncSlideInk);
+        preloadNeighbourImages();
+    }
+
+    /**
+     * The one Glide request for a slide image, used both to show and to preload it. The size is fixed
+     * (stage width, longest screen side) instead of read from the wrap_content ImageView: that view
+     * still has the previous image's height, so the decode size used to depend on which image was shown
+     * before (a wide photo after a short one was decoded small and then upscaled), and a preloaded
+     * image never matched the memory-cache key of the real request.
+     */
+    private RequestBuilder<Drawable> slideImageRequest(File file) {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        View stage = (View) imageSlideView.getParent();
+        int width = stage != null && stage.getWidth() > 0 ? stage.getWidth() : metrics.widthPixels;
+        int height = Math.max(metrics.widthPixels, metrics.heightPixels);
+        return Glide.with(this).load(file).fitCenter().override(width, height);
+    }
+
+    /**
+     * Decodes the image slides on both sides of the current one into Glide's memory cache, so moving to
+     * them does not wait for a disk decode under the scrim. The first call also starts Glide itself,
+     * which otherwise happened on the first image slide (usually the 2nd slide) and slowed it down.
+     */
+    private void preloadNeighbourImages() {
+        if (slides.isEmpty() || isFinishing() || isDestroyed()) return;
+        for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
+            if (!slides.get(i).isDisabled()) {
+                preloadSlideImage(slides.get(i));
+                break;
+            }
+        }
+        for (int i = currentSlideIndex - 1; i >= 0; i--) {
+            if (!slides.get(i).isDisabled()) {
+                preloadSlideImage(slides.get(i));
+                break;
+            }
+        }
+    }
+
+    private void preloadSlideImage(Slide slide) {
+        if (!Slide.TYPE_IMAGE.equals(slide.getType()) || slide.getImagePath() == null) return;
+        File file = new File(slide.getImagePath());
+        if (file.exists()) slideImageRequest(file).preload();
     }
 
     private void goToPreviousSlide() {
