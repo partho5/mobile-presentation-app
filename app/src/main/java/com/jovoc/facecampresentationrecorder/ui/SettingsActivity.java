@@ -7,6 +7,7 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_4_5;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_9_16;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_ASSET_PATH;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_REPLACE_ENABLED;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_COUNTDOWN_SECONDS;
@@ -55,6 +56,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.util.AudioInputSelection;
@@ -305,7 +307,24 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void setupAutoPublish() {
         bindCheckBox(R.id.cb_auto_publish, prefs, KEY_AUTO_PUBLISH, false);
+        setupAutoPublishUndo();
         autoPublishStatus = findViewById(R.id.tv_auto_publish_status);
+    }
+
+    /** "Undo before publishing": Off / 30 s / 60 s, default 30 s. */
+    private void setupAutoPublishUndo() {
+        RadioGroup group = findViewById(R.id.rg_auto_undo);
+        int seconds = AutoPublishUndo.normalize(
+                prefs.getInt(KEY_AUTO_PUBLISH_UNDO_SECONDS, AutoPublishUndo.DEFAULT_SECONDS));
+        group.check(seconds == AutoPublishUndo.OFF ? R.id.rb_auto_undo_0
+                : seconds == AutoPublishUndo.MAX_SECONDS ? R.id.rb_auto_undo_60
+                : R.id.rb_auto_undo_30);
+        group.setOnCheckedChangeListener((g, id) -> {
+            int value = id == R.id.rb_auto_undo_0 ? AutoPublishUndo.OFF
+                    : id == R.id.rb_auto_undo_60 ? AutoPublishUndo.MAX_SECONDS
+                    : 30;
+            prefs.edit().putInt(KEY_AUTO_PUBLISH_UNDO_SECONDS, value).apply();
+        });
     }
 
     /** Shows the status line for the current sign-in state; asks the server when signed in. */

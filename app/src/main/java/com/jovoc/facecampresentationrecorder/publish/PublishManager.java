@@ -18,6 +18,7 @@ import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
+import com.jovoc.facecampresentationrecorder.service.GateWorker;
 import com.jovoc.facecampresentationrecorder.service.PublishWorker;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
@@ -231,27 +232,39 @@ public final class PublishManager {
         });
     }
 
-    /** Waiting -> queued with the 9:16 crop (or the original) as the file. Runs on {@link #io}. */
+    /**
+     * Waiting -> queued with the 9:16 crop (or the original) as the file, behind the undo window
+     * from Settings. Every road in (processing finished, nothing to process, startup sweep) comes
+     * here, and only a row still WAITING_PROCESSING moves, so the delay is applied once and a job
+     * already waiting it out is never enqueued again. Runs on {@link #io}.
+     */
     private void release(PublishJob job) {
         if (!PublishJob.WAITING_PROCESSING.equals(job.status)) return;
         String root = aliases.rootOf(job.filePath);
         aliases.forget(job.filePath);
         File file = AutoPublishFiles.pick(new File(job.filePath), root == null ? null : new File(root));
-        if (!file.isFile() || file.length() == 0) {
-            // The recording was deleted meanwhile: nothing to publish, nothing to report.
-            dao.deleteById(job.id);
-            broadcast(app);
-            return;
+        int undo = AutoPublishUndo.normalize(
+                app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
+                        .getInt(RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS, AutoPublishUndo.DEFAULT_SECONDS));
+        long now = System.currentTimeMillis();
+        AutoPublishRelease.Result result = AutoPublishRelease.release(job, file, undo, now,
+                new AutoPublishRelease.Jobs() {
+                    @Override
+                    public void update(PublishJob j) {
+                        dao.update(j);
+                    }
+
+                    @Override
+                    public void delete(long id) {
+                        // The recording was deleted meanwhile: nothing to publish, nothing to report.
+                        dao.deleteById(id);
+                    }
+                },
+                (jobId, delayMs) -> schedule(app, jobId, delayMs));
+        if (result == AutoPublishRelease.Result.QUEUED_DELAYED) {
+            UndoNotifier.show(app, job, AutoPublishUndo.delayMillis(undo), now);
         }
-        job.filePath = file.getAbsolutePath();
-        job.fileName = file.getName();
-        job.status = PublishJob.QUEUED;
-        job.errorKind = null;
-        job.errorDetail = null;
-        job.updatedAt = System.currentTimeMillis();
-        dao.update(job);
-        schedule(app, job.id);
-        broadcast(app);
+        if (result != AutoPublishRelease.Result.NOT_WAITING) broadcast(app);
     }
 
     /**
@@ -262,13 +275,26 @@ public final class PublishManager {
         io.execute(() -> dao.pinUnpinned(defaultWorkspaceId));
     }
 
-    /** Stops the job and forgets it; the recording goes back to "not published". */
+    /**
+     * Stops the job and forgets it; the recording goes back to "not published". Inside the undo
+     * window nothing has been uploaded yet, so nothing is sent and no credit is touched.
+     */
     public void cancel(long id) {
+        cancel(id, null);
+    }
+
+    /** Same, and {@code done} runs once the job is gone (the notification action waits on it). */
+    public void cancel(long id, Runnable done) {
         io.execute(() -> {
-            // Stop the work first so it cannot finish a post for a job that is being forgotten.
-            WorkManager.getInstance(app).cancelUniqueWork(workName(id));
-            dao.deleteById(id);
-            broadcast(app);
+            try {
+                // Stop the work first so it cannot finish a post for a job that is being forgotten.
+                WorkManager.getInstance(app).cancelUniqueWork(workName(id));
+                dao.deleteById(id);
+                UndoNotifier.cancel(app, id);
+                broadcast(app);
+            } finally {
+                if (done != null) done.run();
+            }
         });
     }
 
@@ -306,13 +332,24 @@ public final class PublishManager {
      */
     public void reconcile() {
         List<PublishJob> active = dao.active();
+        long now = System.currentTimeMillis();
         for (PublishJob job : active) {
+            // A row written a moment ago may be between its DB update and its WorkManager enqueue
+            // (auto-publish release): no work yet does not mean the work is gone.
+            if (AutoPublishRelease.isSettling(job.updatedAt, now)) continue;
             try {
                 List<WorkInfo> infos = WorkManager.getInstance(app)
                         .getWorkInfosForUniqueWork(workName(job.id)).get(5, TimeUnit.SECONDS);
                 boolean alive = false;
                 for (WorkInfo w : infos) alive |= !w.getState().isFinished();
                 if (!alive) {
+                    // Re-read: the row may have moved on (released, cancelled) while we asked.
+                    PublishJob fresh = dao.get(job.id);
+                    if (fresh == null || !fresh.isActive()
+                            || AutoPublishRelease.isSettling(fresh.updatedAt, System.currentTimeMillis())) {
+                        continue;
+                    }
+                    job = fresh;
                     job.status = PublishJob.FAILED;
                     job.errorKind = "INTERRUPTED";
                     job.updatedAt = System.currentTimeMillis();
@@ -331,14 +368,37 @@ public final class PublishManager {
     }
 
     public static void schedule(Context context, long jobId) {
-        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(PublishWorker.class)
+        schedule(context, jobId, 0L);
+    }
+
+    /**
+     * @param delayMs the auto-publish undo window (0 = start now). Implemented as a {@link
+     *                GateWorker} with an initial delay followed by the expedited upload; WorkManager
+     *                persists it, so it survives the process being killed.
+     */
+    public static void schedule(Context context, long jobId, long delayMs) {
+        OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(PublishWorker.class)
                 .setInputData(new Data.Builder().putLong(PublishWorker.KEY_JOB_ID, jobId).build())
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .build();
-        WorkManager.getInstance(context)
-                .enqueueUniqueWork(workName(jobId), ExistingWorkPolicy.REPLACE, request);
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
+        OneTimeWorkRequest upload = builder.build();
+        WorkManager wm = WorkManager.getInstance(context);
+        if (delayMs > 0) {
+            // WorkManager refuses setInitialDelay + setExpedited on one request, and un-expedited
+            // upload work loses the foreground-service exemption (job time cap, Doze). So the
+            // delay is its own do-nothing request and the expedited upload runs after it. Both
+            // live under one unique name: cancelUniqueWork and the reconcile look-up cover the
+            // whole chain, and REPLACE drops a chain still waiting.
+            OneTimeWorkRequest gate = new OneTimeWorkRequest.Builder(GateWorker.class)
+                    .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+                    .build();
+            wm.beginUniqueWork(workName(jobId), ExistingWorkPolicy.REPLACE, gate)
+                    .then(upload)
+                    .enqueue();
+        } else {
+            wm.enqueueUniqueWork(workName(jobId), ExistingWorkPolicy.REPLACE, upload);
+        }
     }
 
     public static void broadcast(Context context) {

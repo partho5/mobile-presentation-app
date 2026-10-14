@@ -597,6 +597,31 @@ public class PublishPipelineTest {
     }
 
     @Test
+    public void autoJobCancelledInsideTheUndoWindowUploadsAndPostsNothing() {
+        PublishJob job = newAutoJob();
+        // Released with a 30 s window: queued, deadline ahead. The user taps Cancel (row removed,
+        // work cancelled); if the worker still got to run it finds nothing and sends nothing.
+        job.scheduleAt = now.get() + 30_000L;
+        assertEquals(30, AutoPublishUndo.secondsLeft(job, now.get()));
+        rows.remove(7L);
+
+        assertEquals(PublishPipeline.Outcome.GONE, run(0));
+        assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
+    public void autoJobWithAnExpiredWindowRunsLikeAnyOther() throws Exception {
+        PublishJob job = newAutoJob();
+        job.scheduleAt = now.get() - 1_000L;
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 2, 10)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+        assertEquals(3, server.getRequestCount());
+    }
+
+    @Test
     public void nextSlotPresetIsRememberedOnTheJob() throws Exception {
         newAutoJob();
         server.enqueue(new MockResponse().setBody(preflight(true, "next_slot", 0, 0)));

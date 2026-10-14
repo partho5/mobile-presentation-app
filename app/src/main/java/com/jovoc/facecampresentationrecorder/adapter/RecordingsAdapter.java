@@ -33,6 +33,7 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
@@ -76,6 +77,20 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     public RecordingViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(context).inflate(R.layout.item_recording_card, parent, false);
         return new RecordingViewHolder(view);
+    }
+
+    /** Payload for a redraw of the publish status line only (the undo countdown's tick). */
+    public static final Object PAYLOAD_PUBLISH_STATUS = new Object();
+
+    @Override
+    public void onBindViewHolder(@NonNull RecordingViewHolder holder, int position,
+                                 @NonNull java.util.List<Object> payloads) {
+        if (!payloads.isEmpty() && payloads.contains(PAYLOAD_PUBLISH_STATUS)
+                && position < itemList.size()) {
+            bindPublishStatus(holder, itemList.get(position));
+            return;
+        }
+        super.onBindViewHolder(holder, position, payloads);
     }
 
     @Override
@@ -186,7 +201,17 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         // Same for a failed auto-publish that was never set up: the line opens the setup page.
         String liveUrl = PublishLabels.liveUrl(job);
         final String linkUrl = liveUrl != null ? liveUrl : PublishLabels.setupUrl(job);
-        if (linkUrl != null) {
+        // Inside the undo window of an auto-publish the line itself is the Cancel: one tap, no
+        // confirmation (nothing has been uploaded yet), the same cancel as the menu entry.
+        final boolean undo = AutoPublishUndo.secondsLeft(job, System.currentTimeMillis()) > 0;
+        float density = context.getResources().getDisplayMetrics().density;
+        holder.tvPublishStatus.setMinHeight(undo ? (int) (40 * density) : 0);
+        holder.tvPublishStatus.setGravity(undo ? android.view.Gravity.CENTER_VERTICAL : android.view.Gravity.TOP);
+        if (undo) {
+            holder.tvPublishStatus.setPaintFlags(
+                    holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            holder.tvPublishStatus.setOnClickListener(v -> PublishManager.get(context).cancel(job.id));
+        } else if (linkUrl != null) {
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             holder.tvPublishStatus.setOnClickListener(v -> openLivePost(linkUrl));

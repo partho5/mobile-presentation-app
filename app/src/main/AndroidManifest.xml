@@ -107,6 +107,11 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Cancel action of the "publishing soon" (undo window) notification. -->
+        <receiver
+            android:name=".publish.PublishCancelReceiver"
+            android:exported="false" />
+
         <!-- WorkManager runs uploads as a foreground service while they are in flight. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

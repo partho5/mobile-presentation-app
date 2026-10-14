@@ -92,6 +92,8 @@ Full plan and decisions: `to-build/tasks.md`. One Settings checkbox ("Auto-publi
 - **Card actions for a missing preset:** the failed card's status line and its menu ("Set up on the web") open the server's setup link, or the Sets tab (`WebLinks.setsUrl()`).
 - **Connection (A4):** `ApiClient.uploadClient`: no call timeout, 120 s write stall limit, 5 min read timeout for the answer after the last byte; ordinary calls keep connect 15 s / read 30 s / write 30 s.
 
+- **Undo window (UX_PLAN U1):** an auto-publish no longer uploads the moment the recording is ready. Settings > Auto-publish > "Undo before publishing" (Off / 30 s / 60 s, default 30 s, pref `key_auto_publish_undo_seconds`) delays the worker by that long (WorkManager initial delay, survives process death). The card reads "Publishing in N s · Tap to cancel" and a "Publishing soon" notification has a Cancel action; both use the normal cancel (nothing uploaded, no credits touched). Retry and manual Publish are not delayed. The deadline lives in `PublishJob.scheduleAt` (unused by auto jobs otherwise), so no Room change. Delayed work cannot be expedited, so it runs as normal work (device QA: a 1 GB upload after the delay with the app in the background).
+
 ## Guide audit (2026-10-14)
 
 Checked `PublishApi`, `PublishPipeline`, `PostStatusSync`, `PostStatus`, `AutoPublishInfo`, `PublishException` and their tests against `mobile-auto-publish-api-guide.md` and the contract. Routes, headers, request/response field names and types, nullable fields, state enum, 50-id limit and chunking all matched. There is no `PublishPolicy` class: the key-rotation policy is `PublishException.spendsKey()` applied in `PublishPipeline.fail`. Mismatches fixed:

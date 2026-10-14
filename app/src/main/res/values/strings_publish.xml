@@ -51,6 +51,7 @@
     <string name="status_failed_on">Failed on %1$s: %2$s</string>
     <string name="status_deleted_web">Deleted on web</string>
     <string name="status_auto_waiting">Auto-publish: waiting for processing</string>
+    <string name="status_auto_undo">Publishing in %1$d s · Tap to cancel</string>
     <string name="status_scheduled_slot">Scheduled for the next free slot</string>
 
     <!-- Failure reasons -->
@@ -74,6 +75,10 @@
     <string name="publish_channel_name">Publishing</string>
     <string name="publish_notif_title">Publishing recording</string>
     <string name="publish_notif_cancel">Cancel</string>
+
+    <!-- Undo window notification -->
+    <string name="undo_notif_title">Publishing soon</string>
+    <string name="undo_notif_text">%1$s will be published unless you cancel</string>
 
     <!-- Auto-publish result notification -->
     <string name="auto_notif_channel_name">Auto-publish results</string>

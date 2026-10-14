@@ -16,7 +16,14 @@ public final class PublishLabels {
 
     /** One line for a recording card, or null when the recording has no publish history. */
     public static String status(Context c, PublishJob job) {
+        return status(c, job, System.currentTimeMillis());
+    }
+
+    /** Same with an explicit clock; an auto job inside its undo window reads "Publishing in N s". */
+    public static String status(Context c, PublishJob job, long now) {
         if (job == null) return null;
+        int undoLeft = AutoPublishUndo.secondsLeft(job, now);
+        if (undoLeft > 0) return c.getString(R.string.status_auto_undo, undoLeft);
         switch (job.status == null ? "" : job.status) {
             case PublishJob.WAITING_PROCESSING:
                 return c.getString(R.string.status_auto_waiting);

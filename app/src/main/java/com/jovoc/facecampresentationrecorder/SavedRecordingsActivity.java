@@ -26,6 +26,7 @@ import com.google.android.material.button.MaterialButton;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
@@ -169,7 +170,33 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         PublishManager.get(this).refreshStatuses();
         // Files may have arrived while the user was recording or in the gallery.
         loadRecordings(false);
+        mainHandler.removeCallbacks(undoTicker);
+        mainHandler.postDelayed(undoTicker, 1000L);
     }
+
+    @Override
+    protected void onPause() {
+        mainHandler.removeCallbacks(undoTicker);
+        super.onPause();
+    }
+
+    /**
+     * Redraws, once a second, the cards of auto-publishes waiting out their undo window so the
+     * "Publishing in N s" line counts down (and moves on to "Queued" when it ends).
+     */
+    private final Runnable undoTicker = new Runnable() {
+        @Override
+        public void run() {
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < recordingList.size(); i++) {
+                RecordingItem item = recordingList.get(i);
+                if (item.isReady() && AutoPublishUndo.needsTick(item.getPublishJob(), now)) {
+                    adapter.notifyItemChanged(i, RecordingsAdapter.PAYLOAD_PUBLISH_STATUS);
+                }
+            }
+            mainHandler.postDelayed(this, 1000L);
+        }
+    };
 
     @Override
     protected void onStop() {

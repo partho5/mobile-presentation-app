@@ -54,7 +54,10 @@ public class PublishJob {
     /** {@link #MODE_NOW}, {@link #MODE_SCHEDULE}, {@link #MODE_AUTO} or {@link #MODE_AUTO_SLOT}. */
     public String mode;
 
-    /** Epoch millis for {@link #MODE_SCHEDULE}, else 0. */
+    /**
+     * Epoch millis for {@link #MODE_SCHEDULE}. For an auto job: when its undo window ends (0 = no
+     * window); see {@code AutoPublishUndo}. Else 0.
+     */
     @ColumnInfo(name = "schedule_at")
     public long scheduleAt;
 

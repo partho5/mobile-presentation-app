@@ -38,6 +38,11 @@
     <string name="set_bg_import_failed">Couldn\'t use that photo. Please pick a different JPG, PNG or WebP image.</string>
     <string name="set_ap_header">Auto-publish</string>
     <string name="set_ap_checkbox">Auto-publish new recordings</string>
+    <string name="set_ap_undo_header">Undo before publishing</string>
+    <string name="set_ap_undo_off">Off</string>
+    <string name="set_ap_undo_30">30 sec</string>
+    <string name="set_ap_undo_60">60 sec</string>
+    <string name="set_ap_undo_hint">Wait this long before an auto-publish uploads, so you can cancel it from the card or the notification.</string>
     <string name="set_ap_hint">When on, every finished recording is uploaded and published to the channels you chose on the website, with no further taps. Credits are charged by the server.</string>
     <string name="set_ap_status_loading">Checking your auto-publish setup…</string>
     <string name="set_ap_status_signed_out">Sign in to use</string>

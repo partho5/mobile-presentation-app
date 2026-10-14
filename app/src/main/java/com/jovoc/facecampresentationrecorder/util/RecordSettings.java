@@ -23,6 +23,8 @@ public final class RecordSettings {
     public static final String KEY_AUTOCROP_1_1 = "key_autocrop_1_1";
     /** "Auto-publish new recordings" (Settings); off by default, per device. */
     public static final String KEY_AUTO_PUBLISH = "key_auto_publish";
+    /** Seconds an auto-publish waits before uploading so it can be cancelled: 0 (Off), 30 or 60; default 30. */
+    public static final String KEY_AUTO_PUBLISH_UNDO_SECONDS = "key_auto_publish_undo_seconds";
 
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
     public static final String BG_PREF_NAME = "facecam_prefs";

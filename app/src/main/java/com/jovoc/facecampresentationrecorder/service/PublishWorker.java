@@ -23,6 +23,7 @@ import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
+import com.jovoc.facecampresentationrecorder.publish.UndoNotifier;
 
 /**
  * Runs one {@link PublishJob} in the background (WorkManager): runs only with a connection,
@@ -53,6 +54,8 @@ public class PublishWorker extends Worker {
         PublishJob first = dao.get(id);
         if (first == null) return Result.success();
 
+        // The undo-window notification ends here; the progress notification takes over.
+        UndoNotifier.cancel(getApplicationContext(), id);
         try {
             setForegroundAsync(foregroundInfo(id, first.fileName, 0));
         } catch (RuntimeException ignored) {
@@ -141,7 +144,7 @@ public class PublishWorker extends Worker {
                 .addAction(0, ctx.getString(R.string.publish_notif_cancel),
                         WorkManager.getInstance(ctx).createCancelPendingIntent(getId()))
                 .build();
-        return new ForegroundInfo(4200 + (int) (jobId % 1000), n,
+        return new ForegroundInfo(UndoNotifier.notificationId(jobId), n,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     }
 }
