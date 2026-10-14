@@ -27,7 +27,7 @@
                 android:layout_alignParentTop="true"
                 android:adjustViewBounds="true"
                 android:contentDescription="Image"
-                android:scaleType="fitStart"
+                android:scaleType="fitCenter"
                 android:visibility="gone" />
 
             <!-- Container for Text Slide (Top 30% of screen height) -->
@@ -159,15 +159,12 @@
                 android:contentDescription="Open Navigation Menu"
                 android:src="@drawable/ic_hamburger" />
 
-            <TextView
+            <!-- No title: this only pushes "Edit Topics" to the end of the bar. -->
+            <Space
                 android:id="@+id/toolbar_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Edit Mode"
-                android:textColor="#FFFFFF"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                android:layout_weight="1" />
 
             <Button
                 android:id="@+id/btn_slide_manager"

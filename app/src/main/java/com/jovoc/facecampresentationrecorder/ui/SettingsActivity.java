@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -87,7 +88,7 @@ public class SettingsActivity extends AppCompatActivity {
     private ActivityResultLauncher<String> permissionLauncher;
     private String pendingPermission;
 
-    /** Bundled "bg_samples/..." asset paths, sorted; the first is the default background. */
+    /** Bundled "bg_samples/..." asset paths in display order (see {@link #BG_PRIORITY}). */
     private final List<String> builtInBackgrounds = new ArrayList<>();
     /** Selectable value of each card, in grid order: an asset path or an uploaded file's absolute path. */
     private final List<String> bgPaths = new ArrayList<>();
@@ -299,6 +300,7 @@ public class SettingsActivity extends AppCompatActivity {
             String[] files = getAssets().list("bg_samples");
             if (files != null) {
                 Arrays.sort(files);
+                Arrays.sort(files, Comparator.comparingInt(SettingsActivity::bgSortRank));
                 for (String f : files) {
                     String lower = f.toLowerCase(Locale.ROOT);
                     if (lower.endsWith(".png") || lower.endsWith(".jpg")
@@ -312,6 +314,19 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         rebuildBackgroundGrid();
+    }
+
+    /** Built-in backgrounds shown first, in this order; any others follow alphabetically. */
+    private static final String[] BG_PRIORITY = {
+            "modern-office", "playful-corner", "sunlit-studio", "modern-lounge"
+    };
+
+    private static int bgSortRank(String fileName) {
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < BG_PRIORITY.length; i++) {
+            if (lower.startsWith(BG_PRIORITY[i] + ".")) return i;
+        }
+        return BG_PRIORITY.length;
     }
 
     /** Re-creates every card from the built-in list and the user's folder, and restores the selection. */

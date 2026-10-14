@@ -158,7 +158,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private ImageButton btnReloadWebSlide;
     private MediaController mediaController;
     private TextView emptyStateView;
-    private TextView toolbarTitle;
     private LinearLayout topMenuBar;
     private LinearLayout bottomNavContainer;
     private FrameLayout zonePrev;
@@ -427,7 +426,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             webSlideView.setWebChromeClient(new WebChromeClient());
         }
         emptyStateView = findViewById(R.id.empty_state_view);
-        toolbarTitle = findViewById(R.id.toolbar_title);
         topMenuBar = findViewById(R.id.top_menu_bar);
         bottomNavContainer = findViewById(R.id.bottom_nav_container);
         zonePrev = findViewById(R.id.zone_previous);
@@ -1442,9 +1440,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void updateUIState() {
         if (cameraCardContainer != null) updateResizeHandlePosition(cameraCardContainer.getWidth());
-        if (toolbarTitle != null) {
-            toolbarTitle.setText(isRecording ? "Recording Mode" : "Edit Mode");
-        }
 
         if (isRecording) {
             // In Recording Mode: hide top bar, hide red start button, show ONLY floating gray stop button
@@ -1646,6 +1641,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         ViewGroup.LayoutParams params = textSlideContainer.getLayoutParams();
         params.height = top30Height;
         textSlideContainer.setLayoutParams(params);
+
+        // A tall image must not run past 70% of the screen from the top (15px top margin included).
+        imageSlideView.setMaxHeight((int) (screenHeight * 0.70) - 15);
     }
 
     private void setupBottom40PercentLayout() {

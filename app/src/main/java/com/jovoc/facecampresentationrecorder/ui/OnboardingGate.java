@@ -15,10 +15,14 @@ public final class OnboardingGate {
 
     private static final String KEY_SEEN = "key_onboarding_seen";
 
+    /** TESTING ONLY: show onboarding on every launch. Set to false before release. */
+    private static final boolean ALWAYS_SHOW_FOR_TESTING = true;
+
     private OnboardingGate() {}
 
     /** True when onboarding should open instead of the recorder. */
     public static boolean shouldShow(Context context) {
+        if (ALWAYS_SHOW_FOR_TESTING) return true;
         boolean seen = prefs(context).getBoolean(KEY_SEEN, false);
         long firstInstall = 0;
         long lastUpdate = 0;

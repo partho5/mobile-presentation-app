@@ -243,8 +243,10 @@ public class VideoPlayerDialog {
         // The pager spans the dialog less 1dp each side (see dialog_video_player.xml)
         stageW = dialogW - (int) (2 * density);
         // Let the video take whatever height the dialog's other rows (header, controls,
-        // file card, paddings: ~270dp) leave within 90% of the screen
-        maxCardH = Math.max((int) (200 * density), (int) (dm.heightPixels * 0.90f - 270 * density));
+        // file card, paddings: ~270dp) leave within 90% of the screen, but never more than
+        // 70% of it, so a tall slide still leaves room around it to swipe
+        int fitH = Math.max((int) (200 * density), (int) (dm.heightPixels * 0.90f - 270 * density));
+        maxCardH = Math.min(fitH, (int) (dm.heightPixels * 0.70f));
         minCardW = (int) (MIN_CARD_W_DP * density);
         singleMaxCardW = Math.min((int) (dm.widthPixels * 0.82f), stageW);
         // Leaves room for a peek of the neighbouring version on each side
