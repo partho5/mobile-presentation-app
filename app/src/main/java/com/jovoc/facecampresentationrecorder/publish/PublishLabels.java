@@ -17,6 +17,8 @@ public final class PublishLabels {
     public static String status(Context c, PublishJob job) {
         if (job == null) return null;
         switch (job.status == null ? "" : job.status) {
+            case PublishJob.WAITING_PROCESSING:
+                return c.getString(R.string.status_auto_waiting);
             case PublishJob.QUEUED:
                 return c.getString(job.errorKind != null ? R.string.status_waiting : R.string.status_queued);
             case PublishJob.UPLOADING:
@@ -24,6 +26,9 @@ public final class PublishLabels {
             case PublishJob.PUBLISHING:
                 return c.getString(R.string.status_publishing);
             case PublishJob.DONE:
+                if (PublishJob.MODE_AUTO_SLOT.equals(job.mode)) {
+                    return c.getString(R.string.status_scheduled_slot);
+                }
                 if (PublishJob.MODE_SCHEDULE.equals(job.mode)) {
                     String when = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                             .format(new Date(job.scheduleAt));
@@ -68,6 +73,15 @@ public final class PublishLabels {
                 return c.getString(R.string.pub_err_busy);
             case "FILE":
                 return c.getString(R.string.pub_err_file);
+            case "AUTO_NOT_CONFIGURED":
+                return c.getString(R.string.pub_err_auto_not_set_up);
+            case "CREDITS_SHORT": {
+                String[] n = hasDetail ? detail.split("\\|") : new String[0];
+                if (n.length == 2) return c.getString(R.string.pub_err_credits_short, n[0], n[1]);
+                return c.getString(R.string.pub_err_credits);
+            }
+            case "MEDIA_NOT_FOUND":
+                return c.getString(R.string.pub_err_media_gone);
             case "INTERRUPTED":
                 return c.getString(R.string.pub_err_interrupted);
             default:

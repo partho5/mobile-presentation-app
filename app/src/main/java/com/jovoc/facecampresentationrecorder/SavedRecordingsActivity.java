@@ -163,6 +163,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Recordings whose processing was cut short still get their auto-publish.
+        PublishManager.get(this).sweepAuto();
         // Files may have arrived while the user was recording or in the gallery.
         loadRecordings(false);
     }

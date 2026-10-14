@@ -127,6 +127,24 @@ public class PublishApi {
         String body = PublishRequestBuilder.createPostBody(job, nowMs);
         ApiResponse r = authed(() -> repo.execute("POST", PATH_POSTS, body, headers));
         if (!r.isSuccess()) throw PublishException.from(r);
+        return postedIds(r);
+    }
+
+    /**
+     * POST /public/v1/auto-publish with the job's Idempotency-Key: the server builds the post
+     * from the workspace's preset and runs the same checks and charging as {@link #createPost}.
+     * @return the created post ids (never empty)
+     */
+    public List<String> autoPublish(PublishJob job) throws PublishException {
+        Map<String, String> headers = workspaceHeaders(job.workspaceId, null);
+        headers.put(HEADER_IDEMPOTENCY, job.idempotencyKey);
+        String body = PublishRequestBuilder.autoPublishBody(job);
+        ApiResponse r = authed(() -> repo.execute("POST", PATH_AUTO_PUBLISH, body, headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        return postedIds(r);
+    }
+
+    private static List<String> postedIds(ApiResponse r) throws PublishException {
         try {
             List<String> ids = PublishRequestBuilder.postIds(r.body);
             if (ids.isEmpty()) {

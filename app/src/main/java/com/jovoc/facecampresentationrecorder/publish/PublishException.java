@@ -34,7 +34,13 @@ public class PublishException extends Exception {
         /** The recording file is missing or empty. */
         FILE,
         /** The user (or the system) stopped the job. */
-        CANCELLED
+        CANCELLED,
+        /** Auto-publish: no preset on the web (or no usable channel in it). {@code detail} is the setup link, if known. */
+        AUTO_NOT_CONFIGURED,
+        /** Auto-publish pre-flight: the balance does not cover the cost. {@code detail} is "cost|available". */
+        CREDITS_SHORT,
+        /** 404 MEDIA_NOT_FOUND: the server no longer has the uploaded video; it must be uploaded again. */
+        MEDIA_NOT_FOUND
     }
 
     public final Kind kind;
@@ -101,6 +107,12 @@ public class PublishException extends Exception {
         }
         if (r.status == 409 && "IDEMPOTENCY_IN_PROGRESS".equals(r.errorCode)) {
             return new PublishException(Kind.IN_PROGRESS, 409, null, -1);
+        }
+        if (r.is(409, "AUTO_PUBLISH_NOT_CONFIGURED")) {
+            return new PublishException(Kind.AUTO_NOT_CONFIGURED, 409, null, -1);
+        }
+        if (r.is(404, "MEDIA_NOT_FOUND")) {
+            return new PublishException(Kind.MEDIA_NOT_FOUND, 404, null, -1);
         }
         if (r.status == 401) return new PublishException(Kind.SIGNED_OUT, 401, null, -1);
         if (r.status >= 400 && r.status < 500) {

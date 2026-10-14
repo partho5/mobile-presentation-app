@@ -26,6 +26,7 @@ import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
 import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 
 import java.io.File;
@@ -88,6 +89,8 @@ public class BgReplaceService extends Service {
     private static boolean workerRunning;
     /** The job whose background replace is running right now; guarded by LOCK. */
     private static Job replacing;
+    /** The job the worker is on (replace and crops), if any; guarded by LOCK. */
+    private static Job running;
     /** SystemClock.elapsedRealtime() when the running replace started; 0 = none running. */
     private static volatile long replaceStartedAtMs;
     private static Listener listener;
@@ -129,6 +132,22 @@ public class BgReplaceService extends Service {
     public static long getReplaceElapsedMs() {
         long startedAt = replaceStartedAtMs;
         return startedAt == 0 ? 0 : SystemClock.elapsedRealtime() - startedAt;
+    }
+
+    /**
+     * True while the recording at {@code path} is queued, being processed or has crops pending.
+     * Static state: after the process was killed it is false, which is how the auto-publish
+     * sweep tells an interrupted recording from one still being worked on.
+     */
+    public static boolean isProcessing(String path) {
+        synchronized (LOCK) {
+            if (CROP_PENDING.contains(path)) return true;
+            if (running != null && running.video.getAbsolutePath().equals(path)) return true;
+            for (Job j : QUEUE) {
+                if (j.video.getAbsolutePath().equals(path)) return true;
+            }
+            return false;
+        }
     }
 
     /** Main thread only. Pass null to detach. */
@@ -238,8 +257,19 @@ public class BgReplaceService extends Service {
                         break;
                     }
                     job = QUEUE.remove(0);
+                    running = job;
                 }
-                runJob(job);
+                try {
+                    runJob(job);
+                } finally {
+                    synchronized (LOCK) {
+                        running = null;
+                        CROP_PENDING.remove(job.video.getAbsolutePath());
+                    }
+                    // Processing is over (done, failed or crashed): start its auto-publish, if
+                    // any, with the 9:16 crop when one exists. Idempotent.
+                    PublishManager.get(getApplicationContext()).releaseAuto(job.video.getAbsolutePath());
+                }
             }
         } catch (Throwable t) {
             Log.e(TAG, "Worker crashed", t);

@@ -413,4 +413,225 @@ public class PublishPipelineTest {
         assertEquals(1, forcedSignOuts.get());
         assertFalse(tokens.hasSession());
     }
+
+    // ---- auto-publish ----
+
+    private static String preflight(boolean configured, String timing, int cost, int available) {
+        return "{\"configured\":" + configured + ",\"setName\":\"Reels\",\"timing\":\"" + timing + "\","
+                + "\"channels\":[{\"id\":\"c1\",\"name\":\"YT\",\"identifier\":\"youtube\","
+                + "\"picture\":null,\"disabled\":false}],\"cost\":" + cost + ",\"available\":" + available
+                + ",\"setupUrl\":\"https://app.test/w/o1/settings?tab=sets\"}";
+    }
+
+    private PublishJob newAutoJob() {
+        PublishJob j = new PublishJob();
+        j.id = 7;
+        j.filePath = video.getAbsolutePath();
+        j.fileName = "FaceCam_20261014_9x16.mp4";
+        j.mode = PublishJob.MODE_AUTO;
+        j.status = PublishJob.QUEUED;
+        j.idempotencyKey = "key-auto";
+        j.workspaceId = "w-A";
+        rows.put(j.id, j);
+        return j;
+    }
+
+    private PublishPipeline pipelineOnSameRows() {
+        // A new object over the same stored rows: what a restarted process sees.
+        return new PublishPipeline(new PublishApi(repo), new PublishPipeline.Store() {
+            @Override
+            public PublishJob load(long id) {
+                return rows.get(id);
+            }
+
+            @Override
+            public void save(PublishJob job) {
+                if (rows.containsKey(job.id)) rows.put(job.id, job);
+            }
+        }, null, cancelled::get, 3, now::get);
+    }
+
+    @Test
+    public void autoJobChecksThenUploadsThenPostsToTheAutoRoute() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 2, 10)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+
+        RecordedRequest check = server.takeRequest();
+        assertEquals("GET", check.getMethod());
+        assertEquals("/public/v1/auto-publish", check.getPath());
+        assertEquals("w-A", check.getHeader("x-workspace-id"));
+        assertEquals("/public/v1/upload", server.takeRequest().getPath());
+        RecordedRequest post = server.takeRequest();
+        assertEquals("POST", post.getMethod());
+        assertEquals("/public/v1/auto-publish", post.getPath());
+        assertEquals("key-auto", post.getHeader("Idempotency-Key"));
+        assertEquals("w-A", post.getHeader("x-workspace-id"));
+        String body = post.getBody().readUtf8();
+        assertTrue(body.contains("\"id\":\"m1\""));
+        assertTrue(body.contains("\"title\":\"FaceCam_20261014\""));
+
+        PublishJob saved = rows.get(7L);
+        assertEquals(PublishJob.DONE, saved.status);
+        assertEquals("p1", saved.postIds);
+        assertEquals(PublishJob.MODE_AUTO, saved.mode);
+    }
+
+    @Test
+    public void nextSlotPresetIsRememberedOnTheJob() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(true, "next_slot", 0, 0)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+        assertEquals(PublishJob.MODE_AUTO_SLOT, rows.get(7L).mode);
+        assertTrue(rows.get(7L).isAuto());
+    }
+
+    @Test
+    public void preflightNotConfigured_failsWithoutUploading() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(false, "now", 0, 5)));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+
+        PublishJob failed = rows.get(7L);
+        assertEquals("AUTO_NOT_CONFIGURED", failed.errorKind);
+        assertEquals("https://app.test/w/o1/settings?tab=sets", failed.errorDetail);
+        assertNull(failed.mediaId);
+        assertEquals(1, server.getRequestCount()); // the GET only, no upload
+    }
+
+    @Test
+    public void preflightShortOnCredits_failsWithoutUploadingAndKeepsTheNumbers() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 5, 2)));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+
+        PublishJob failed = rows.get(7L);
+        assertEquals("CREDITS_SHORT", failed.errorKind);
+        assertEquals("5|2", failed.errorDetail);
+        assertEquals("key-auto", failed.idempotencyKey); // nothing was posted, nothing stored
+        assertEquals(1, server.getRequestCount());
+
+        // After a top-up the card's Retry runs the check again and then the whole flow once.
+        failed.status = PublishJob.QUEUED;
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 5, 20)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK));
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+        assertEquals(4, server.getRequestCount());
+    }
+
+    @Test
+    public void preflightServerError_retriesWithoutUploading() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setResponseCode(503));
+
+        assertEquals(PublishPipeline.Outcome.RETRY, run(0));
+        assertEquals(PublishJob.QUEUED, rows.get(7L).status);
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    public void autoPostRefusedForCredits_rotatesTheKeyAndRetryPostsOnceWithoutUploadOrCheck() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 2, 10)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setResponseCode(402).setBody(
+                "{\"statusCode\":402,\"code\":\"INSUFFICIENT_CREDITS\","
+                        + "\"message\":\"This needs 2 credits and you have 1.\"}"));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("INSUFFICIENT_CREDITS", failed.errorKind);
+        assertNotEquals("key-auto", failed.idempotencyKey);
+        assertEquals("m1", failed.mediaId);
+
+        String rotated = failed.idempotencyKey;
+        failed.status = PublishJob.QUEUED;
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK));
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+
+        server.takeRequest(); // check
+        server.takeRequest(); // upload
+        server.takeRequest(); // refused post
+        RecordedRequest again = server.takeRequest();
+        assertEquals("/public/v1/auto-publish", again.getPath());
+        assertEquals("POST", again.getMethod());
+        assertEquals(rotated, again.getHeader("Idempotency-Key"));
+        assertEquals(4, server.getRequestCount());
+    }
+
+    @Test
+    public void autoReplayAfterKill_reusesTheUploadAndTheKeyAndSkipsTheCheck() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setBody(preflight(true, "now", 2, 10)));
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST));
+        assertEquals(PublishPipeline.Outcome.RETRY, run(0));
+        PublishJob afterKill = rows.get(7L);
+        assertEquals("m1", afterKill.mediaId);
+
+        // The process died; a fresh pipeline picks the job up from the stored row.
+        pipeline = pipelineOnSameRows();
+        server.enqueue(new MockResponse().setResponseCode(201).setBody(POST_OK)); // replayed answer
+        assertEquals(PublishPipeline.Outcome.DONE, run(1));
+
+        assertEquals("GET", server.takeRequest().getMethod());
+        assertEquals("/public/v1/upload", server.takeRequest().getPath());
+        String first = server.takeRequest().getHeader("Idempotency-Key");
+        RecordedRequest replay = server.takeRequest();
+        assertEquals("/public/v1/auto-publish", replay.getPath());
+        assertEquals("key-auto", first);
+        assertEquals(first, replay.getHeader("Idempotency-Key"));
+        assertEquals(4, server.getRequestCount()); // one check, one upload
+    }
+
+    @Test
+    public void autoPostSaysNotConfigured_failsAndRotatesTheKey() throws Exception {
+        newAutoJob();
+        rows.get(7L).mediaId = "m1";
+        rows.get(7L).mediaPath = "https://cdn.test/x.mp4";
+        server.enqueue(new MockResponse().setResponseCode(409).setBody(
+                "{\"statusCode\":409,\"code\":\"AUTO_PUBLISH_NOT_CONFIGURED\","
+                        + "\"message\":\"Auto-publish is not set up for this workspace\"}"));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("AUTO_NOT_CONFIGURED", failed.errorKind);
+        assertNotEquals("key-auto", failed.idempotencyKey);
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
+    public void autoPostSaysMediaNotFound_forgetsTheUploadSoRetryUploadsAgain() throws Exception {
+        newAutoJob();
+        rows.get(7L).mediaId = "gone";
+        rows.get(7L).mediaPath = "https://cdn.test/gone.mp4";
+        server.enqueue(new MockResponse().setResponseCode(404).setBody(
+                "{\"statusCode\":404,\"code\":\"MEDIA_NOT_FOUND\",\"message\":\"Media not found\"}"));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("MEDIA_NOT_FOUND", failed.errorKind);
+        assertNull(failed.mediaId);
+        assertNull(failed.mediaPath);
+    }
+
+    @Test
+    public void manualJobNeverTouchesTheAutoRoute() throws Exception {
+        newJob();
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setBody(POST_OK));
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+        assertEquals("/public/v1/upload", server.takeRequest().getPath());
+        assertEquals("/public/v1/posts", server.takeRequest().getPath());
+        assertEquals(2, server.getRequestCount());
+    }
 }

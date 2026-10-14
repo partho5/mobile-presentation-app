@@ -104,4 +104,24 @@ public class PublishRequestBuilderTest {
         assertTrue(list.get(0).disabled);
         assertEquals("tiktok", list.get(0).identifier);
     }
+
+    @Test
+    public void autoPublishBodyCarriesTheVideoAndTheRecordingName() throws Exception {
+        PublishJob j = job(PublishJob.MODE_AUTO);
+        j.fileName = "FaceCam_20261014_093000_9x16.mp4";
+        JSONObject b = new JSONObject(PublishRequestBuilder.autoPublishBody(j));
+        assertEquals("m1", b.getJSONObject("media").getString("id"));
+        assertEquals("https://cdn.example.com/up/abc.mp4", b.getJSONObject("media").getString("path"));
+        assertEquals("FaceCam_20261014_093000", b.getString("title"));
+        assertEquals(2, b.length()); // the preset decides everything else
+    }
+
+    @Test
+    public void autoTitleIsNeverEmptyAndKeepsPlainNames() {
+        assertEquals("My talk", PublishRequestBuilder.autoTitle("My talk.mp4"));
+        assertEquals("My talk", PublishRequestBuilder.autoTitle("My talk_1x1.MP4"));
+        assertEquals("Recording", PublishRequestBuilder.autoTitle(null));
+        assertEquals("Recording", PublishRequestBuilder.autoTitle(".mp4"));
+        assertEquals(500, PublishRequestBuilder.autoTitle(new String(new char[900]).replace('\0', 'a')).length());
+    }
 }

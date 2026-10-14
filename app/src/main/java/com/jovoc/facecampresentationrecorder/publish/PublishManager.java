@@ -17,7 +17,9 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
+import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.PublishWorker;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
 import java.util.HashMap;
@@ -89,6 +91,84 @@ public final class PublishManager {
             schedule(app, id);
             broadcast(app);
         });
+    }
+
+    // ---- auto-publish ----
+
+    /**
+     * A recording just stopped (and its post-processing was queued). When the Settings checkbox is
+     * on and the user is signed in, remembers it as an auto-publish job that waits for the
+     * processing; {@link #releaseAuto} (or the sweep) starts it. The workspace is pinned now.
+     * Call after {@link BgReplaceService#enqueue}, so "is it processing?" is already true.
+     */
+    public void onRecordingStopped(File video) {
+        io.execute(() -> {
+            boolean on = app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
+                    .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
+            if (!on || !SessionManager.get(app).hasSession()) return;
+            String path = video.getAbsolutePath();
+            PublishJob existing = dao.latestFor(path);
+            if (existing != null && existing.isActive()) return;
+
+            long now = System.currentTimeMillis();
+            PublishJob job = new PublishJob();
+            job.filePath = path;
+            job.fileName = video.getName();
+            job.mode = PublishJob.MODE_AUTO;
+            job.status = PublishJob.WAITING_PROCESSING;
+            job.idempotencyKey = PublishPipeline.newKey();
+            job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
+            job.createdAt = now;
+            job.updatedAt = now;
+            job.id = dao.insert(job);
+            broadcast(app);
+            // Nothing to wait for (no background replace, no crops), or it already finished.
+            if (!BgReplaceService.isProcessing(path)) release(job);
+        });
+    }
+
+    /**
+     * The recording's post-processing is over: start its waiting auto-publish job, if any. Safe
+     * to call twice and for recordings without a job.
+     */
+    public void releaseAuto(String originalPath) {
+        io.execute(() -> {
+            PublishJob job = dao.latestFor(originalPath);
+            if (job != null) release(job);
+        });
+    }
+
+    /**
+     * Starts every waiting auto-publish job whose processing is no longer running, which covers a
+     * process killed mid-crop: the job is not lost, it publishes whatever file exists.
+     */
+    public void sweepAuto() {
+        io.execute(() -> {
+            for (PublishJob job : dao.waitingProcessing()) {
+                if (!BgReplaceService.isProcessing(job.filePath)) release(job);
+            }
+        });
+    }
+
+    /** Waiting -> queued with the 9:16 crop (or the original) as the file. Runs on {@link #io}. */
+    private void release(PublishJob job) {
+        if (!PublishJob.WAITING_PROCESSING.equals(job.status)) return;
+        File file = AutoPublishFiles.pick(new File(job.filePath));
+        if (!file.isFile() || file.length() == 0) {
+            // The recording was deleted meanwhile: nothing to publish, nothing to report.
+            dao.deleteById(job.id);
+            broadcast(app);
+            return;
+        }
+        job.filePath = file.getAbsolutePath();
+        job.fileName = file.getName();
+        job.status = PublishJob.QUEUED;
+        job.errorKind = null;
+        job.errorDetail = null;
+        job.updatedAt = System.currentTimeMillis();
+        dao.update(job);
+        schedule(app, job.id);
+        broadcast(app);
     }
 
     /**

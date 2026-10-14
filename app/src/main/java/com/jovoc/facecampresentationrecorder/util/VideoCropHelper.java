@@ -327,7 +327,8 @@ public class VideoCropHelper {
     }
 
     /** "/dir/clip.mp4" + "9x16" -> "/dir/clip_9x16.mp4", replacing only the extension. */
-    private static String buildOutputPath(String inputPath, String ratioLabel) {
+    /** Where the crop of {@code inputPath} for a ratio label such as "9x16" is written. */
+    public static String buildOutputPath(String inputPath, String ratioLabel) {
         int dot = inputPath.lastIndexOf('.');
         String base = dot > inputPath.lastIndexOf('/') ? inputPath.substring(0, dot) : inputPath;
         return base + "_" + ratioLabel + ".mp4";

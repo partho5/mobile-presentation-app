@@ -12,6 +12,11 @@ import androidx.room.PrimaryKey;
 @Entity(tableName = "publish_jobs", indices = {@Index(value = {"file_path"})})
 public class PublishJob {
 
+    /**
+     * Auto-publish only: the recording stopped and its post-processing (background replace,
+     * crops) is still running; it is released to QUEUED when that is done.
+     */
+    public static final String WAITING_PROCESSING = "WAITING_PROCESSING";
     public static final String QUEUED = "QUEUED";
     public static final String UPLOADING = "UPLOADING";
     public static final String PUBLISHING = "PUBLISHING";
@@ -20,6 +25,10 @@ public class PublishJob {
 
     public static final String MODE_NOW = "now";
     public static final String MODE_SCHEDULE = "schedule";
+    /** Auto-publish: the server's preset decides channels, text and timing (publish now). */
+    public static final String MODE_AUTO = "auto";
+    /** Auto-publish whose preset posts at the next free slot (learnt from the pre-flight). */
+    public static final String MODE_AUTO_SLOT = "auto_slot";
 
     @PrimaryKey(autoGenerate = true)
     public long id;
@@ -37,7 +46,7 @@ public class PublishJob {
     @ColumnInfo(name = "channels_json")
     public String channelsJson;
 
-    /** {@link #MODE_NOW} or {@link #MODE_SCHEDULE}. */
+    /** {@link #MODE_NOW}, {@link #MODE_SCHEDULE}, {@link #MODE_AUTO} or {@link #MODE_AUTO_SLOT}. */
     public String mode;
 
     /** Epoch millis for {@link #MODE_SCHEDULE}, else 0. */
@@ -84,7 +93,14 @@ public class PublishJob {
     @ColumnInfo(name = "updated_at")
     public long updatedAt;
 
+    /** True for jobs made by the auto-publish setting (not by the Publish screen). */
+    public boolean isAuto() {
+        return MODE_AUTO.equals(mode) || MODE_AUTO_SLOT.equals(mode);
+    }
+
+    /** In progress or waiting to start: the card offers Cancel, not Publish. */
     public boolean isActive() {
-        return QUEUED.equals(status) || UPLOADING.equals(status) || PUBLISHING.equals(status);
+        return WAITING_PROCESSING.equals(status) || QUEUED.equals(status)
+                || UPLOADING.equals(status) || PUBLISHING.equals(status);
     }
 }

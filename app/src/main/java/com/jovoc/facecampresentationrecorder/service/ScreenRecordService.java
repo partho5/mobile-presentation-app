@@ -35,6 +35,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
@@ -397,6 +398,14 @@ public class ScreenRecordService extends Service {
                     processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop());
                 } catch (Exception e) {
                     Log.e(TAG, "Could not start post-recording processing", e);
+                }
+
+                // Auto-publish (when switched on in Settings): waits for the processing queued
+                // above, then uploads the 9:16 crop or the original. No taps needed.
+                try {
+                    PublishManager.get(this).onRecordingStopped(file);
+                } catch (Exception e) {
+                    Log.e(TAG, "Could not queue auto-publish", e);
                 }
 
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);

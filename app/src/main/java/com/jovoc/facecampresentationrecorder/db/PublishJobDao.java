@@ -30,6 +30,10 @@ public interface PublishJobDao {
     @Query("SELECT * FROM publish_jobs WHERE status IN ('QUEUED', 'UPLOADING', 'PUBLISHING')")
     List<PublishJob> active();
 
+    /** Auto-publish jobs still waiting for their recording's post-processing. */
+    @Query("SELECT * FROM publish_jobs WHERE status = 'WAITING_PROCESSING' ORDER BY id")
+    List<PublishJob> waitingProcessing();
+
     @Query("DELETE FROM publish_jobs WHERE id = :id")
     void deleteById(long id);
 

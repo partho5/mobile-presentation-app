@@ -17,6 +17,12 @@ import java.util.function.LongSupplier;
  * - the same key is sent on every retry of the post call, so the server replays the first
  *   answer instead of creating a second post;
  * - the key is replaced only after the server gave a final 4xx answer (which it would replay).
+ *
+ * An auto-publish job ({@link PublishJob#isAuto()}) takes the same road with two differences: a
+ * pre-flight GET /auto-publish runs before the upload (so a missing preset or a short balance
+ * costs no 1 GB upload), and the post goes to POST /auto-publish, which builds it from the
+ * server's preset. The pre-flight is skipped once the video is uploaded: a retry after an
+ * unknown outcome must not be failed by a balance the post itself may already have spent.
  */
 public final class PublishPipeline {
 
@@ -69,7 +75,9 @@ public final class PublishPipeline {
         job.errorDetail = null;
 
         try {
-            if (job.mediaId == null || job.mediaId.isEmpty()) upload(job);
+            boolean uploaded = job.mediaId != null && !job.mediaId.isEmpty();
+            if (job.isAuto() && !uploaded) preflight(job);
+            if (!uploaded) upload(job);
             // A job deleted while uploading (cancelled) must not go on to post.
             if (store.load(jobId) == null) return Outcome.GONE;
             createPost(job);
@@ -77,6 +85,26 @@ public final class PublishPipeline {
         } catch (PublishException e) {
             return fail(job, e, attempt);
         }
+    }
+
+    /**
+     * Asks the server whether this recording can be auto-published: a preset exists and the
+     * balance covers it. Both answers are the server's; the post call still decides.
+     */
+    private void preflight(PublishJob job) throws PublishException {
+        if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
+        AutoPublishInfo info = api.autoPublishInfo(job.workspaceId);
+        if (!info.configured || info.activeChannels().isEmpty()) {
+            throw new PublishException(PublishException.Kind.AUTO_NOT_CONFIGURED, 0,
+                    info.setupUrl.isEmpty() ? null : info.setupUrl, -1);
+        }
+        if (!info.canAfford()) {
+            throw new PublishException(PublishException.Kind.CREDITS_SHORT, 0,
+                    info.cost + "|" + info.available, -1);
+        }
+        // Remembered so the card and the notification can say "Scheduled" for a next-slot preset.
+        job.mode = "next_slot".equals(info.timing) ? PublishJob.MODE_AUTO_SLOT : PublishJob.MODE_AUTO;
+        save(job);
     }
 
     private void upload(PublishJob job) throws PublishException {
@@ -110,7 +138,9 @@ public final class PublishPipeline {
     private void createPost(PublishJob job) throws PublishException {
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
         move(job, PublishJob.PUBLISHING);
-        List<String> ids = api.createPost(job, clock.getAsLong());
+        List<String> ids = job.isAuto()
+                ? api.autoPublish(job)
+                : api.createPost(job, clock.getAsLong());
         job.postIds = String.join(",", ids);
         job.errorKind = null;
         job.errorDetail = null;
@@ -131,6 +161,11 @@ public final class PublishPipeline {
         job.errorKind = e.kind.name();
         job.errorDetail = e.detail;
         if (e.spendsKey()) job.idempotencyKey = newKey();
+        if (e.kind == PublishException.Kind.MEDIA_NOT_FOUND) {
+            // The server lost the upload: a Retry must send the video again.
+            job.mediaId = null;
+            job.mediaPath = null;
+        }
         move(job, PublishJob.FAILED);
         return Outcome.FAILED;
     }

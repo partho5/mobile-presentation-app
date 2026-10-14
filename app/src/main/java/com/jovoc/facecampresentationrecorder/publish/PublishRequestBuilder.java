@@ -60,6 +60,32 @@ public final class PublishRequestBuilder {
         }
     }
 
+    /**
+     * POST /public/v1/auto-publish: just the uploaded video and the recording's name. Channels,
+     * text and timing come from the preset on the server.
+     */
+    public static String autoPublishBody(PublishJob job) {
+        try {
+            JSONObject media = new JSONObject().put("id", job.mediaId).put("path", job.mediaPath);
+            return new JSONObject().put("media", media).put("title", autoTitle(job.fileName)).toString();
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * The recording's name for the preset's {@code {title}}: the file name without ".mp4" and
+     * without a crop suffix ("_9x16"), so the crop is titled like the recording it came from.
+     * Never empty (the server refuses an empty title) and at most 500 characters.
+     */
+    static String autoTitle(String fileName) {
+        String n = fileName == null ? "" : fileName.trim();
+        if (n.toLowerCase(Locale.ROOT).endsWith(".mp4")) n = n.substring(0, n.length() - 4);
+        n = n.replaceFirst("_\\d+x\\d+$", "").trim();
+        if (n.isEmpty()) n = "Recording";
+        return n.length() > 500 ? n.substring(0, 500) : n;
+    }
+
     public static List<String> postIds(String responseJson) throws JSONException {
         JSONArray arr = new JSONArray(responseJson);
         List<String> ids = new ArrayList<>();

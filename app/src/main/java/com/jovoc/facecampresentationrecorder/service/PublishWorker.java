@@ -19,6 +19,7 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
@@ -80,6 +81,12 @@ public class PublishWorker extends Worker {
             return Result.success();
         }
         PublishManager.broadcast(getApplicationContext());
+        // Nobody watches an auto-publish: say how it ended. Not again for a job that was already
+        // DONE when this run started (a replay after the process was killed).
+        boolean ended = outcome == PublishPipeline.Outcome.DONE || outcome == PublishPipeline.Outcome.FAILED;
+        if (ended && first.isAuto() && !PublishJob.DONE.equals(first.status)) {
+            AutoPublishNotifier.show(getApplicationContext(), dao.get(id));
+        }
         return outcome == PublishPipeline.Outcome.RETRY ? Result.retry() : Result.success();
     }
 
