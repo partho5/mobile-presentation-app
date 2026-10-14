@@ -94,3 +94,59 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
   - [ ] Wi-Fi-only on a metered connection: waits, then uploads directly.
   - [ ] Backend not deployed (404): falls back to legacy upload.
   - [ ] The device token never appears in a request to `r2.cloudflarestorage.com`.
+
+---
+
+# Publish leg and retention (PUB, RET): the VPS carries no video for platforms that accept a URL
+
+Status: planned 2026-10-14. Builds on DU above. YouTube is excluded by decision: it stays streamed through the VPS.
+
+## Setup assumed
+Each customer enters their own developer app keys per platform in the dashboard (the shared-app route is not approvable for a solo operator). Posting is assumed to work with those keys. Anything that needs an app-level verification (for example a TikTok domain) is therefore verified by each customer in their own developer app, so such features must be opt-in with a safe fallback.
+
+## Provider map (read from code, 2026-10-14; providers not listed are not checked yet)
+
+| How the video reaches the platform | Providers | VPS bytes |
+|---|---|---|
+| Platform pulls from our URL | Instagram (`video_url`), Threads (`video_url`), Facebook feed video (`file_url`), Facebook stories (`file_url` header), TikTok photos (`PULL_FROM_URL`) | none |
+| VPS streams ranged chunks from R2 | YouTube (8 MiB), TikTok video (`FILE_UPLOAD`, 10 MiB chunks; one chunk if ≤ 64 MiB), X (1 MiB), LinkedIn + LinkedIn Page (2 MiB), Pinterest, VK, Dribbble | full file once per channel, small RAM |
+
+RAM note: these paths hold one chunk at a time, so a publish needs roughly the chunk size (1 to 10 MiB, plus Node overhead). The old upload route (`MulterStreamEngine` → `@aws-sdk/lib-storage` `Upload`) uses the SDK defaults of 5 MiB parts × 4 in flight, about 20 MiB per upload; DU removes that path for videos entirely.
+
+## Decisions
+1. **Pull wherever the API accepts a URL.** Never stream those providers' bytes through the VPS.
+2. **One base URL variable:** `CLOUDFLARE_BUCKET_URL` (set to `https://cdn.nanybot.com/nany-social`) is the only place the public media host is defined. No hardcoded hosts anywhere; `RESTRICT_UPLOAD_DOMAINS` must name the same host.
+3. **TikTok video pull is opt-in per integration.** Today the code uses `FILE_UPLOAD` and keeps `PULL_FROM_URL` commented out with a note about a TikTok pull bug (`tiktok.provider.ts`). Re-enable it behind a per-integration setting "Let TikTok fetch from my media domain". Rules from TikTok's docs: the URL's domain or URL prefix must be verified in the posting developer app (DNS signature recommended), HTTPS, no redirect, reachable for the whole download (times out after 1 hour). On `url_ownership_unverified` or any pull failure, fall back automatically to `FILE_UPLOAD` and tell the user which step is missing.
+4. **Streamed providers stay streamed** (YouTube by decision; X, LinkedIn, Pinterest, VK, Dribbble because their APIs take bytes). Phone-direct to a platform via a server-issued upload URL is a later, separate part, not in this plan.
+
+## Parts (backend, this repo is Social-Media-Manager)
+
+| Part | Scope | Status |
+|---|---|---|
+| PUB-B1 | Base-URL audit: every media URL builder uses `CLOUDFLARE_BUCKET_URL`; decide how stored absolute URLs survive a base change (store key + rebase helper, or one-off migration script) | ⬜ |
+| PUB-B2 | TikTok pull opt-in setting + automatic fallback to `FILE_UPLOAD` + user-facing help text | ⬜ |
+| PUB-B3 | Audit the remaining providers (Mastodon, Bluesky, Reddit, Tumblr, Slack, Discord, Telegram, Twitch, WordPress, Skool, Whop, others): record which accept a URL; switch those that do; list the rest in the guide | ⬜ |
+| PUB-B4 | Document the map and settings in `mobile-auto-publish-api-guide.md` and the contract | ⬜ |
+
+**Human action (tell the user):** in Cloudflare, make sure `cdn.nanybot.com/nany-social/*` is reachable by the platform fetchers: no bot-fight or WAF challenge, no hotlink protection, no redirect, HTTPS only. Meta's fetchers (`facebookexternalhit`) must be allowed; Meta CDN URLs are rejected.
+
+## Retention (RET): purge the file once it is no longer needed
+
+Rules (decided by the owner):
+- A media file is purged **24 h after every channel of its post group has returned a posted URL** (final PUBLISHED with `releaseURL`).
+- `MEDIA_RETENTION_DAYS`: `-1` keep forever, `0` purge right after the last channel's URL is returned, `N` purge N days after. Default `1`.
+- If any channel ends in ERROR, keep the file `MEDIA_RETENTION_ERROR_DAYS` (default 7) so Retry works, then purge.
+- Never purge a file still referenced by any non-final post (QUEUE, DRAFT, scheduled), whatever the clock says (reference counting).
+- Applies to media uploaded by the mobile app only (origin flag on the media row); web-library files are never auto-purged.
+- Web "delete media" also deletes the R2 object (today it only sets `deletedAt`).
+- A nightly orphan sweep deletes R2 objects with no live media row, and purges the existing soft-deleted backlog once.
+- Keep a small poster image after purge (generated on the phone, ~50 KB) so the web post preview still shows something plus the posted link.
+
+| Part | Scope | Status |
+|---|---|---|
+| RET-B1 | Origin flag on `Media` (new nullable column or via `MobileUpload.mediaId`), env vars, reference-count query | ⬜ |
+| RET-B2 | Purge worker/cron implementing the rules; marks the row purged and removes the R2 object | ⬜ |
+| RET-B3 | Web delete → R2 delete; orphan + soft-deleted sweep | ⬜ |
+| RET-B4 | Poster upload on `complete` (optional field) and use in the web preview | ⬜ |
+| RET-A1 | App: card shows "Video removed from server" when the media is purged; Retry re-uploads from the local file if it still exists, otherwise explains it can't | ⬜ |
+| RET-A2 | App: generate and send the poster image with the upload | ⬜ |
