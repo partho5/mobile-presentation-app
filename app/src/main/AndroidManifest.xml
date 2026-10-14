@@ -36,6 +36,10 @@
         </activity>
 
         <activity
+            android:name=".ui.OnboardingActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.SignInActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:exported="false"

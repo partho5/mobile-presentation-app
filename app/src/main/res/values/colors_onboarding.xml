@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette from to-build/onboarding-design.md ("Colors and gradient"). -->
+    <color name="onb_bg_top">#0B0D1A</color>
+    <color name="onb_bg_bottom">#07080D</color>
+    <color name="onb_title">#FFFFFF</color>
+    <color name="onb_body">#C9CDD6</color>
+    <color name="onb_muted">#8A8F9C</color>
+    <color name="onb_accent">#22D3EE</color>
+    <color name="onb_highlight">#FBBF24</color>
+    <color name="onb_button_text">#04141A</color>
+    <color name="onb_progress_track">#26FFFFFF</color>
+</resources>

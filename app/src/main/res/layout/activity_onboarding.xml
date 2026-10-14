@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/onboarding_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Full-bleed: draws behind the status and navigation bars. -->
+    <com.jovoc.facecampresentationrecorder.ui.OnboardingBackgroundView
+        android:id="@+id/onb_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
+    <!-- Padded in code for the system bars and capped at 480dp wide. -->
+    <LinearLayout
+        android:id="@+id/onb_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
+                android:id="@+id/onb_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="4dp"
+                    android:background="@drawable/bg_onb_progress_bar" />
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="4dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_onb_progress_bar" />
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="4dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_onb_progress_bar" />
+            </LinearLayout>
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/btn_onb_skip"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:text="@string/onb_skip"
+                android:textAllCaps="false"
+                android:textColor="@color/onb_muted"
+                android:textSize="14sp"
+                app:rippleColor="@color/onb_progress_track" />
+        </LinearLayout>
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/onb_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Outside the pager, so the main button never moves between screens. -->
+        <Button
+            android:id="@+id/btn_onb_next"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="24dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:letterSpacing="0"
+            android:textAllCaps="false"
+            android:textColor="@color/onb_button_text"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/onb_accent"
+            app:cornerRadius="14dp" />
+    </LinearLayout>
+</FrameLayout>

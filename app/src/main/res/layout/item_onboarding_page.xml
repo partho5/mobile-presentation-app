@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared skeleton of every onboarding screen: visual (top 40%), title, body, text above the button. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp">
+
+    <FrameLayout
+        android:id="@+id/onb_visual"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/onb_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityHeading="true"
+            android:textColor="@color/onb_title"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <!-- With a large font size only the body scrolls; the button below the pager stays fixed. -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="16dp"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/onb_body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineHeight="26sp"
+                android:textColor="@color/onb_body"
+                android:textSize="17sp" />
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/onb_above_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center"
+            android:textColor="@color/onb_muted"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>
