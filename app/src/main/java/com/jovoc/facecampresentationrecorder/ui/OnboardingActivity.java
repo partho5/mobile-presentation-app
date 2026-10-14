@@ -204,20 +204,41 @@ public class OnboardingActivity extends AppCompatActivity {
         }
     }
 
-    /** One paragraph per array item; words in [[double brackets]] get the highlighter pen. */
+    /**
+     * One paragraph per array item; words in [[double brackets]] get the highlighter pen.
+     * Items that start with "1. ", "2. " ... become numbered cards.
+     */
     private void fillStory(LinearLayout container) {
         if (container.getChildCount() > 0) return;
         float density = getResources().getDisplayMetrics().density;
         String[] paragraphs = getResources().getStringArray(R.array.onb_story);
+        boolean previousWasCard = false;
         for (int i = 0; i < paragraphs.length; i++) {
-            MarkerTextView paragraph = (MarkerTextView) getLayoutInflater().inflate(
-                    R.layout.item_onboarding_story_paragraph, container, false);
-            paragraph.setText(paragraphs[i]);
+            boolean card = paragraphs[i].matches("^\\d\\. .*");
+            View view = card ? storyCard(container, paragraphs[i]) : storyParagraph(container, paragraphs[i]);
             if (i > 0) {
-                ((LinearLayout.LayoutParams) paragraph.getLayoutParams()).topMargin = Math.round(14 * density);
+                int gap = previousWasCard && card ? 10 : (card ? 12 : 14);
+                ((LinearLayout.LayoutParams) view.getLayoutParams()).topMargin = Math.round(gap * density);
             }
-            container.addView(paragraph);
+            container.addView(view);
+            previousWasCard = card;
         }
+    }
+
+    private MarkerTextView storyParagraph(LinearLayout container, String text) {
+        MarkerTextView paragraph = (MarkerTextView) getLayoutInflater().inflate(
+                R.layout.item_onboarding_story_paragraph, container, false);
+        paragraph.setText(text);
+        return paragraph;
+    }
+
+    /** A "1. text" item drawn as a card: round number badge on the left, text on the right. */
+    private View storyCard(LinearLayout container, String item) {
+        LinearLayout card = (LinearLayout) getLayoutInflater().inflate(
+                R.layout.item_onboarding_story_card, container, false);
+        ((TextView) card.findViewById(R.id.onb_card_number)).setText(item.substring(0, 1));
+        ((MarkerTextView) card.findViewById(R.id.onb_card_text)).setText(item.substring(3));
+        return card;
     }
 
     private static SpannableString colored(String text, int color, String part) {

@@ -37,21 +37,23 @@
 
     <!-- The story on screen 4. [[double brackets]] mark the words that get the highlighter. -->
     <string-array name="onb_story">
-        <item>Working with a lot of businessmen, I noticed how they do [[personal branding]].</item>
+        <item>Working with a lot of service providers, I noticed how they do [[personal branding]].</item>
         <item>The one common thing they all do is, they share helpful tips about their service.</item>
         <item>But there is a twist here. However good content you create, if you don\'t publish regularly and consistently, the social media algorithm will never show your posts to [[more audience]].</item>
         <item>And these days, video content gets the most reach.</item>
         <item>Now here is a thing. Which style of video can create the most trust?</item>
-        <item>See, videos made with AI and motion graphics look good. But when countless people are making videos in the exact same style, it has created a fatigue for the audience.</item>
-        <item>These days people want the [[human touch]].</item>
-        <item>People have lost so much trust watching AI content that, compared to a perfectly edited video, a real human walking around and making an average quality video with a phone creates [[more trust]].</item>
-        <item>And this is exactly what businessmen are doing now.</item>
-        <item>But after recording a video, some editing is needed. Also, to say the things in order in the video, you need to write a well planned script beforehand.</item>
-        <item>Again, for different platforms you need to edit videos in different shapes. So to do all this work every day, businessmen mainly hire three kinds of people.</item>
+        <item>In recent years, people got very unreliable service behind perfectly edited motion graphics videos.</item>
+        <item>So fancy but faceless videos still get views, but not [[trust]].</item>
+        <item>A real human face, speaking sincerely, creates [[more trust]] than a highly edited video.</item>
+        <item>And this is exactly what service providers are doing now.</item>
+        <item>After recording, the video needs editing.</item>
+        <item>Moreover, you have to write a well planned script before creating the video.</item>
+        <item>Every platform needs a different video shape.</item>
+        <item>So to do all this work every day, service providers hire two kinds of people:</item>
         <item>1. A video editor, so that consistency is never missed.</item>
         <item>2. A social media manager, to work on the social platforms regularly.</item>
         <item>For the last three years I was thinking how to bring this [[cost]] down.</item>
-        <item>Then I developed a software system where you just open the app and start talking. [[Two-three minutes]] of talking, then close the app.</item>
+        <item>Then I developed a software system where you just open the app and start talking. [[2-3 minutes]] of talking, then close the app.</item>
         <item>Now whatever work needs to be done, [[the app does all the rest]].</item>
     </string-array>
 </resources>
