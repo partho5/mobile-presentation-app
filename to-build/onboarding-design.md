@@ -16,13 +16,14 @@ This screen decides whether a new user stays. So the plan has one test for every
 - **App name:** "Talk Branding", from `@string/app_name`. "(App Name)" in the copy means this string. Never type the name by hand in a layout.
 - **No "Give me 10 minutes" in onboarding.** Screen 3 ends with two buttons: "Start recording video" and "Proven strategy of brand building". The story starts only when the user chooses it.
 - **Proof on screen 3:** Protim's real photo and GitHub link.
+  - Photo: `res/drawable-nodpi/founder_photo.webp`, 384×384, 26 KB, transparent background, head and shoulders already cropped for the circle. Put a background color behind it in the circle (`onb_bg_top` or a little lighter). Source: `~/Dropbox/partho images/partho savar basa-transparent-2.png`.
+  - GitHub: https://github.com/partho5/
 - **Screen 2:** cut to 3 rows.
 - **Gradient:** quiet, never flashy. Rules are in Colors and gradient.
 
 ## Still open
 
 - **The story's format and length** (video, or swipe cards). Only Part 3 waits for this. Parts 1 and 2 can be built now.
-- **Assets needed for Part 2:** the photo file and the GitHub URL.
 
 ## Flow
 
@@ -182,7 +183,7 @@ Built. What Part 2 needs to know:
 - Button taps use the pager's default slide. The 280ms slide and the content fade and rise are still to do, under Motion.
 - Not checked yet: banding on a real low-end phone.
 
-**Part 2 — The three screens** (needs the photo file and GitHub URL)
+**Part 2 — The three screens** (photo and GitHub URL are ready, see Decided)
 - Page layouts on the shared skeleton, copy from [onboarding.md](onboarding.md).
 - Visuals for screens 1 and 2, founder card and two buttons for screen 3.
 - "Start recording video" opens `MainActivity`. "Proven strategy of brand building" opens the story; until Part 3 exists it opens `MainActivity` too.
