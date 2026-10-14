@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 /**
- * The four backend calls publishing needs. Blocking: call off the main thread. Every failure
+ * The backend calls publishing needs. Blocking: call off the main thread. Every failure
  * is a {@link PublishException}; the session is refreshed / ended by {@link AuthRepository}.
  */
 public class PublishApi {
@@ -27,6 +27,7 @@ public class PublishApi {
     public static final String PATH_INTEGRATIONS = "/public/v1/integrations";
     public static final String PATH_POSTS = "/public/v1/posts";
     public static final String PATH_CHARGE_PREVIEW = "/posts/charge-preview";
+    public static final String PATH_AUTO_PUBLISH = "/public/v1/auto-publish";
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
     /** The backend's video cap (credits.publish / custom.upload.validation). */
     public static final long MAX_VIDEO_BYTES = 1024L * 1024L * 1024L;
@@ -68,6 +69,26 @@ public class PublishApi {
             JSONObject o = r.json();
             if (!o.has("amount")) throw new JSONException("no amount");
             return Math.max(0, o.getInt("amount"));
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    /** GET /public/v1/auto-publish for the device's current workspace. */
+    public AutoPublishInfo autoPublishInfo() throws PublishException {
+        return autoPublishInfo(null);
+    }
+
+    /**
+     * GET /public/v1/auto-publish: the workspace's auto-publish preset, its cost and the balance.
+     * @param workspaceId the workspace to ask about; null or empty uses the device's pick / default
+     */
+    public AutoPublishInfo autoPublishInfo(String workspaceId) throws PublishException {
+        Map<String, String> headers = workspaceHeaders(workspaceId, null);
+        ApiResponse r = authed(() -> repo.execute("GET", PATH_AUTO_PUBLISH, null, headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return AutoPublishInfo.parse(r.body);
         } catch (JSONException e) {
             throw new PublishException(PublishException.Kind.SERVER);
         }

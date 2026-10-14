@@ -10,7 +10,7 @@ App parts A1-A2 can be built against the contract before the backend ships; A3 a
 | Part | Scope | Owner | Status |
 |---|---|---|---|
 | B | Backend B1–B7 (preset, auto-publish routes, post status, upload timeouts, contract) | backend agent | ✅ Done (2026-10-14): built and committed in Social-Media-Manager (e2afe2d7), contract `api.mobile-auto-publish`; nothing run there yet, needs deploy + the hand checks below |
-| A1 | Settings: auto-publish checkbox + status line | app | ⬜ Todo |
+| A1 | Settings: auto-publish checkbox + status line | app | ✅ Done (2026-10-14): Settings "Auto-publish" section (pref `key_auto_publish`) + status line from `PublishApi.autoPublishInfo()` (`AutoPublishInfo` parse, 13 unit tests); unit tests + assembleDebug pass, device check pending |
 | A2 | Auto trigger, startup sweep, worker `auto` mode, result notification | app | ⬜ Todo |
 | A3 | Live post status on cards | app | ⬜ Todo |
 | A4 | Connection hardening, device QA, docs | app | ⬜ Todo |

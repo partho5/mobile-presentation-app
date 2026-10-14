@@ -21,6 +21,8 @@ public final class RecordSettings {
     public static final String KEY_AUTOCROP_9_16 = "key_autocrop_9_16";
     public static final String KEY_AUTOCROP_4_5 = "key_autocrop_4_5";
     public static final String KEY_AUTOCROP_1_1 = "key_autocrop_1_1";
+    /** "Auto-publish new recordings" (Settings); off by default, per device. */
+    public static final String KEY_AUTO_PUBLISH = "key_auto_publish";
 
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
     public static final String BG_PREF_NAME = "facecam_prefs";

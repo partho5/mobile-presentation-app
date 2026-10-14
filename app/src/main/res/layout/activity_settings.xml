@@ -362,6 +362,49 @@
                 android:layout_marginTop="4dp"
                 android:orientation="vertical"
                 app:helpSection="background" />
+
+            <!-- Auto-publish: the status line is filled in by SettingsActivity from the server -->
+            <include layout="@layout/view_settings_divider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_ap_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <CheckBox
+                android:id="@+id/cb_auto_publish"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_ap_checkbox"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_auto_publish_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:minHeight="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:text="@string/set_ap_status_loading"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/set_ap_hint"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
