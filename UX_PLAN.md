@@ -10,7 +10,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 | U1 | Undo window before an auto-publish upload starts | app | ✅ Done (2026-10-14): WorkManager initial delay as a gate worker chained to the expedited upload under one unique name (Off / 30 s / 60 s, default 30 s, pref `key_auto_publish_undo_seconds`) applied in `PublishManager.release` via `AutoPublishRelease` (release, sweep and startup share it, deadline kept in `scheduleAt`, no Room change); card "Publishing in N s · Tap to cancel", notification with Cancel (`UndoNotifier`, `PublishCancelReceiver`), Settings radio; 15 new unit tests, unit tests + assembleDebug pass, device QA pending |
 | U2 | Wi-Fi-only publishing setting + "Waiting for Wi-Fi" card state | app | ✅ Done (2026-10-14): pref `key_publish_wifi_only` (default off) read in `PublishManager.schedule` (`PublishNetwork.requiredNetwork`: UNMETERED / CONNECTED, manual and auto); card "Waiting for Wi-Fi…" for a QUEUED job outside its undo window when the setting is on and the default network is metered (checked at bind, redrawn on connectivity change via a default-network callback in SavedRecordingsActivity); toggling calls `PublishManager.onWifiOnlyChanged` which swaps the network constraint of the QUEUED jobs' upload work in place with `WorkManager.updateWork` (no cancel / REPLACE, so a just-started upload is never stopped; no key, deadline, attempt-count or gate change; if not applied the job keeps its old constraint); unit tests + assembleDebug pass, device QA pending |
 | U3 | In-app first-time setup (channels + timing, no web detour) | backend + app | ⛔ blocked: backend |
-| U4 | Resumable / chunked upload | backend + app | ⛔ blocked: backend |
+| U4 | Direct-to-R2 resumable upload (VPS carries no video bytes) | backend + app | 📝 planned: see `to-build/tasks.md` (DU-B1..B5, DU-A1..A4) |
 
 ## Decisions (made; change here if wrong)
 
@@ -43,6 +43,5 @@ Needs, on a device token (scope `posts:write`):
 - `GET /public/v1/integrations` (connectable channels) if not already available.
 App work after that: a setup screen reachable from the Settings status line, replacing the "set up on the web" detour.
 
-## Part U4: Resumable upload (blocked)
-Needs a backend chunked/resumable upload protocol (tus or multipart-session) behind the same `/public/v1/upload` auth, with R2 multipart under it.
-App work after that: persist offset per media, resume on retry, keep the "upload once, remember media id" rule.
+## Part U4: Direct-to-R2 multipart upload (planned)
+Full plan, contract and part list are in `to-build/tasks.md` (app) and the Social-Media-Manager `to-build/tasks.md` (backend). The phone uploads parts straight to R2 with short-lived presigned URLs from the backend; the VPS handles only small JSON calls. Resumable by design (R2 `ListParts`).
