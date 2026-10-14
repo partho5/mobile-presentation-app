@@ -196,7 +196,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         }
         holder.tvPublishStatus.setVisibility(View.VISIBLE);
         holder.tvPublishStatus.setText(text);
-        holder.tvPublishStatus.setTextColor(PublishLabels.color(job));
+        holder.tvPublishStatus.setTextColor(PublishLabels.color(context, job));
         // A live post's status line opens the post; recycled holders must not keep an old link.
         // Same for a failed auto-publish that was never set up: the line opens the setup page.
         String liveUrl = PublishLabels.liveUrl(job);

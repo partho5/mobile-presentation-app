@@ -2,12 +2,12 @@ package com.jovoc.facecampresentationrecorder.publish;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
-import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkInfo;
@@ -42,6 +42,10 @@ public final class PublishManager {
     /** Local broadcast (this app only) sent whenever a job's state or progress changes. */
     public static final String ACTION_STATE_CHANGED =
             "com.jovoc.facecampresentationrecorder.PUBLISH_STATE_CHANGED";
+
+    /** Marks the upload request of a job's unique chain (the undo gate does not carry it). */
+    static final String TAG_UPLOAD = "publish-upload";
+    private static final String LOG_TAG = "PublishManager";
 
     private static PublishManager instance;
 
@@ -298,6 +302,50 @@ public final class PublishManager {
         });
     }
 
+    /**
+     * The "Upload on Wi-Fi only" setting changed: queued uploads get the matching network
+     * constraint through {@link WorkManager#updateWork}, which swaps the constraint of the very
+     * same work in place. Nothing is cancelled or replaced, so an upload that has just started is
+     * never stopped (a stop would make the worker drop the job), and the run attempts, the unique
+     * name, a waiting undo gate, the idempotency key and the undo deadline all stay as they are.
+     * Only QUEUED jobs with live upload work are touched; an uploading / publishing job finishes
+     * under the constraint it started with. If WorkManager cannot apply the change the job simply
+     * keeps its old constraint.
+     */
+    public void onWifiOnlyChanged() {
+        io.execute(() -> {
+            boolean changed = false;
+            WorkManager wm = WorkManager.getInstance(app);
+            for (PublishJob job : dao.active()) {
+                if (!PublishJob.QUEUED.equals(job.status)) continue;
+                try {
+                    List<WorkInfo> infos = wm.getWorkInfosForUniqueWork(workName(job.id))
+                            .get(5, TimeUnit.SECONDS);
+                    for (WorkInfo w : infos) {
+                        // The undo gate has its own (delay-only) constraints: leave it alone.
+                        if (w.getState().isFinished()) continue;
+                        if (!PublishNetwork.isUploadWork(w.getTags(), TAG_UPLOAD,
+                                PublishWorker.class.getName())) {
+                            continue;
+                        }
+                        WorkManager.UpdateResult result = wm.updateWork(
+                                uploadBuilder(app, job.id).setId(w.getId()).build())
+                                .get(5, TimeUnit.SECONDS);
+                        if (result == WorkManager.UpdateResult.NOT_APPLIED) {
+                            Log.w(LOG_TAG, "Wi-Fi setting not applied to job " + job.id);
+                        } else {
+                            changed = true;
+                        }
+                    }
+                } catch (Exception e) {
+                    // Could not ask / update WorkManager: the job keeps its old constraint.
+                    Log.w(LOG_TAG, "Wi-Fi setting not applied to job " + job.id, e);
+                }
+            }
+            if (changed) broadcast(app);
+        });
+    }
+
     /** Keeps the status attached to a recording that was renamed. */
     public void onRenamed(File oldFile, File newFile) {
         io.execute(() -> {
@@ -377,19 +425,15 @@ public final class PublishManager {
      *                persists it, so it survives the process being killed.
      */
     public static void schedule(Context context, long jobId, long delayMs) {
-        OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(PublishWorker.class)
-                .setInputData(new Data.Builder().putLong(PublishWorker.KEY_JOB_ID, jobId).build())
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
-        OneTimeWorkRequest upload = builder.build();
+        OneTimeWorkRequest upload = uploadBuilder(context, jobId).build();
         WorkManager wm = WorkManager.getInstance(context);
         if (delayMs > 0) {
             // WorkManager refuses setInitialDelay + setExpedited on one request, and un-expedited
             // upload work loses the foreground-service exemption (job time cap, Doze). So the
             // delay is its own do-nothing request and the expedited upload runs after it. Both
             // live under one unique name: cancelUniqueWork and the reconcile look-up cover the
-            // whole chain, and REPLACE drops a chain still waiting.
+            // whole chain, and REPLACE drops a chain still waiting (a
+            // new schedule() is an explicit retry / release; a setting change uses updateWork).
             OneTimeWorkRequest gate = new OneTimeWorkRequest.Builder(GateWorker.class)
                     .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
                     .build();
@@ -399,6 +443,22 @@ public final class PublishManager {
         } else {
             wm.enqueueUniqueWork(workName(jobId), ExistingWorkPolicy.REPLACE, upload);
         }
+    }
+
+    /**
+     * The upload request: carries {@link #TAG_UPLOAD} so the Wi-Fi setting can tell it from the
+     * undo gate. {@link WorkManager#updateWork} replaces the tags with the new request's, so
+     * every request that updates this work must be built here too.
+     */
+    private static OneTimeWorkRequest.Builder uploadBuilder(Context context, long jobId) {
+        return new OneTimeWorkRequest.Builder(PublishWorker.class)
+                .setInputData(new Data.Builder().putLong(PublishWorker.KEY_JOB_ID, jobId).build())
+                .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(PublishNetwork.requiredNetwork(PublishNetwork.isWifiOnly(context)))
+                        .build())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .addTag(TAG_UPLOAD);
     }
 
     public static void broadcast(Context context) {

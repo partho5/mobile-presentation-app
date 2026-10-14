@@ -40,6 +40,7 @@
 
     <!-- Card status lines -->
     <string name="status_waiting">Waiting for connection…</string>
+    <string name="status_waiting_wifi">Waiting for Wi-Fi…</string>
     <string name="status_queued">Queued…</string>
     <string name="status_uploading">Uploading %1$d%%</string>
     <string name="status_publishing">Publishing…</string>

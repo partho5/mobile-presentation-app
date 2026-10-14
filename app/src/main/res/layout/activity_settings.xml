@@ -460,6 +460,25 @@
                 android:text="@string/set_ap_hint"
                 android:textColor="#AAAAAA"
                 android:textSize="13sp" />
+
+            <include layout="@layout/view_settings_divider" />
+
+            <CheckBox
+                android:id="@+id/cb_wifi_only"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_wifi_only_checkbox"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_wifi_only_hint"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

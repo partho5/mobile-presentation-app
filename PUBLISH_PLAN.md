@@ -66,6 +66,7 @@ Full plan and decisions: `to-build/tasks.md`. One Settings checkbox ("Auto-publi
 | A2 fixes | "Set up on the web" action on the card, rename-while-waiting, durable row before processing is queued, 401 keeps the key | ✅ Done (`fix(publish)` commit) |
 | A3 | Live post status on cards | ✅ Done, device QA pending |
 | A4 | Upload timeouts, production URL confirmed, docs | ✅ Done (this section); device QA pending |
+| UX U2 | "Upload on Wi-Fi only" (pref `key_publish_wifi_only`, default off): upload work requires `NetworkType.UNMETERED` instead of `CONNECTED` for manual and auto jobs; card shows "Waiting for Wi-Fi…"; toggling updates the constraint of QUEUED jobs' upload work in place via `WorkManager.updateWork` (no cancel / REPLACE; same key and undo deadline). Details in `UX_PLAN.md`. | ✅ Done, device QA pending |
 
 ## Contract facts used (exact)
 

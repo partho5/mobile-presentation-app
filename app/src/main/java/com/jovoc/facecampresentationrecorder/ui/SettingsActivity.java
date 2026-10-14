@@ -8,6 +8,7 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_9_16;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_PUBLISH_WIFI_ONLY;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_ASSET_PATH;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_REPLACE_ENABLED;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_COUNTDOWN_SECONDS;
@@ -57,6 +58,7 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.util.AudioInputSelection;
@@ -308,7 +310,19 @@ public class SettingsActivity extends AppCompatActivity {
     private void setupAutoPublish() {
         bindCheckBox(R.id.cb_auto_publish, prefs, KEY_AUTO_PUBLISH, false);
         setupAutoPublishUndo();
+        setupWifiOnly();
         autoPublishStatus = findViewById(R.id.tv_auto_publish_status);
+    }
+
+    /** "Upload on Wi-Fi only": applies to new uploads and re-queues the waiting ones. */
+    private void setupWifiOnly() {
+        CheckBox box = findViewById(R.id.cb_wifi_only);
+        box.setChecked(prefs.getBoolean(KEY_PUBLISH_WIFI_ONLY, false));
+        box.setOnCheckedChangeListener((b, checked) -> {
+            // apply() updates the in-memory prefs at once, so the re-enqueue below reads the new value.
+            prefs.edit().putBoolean(KEY_PUBLISH_WIFI_ONLY, checked).apply();
+            PublishManager.get(this).onWifiOnlyChanged();
+        });
     }
 
     /** "Undo before publishing": Off / 30 s / 60 s, default 30 s. */

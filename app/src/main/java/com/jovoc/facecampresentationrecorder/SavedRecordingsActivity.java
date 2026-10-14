@@ -6,6 +6,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.MediaMetadataRetriever;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,6 +31,7 @@ import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.publish.PublishNetwork;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
@@ -78,6 +82,41 @@ public class SavedRecordingsActivity extends AppCompatActivity {
             refreshPublishStatus();
         }
     };
+
+    /**
+     * "Waiting for Wi-Fi" depends on the network, which no broadcast of ours reports: redraw the
+     * queued cards when the default network or its metered-ness changes (only with the setting on).
+     */
+    private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
+        @Override
+        public void onAvailable(Network network) {
+            redrawQueuedCards();
+        }
+
+        @Override
+        public void onLost(Network network) {
+            redrawQueuedCards();
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network, NetworkCapabilities caps) {
+            redrawQueuedCards();
+        }
+    };
+    private boolean networkCallbackRegistered;
+
+    private void redrawQueuedCards() {
+        if (!PublishNetwork.isWifiOnly(this)) return;
+        if (adapter == null || isFinishing() || isDestroyed()) return;
+        // Delivered on the main handler (see onStart); notify only the cards a queued job is on.
+        for (int i = 0; i < recordingList.size(); i++) {
+            RecordingItem item = recordingList.get(i);
+            PublishJob job = item.isReady() ? item.getPublishJob() : null;
+            if (job != null && PublishJob.QUEUED.equals(job.status)) {
+                adapter.notifyItemChanged(i, RecordingsAdapter.PAYLOAD_PUBLISH_STATUS);
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,6 +198,15 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         } else {
             registerReceiver(publishStateReceiver, publishFilter);
         }
+        try {
+            ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+            if (cm != null && !networkCallbackRegistered) {
+                cm.registerDefaultNetworkCallback(networkCallback, mainHandler);
+                networkCallbackRegistered = true;
+            }
+        } catch (RuntimeException ignored) {
+            // The card then updates on the next state broadcast or resume.
+        }
     }
 
     @Override
@@ -207,6 +255,12 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         try {
             unregisterReceiver(publishStateReceiver);
         } catch (Exception ignored) {}
+        if (networkCallbackRegistered) {
+            try {
+                getSystemService(ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
+            } catch (RuntimeException ignored) {}
+            networkCallbackRegistered = false;
+        }
     }
 
     @Override

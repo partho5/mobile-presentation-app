@@ -26,6 +26,9 @@ public final class RecordSettings {
     /** Seconds an auto-publish waits before uploading so it can be cancelled: 0 (Off), 30 or 60; default 30. */
     public static final String KEY_AUTO_PUBLISH_UNDO_SECONDS = "key_auto_publish_undo_seconds";
 
+    /** "Upload on Wi-Fi only" (Settings): publish uploads wait for an unmetered network; default off. */
+    public static final String KEY_PUBLISH_WIFI_ONLY = "key_publish_wifi_only";
+
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
     public static final String BG_PREF_NAME = "facecam_prefs";
     public static final String KEY_BG_REPLACE_ENABLED = "bg_replace_enabled";

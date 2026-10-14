@@ -28,6 +28,9 @@ public final class PublishLabels {
             case PublishJob.WAITING_PROCESSING:
                 return c.getString(R.string.status_auto_waiting);
             case PublishJob.QUEUED:
+                if (PublishNetwork.waitingForWifi(c, job, now)) {
+                    return c.getString(R.string.status_waiting_wifi);
+                }
                 return c.getString(job.errorKind != null ? R.string.status_waiting : R.string.status_queued);
             case PublishJob.UPLOADING:
                 return c.getString(R.string.status_uploading, job.progress);
@@ -57,6 +60,12 @@ public final class PublishLabels {
             default:
                 return null;
         }
+    }
+
+    /** Same colours; a job blocked only by Wi-Fi-only uses the amber of "Waiting for connection". */
+    public static int color(Context c, PublishJob job) {
+        if (PublishNetwork.waitingForWifi(c, job, System.currentTimeMillis())) return 0xFFFFB347;
+        return color(job);
     }
 
     public static int color(PublishJob job) {

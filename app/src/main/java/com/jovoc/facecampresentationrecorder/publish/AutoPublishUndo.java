@@ -29,16 +29,20 @@ public final class AutoPublishUndo {
         return normalize(seconds) * 1000L;
     }
 
-    /** Whole seconds left in the window (rounded up), or 0 when the job is not waiting it out. */
-    public static int secondsLeft(PublishJob job, long now) {
+    /** Milliseconds left in the window, or 0 when the job is not waiting it out. */
+    public static long millisLeft(PublishJob job, long now) {
         if (job == null || !job.isAuto() || !PublishJob.QUEUED.equals(job.status)
                 || job.errorKind != null || job.scheduleAt <= now) {
-            return 0;
+            return 0L;
         }
-        long left = job.scheduleAt - now;
         // A clock moved back must not show a countdown longer than the longest setting.
-        left = Math.min(left, MAX_SECONDS * 1000L);
-        return (int) ((left + 999) / 1000);
+        return Math.min(job.scheduleAt - now, MAX_SECONDS * 1000L);
+    }
+
+    /** Whole seconds left in the window (rounded up), or 0 when the job is not waiting it out. */
+    public static int secondsLeft(PublishJob job, long now) {
+        long left = millisLeft(job, now);
+        return left <= 0 ? 0 : (int) ((left + 999) / 1000);
     }
 
     /**
