@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Highlighter-pen text (util/MarkerText): the green behind a marked phrase and the text on it. -->
+<resources>
+    <color name="highlighter_bg">#1E7D46</color>
+    <color name="highlighter_text">#FFFFFF</color>
+</resources>

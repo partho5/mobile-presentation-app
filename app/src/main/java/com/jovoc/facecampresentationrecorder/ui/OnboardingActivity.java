@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -29,7 +30,7 @@ import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 
 /**
- * First-run onboarding: three swipeable screens on one shared skeleton. Shown once (see
+ * First-run onboarding: four swipeable screens on one shared skeleton. Shown once (see
  * {@link OnboardingGate}); finishing and skipping both mark it as seen and open MainActivity.
  * It asks for nothing: no sign-in, no permissions, no text input.
  */
@@ -40,16 +41,20 @@ public class OnboardingActivity extends AppCompatActivity {
             R.string.onb_title_what,
             R.string.onb_title_how,
             R.string.onb_title_todo,
+            R.string.onb_brand_strategy,
     };
     private static final int[] PAGE_LAYOUTS = {
             R.layout.item_onboarding_what,
             R.layout.item_onboarding_how,
             R.layout.item_onboarding_todo,
+            R.layout.item_onboarding_story,
     };
     private static final int LAST_PAGE = TITLES.length - 1;
+    /** From this screen on, the main button is "Start recording video" (screens 3 and 4). */
+    private static final int START_BUTTON_FROM_PAGE = 2;
 
     /** Where the glow sits behind the top of each screen: {x, y} as fractions of the screen. */
-    private static final float[][] GLOW_CENTERS = {{0.5f, 0.22f}, {0.4f, 0.24f}, {0.5f, 0.2f}};
+    private static final float[][] GLOW_CENTERS = {{0.5f, 0.22f}, {0.4f, 0.24f}, {0.5f, 0.2f}, {0.6f, 0.22f}};
 
     private static final int MAX_CONTENT_WIDTH_DP = 480;
     private static final String STATE_PAGE = "page";
@@ -110,7 +115,7 @@ public class OnboardingActivity extends AppCompatActivity {
 
         skip.setOnClickListener(v -> finishOnboarding());
         next.setOnClickListener(v -> {
-            if (pager.getCurrentItem() == LAST_PAGE) {
+            if (pager.getCurrentItem() >= START_BUTTON_FROM_PAGE) {
                 finishOnboarding();
             } else {
                 goTo(pager.getCurrentItem() + 1);
@@ -141,7 +146,7 @@ public class OnboardingActivity extends AppCompatActivity {
             progress.getChildAt(i).setSelected(i <= page);
         }
         progress.setContentDescription(getString(R.string.onb_progress_desc, page + 1, TITLES.length));
-        next.setText(page == LAST_PAGE ? R.string.onb_start_recording : TITLES[page + 1]);
+        next.setText(page >= START_BUTTON_FROM_PAGE ? R.string.onb_start_recording : TITLES[page + 1]);
         backToPreviousPage.setEnabled(page > 0);
     }
 
@@ -158,10 +163,6 @@ public class OnboardingActivity extends AppCompatActivity {
         boolean rtl = pager.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
         background.setGlowCenter(rtl ? 1f - x : x, y);
 
-        // Skip fades out on the way to the last screen: "Start recording video" does its job there.
-        float skipAlpha = Math.max(0f, Math.min(LAST_PAGE - position, 1f));
-        skip.setAlpha(skipAlpha);
-        skip.setVisibility(skipAlpha == 0f ? View.INVISIBLE : View.VISIBLE);
     }
 
     private void finishOnboarding() {
@@ -186,16 +187,36 @@ public class OnboardingActivity extends AppCompatActivity {
             TextView publish = page.findViewById(R.id.onb_how_publish);
             SpannableString text = colored(getString(R.string.onb_how_publish, appName), white, appName);
             publish.setText(colored(text, amber, getString(R.string.onb_how_publish_highlight)));
-        } else {
+            TextView offer = page.findViewById(R.id.onb_how_offer);
+            offer.setText(colored(getString(R.string.onb_how_offer), amber,
+                    getString(R.string.onb_how_offer_highlight)));
+        } else if (position == 2) {
             TextView talk = page.findViewById(R.id.onb_todo_talk);
             talk.setText(colored(new SpannableString(getString(R.string.onb_todo_talk)), amber,
                     getString(R.string.onb_todo_talk_highlight)));
             TextView grow = page.findViewById(R.id.onb_todo_grow);
             grow.setText(colored(getString(R.string.onb_todo_grow, appName), white, appName));
-            page.findViewById(R.id.onb_founder_github).setOnClickListener(v ->
-                    WebLinks.open(this, getString(R.string.onb_founder_github_url)));
-            // The story arrives in Part 3; until then this continues into the app too.
-            page.findViewById(R.id.btn_onb_strategy).setOnClickListener(v -> finishOnboarding());
+            page.findViewById(R.id.btn_onb_strategy).setOnClickListener(v -> goTo(LAST_PAGE));
+            page.findViewById(R.id.btn_onb_watch).setOnClickListener(v ->
+                    YouTubeDialog.show(this, getString(R.string.onb_how_to_video_id)));
+        } else {
+            fillStory(page.findViewById(R.id.onb_story_container));
+        }
+    }
+
+    /** One paragraph per array item; words in [[double brackets]] get the highlighter pen. */
+    private void fillStory(LinearLayout container) {
+        if (container.getChildCount() > 0) return;
+        float density = getResources().getDisplayMetrics().density;
+        String[] paragraphs = getResources().getStringArray(R.array.onb_story);
+        for (int i = 0; i < paragraphs.length; i++) {
+            MarkerTextView paragraph = (MarkerTextView) getLayoutInflater().inflate(
+                    R.layout.item_onboarding_story_paragraph, container, false);
+            paragraph.setText(paragraphs[i]);
+            if (i > 0) {
+                ((LinearLayout.LayoutParams) paragraph.getLayoutParams()).topMargin = Math.round(14 * density);
+            }
+            container.addView(paragraph);
         }
     }
 

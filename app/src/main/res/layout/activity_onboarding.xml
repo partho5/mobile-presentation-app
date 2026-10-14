@@ -49,6 +49,12 @@
                     android:layout_height="4dp"
                     android:layout_marginStart="6dp"
                     android:background="@drawable/bg_onb_progress_bar" />
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="4dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_onb_progress_bar" />
             </LinearLayout>
 
             <Space

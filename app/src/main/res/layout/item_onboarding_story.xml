@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Screen 4: Proven strategy of brand building. Paragraphs are added in code from @array/onb_story. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/OnbPage">
+
+    <TextView
+        style="@style/OnbTitle"
+        android:text="@string/onb_brand_strategy" />
+
+    <ScrollView style="@style/OnbScroll">
+
+        <LinearLayout
+            android:id="@+id/onb_story_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+</LinearLayout>

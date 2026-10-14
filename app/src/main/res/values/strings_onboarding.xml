@@ -5,6 +5,10 @@
     <string name="onb_title_how">How does it do?</string>
     <string name="onb_title_todo">What do I have to do?</string>
     <string name="onb_start_recording">Start recording video</string>
+    <string name="onb_watch_how">Watch how to use this app</string>
+    <string name="onb_close_video">Close video</string>
+    <!-- Placeholder: the how-to video on YouTube. -->
+    <string name="onb_how_to_video_id" translatable="false">19exkwoWseU</string>
     <string name="onb_skip">Skip</string>
     <string name="onb_progress_desc">Step %1$d of %2$d</string>
 
@@ -15,18 +19,39 @@
     <string name="onb_how_publish">%1$s helps you create videos showing your face and publish them to 30+ social platforms.</string>
     <string name="onb_how_publish_highlight">30+</string>
     <string name="onb_how_ai">Our AI analyses your video and writes captions, descriptions and hashtags, and does SEO where applicable.</string>
-    <string name="onb_how_edit">With some basic video editing. And all these within 5 minutes!</string>
+    <string name="onb_how_edit">With some basic video editing.</string>
+    <string name="onb_how_offer">And all these within 5 minutes!</string>
+    <string name="onb_how_offer_highlight">5 minutes</string>
     <string name="onb_how_above_button">That\'s great. Now</string>
 
     <string name="onb_todo_talk">You just talk for 5 minutes every day.</string>
     <string name="onb_todo_talk_highlight">5 minutes</string>
     <string name="onb_todo_grow">%1$s grows a strong personal brand within a few months.</string>
     <string name="onb_todo_doubt">Sounds unbelievable?</string>
-    <string name="onb_founder_name">Protim</string>
-    <string name="onb_founder_role">Software engineer, AI specialisation</string>
-    <string name="onb_founder_promise">I will teach you what I learned in 10+ years closely working with global brands.</string>
-    <string name="onb_founder_github">github.com/partho5</string>
-    <string name="onb_founder_github_url" translatable="false">https://github.com/partho5/</string>
     <string name="onb_founder_photo_desc">Photo of Protim</string>
+    <string name="onb_note_personal">Let me tell you something personally.</string>
+    <string name="onb_note_intro">I am Protim, a software engineer with AI specialisation.</string>
+    <string name="onb_note_brands">I work with global brands.</string>
+    <string name="onb_note_secrets">Let me share the proven strategies that build dominant personal branding.</string>
     <string name="onb_brand_strategy">Proven strategy of brand building</string>
+
+    <!-- The story on screen 4. [[double brackets]] mark the words that get the highlighter. -->
+    <string-array name="onb_story">
+        <item>Working with a lot of businessmen, I noticed how they do [[personal branding]].</item>
+        <item>The one common thing they all do is, they share helpful tips about their service.</item>
+        <item>But there is a twist here. However good content you create, if you don\'t publish regularly and consistently, the social media algorithm will never show your posts to [[more audience]].</item>
+        <item>And these days, video content gets the most reach.</item>
+        <item>Now here is a thing. Which style of video can create the most trust?</item>
+        <item>See, videos made with AI and motion graphics look good. But when countless people are making videos in the exact same style, it has created a fatigue for the audience.</item>
+        <item>These days people want the [[human touch]].</item>
+        <item>People have lost so much trust watching AI content that, compared to a perfectly edited video, a real human walking around and making an average quality video with a phone creates [[more trust]].</item>
+        <item>And this is exactly what businessmen are doing now.</item>
+        <item>But after recording a video, some editing is needed. Also, to say the things in order in the video, you need to write a well planned script beforehand.</item>
+        <item>Again, for different platforms you need to edit videos in different shapes. So to do all this work every day, businessmen mainly hire three kinds of people.</item>
+        <item>1. A video editor, so that consistency is never missed.</item>
+        <item>2. A social media manager, to work on the social platforms regularly.</item>
+        <item>For the last three years I was thinking how to bring this [[cost]] down.</item>
+        <item>Then I developed a software system where you just open the app and start talking. [[Two-three minutes]] of talking, then close the app.</item>
+        <item>Now whatever work needs to be done, [[the app does all the rest]].</item>
+    </string-array>
 </resources>

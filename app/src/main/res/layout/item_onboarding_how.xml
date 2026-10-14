@@ -60,6 +60,11 @@
                     android:layout_marginStart="14dp"
                     android:text="@string/onb_how_edit" />
             </LinearLayout>
+
+            <!-- The payoff, set apart from the rows: a different face, slightly tilted. -->
+            <TextView
+                android:id="@+id/onb_how_offer"
+                style="@style/OnbOffer" />
         </LinearLayout>
     </ScrollView>
 

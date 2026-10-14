@@ -84,6 +84,9 @@ final class YouTubeEmbedView extends FrameLayout {
         s.setAllowContentAccess(false);
         s.setSupportMultipleWindows(false);
         s.setMediaPlaybackRequiresUserGesture(true);
+        // The installed WebView's own Chrome string, current by construction, minus the "; wv"
+        // marker that identifies an embedded WebView.
+        s.setUserAgentString(s.getUserAgentString().replace("; wv", ""));
 
         view.setWebViewClient(new WebViewClient() {
             @Override
