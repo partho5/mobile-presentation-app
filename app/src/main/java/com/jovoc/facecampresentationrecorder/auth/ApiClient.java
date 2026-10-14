@@ -120,16 +120,33 @@ public class ApiClient {
                               Map<String, String> headers, ProgressListener progress,
                               BooleanSupplier cancelled) throws IOException {
         Request request = buildUploadRequest(path, fieldName, file, mime, headers, progress, cancelled);
-        // Large files take a while to receive and to be stored before the server answers.
-        OkHttpClient slow = http.newBuilder()
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(180, TimeUnit.SECONDS)
-                .build();
-        try (Response r = slow.newCall(request).execute()) {
+        try (Response r = uploadClient(http).newCall(request).execute()) {
             String text = r.body() == null ? "" : r.body().string();
             return new ApiResponse(r.code(), text,
                     ApiResponse.parseRetryAfter(r.header("Retry-After")), false);
         }
+    }
+
+    /** A write that makes no progress for this long fails the upload (a stalled connection). */
+    static final int UPLOAD_WRITE_TIMEOUT_SECONDS = 120;
+    /**
+     * After the last byte the server streams the file on to storage before it answers; a 1 GB
+     * video over a slow link to storage can take minutes.
+     */
+    static final int UPLOAD_READ_TIMEOUT_SECONDS = 5 * 60;
+
+    /**
+     * Timeouts for a large upload, derived from the normal client: no overall call timeout (the
+     * transfer may legitimately run for many minutes; the cancel flag stops it), a generous
+     * per-write stall limit, and a 5 minute wait for the answer after the last byte. Calls
+     * other than uploads keep the short defaults of {@link #newHttp}.
+     */
+    static OkHttpClient uploadClient(OkHttpClient base) {
+        return base.newBuilder()
+                .callTimeout(0, TimeUnit.MILLISECONDS)
+                .writeTimeout(UPLOAD_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .readTimeout(UPLOAD_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .build();
     }
 
     Request buildUploadRequest(String path, String fieldName, File file, String mime,

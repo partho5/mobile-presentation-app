@@ -32,7 +32,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 - `ui/StartupActivity` (new LAUNCHER, no UI) -> MainActivity if a session exists, else SignInActivity. Startup never touches the network, so offline features keep working.
 - `ui/SignInActivity` – email step, code step (one field, digits only, paste-friendly, auto-submit at 6), 30 s resend cooldown (or `Retry-After`), states: wrong/expired code, 429, offline, mail failure.
 - `ui/AccountActivity` – email, device name, Sign out (confirm). Drawer item "Account" in `MainActivity` (one-line hook).
-- Base URL: `BuildConfig.API_BASE_URL` per build type in `app/build.gradle`; release value is a TODO placeholder until production is decided.
+- Base URL: `BuildConfig.API_BASE_URL` per build type in `app/build.gradle`; both debug and release point at the production host `https://social-media-schedular.nanybot.com/api` (the backend serves its API under `/api` on the website's host; confirmed against the backend repo's `deploy-manual/README.md`, `deploy/env.example` and `deploy/Caddyfile`). Release refuses a non-https URL.
 - Not logged anywhere: tokens, codes. Email only in UI.
 
 ## Files

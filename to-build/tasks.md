@@ -13,7 +13,7 @@ App parts A1-A2 can be built against the contract before the backend ships; A3 a
 | A1 | Settings: auto-publish checkbox + status line | app | ✅ Done (2026-10-14): Settings "Auto-publish" section (pref `key_auto_publish`) + status line from `PublishApi.autoPublishInfo()` (`AutoPublishInfo` parse, 13 unit tests); unit tests + assembleDebug pass, device check pending |
 | A2 | Auto trigger, startup sweep, worker `auto` mode, result notification | app | ✅ Done (2026-10-14): `PublishManager.onRecordingStopped/releaseAuto/sweepAuto` (row `mode=auto`, status `WAITING_PROCESSING`; no Room schema change, both are Strings), pipeline pre-flight → upload → `POST /auto-publish`, result notification, 9 new pipeline tests + file-pick/builder tests; unit tests + assembleDebug pass, device QA pending |
 | A3 | Live post status on cards | app | ✅ Done (2026-10-14): `PublishApi.postStatus` + `PostStatusSync` (7-day non-final DONE jobs, one call per workspace per 50 ids) run from Saved Recordings `onResume` (20 s throttle, own executor); Room v5 migration adds 5 nullable columns (`post_integrations`, `remote_state/channel/error/url`); card shows Live (tap opens releaseURL) / Failed on <channel>: <error> (Retry = new key) / Deleted on web; unit tests + assembleDebug pass, device QA pending |
-| A4 | Connection hardening, device QA, docs | app | ⬜ Todo |
+| A4 | Connection hardening, device QA, docs | app | ✅ Done (2026-10-14): `ApiClient.uploadClient` (no call timeout, 120 s write stall, 5 min read), production URL confirmed (debug and release), AUTH_PLAN note fixed, AUTO_PUBLISH section in PUBLISH_PLAN.md with the QA checklist; A2 verifier follow-ups fixed in 730359a; device QA still pending (manual) |
 
 ---
 

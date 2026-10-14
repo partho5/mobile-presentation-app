@@ -76,4 +76,20 @@ public class ApiClientTest {
         assertNull(new ApiResponse(500, "<html>", -1, false).errorCode);
         assertNull(new ApiResponse(204, "", -1, false).errorCode);
     }
+
+    @Test
+    public void uploadClientHasNoCallTimeoutAndLongWriteAndReadTimeouts() {
+        okhttp3.OkHttpClient base = ApiClient.newHttp(false);
+        assertEquals(30_000, base.readTimeoutMillis());
+        assertEquals(30_000, base.writeTimeoutMillis());
+
+        okhttp3.OkHttpClient up = ApiClient.uploadClient(base);
+        assertEquals(0, up.callTimeoutMillis());
+        assertEquals(5 * 60 * 1000, up.readTimeoutMillis());
+        assertTrue(up.writeTimeoutMillis() >= 60_000);
+        assertEquals(base.connectTimeoutMillis(), up.connectTimeoutMillis());
+        // Deriving the upload client leaves the shared one short for ordinary calls.
+        assertEquals(30_000, base.readTimeoutMillis());
+        assertEquals(0, base.callTimeoutMillis());
+    }
 }
