@@ -45,7 +45,7 @@
                 <com.google.android.material.imageview.ShapeableImageView
                     android:layout_width="72dp"
                     android:layout_height="72dp"
-                    android:background="@color/onb_highlight"
+                    android:background="@android:color/white"
                     android:contentDescription="@string/onb_founder_photo_desc"
                     android:scaleType="centerCrop"
                     android:src="@drawable/founder_photo"
