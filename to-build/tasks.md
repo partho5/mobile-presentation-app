@@ -99,7 +99,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 
 # Publish leg and retention (PUB, RET): the VPS carries no video for platforms that accept a URL
 
-Status: planned 2026-10-14. Builds on DU above. YouTube is excluded by decision: it stays streamed through the VPS.
+Status: planned 2026-10-14. Builds on DU above. YouTube is excluded because its upload API takes file bytes, not a URL (see Decisions); it stays streamed through the VPS.
 
 ## Setup assumed
 Each customer enters their own developer app keys per platform in the dashboard (the shared-app route is not approvable for a solo operator). Posting is assumed to work with those keys. Anything that needs an app-level verification (for example a TikTok domain) is therefore verified by each customer in their own developer app, so such features must be opt-in with a safe fallback.
@@ -117,7 +117,7 @@ RAM note: these paths hold one chunk at a time, so a publish needs roughly the c
 1. **Pull wherever the API accepts a URL.** Never stream those providers' bytes through the VPS.
 2. **One base URL variable:** `CLOUDFLARE_BUCKET_URL` (set to `https://cdn.nanybot.com/nany-social`) is the only place the public media host is defined. No hardcoded hosts anywhere; `RESTRICT_UPLOAD_DOMAINS` must name the same host.
 3. **TikTok video pull is opt-in per integration.** Today the code uses `FILE_UPLOAD` and keeps `PULL_FROM_URL` commented out with a note about a TikTok pull bug (`tiktok.provider.ts`). Re-enable it behind a per-integration setting "Let TikTok fetch from my media domain". Rules from TikTok's docs: the URL's domain or URL prefix must be verified in the posting developer app (DNS signature recommended), HTTPS, no redirect, reachable for the whole download (times out after 1 hour). On `url_ownership_unverified` or any pull failure, fall back automatically to `FILE_UPLOAD` and tell the user which step is missing.
-4. **Streamed providers stay streamed** (YouTube by decision; X, LinkedIn, Pinterest, VK, Dribbble because their APIs take bytes). Phone-direct to a platform via a server-issued upload URL is a later, separate part, not in this plan.
+4. **Streamed providers stay streamed** (X, LinkedIn, Pinterest, VK, Dribbble because their APIs take bytes). Phone-direct to a platform via a server-issued upload URL is a later, separate part, not in this plan.
 
 ## Parts (backend, this repo is Social-Media-Manager)
 
