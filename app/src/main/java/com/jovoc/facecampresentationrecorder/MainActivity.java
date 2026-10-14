@@ -2267,6 +2267,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     imageSlideView.animate().cancel();
                     imageSlideView.setVisibility(View.VISIBLE);
 
+                    // Without this, re-showing the image the view last held (back and forth between two
+                    // slides) makes Glide restart the old, equivalent request with the old listener: our
+                    // onReady never runs and the scrim sits out the whole ready timeout (~0.7s).
+                    Glide.with(this).clear(imageSlideView);
                     final long loadStartedAt = SystemClock.uptimeMillis();
                     slideImageRequest(imgFile)
                             .listener(new RequestListener<Drawable>() {
