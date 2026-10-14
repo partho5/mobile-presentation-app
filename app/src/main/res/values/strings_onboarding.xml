@@ -7,4 +7,26 @@
     <string name="onb_start_recording">Start recording video</string>
     <string name="onb_skip">Skip</string>
     <string name="onb_progress_desc">Step %1$d of %2$d</string>
+
+    <!-- %1$s is the app name (@string/app_name). -->
+    <string name="onb_what_body">%1$s helps you make your face well known and establish a strong personal brand.</string>
+    <string name="onb_no_account">No account needed to start.</string>
+
+    <string name="onb_how_publish">%1$s helps you create videos showing your face and publish them to 30+ social platforms.</string>
+    <string name="onb_how_publish_highlight">30+</string>
+    <string name="onb_how_ai">Our AI analyses your video and writes captions, descriptions and hashtags, and does SEO where applicable.</string>
+    <string name="onb_how_edit">With some basic video editing. And all these within 5 minutes!</string>
+    <string name="onb_how_above_button">That\'s great. Now</string>
+
+    <string name="onb_todo_talk">You just talk for 5 minutes every day.</string>
+    <string name="onb_todo_talk_highlight">5 minutes</string>
+    <string name="onb_todo_grow">%1$s grows a strong personal brand within a few months.</string>
+    <string name="onb_todo_doubt">Sounds unbelievable?</string>
+    <string name="onb_founder_name">Protim</string>
+    <string name="onb_founder_role">Software engineer, AI specialisation</string>
+    <string name="onb_founder_promise">I will teach you what I learned in 10+ years closely working with global brands.</string>
+    <string name="onb_founder_github">github.com/partho5</string>
+    <string name="onb_founder_github_url" translatable="false">https://github.com/partho5/</string>
+    <string name="onb_founder_photo_desc">Photo of Protim</string>
+    <string name="onb_brand_strategy">Proven strategy of brand building</string>
 </resources>

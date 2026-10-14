@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared skeleton of the onboarding screens: title at the top, the story below it
+         (scrolls with large fonts), the line or button above the main button at the bottom. -->
+    <style name="OnbPage">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:paddingStart">24dp</item>
+        <item name="android:paddingEnd">24dp</item>
+        <item name="android:paddingTop">24dp</item>
+    </style>
+
+    <style name="OnbTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:accessibilityHeading">true</item>
+        <item name="android:textColor">@color/onb_title</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="OnbScroll">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:scrollbars">none</item>
+        <item name="android:fadingEdgeLength">24dp</item>
+        <item name="android:requiresFadingEdge">vertical</item>
+    </style>
+
+    <style name="OnbBody">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:lineHeight">26sp</item>
+        <item name="android:textColor">@color/onb_body</item>
+        <item name="android:textSize">17sp</item>
+    </style>
+
+    <style name="OnbRowIcon">
+        <item name="android:layout_width">22dp</item>
+        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:importantForAccessibility">no</item>
+        <item name="tint">@color/onb_accent</item>
+    </style>
+
+    <style name="OnbAboveButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:layout_marginBottom">14dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/onb_muted</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="OnbCircle">
+        <item name="cornerSize">50%</item>
+    </style>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Screen 1: What does this app do? -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/OnbPage">
+
+    <TextView
+        style="@style/OnbTitle"
+        android:text="@string/onb_title_what" />
+
+    <ScrollView style="@style/OnbScroll">
+
+        <TextView
+            android:id="@+id/onb_what_body"
+            style="@style/OnbBody" />
+    </ScrollView>
+
+    <TextView
+        style="@style/OnbAboveButton"
+        android:text="@string/onb_no_account" />
+</LinearLayout>

@@ -3,6 +3,9 @@ package com.jovoc.facecampresentationrecorder.ui;
 import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +17,7 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -37,10 +41,15 @@ public class OnboardingActivity extends AppCompatActivity {
             R.string.onb_title_how,
             R.string.onb_title_todo,
     };
+    private static final int[] PAGE_LAYOUTS = {
+            R.layout.item_onboarding_what,
+            R.layout.item_onboarding_how,
+            R.layout.item_onboarding_todo,
+    };
     private static final int LAST_PAGE = TITLES.length - 1;
 
-    /** Where the glow sits behind each screen's visual: {x, y} as fractions of the screen. */
-    private static final float[][] GLOW_CENTERS = {{0.5f, 0.28f}, {0.4f, 0.26f}, {0.5f, 0.22f}};
+    /** Where the glow sits behind the top of each screen: {x, y} as fractions of the screen. */
+    private static final float[][] GLOW_CENTERS = {{0.5f, 0.22f}, {0.4f, 0.24f}, {0.5f, 0.2f}};
 
     private static final int MAX_CONTENT_WIDTH_DP = 480;
     private static final String STATE_PAGE = "page";
@@ -165,32 +174,65 @@ public class OnboardingActivity extends AppCompatActivity {
         return a + (b - a) * t;
     }
 
-    private static final class PageAdapter extends RecyclerView.Adapter<PageAdapter.PageHolder> {
+    /** Fills a screen's text: the app name in white, the one number that matters in amber. */
+    private void bindPage(View page, int position) {
+        String appName = getString(R.string.app_name);
+        int white = ContextCompat.getColor(this, R.color.onb_title);
+        int amber = ContextCompat.getColor(this, R.color.onb_highlight);
+        if (position == 0) {
+            TextView body = page.findViewById(R.id.onb_what_body);
+            body.setText(colored(getString(R.string.onb_what_body, appName), white, appName));
+        } else if (position == 1) {
+            TextView publish = page.findViewById(R.id.onb_how_publish);
+            SpannableString text = colored(getString(R.string.onb_how_publish, appName), white, appName);
+            publish.setText(colored(text, amber, getString(R.string.onb_how_publish_highlight)));
+        } else {
+            TextView talk = page.findViewById(R.id.onb_todo_talk);
+            talk.setText(colored(new SpannableString(getString(R.string.onb_todo_talk)), amber,
+                    getString(R.string.onb_todo_talk_highlight)));
+            TextView grow = page.findViewById(R.id.onb_todo_grow);
+            grow.setText(colored(getString(R.string.onb_todo_grow, appName), white, appName));
+            page.findViewById(R.id.onb_founder_github).setOnClickListener(v ->
+                    WebLinks.open(this, getString(R.string.onb_founder_github_url)));
+            // The story arrives in Part 3; until then this continues into the app too.
+            page.findViewById(R.id.btn_onb_strategy).setOnClickListener(v -> finishOnboarding());
+        }
+    }
+
+    private static SpannableString colored(String text, int color, String part) {
+        return colored(new SpannableString(text), color, part);
+    }
+
+    private static SpannableString colored(SpannableString text, int color, String part) {
+        int at = text.toString().indexOf(part);
+        if (at >= 0) {
+            text.setSpan(new ForegroundColorSpan(color), at, at + part.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        return text;
+    }
+
+    private final class PageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+        @Override
+        public int getItemViewType(int position) {
+            return PAGE_LAYOUTS[position];
+        }
 
         @NonNull
         @Override
-        public PageHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            return new PageHolder(LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_onboarding_page, parent, false));
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int layout) {
+            View page = LayoutInflater.from(parent.getContext()).inflate(layout, parent, false);
+            return new RecyclerView.ViewHolder(page) {};
         }
 
         @Override
-        public void onBindViewHolder(@NonNull PageHolder holder, int position) {
-            holder.title.setText(TITLES[position]);
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            bindPage(holder.itemView, position);
         }
 
         @Override
         public int getItemCount() {
-            return TITLES.length;
-        }
-
-        static final class PageHolder extends RecyclerView.ViewHolder {
-            final TextView title;
-
-            PageHolder(View page) {
-                super(page);
-                title = page.findViewById(R.id.onb_title);
-            }
+            return PAGE_LAYOUTS.length;
         }
     }
 }

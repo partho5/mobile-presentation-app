@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Screen 2: How does it do? One idea per row. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/OnbPage">
+
+    <TextView
+        style="@style/OnbTitle"
+        android:text="@string/onb_title_how" />
+
+    <ScrollView style="@style/OnbScroll">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/OnbRowIcon"
+                    android:src="@drawable/ic_share" />
+
+                <TextView
+                    android:id="@+id/onb_how_publish"
+                    style="@style/OnbBody"
+                    android:layout_marginStart="14dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/OnbRowIcon"
+                    android:src="@drawable/ic_ai_sparkle" />
+
+                <TextView
+                    style="@style/OnbBody"
+                    android:layout_marginStart="14dp"
+                    android:text="@string/onb_how_ai" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/OnbRowIcon"
+                    android:src="@drawable/ic_edit" />
+
+                <TextView
+                    style="@style/OnbBody"
+                    android:layout_marginStart="14dp"
+                    android:text="@string/onb_how_edit" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <TextView
+        style="@style/OnbAboveButton"
+        android:text="@string/onb_how_above_button" />
+</LinearLayout>

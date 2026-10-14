@@ -13,12 +13,13 @@ This screen decides whether a new user stays. So the plan has one test for every
 
 ## Decided
 
-- **App name:** "Talk Branding", from `@string/app_name`. "(App Name)" in the copy means this string. Never type the name by hand in a layout.
+- **App name:** "Face Branding", from `@string/app_name`. "(App Name)" in the copy means this string. Never type the name by hand in a layout.
 - **No "Give me 10 minutes" in onboarding.** Screen 3 ends with two buttons: "Start recording video" and "Proven strategy of brand building". The story starts only when the user chooses it.
 - **Proof on screen 3:** Protim's real photo and GitHub link.
   - Photo: `res/drawable-nodpi/founder_photo.webp`, 384×384, 26 KB, transparent background, head and shoulders already cropped for the circle. Put a background color behind it in the circle (`onb_bg_top` or a little lighter). Source: `~/Dropbox/partho images/partho savar basa-transparent-2.png`.
   - GitHub: https://github.com/partho5/
 - **Screen 2:** cut to 3 rows.
+- **Layout (changed 2026-10-14):** title at the top with padding above it, the story text right under it, the CTA at the bottom. No picture block above the title, so the "top 40%: one picture" in the skeleton below no longer applies. Visuals, if any come back, go below the text.
 - **Gradient:** quiet, never flashy. Rules are in Colors and gradient.
 
 ## Still open
@@ -184,6 +185,8 @@ Built. What Part 2 needs to know:
 - Not checked yet: banding on a real low-end phone.
 
 **Part 2 — The three screens** (photo and GitHub URL are ready, see Decided)
+
+Partly built: all copy, the screen 2 icon rows, the founder card with photo and GitHub link, and the outlined story button (opens MainActivity for now). Each screen is its own layout (`item_onboarding_what/how/todo.xml`) sharing `styles_onboarding.xml`. Still to do: motion (280ms slide, rows 80ms apart), TalkBack and large-font check. On a 360×640dp phone the screen 3 text scrolls under fixed buttons; it does not fit without scrolling.
 - Page layouts on the shared skeleton, copy from [onboarding.md](onboarding.md).
 - Visuals for screens 1 and 2, founder card and two buttons for screen 3.
 - "Start recording video" opens `MainActivity`. "Proven strategy of brand building" opens the story; until Part 3 exists it opens `MainActivity` too.
