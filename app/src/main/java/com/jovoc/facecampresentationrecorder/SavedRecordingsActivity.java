@@ -165,6 +165,8 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         super.onResume();
         // Recordings whose processing was cut short still get their auto-publish.
         PublishManager.get(this).sweepAuto();
+        // How accepted posts ended up (live / failed / deleted); one call, skipped if recent.
+        PublishManager.get(this).refreshStatuses();
         // Files may have arrived while the user was recording or in the gallery.
         loadRecordings(false);
     }
@@ -436,6 +438,7 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         if (before == null || after == null) return before != after;
         return before.id != after.id || before.updatedAt != after.updatedAt
                 || before.progress != after.progress
+                || !java.util.Objects.equals(before.remoteState, after.remoteState)
                 || !java.util.Objects.equals(before.status, after.status);
     }
 

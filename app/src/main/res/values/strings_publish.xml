@@ -45,6 +45,10 @@
     <string name="status_published">Published</string>
     <string name="status_scheduled">Scheduled for %1$s</string>
     <string name="status_failed">Failed: %1$s</string>
+    <string name="publish_open_link_failed">Couldn\'t open the link</string>
+    <string name="status_live">Live</string>
+    <string name="status_failed_on">Failed on %1$s: %2$s</string>
+    <string name="status_deleted_web">Deleted on web</string>
     <string name="status_auto_waiting">Auto-publish: waiting for processing</string>
     <string name="status_scheduled_slot">Scheduled for the next free slot</string>
 
@@ -62,6 +66,7 @@
     <string name="pub_err_auto_not_set_up">auto-publish isn\'t set up yet, set it up on the website then retry</string>
     <string name="pub_err_credits_short">needs %1$s credits, you have %2$s</string>
     <string name="pub_err_media_gone">the uploaded video was lost, retry to upload it again</string>
+    <string name="pub_err_remote_unknown">the channel refused the post</string>
     <string name="pub_err_interrupted">publishing was interrupted</string>
 
     <!-- Notification -->

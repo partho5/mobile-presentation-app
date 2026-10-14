@@ -3,7 +3,6 @@ package com.jovoc.facecampresentationrecorder.publish;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 
 import java.io.File;
-import java.util.List;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
@@ -104,6 +103,8 @@ public final class PublishPipeline {
         }
         // Remembered so the card and the notification can say "Scheduled" for a next-slot preset.
         job.mode = "next_slot".equals(info.timing) ? PublishJob.MODE_AUTO_SLOT : PublishJob.MODE_AUTO;
+        // Kept so a later "Failed on <channel>" can name the channel.
+        job.channelsJson = Channel.toJson(info.activeChannels());
         save(job);
     }
 
@@ -138,10 +139,16 @@ public final class PublishPipeline {
     private void createPost(PublishJob job) throws PublishException {
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
         move(job, PublishJob.PUBLISHING);
-        List<String> ids = job.isAuto()
+        PublishApi.Posted posted = job.isAuto()
                 ? api.autoPublish(job)
                 : api.createPost(job, clock.getAsLong());
-        job.postIds = String.join(",", ids);
+        job.postIds = String.join(",", posted.ids);
+        job.postIntegrations = String.join(",", posted.integrations);
+        // A new set of posts: whatever the server said about earlier ones no longer applies.
+        job.remoteState = null;
+        job.remoteChannel = null;
+        job.remoteError = null;
+        job.remoteUrl = null;
         job.errorKind = null;
         job.errorDetail = null;
         move(job, PublishJob.DONE);

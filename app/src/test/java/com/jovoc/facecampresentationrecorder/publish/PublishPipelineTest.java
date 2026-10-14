@@ -163,9 +163,39 @@ public class PublishPipelineTest {
         assertEquals(PublishJob.DONE, saved.status);
         assertEquals("m1", saved.mediaId);
         assertEquals("p1", saved.postIds);
+        assertEquals("c1", saved.postIntegrations);
+        assertNull(saved.remoteState);
         assertEquals(100, saved.progress);
         assertTrue(progressSeen.contains(100));
         assertNotNull(job);
+    }
+
+    @Test
+    public void aRetryOfAChannelFailure_getsANewKey_andClearsTheOldAnswer() throws Exception {
+        PublishJob job = newJob();
+        job.status = PublishJob.DONE;
+        job.postIds = "p1";
+        job.postIntegrations = "c1";
+        job.remoteState = PublishJob.REMOTE_ERROR;
+        job.remoteChannel = "YT";
+        job.remoteError = "too long";
+        job.mediaId = "m1";
+        job.mediaPath = "https://cdn.test/x.mp4";
+        assertTrue(job.isRemoteFailed());
+
+        job.resetForNewPublish("key-2");
+        job.status = PublishJob.QUEUED;
+        server.enqueue(new MockResponse().setBody("[{\"postId\":\"p9\",\"integration\":\"c1\"}]"));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+        assertEquals(1, server.getRequestCount()); // no second upload
+        RecordedRequest post = server.takeRequest();
+        assertEquals("key-2", post.getHeader("Idempotency-Key"));
+        PublishJob saved = rows.get(7L);
+        assertEquals("p9", saved.postIds);
+        assertNull(saved.remoteState);
+        assertNull(saved.remoteError);
+        assertFalse(saved.isRemoteFailed());
     }
 
     // ---- dropped connection: no duplicate post, no second upload ----

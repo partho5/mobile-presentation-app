@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Slide.class, PublishJob.class}, version = 4, exportSchema = false)
+@Database(entities = {Slide.class, PublishJob.class}, version = 5, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -49,6 +49,18 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Adds what the server reported about an accepted post (live / failed / deleted); all nullable.
+    static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `post_integrations` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `remote_state` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `remote_channel` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `remote_error` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `remote_url` TEXT");
+        }
+    };
+
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -57,7 +69,7 @@ public abstract class AppDatabase extends RoomDatabase {
                             context.getApplicationContext(),
                             AppDatabase.class,
                             "presentation_db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build();
+                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build();
                 }
             }
         }

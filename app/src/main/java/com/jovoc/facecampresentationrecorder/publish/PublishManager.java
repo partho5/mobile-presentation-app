@@ -44,6 +44,12 @@ public final class PublishManager {
     private final Context app;
     private final PublishJobDao dao;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    /** Status look-ups wait on the network; they must not hold up publish actions on {@link #io}. */
+    private final ExecutorService statusIo = Executors.newSingleThreadExecutor();
+
+    private static final long MIN_STATUS_INTERVAL_MS = 20_000L;
+    private boolean statusRunning;
+    private long lastStatusAt;
 
     public static synchronized PublishManager get(Context context) {
         if (instance == null) instance = new PublishManager(context.getApplicationContext());
@@ -83,6 +89,11 @@ public final class PublishManager {
         io.execute(() -> {
             PublishJob job = dao.get(id);
             if (job == null || job.isActive()) return;
+            if (job.isRemoteFailed()) {
+                // The backend accepted it but the channel refused: a new publish. The old key
+                // would replay the first answer, so it is replaced; the upload is kept.
+                job.resetForNewPublish(PublishPipeline.newKey());
+            }
             job.status = PublishJob.QUEUED;
             job.errorKind = null;
             job.errorDetail = null;
@@ -90,6 +101,38 @@ public final class PublishManager {
             dao.update(job);
             schedule(app, id);
             broadcast(app);
+        });
+    }
+
+    // ---- live post status ----
+
+    /**
+     * Asks the server how recently accepted posts ended up and stores the final answers on their
+     * jobs (the card then reads Live / Failed on ... / Deleted on web). One call per 50 posts and
+     * workspace; nothing runs in the background, this is called when the screen opens or resumes.
+     * Skipped when signed out, when one is already running or when one ran moments ago.
+     */
+    public void refreshStatuses() {
+        if (!SessionManager.get(app).hasSession()) return;
+        long now = System.currentTimeMillis();
+        synchronized (this) {
+            if (statusRunning || now - lastStatusAt < MIN_STATUS_INTERVAL_MS) return;
+            statusRunning = true;
+            lastStatusAt = now;
+        }
+        statusIo.execute(() -> {
+            try {
+                PublishApi api = new PublishApi(SessionManager.get(app).repository());
+                int changed = PostStatusSync.refresh(api, dao.doneAwaitingRemote(), now, (job, r) ->
+                        dao.setRemote(job.id, job.postIds, r.state, r.channel, r.error, r.url));
+                if (changed > 0) broadcast(app);
+            } catch (RuntimeException ignored) {
+                // A failed look-up changes nothing; the next resume asks again.
+            } finally {
+                synchronized (this) {
+                    statusRunning = false;
+                }
+            }
         });
     }
 

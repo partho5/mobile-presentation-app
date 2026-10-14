@@ -34,6 +34,20 @@ public interface PublishJobDao {
     @Query("SELECT * FROM publish_jobs WHERE status = 'WAITING_PROCESSING' ORDER BY id")
     List<PublishJob> waitingProcessing();
 
+    /** Accepted jobs whose posts have not been seen in a final state yet (the caller applies the 7-day window). */
+    @Query("SELECT * FROM publish_jobs WHERE status = 'DONE' AND remote_state IS NULL "
+            + "AND post_ids IS NOT NULL AND post_ids != '' ORDER BY id DESC")
+    List<PublishJob> doneAwaitingRemote();
+
+    /**
+     * Stores what the server said. Matches on the post ids too, so a job that was retried (new
+     * posts) meanwhile is not overwritten with the old posts' result.
+     */
+    @Query("UPDATE publish_jobs SET remote_state = :state, remote_channel = :channel, "
+            + "remote_error = :error, remote_url = :url WHERE id = :id AND status = 'DONE' "
+            + "AND post_ids = :postIds")
+    int setRemote(long id, String postIds, String state, String channel, String error, String url);
+
     @Query("DELETE FROM publish_jobs WHERE id = :id")
     void deleteById(long id);
 

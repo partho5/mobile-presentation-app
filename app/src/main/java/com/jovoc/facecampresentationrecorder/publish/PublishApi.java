@@ -28,6 +28,9 @@ public class PublishApi {
     public static final String PATH_POSTS = "/public/v1/posts";
     public static final String PATH_CHARGE_PREVIEW = "/posts/charge-preview";
     public static final String PATH_AUTO_PUBLISH = "/public/v1/auto-publish";
+    public static final String PATH_POSTS_STATUS = "/public/v1/posts/status";
+    /** The backend answers at most this many ids per GET /posts/status. */
+    public static final int MAX_STATUS_IDS = 50;
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
     /** The backend's video cap (credits.publish / custom.upload.validation). */
     public static final long MAX_VIDEO_BYTES = 1024L * 1024L * 1024L;
@@ -40,6 +43,17 @@ public class PublishApi {
         Media(String id, String path) {
             this.id = id;
             this.path = path;
+        }
+    }
+
+    /** The posts a create call made: ids, and the channel of each (same order, "" when unknown). */
+    public static final class Posted {
+        public final List<String> ids;
+        public final List<String> integrations;
+
+        Posted(List<String> ids, List<String> integrations) {
+            this.ids = ids;
+            this.integrations = integrations;
         }
     }
 
@@ -119,9 +133,9 @@ public class PublishApi {
 
     /**
      * POST /public/v1/posts with the job's Idempotency-Key.
-     * @return the created post ids (never empty)
+     * @return the created posts (never empty)
      */
-    public List<String> createPost(PublishJob job, long nowMs) throws PublishException {
+    public Posted createPost(PublishJob job, long nowMs) throws PublishException {
         Map<String, String> headers = workspaceHeaders(job.workspaceId, null);
         headers.put(HEADER_IDEMPOTENCY, job.idempotencyKey);
         String body = PublishRequestBuilder.createPostBody(job, nowMs);
@@ -133,9 +147,9 @@ public class PublishApi {
     /**
      * POST /public/v1/auto-publish with the job's Idempotency-Key: the server builds the post
      * from the workspace's preset and runs the same checks and charging as {@link #createPost}.
-     * @return the created post ids (never empty)
+     * @return the created posts (never empty)
      */
-    public List<String> autoPublish(PublishJob job) throws PublishException {
+    public Posted autoPublish(PublishJob job) throws PublishException {
         Map<String, String> headers = workspaceHeaders(job.workspaceId, null);
         headers.put(HEADER_IDEMPOTENCY, job.idempotencyKey);
         String body = PublishRequestBuilder.autoPublishBody(job);
@@ -144,14 +158,35 @@ public class PublishApi {
         return postedIds(r);
     }
 
-    private static List<String> postedIds(ApiResponse r) throws PublishException {
+    /**
+     * GET /public/v1/posts/status for up to {@link #MAX_STATUS_IDS} posts of one workspace. Ids the
+     * server does not know (or that belong to another workspace) are simply absent from the answer.
+     * @param workspaceId the workspace the posts were made in; null or empty uses the device's pick
+     */
+    public List<PostStatus> postStatus(List<String> ids, String workspaceId) throws PublishException {
+        if (ids == null || ids.isEmpty() || ids.size() > MAX_STATUS_IDS) {
+            throw new IllegalArgumentException("1 to " + MAX_STATUS_IDS + " ids");
+        }
+        String path = PATH_POSTS_STATUS + "?ids=" + PostStatusSync.idsQuery(ids);
+        Map<String, String> headers = workspaceHeaders(workspaceId, null);
+        ApiResponse r = authed(() -> repo.execute("GET", path, null, headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return PostStatus.parseList(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    private static Posted postedIds(ApiResponse r) throws PublishException {
         try {
             List<String> ids = PublishRequestBuilder.postIds(r.body);
             if (ids.isEmpty()) {
                 throw new PublishException(PublishException.Kind.REJECTED, r.status,
                         "The server did not create a post. Check the channel and try again.", -1);
             }
-            return Collections.unmodifiableList(ids);
+            return new Posted(Collections.unmodifiableList(ids),
+                    Collections.unmodifiableList(PublishRequestBuilder.postIntegrations(r.body)));
         } catch (JSONException e) {
             throw new PublishException(PublishException.Kind.SERVER);
         }

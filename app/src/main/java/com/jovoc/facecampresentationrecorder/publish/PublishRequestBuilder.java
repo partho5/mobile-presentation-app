@@ -97,6 +97,28 @@ public final class PublishRequestBuilder {
         return ids;
     }
 
+    /**
+     * The channel of each created post, in the order (and with the length) of {@link #postIds}:
+     * the answer's {@code integration} is a channel id, or {@code {id}}; "" when absent.
+     */
+    public static List<String> postIntegrations(String responseJson) throws JSONException {
+        JSONArray arr = new JSONArray(responseJson);
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o == null || o.optString("postId", "").isEmpty()) continue;
+            Object integration = o.opt("integration");
+            String id = "";
+            if (integration instanceof String) {
+                id = (String) integration;
+            } else if (integration instanceof JSONObject) {
+                id = ((JSONObject) integration).optString("id", "");
+            }
+            out.add(id);
+        }
+        return out;
+    }
+
     /** 2026-10-08T14:30:00.000Z, the form the backend's date validation accepts. */
     static String isoUtc(long ms) {
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);

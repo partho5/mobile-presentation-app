@@ -59,6 +59,7 @@ public final class Channel {
     }
 
     public static List<Channel> fromJson(String json) {
+        if (json == null) return new ArrayList<>();
         try {
             List<Channel> list = parseList(json);
             return list;

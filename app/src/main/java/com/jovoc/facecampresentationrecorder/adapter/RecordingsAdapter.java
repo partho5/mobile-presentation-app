@@ -182,9 +182,30 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         holder.tvPublishStatus.setVisibility(View.VISIBLE);
         holder.tvPublishStatus.setText(text);
         holder.tvPublishStatus.setTextColor(PublishLabels.color(job));
+        // A live post's status line opens the post; recycled holders must not keep an old link.
+        String liveUrl = PublishLabels.liveUrl(job);
+        if (liveUrl != null) {
+            holder.tvPublishStatus.setPaintFlags(
+                    holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            holder.tvPublishStatus.setOnClickListener(v -> openLivePost(liveUrl));
+        } else {
+            holder.tvPublishStatus.setPaintFlags(
+                    holder.tvPublishStatus.getPaintFlags() & ~android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            holder.tvPublishStatus.setOnClickListener(null);
+            holder.tvPublishStatus.setClickable(false);
+        }
         boolean uploading = PublishJob.UPLOADING.equals(job.status);
         holder.pbPublish.setVisibility(uploading ? View.VISIBLE : View.GONE);
         if (uploading) holder.pbPublish.setProgress(job.progress);
+    }
+
+    private void openLivePost(String url) {
+        try {
+            context.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (RuntimeException e) {
+            Toast.makeText(context, R.string.publish_open_link_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void startPublish(RecordingItem item) {
@@ -228,7 +249,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
         // Publish entries follow the recording's publish state: start, again, retry or cancel.
         boolean running = job != null && job.isActive();
-        boolean failed = job != null && PublishJob.FAILED.equals(job.status);
+        boolean failed = job != null
+                && (PublishJob.FAILED.equals(job.status) || job.isRemoteFailed());
         Menu menu = popup.getMenu();
         menu.findItem(R.id.action_publish).setVisible(!running);
         menu.findItem(R.id.action_publish).setTitle(

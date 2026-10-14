@@ -97,6 +97,15 @@ public class PublishRequestBuilderTest {
     }
 
     @Test
+    public void postIntegrationsFollowThePostIds_stringOrObject_orEmpty() throws Exception {
+        assertEquals(Arrays.asList("c1", "c2", ""), PublishRequestBuilder.postIntegrations(
+                "[{\"postId\":\"p1\",\"integration\":\"c1\"},"
+                        + "{\"postId\":\"p2\",\"integration\":{\"id\":\"c2\"}},"
+                        + "{\"postId\":\"p3\"},{\"integration\":\"skipped\"}]"));
+        assertTrue(PublishRequestBuilder.postIntegrations("[]").isEmpty());
+    }
+
+    @Test
     public void channelListSkipsIncompleteEntries() throws Exception {
         List<Channel> list = Channel.parseList("[{\"id\":\"1\",\"name\":\"A\",\"identifier\":\"tiktok\","
                 + "\"picture\":null,\"disabled\":true},{\"name\":\"no id\"}]");

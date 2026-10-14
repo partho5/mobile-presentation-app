@@ -26,6 +26,15 @@ public final class PublishLabels {
             case PublishJob.PUBLISHING:
                 return c.getString(R.string.status_publishing);
             case PublishJob.DONE:
+                if (PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) {
+                    return c.getString(R.string.status_live);
+                }
+                if (PublishJob.REMOTE_DELETED.equals(job.remoteState)) {
+                    return c.getString(R.string.status_deleted_web);
+                }
+                if (PublishJob.REMOTE_ERROR.equals(job.remoteState)) {
+                    return remoteFailure(c, job.remoteChannel, job.remoteError);
+                }
                 if (PublishJob.MODE_AUTO_SLOT.equals(job.mode)) {
                     return c.getString(R.string.status_scheduled_slot);
                 }
@@ -44,10 +53,29 @@ public final class PublishLabels {
 
     public static int color(PublishJob job) {
         if (job == null) return 0xFFBBBBBB;
-        if (PublishJob.DONE.equals(job.status)) return 0xFF4ADE80;
+        if (PublishJob.DONE.equals(job.status)) {
+            if (PublishJob.REMOTE_ERROR.equals(job.remoteState)) return 0xFFFF6B6B;
+            if (PublishJob.REMOTE_DELETED.equals(job.remoteState)) return 0xFFBBBBBB;
+            return 0xFF4ADE80;
+        }
         if (PublishJob.FAILED.equals(job.status)) return 0xFFFF6B6B;
         if (PublishJob.QUEUED.equals(job.status) && job.errorKind != null) return 0xFFFFB347;
         return 0xFF22D3EE;
+    }
+
+    /** "Failed on YouTube: reason", or "Failed: reason" when the channel is not known. */
+    static String remoteFailure(Context c, String channel, String error) {
+        String reason = error == null || error.trim().isEmpty()
+                ? c.getString(R.string.pub_err_remote_unknown) : error.trim();
+        if (channel == null || channel.isEmpty()) return c.getString(R.string.status_failed, reason);
+        return c.getString(R.string.status_failed_on, channel, reason);
+    }
+
+    /** The link of a post that is live, or null. */
+    public static String liveUrl(PublishJob job) {
+        if (job == null || !PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) return null;
+        String u = job.remoteUrl;
+        return u != null && (u.startsWith("https://") || u.startsWith("http://")) ? u : null;
     }
 
     /** A short human reason for a failure kind ({@link PublishException.Kind} name). */
