@@ -59,20 +59,39 @@
                     android:text="@string/onb_note_personal" />
             </LinearLayout>
 
-            <TextView
-                style="@style/OnbBody"
-                android:layout_marginTop="12dp"
-                android:text="@string/onb_note_intro" />
+            <!-- The note text, with a hand-brushed cyan line down its left side. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal">
 
-            <TextView
-                style="@style/OnbBody"
-                android:layout_marginTop="12dp"
-                android:text="@string/onb_note_brands" />
+                <com.jovoc.facecampresentationrecorder.ui.BrushLineView
+                    android:layout_width="10dp"
+                    android:layout_height="match_parent" />
 
-            <TextView
-                style="@style/OnbBody"
-                android:layout_marginTop="12dp"
-                android:text="@string/onb_note_secrets" />
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/OnbBody"
+                        android:text="@string/onb_note_intro" />
+
+                    <TextView
+                        style="@style/OnbBody"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/onb_note_brands" />
+
+                    <TextView
+                        style="@style/OnbBody"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/onb_note_secrets" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
