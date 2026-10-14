@@ -234,6 +234,11 @@ public class OnboardingActivity extends AppCompatActivity {
             container.addView(view);
             previousWasCard = card;
         }
+        // The story ends with the how-to video: it appears only once the reader scrolls here.
+        View watch = getLayoutInflater().inflate(R.layout.item_onboarding_story_watch, container, false);
+        ((LinearLayout.LayoutParams) watch.getLayoutParams()).topMargin = Math.round(28 * density);
+        watch.setOnClickListener(v -> YouTubeDialog.show(this, getString(R.string.onb_how_to_video_id)));
+        container.addView(watch);
     }
 
     private MarkerTextView storyParagraph(LinearLayout container, String text) {
