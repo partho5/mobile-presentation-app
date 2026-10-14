@@ -151,7 +151,7 @@ public class AuthRepository {
     /**
      * Sends an authenticated request. Refreshes first when the access token is about to expire,
      * and once more (then retries once, same headers) on 401 TOKEN_EXPIRED. 401 SESSION_REVOKED
-     * clears the session, fires the forced-sign-out listener and throws SESSION_ENDED. Any other
+     * (or 401 {"msg":"Invalid API key"}) clears the session, fires the forced-sign-out listener and throws SESSION_ENDED. Any other
      * response, including errors, is returned for the caller to interpret.
      */
     public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers)
@@ -196,11 +196,23 @@ public class AuthRepository {
             final String renewed = store.accessToken();
             r = call(() -> sender.send(renewed));
         }
-        if (r.is(401, ApiResponse.SESSION_REVOKED)) {
+        if (r.is(401, ApiResponse.SESSION_REVOKED) || isInvalidApiKey(r)) {
             endSession(true);
             throw new AuthException(AuthException.Kind.SESSION_ENDED);
         }
         return r;
+    }
+
+    /** 401 {"msg":"Invalid API key"}: the token is not valid (or its user is gone); sign out. */
+    private static boolean isInvalidApiKey(ApiResponse r) {
+        if (r.status != 401 || r.errorCode != null || r.body.isEmpty() || r.body.charAt(0) != '{') {
+            return false;
+        }
+        try {
+            return "Invalid API key".equals(r.json().optString("msg", null));
+        } catch (JSONException e) {
+            return false;
+        }
     }
 
     /** Multipart upload with the access token; see {@link ApiClient#upload}. */

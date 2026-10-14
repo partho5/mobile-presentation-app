@@ -48,13 +48,25 @@ public class PublishException extends Exception {
     /** Readable server message when there is one (REJECTED, INSUFFICIENT_CREDITS), else null. */
     public final String detail;
     public final int retryAfterSeconds;
+    /**
+     * RATE_LIMITED only: true for the API throttler's 429. The server stores that answer under
+     * the Idempotency-Key for 24 h (and replays it without Retry-After), so the key must be
+     * replaced before the next attempt. The auth layer's 429 (AUTH_RATE_LIMITED) is not stored.
+     */
+    private final boolean storedAnswer;
 
     public PublishException(Kind kind, int status, String detail, int retryAfterSeconds) {
+        this(kind, status, detail, retryAfterSeconds, false);
+    }
+
+    private PublishException(Kind kind, int status, String detail, int retryAfterSeconds,
+                             boolean storedAnswer) {
         super(kind.name());
         this.kind = kind;
         this.status = status;
         this.detail = detail;
         this.retryAfterSeconds = retryAfterSeconds;
+        this.storedAnswer = storedAnswer;
     }
 
     public PublishException(Kind kind) {
@@ -70,13 +82,15 @@ public class PublishException extends Exception {
     /**
      * True when the server answered definitively with a 4xx: it stores that answer against the
      * Idempotency-Key for 24 h and would replay it, so the next attempt needs a new key.
-     * 5xx, dropped connections, 429 and 409-in-progress are never stored. Neither is a 401: the
-     * auth layer rejected the request before the idempotency middleware stored anything, so the
-     * key must survive the sign-in, or a Retry after an unknown-outcome post could post twice.
+     * 5xx, dropped connections and 409-in-progress are never stored. Neither is a 401, nor the
+     * auth layer's 429 (AUTH_RATE_LIMITED): they are rejected before the idempotency middleware
+     * stores anything, so the key must survive, or a Retry after an unknown-outcome post could
+     * post twice. The API throttler's 429 is different: nothing was created, but the answer IS
+     * stored, so a retry with the same key only replays it; it needs a new key.
      */
     public boolean spendsKey() {
-        return status >= 400 && status < 500 && kind != Kind.RATE_LIMITED && kind != Kind.IN_PROGRESS
-                && kind != Kind.SIGNED_OUT;
+        if (kind == Kind.RATE_LIMITED) return storedAnswer;
+        return status >= 400 && status < 500 && kind != Kind.IN_PROGRESS && kind != Kind.SIGNED_OUT;
     }
 
     // ---- mapping ----
@@ -106,7 +120,16 @@ public class PublishException extends Exception {
         }
         if (r.status == 413) return new PublishException(Kind.TOO_LARGE, 413, message, -1);
         if (r.status == 429) {
-            return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds);
+            boolean throttled = !ApiResponse.AUTH_RATE_LIMITED.equals(r.errorCode)
+                    && message != null && message.contains("Throttler");
+            return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds, throttled);
+        }
+        if (r.status == 400 && "File is too large.".equals(message)) {
+            return new PublishException(Kind.TOO_LARGE, 400, message, -1);
+        }
+        if (r.status == 400 && "Failed to read file".equals(message)) {
+            // The upload stream could not be read: worth another try (the key is not in use yet).
+            return new PublishException(Kind.SERVER, 400, null, -1);
         }
         if (r.status == 409 && "IDEMPOTENCY_IN_PROGRESS".equals(r.errorCode)) {
             return new PublishException(Kind.IN_PROGRESS, 409, null, -1);
@@ -119,9 +142,26 @@ public class PublishException extends Exception {
         }
         if (r.status == 401) return new PublishException(Kind.SIGNED_OUT, 401, null, -1);
         if (r.status >= 400 && r.status < 500) {
-            return new PublishException(Kind.REJECTED, r.status, message, -1);
+            return new PublishException(Kind.REJECTED, r.status, withChannelName(r.body, message), -1);
         }
         return new PublishException(Kind.SERVER, r.status, null, -1);
+    }
+
+    /**
+     * A dashboard validation answer {statusCode, provider, name, message} names the channel it
+     * is about; with several channels the user needs to know which one to fix on the web.
+     */
+    static String withChannelName(String body, String message) {
+        if (message == null || body == null || body.isEmpty() || body.charAt(0) != '{') return message;
+        try {
+            JSONObject o = new JSONObject(body);
+            if (!o.has("provider")) return message;
+            String name = o.optString("name", "").trim();
+            if (name.isEmpty() || message.contains(name)) return message;
+            return name + ": " + message;
+        } catch (Exception e) {
+            return message;
+        }
     }
 
     /** Pulls a readable text out of {message}, {message:[...]} or {msg}; null if there is none. */

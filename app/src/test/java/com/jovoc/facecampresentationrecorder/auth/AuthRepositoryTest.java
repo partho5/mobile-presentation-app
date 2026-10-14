@@ -283,6 +283,24 @@ public class AuthRepositoryTest {
     }
 
     @Test
+    public void invalidApiKeyEndsTheSessionLikeARevokedOne() {
+        signedIn();
+        server.enqueue(new MockResponse().setResponseCode(401).setBody("{\"msg\":\"Invalid API key\"}"));
+        assertEquals(AuthException.Kind.SESSION_ENDED, kindOf(() -> repo.execute("GET", "/x", null, null)));
+        assertFalse(store.hasSession());
+        assertEquals(1, forcedSignOuts.get());
+    }
+
+    @Test
+    public void otherUnauthorizedAnswersAreReturnedAndKeepTheSession() throws Exception {
+        signedIn();
+        server.enqueue(new MockResponse().setResponseCode(401).setBody("{\"msg\":\"No API Key found\"}"));
+        assertEquals(401, repo.execute("GET", "/x", null, null).status);
+        assertTrue(store.hasSession());
+        assertEquals(0, forcedSignOuts.get());
+    }
+
+    @Test
     public void refreshRefusedEndsSession() {
         signedIn();
         server.enqueue(new MockResponse().setResponseCode(401)

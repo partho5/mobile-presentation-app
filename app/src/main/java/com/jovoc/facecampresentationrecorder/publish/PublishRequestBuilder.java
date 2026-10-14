@@ -83,7 +83,13 @@ public final class PublishRequestBuilder {
         if (n.toLowerCase(Locale.ROOT).endsWith(".mp4")) n = n.substring(0, n.length() - 4);
         n = n.replaceFirst("_\\d+x\\d+$", "").trim();
         if (n.isEmpty()) n = "Recording";
-        return n.length() > 500 ? n.substring(0, 500) : n;
+        if (n.length() > 500) {
+            int end = 500;
+            // The server counts UTF-16 units: do not cut an emoji (surrogate pair) in half.
+            if (Character.isHighSurrogate(n.charAt(end - 1))) end--;
+            n = n.substring(0, end);
+        }
+        return n;
     }
 
     public static List<String> postIds(String responseJson) throws JSONException {

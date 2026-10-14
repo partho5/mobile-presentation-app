@@ -138,4 +138,82 @@ public class PublishApiAutoPublishTest {
         server.enqueue(json(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}"));
         assertEquals(PublishException.Kind.WORKSPACE_FORBIDDEN, failureKind());
     }
+
+    @Test
+    public void autoPublish_sendsTheGuidesBodyAndHeaders_andReadsPostIdsAndChannels() throws Exception {
+        com.jovoc.facecampresentationrecorder.db.PublishJob job =
+                new com.jovoc.facecampresentationrecorder.db.PublishJob();
+        job.workspaceId = "w-job";
+        job.idempotencyKey = "11111111-2222-3333-4444-555555555555";
+        job.fileName = "Lecture 1_9x16.mp4";
+        job.mediaId = "m1";
+        job.mediaPath = "https://cdn.example.com/m1.mp4";
+        server.enqueue(json(201, "[{\"postId\":\"p1\",\"integration\":\"c1\"},"
+                + "{\"postId\":\"p2\",\"integration\":\"c2\"}]"));
+
+        PublishApi.Posted posted = api.autoPublish(job);
+
+        assertEquals(java.util.Arrays.asList("p1", "p2"), posted.ids);
+        assertEquals(java.util.Arrays.asList("c1", "c2"), posted.integrations);
+        RecordedRequest r = server.takeRequest();
+        assertEquals("POST", r.getMethod());
+        assertEquals("/public/v1/auto-publish", r.getPath());
+        assertEquals("Bearer acc", r.getHeader("Authorization"));
+        assertEquals("w-job", r.getHeader("x-workspace-id"));
+        assertEquals("11111111-2222-3333-4444-555555555555", r.getHeader("Idempotency-Key"));
+        assertTrue(r.getHeader("Content-Type").startsWith("application/json"));
+        org.json.JSONObject body = new org.json.JSONObject(r.getBody().readUtf8());
+        assertEquals("m1", body.getJSONObject("media").getString("id"));
+        assertEquals("https://cdn.example.com/m1.mp4", body.getJSONObject("media").getString("path"));
+        assertEquals("Lecture 1", body.getString("title"));
+        assertEquals(2, body.length());
+    }
+
+    @Test
+    public void postStatus_asksWithCommaSeparatedIds_andTheJobsWorkspace() throws Exception {
+        server.enqueue(json(200, "[{\"id\":\"a\",\"state\":\"PUBLISHED\","
+                + "\"publishDate\":\"2026-10-14T09:30:00.000Z\",\"releaseURL\":\"https://y.test/w\"}]"));
+        java.util.List<PostStatus> out = api.postStatus(java.util.Arrays.asList("a", "b"), "w-job");
+        assertEquals(1, out.size());
+        assertEquals(PostStatus.State.PUBLISHED, out.get(0).state);
+        RecordedRequest r = server.takeRequest();
+        assertEquals("GET", r.getMethod());
+        assertEquals("/public/v1/posts/status?ids=a,b", r.getPath());
+        assertEquals("w-job", r.getHeader("x-workspace-id"));
+        assertEquals("Bearer acc", r.getHeader("Authorization"));
+    }
+
+    @Test
+    public void postStatus_acceptsFiftyIds_andNeverSendsMore() throws Exception {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < PublishApi.MAX_STATUS_IDS; i++) ids.add("p" + i);
+        server.enqueue(json(200, "[]"));
+        assertTrue(api.postStatus(ids, null).isEmpty());
+        ids.add("one-too-many");
+        try {
+            api.postStatus(ids, null);
+            fail("expected IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            // the server would answer 400 INVALID_IDS; the app never asks
+        }
+        try {
+            api.postStatus(new java.util.ArrayList<>(), null);
+            fail("expected IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            // an empty list is also INVALID_IDS on the server
+        }
+    }
+
+    @Test
+    public void postStatus_invalidIds_isARefusal() {
+        server.enqueue(json(400, "{\"statusCode\":400,\"code\":\"INVALID_IDS\","
+                + "\"message\":\"ids must name 1 to 50 posts\"}"));
+        try {
+            api.postStatus(java.util.Collections.singletonList("a"), null);
+            fail("expected PublishException");
+        } catch (PublishException e) {
+            assertEquals(PublishException.Kind.REJECTED, e.kind);
+            assertEquals(400, e.status);
+        }
+    }
 }

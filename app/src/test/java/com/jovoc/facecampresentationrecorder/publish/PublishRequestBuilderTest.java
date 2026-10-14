@@ -133,4 +133,16 @@ public class PublishRequestBuilderTest {
         assertEquals("Recording", PublishRequestBuilder.autoTitle(".mp4"));
         assertEquals(500, PublishRequestBuilder.autoTitle(new String(new char[900]).replace('\0', 'a')).length());
     }
+
+    @Test
+    public void autoTitleDoesNotCutAnEmojiInHalf() {
+        // 499 letters + one emoji (two UTF-16 units) would be cut between its two halves.
+        String name = new String(new char[499]).replace('\0', 'a') + "\uD83D\uDE00" + "tail";
+        String title = PublishRequestBuilder.autoTitle(name);
+        assertEquals(499, title.length());
+        assertFalse(Character.isHighSurrogate(title.charAt(title.length() - 1)));
+        // An emoji that fits whole is kept.
+        String fits = new String(new char[498]).replace('\0', 'a') + "\uD83D\uDE00" + "tail";
+        assertEquals(500, PublishRequestBuilder.autoTitle(fits).length());
+    }
 }

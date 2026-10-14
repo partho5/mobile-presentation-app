@@ -29,8 +29,61 @@ public class PublishExceptionTest {
         PublishException e = of(400, "{\"statusCode\":400,\"provider\":\"x\",\"name\":\"X\","
                 + "\"message\":\"post is too long, please fix it\"}");
         assertEquals(PublishException.Kind.REJECTED, e.kind);
-        assertEquals("post is too long, please fix it", e.detail);
+        // The channel is named so the user knows which one to fix on the web.
+        assertEquals("X: post is too long, please fix it", e.detail);
         assertTrue(e.spendsKey());
+
+        // Not repeated when the message already names it; plain 400s are untouched.
+        assertEquals("YouTube title is empty", of(400, "{\"statusCode\":400,\"provider\":\"youtube\","
+                + "\"name\":\"YouTube\",\"message\":\"YouTube title is empty\"}").detail);
+        assertEquals("no", of(400, "{\"message\":\"no\",\"name\":\"Z\"}").detail);
+    }
+
+    @Test
+    public void throttlerRateLimitIsStoredByTheServerSoItRotatesTheKey() {
+        PublishException e = of(429, "{\"statusCode\":429,"
+                + "\"message\":\"ThrottlerException: Too Many Requests\"}");
+        assertEquals(PublishException.Kind.RATE_LIMITED, e.kind);
+        assertTrue(e.isRetryable());
+        assertTrue(e.spendsKey());
+        // An unreadable 429 (a proxy's) cannot be told apart from an unknown outcome: keep the key.
+        assertFalse(of(429, "").spendsKey());
+        assertFalse(of(429, "{\"message\":\"slow down\"}").spendsKey());
+    }
+
+    @Test
+    public void uploadAnswersAreMappedPerTheGuide() {
+        assertEquals(PublishException.Kind.TOO_LARGE, of(400, "{\"message\":\"File is too large.\","
+                + "\"error\":\"Bad Request\",\"statusCode\":400}").kind);
+        assertFalse(of(400, "{\"message\":\"File is too large.\"}").isRetryable());
+        PublishException unreadable = of(400, "{\"message\":\"Failed to read file\",\"statusCode\":400}");
+        assertEquals(PublishException.Kind.SERVER, unreadable.kind);
+        assertTrue(unreadable.isRetryable());
+        PublishException unsupported = of(400, "{\"message\":\"Unsupported file type.\",\"statusCode\":400}");
+        assertEquals(PublishException.Kind.REJECTED, unsupported.kind);
+        assertEquals("Unsupported file type.", unsupported.detail);
+        assertFalse(unsupported.isRetryable());
+    }
+
+    @Test
+    public void autoPublishAnswersAreMappedPerTheGuide() {
+        PublishException notSetUp = of(409, "{\"statusCode\":409,\"code\":\"AUTO_PUBLISH_NOT_CONFIGURED\"}");
+        assertEquals(PublishException.Kind.AUTO_NOT_CONFIGURED, notSetUp.kind);
+        assertTrue(notSetUp.spendsKey());
+        assertFalse(notSetUp.isRetryable());
+
+        PublishException media = of(404, "{\"statusCode\":404,\"code\":\"MEDIA_NOT_FOUND\"}");
+        assertEquals(PublishException.Kind.MEDIA_NOT_FOUND, media.kind);
+        assertTrue(media.spendsKey());
+
+        PublishException forbidden = of(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}");
+        assertEquals(PublishException.Kind.WORKSPACE_FORBIDDEN, forbidden.kind);
+        assertFalse(forbidden.isRetryable());
+
+        PublishException reused = of(422, "{\"statusCode\":422,\"code\":\"IDEMPOTENCY_KEY_REUSED\"}");
+        assertEquals(PublishException.Kind.REJECTED, reused.kind);
+        assertTrue(reused.spendsKey());
+        assertFalse(reused.isRetryable());
     }
 
     @Test

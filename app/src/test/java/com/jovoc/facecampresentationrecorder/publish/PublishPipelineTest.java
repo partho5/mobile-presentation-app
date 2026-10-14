@@ -303,6 +303,78 @@ public class PublishPipelineTest {
         assertEquals("key-1", rows.get(7L).idempotencyKey);
     }
 
+    @Test
+    public void throttlerRateLimitRetriesWithANewKeyBecauseTheServerStoredTheRefusal() throws Exception {
+        PublishJob job = newJob();
+        job.mediaId = "m1";
+        job.mediaPath = "/m1.mp4";
+        server.enqueue(new MockResponse().setResponseCode(429).setHeader("Retry-After", "600")
+                .setBody("{\"statusCode\":429,\"message\":\"ThrottlerException: Too Many Requests\"}"));
+        assertEquals(PublishPipeline.Outcome.RETRY, run(0));
+        PublishJob queued = rows.get(7L);
+        assertEquals(PublishJob.QUEUED, queued.status);
+        assertEquals("RATE_LIMITED", queued.errorKind);
+        assertNotEquals("key-1", queued.idempotencyKey);
+        assertEquals("m1", queued.mediaId); // no second upload
+
+        String rotated = queued.idempotencyKey;
+        server.enqueue(new MockResponse().setBody(POST_OK));
+        assertEquals(PublishPipeline.Outcome.DONE, run(1));
+        assertEquals("key-1", server.takeRequest().getHeader("Idempotency-Key"));
+        assertEquals(rotated, server.takeRequest().getHeader("Idempotency-Key"));
+    }
+
+    @Test
+    public void authLayerRateLimitKeepsTheKeyBecauseNothingWasStoredForIt() throws Exception {
+        PublishJob job = newJob();
+        job.mediaId = "m1";
+        job.mediaPath = "/m1.mp4";
+        server.enqueue(new MockResponse().setResponseCode(429).setHeader("Retry-After", "60")
+                .setBody("{\"statusCode\":429,\"code\":\"AUTH_RATE_LIMITED\"}"));
+        assertEquals(PublishPipeline.Outcome.RETRY, run(0));
+        assertEquals("key-1", rows.get(7L).idempotencyKey);
+    }
+
+    @Test
+    public void throttledOnTheLastAttemptFailsWithANewKey() throws Exception {
+        PublishJob job = newJob();
+        job.mediaId = "m1";
+        job.mediaPath = "/m1.mp4";
+        server.enqueue(new MockResponse().setResponseCode(429)
+                .setBody("{\"statusCode\":429,\"message\":\"ThrottlerException: Too Many Requests\"}"));
+        assertEquals(PublishPipeline.Outcome.FAILED, run(2)); // maxAttempts is 3
+        PublishJob failed = rows.get(7L);
+        assertEquals("RATE_LIMITED", failed.errorKind);
+        assertNotEquals("key-1", failed.idempotencyKey);
+    }
+
+    @Test
+    public void unreadableUploadStreamIsRetriedAndUploadsAgain() throws Exception {
+        newJob();
+        server.enqueue(new MockResponse().setResponseCode(400).setBody(
+                "{\"message\":\"Failed to read file\",\"error\":\"Bad Request\",\"statusCode\":400}"));
+        assertEquals(PublishPipeline.Outcome.RETRY, run(0));
+        assertNull(rows.get(7L).mediaId);
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setBody(POST_OK));
+        assertEquals(PublishPipeline.Outcome.DONE, run(1));
+    }
+
+    @Test
+    public void validationRefusalNamesTheChannelAndRotatesTheKey() throws Exception {
+        PublishJob job = newJob();
+        job.mediaId = "m1";
+        job.mediaPath = "/m1.mp4";
+        server.enqueue(new MockResponse().setResponseCode(400).setBody(
+                "{\"statusCode\":400,\"provider\":\"youtube\",\"name\":\"My YouTube\","
+                        + "\"message\":\"Title is required\"}"));
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("REJECTED", failed.errorKind);
+        assertEquals("My YouTube: Title is required", failed.errorDetail);
+        assertNotEquals("key-1", failed.idempotencyKey);
+    }
+
     // ---- definitive refusals ----
 
     @Test
@@ -339,7 +411,7 @@ public class PublishPipelineTest {
                 "{\"statusCode\":400,\"provider\":\"x\",\"name\":\"X\",\"message\":\"post is too long\"}"));
         assertEquals(PublishPipeline.Outcome.FAILED, run(0));
         assertEquals("REJECTED", rows.get(7L).errorKind);
-        assertEquals("post is too long", rows.get(7L).errorDetail);
+        assertEquals("X: post is too long", rows.get(7L).errorDetail);
     }
 
     @Test

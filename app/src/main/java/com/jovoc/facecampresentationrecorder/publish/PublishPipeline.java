@@ -15,7 +15,8 @@ import java.util.function.LongSupplier;
  * - the media id is saved right after the upload, so a retry skips the upload;
  * - the same key is sent on every retry of the post call, so the server replays the first
  *   answer instead of creating a second post;
- * - the key is replaced only after the server gave a final 4xx answer (which it would replay).
+ * - the key is replaced only after the server gave a final 4xx answer (which it would replay),
+ *   or the throttler's 429 (stored under the key too; nothing was created, wait, then a new key).
  *
  * An auto-publish job ({@link PublishJob#isAuto()}) takes the same road with two differences: a
  * pre-flight GET /auto-publish runs before the upload (so a missing preset or a short balance
@@ -158,9 +159,11 @@ public final class PublishPipeline {
         if (e.kind == PublishException.Kind.CANCELLED) return Outcome.GONE;
 
         if (e.isRetryable() && attempt + 1 < maxAttempts) {
-            // Waiting for a connection / the server: keep the key, the media id and the progress.
+            // Waiting for a connection / the server: keep the media id and the progress, and the
+            // key unless the server stored a refusal under it (the throttler's 429).
             job.errorKind = e.kind.name();
             job.errorDetail = null;
+            if (e.spendsKey()) job.idempotencyKey = newKey();
             move(job, PublishJob.QUEUED);
             return Outcome.RETRY;
         }
