@@ -1,6 +1,7 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
 import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.SpannableString;
@@ -58,6 +59,12 @@ public class OnboardingActivity extends AppCompatActivity {
 
     private static final int MAX_CONTENT_WIDTH_DP = 480;
     private static final String STATE_PAGE = "page";
+    private static final String EXTRA_FROM_MENU = "from_menu";
+
+    /** The drawer's "How to Use & Guide": the same screens, but ending just returns to where the user was. */
+    public static Intent forGuide(Context context) {
+        return new Intent(context, OnboardingActivity.class).putExtra(EXTRA_FROM_MENU, true);
+    }
 
     private ViewPager2 pager;
     private OnboardingBackgroundView background;
@@ -166,6 +173,10 @@ public class OnboardingActivity extends AppCompatActivity {
     }
 
     private void finishOnboarding() {
+        if (getIntent().getBooleanExtra(EXTRA_FROM_MENU, false)) {
+            finish();
+            return;
+        }
         OnboardingGate.markSeen(this);
         startActivity(new Intent(this, MainActivity.class));
         finish();

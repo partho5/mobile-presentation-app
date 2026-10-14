@@ -788,7 +788,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         com.jovoc.facecampresentationrecorder.auth.SessionManager.openSignIn(this, null);
                     }
                 } else if (itemId == R.id.nav_help) {
-                    openHowToUseDialog();
+                    startActivity(com.jovoc.facecampresentationrecorder.ui.OnboardingActivity.forGuide(this));
                 } else if (itemId == R.id.nav_about) {
                     openAboutDialog();
                 }
@@ -3280,24 +3280,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }).start();
             Toast.makeText(this, "All topics deleted", Toast.LENGTH_SHORT).show();
         });
-    }
-
-    private void openHowToUseDialog() {
-        View view = LayoutInflater.from(this).inflate(R.layout.dialog_how_to_use, null);
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(view)
-                .create();
-
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        }
-
-        Button btnClose = view.findViewById(R.id.btn_close_guide);
-        if (btnClose != null) {
-            btnClose.setOnClickListener(v -> dialog.dismiss());
-        }
-
-        dialog.show();
     }
 
     /**
