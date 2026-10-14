@@ -23,8 +23,11 @@ import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -138,14 +141,20 @@ public final class PublishManager {
 
     // ---- auto-publish ----
 
+    /** Recordings whose auto-publish row exists but whose processing is not queued yet; io thread only. */
+    private final Set<String> starting = new HashSet<>();
+    /** Renamed-while-waiting recordings; io thread only. */
+    private final RenameAliases aliases = new RenameAliases();
+
     /**
-     * A recording just stopped (and its post-processing was queued). When the Settings checkbox is
-     * on and the user is signed in, remembers it as an auto-publish job that waits for the
-     * processing; {@link #releaseAuto} (or the sweep) starts it. The workspace is pinned now.
-     * Call after {@link BgReplaceService#enqueue}, so "is it processing?" is already true.
+     * A recording just stopped: when the Settings checkbox is on and the user is signed in, saves
+     * an auto-publish job that waits for the post-processing. Call this BEFORE
+     * {@link BgReplaceService#enqueue}, and {@link #onRecordingStopped} after it: the row is
+     * durable first, so a process death right after the recording stops cannot lose the job (the
+     * startup sweep publishes it). Waits briefly for the insert; the workspace is pinned now.
      */
-    public void onRecordingStopped(File video) {
-        io.execute(() -> {
+    public void beginAuto(File video) {
+        Future<?> saved = io.submit(() -> {
             boolean on = app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
                     .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
             if (!on || !SessionManager.get(app).hasSession()) return;
@@ -163,20 +172,45 @@ public final class PublishManager {
             job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
             job.createdAt = now;
             job.updatedAt = now;
+            // Marked first: a sweep must not release the row before the processing is queued.
+            starting.add(path);
             job.id = dao.insert(job);
             broadcast(app);
-            // Nothing to wait for (no background replace, no crops), or it already finished.
-            if (!BgReplaceService.isProcessing(path)) release(job);
+        });
+        try {
+            saved.get(3, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // Slow disk: the insert still completes on its thread; do not hold the caller longer.
+        }
+    }
+
+    /**
+     * The recording's post-processing is queued (or there is none): starts the job saved by
+     * {@link #beginAuto} when there is nothing to wait for. Otherwise {@link #releaseAuto}
+     * (processing finished) or the sweep (process killed) starts it.
+     */
+    public void onRecordingStopped(File video) {
+        io.execute(() -> {
+            String path = video.getAbsolutePath();
+            starting.remove(path);
+            PublishJob job = dao.latestFor(path);
+            if (job != null && !BgReplaceService.isProcessing(path)) release(job);
         });
     }
 
     /**
      * The recording's post-processing is over: start its waiting auto-publish job, if any. Safe
-     * to call twice and for recordings without a job.
+     * to call twice and for recordings without a job. {@code originalPath} is the path the
+     * processing was queued with, which may be an older name of a recording renamed meanwhile.
      */
     public void releaseAuto(String originalPath) {
         io.execute(() -> {
+            starting.remove(originalPath);
             PublishJob job = dao.latestFor(originalPath);
+            if (job == null) {
+                String renamed = aliases.currentFor(originalPath);
+                if (renamed != null) job = dao.latestFor(renamed);
+            }
             if (job != null) release(job);
         });
     }
@@ -188,7 +222,11 @@ public final class PublishManager {
     public void sweepAuto() {
         io.execute(() -> {
             for (PublishJob job : dao.waitingProcessing()) {
-                if (!BgReplaceService.isProcessing(job.filePath)) release(job);
+                String root = aliases.rootOf(job.filePath);
+                boolean busy = starting.contains(job.filePath)
+                        || BgReplaceService.isProcessing(job.filePath)
+                        || (root != null && (starting.contains(root) || BgReplaceService.isProcessing(root)));
+                if (!busy) release(job);
             }
         });
     }
@@ -196,7 +234,9 @@ public final class PublishManager {
     /** Waiting -> queued with the 9:16 crop (or the original) as the file. Runs on {@link #io}. */
     private void release(PublishJob job) {
         if (!PublishJob.WAITING_PROCESSING.equals(job.status)) return;
-        File file = AutoPublishFiles.pick(new File(job.filePath));
+        String root = aliases.rootOf(job.filePath);
+        aliases.forget(job.filePath);
+        File file = AutoPublishFiles.pick(new File(job.filePath), root == null ? null : new File(root));
         if (!file.isFile() || file.length() == 0) {
             // The recording was deleted meanwhile: nothing to publish, nothing to report.
             dao.deleteById(job.id);
@@ -235,7 +275,13 @@ public final class PublishManager {
     /** Keeps the status attached to a recording that was renamed. */
     public void onRenamed(File oldFile, File newFile) {
         io.execute(() -> {
-            dao.rename(oldFile.getAbsolutePath(), newFile.getAbsolutePath(), newFile.getName());
+            String oldPath = oldFile.getAbsolutePath();
+            PublishJob latest = dao.latestFor(oldPath);
+            boolean waiting = latest != null && PublishJob.WAITING_PROCESSING.equals(latest.status);
+            dao.rename(oldPath, newFile.getAbsolutePath(), newFile.getName());
+            // The processing service still knows the old path: remember it so the job is found
+            // (and its crop picked) when the processing ends.
+            if (waiting) aliases.renamed(oldPath, newFile.getAbsolutePath());
             broadcast(app);
         });
     }

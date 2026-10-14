@@ -15,8 +15,26 @@ public final class AutoPublishFiles {
      * 9:16 is switched off or its crop failed.
      */
     public static File pick(File original) {
-        File crop = new File(VideoCropHelper.buildOutputPath(original.getAbsolutePath(), "9x16"));
-        if (crop.isFile() && crop.length() > 0) return crop;
+        return pick(original, null);
+    }
+
+    /**
+     * Same, for a recording that was renamed while it was processed: the crop is written next to
+     * the path processing started with ({@code processedAs}), so it is looked for under the
+     * current name first, then under that one.
+     */
+    public static File pick(File original, File processedAs) {
+        File crop = crop(original);
+        if (crop != null) return crop;
+        if (processedAs != null) {
+            crop = crop(processedAs);
+            if (crop != null) return crop;
+        }
         return original;
+    }
+
+    private static File crop(File video) {
+        File crop = new File(VideoCropHelper.buildOutputPath(video.getAbsolutePath(), "9x16"));
+        return crop.isFile() && crop.length() > 0 ? crop : null;
     }
 }

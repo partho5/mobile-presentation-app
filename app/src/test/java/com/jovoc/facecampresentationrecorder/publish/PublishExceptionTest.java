@@ -65,4 +65,16 @@ public class PublishExceptionTest {
         assertEquals(PublishException.Kind.SIGNED_OUT, unauthorized.kind);
         assertFalse(unauthorized.isRetryable());
     }
+
+    @Test
+    public void unauthorizedNeverSpendsTheKey() {
+        // The server stored nothing for a 401, so a Retry after an unknown-outcome post must
+        // reuse the key (and be replayed) instead of creating a second post.
+        PublishException unauthorized = of(401, "{\"statusCode\":401}");
+        assertEquals(401, unauthorized.status);
+        assertFalse(unauthorized.spendsKey());
+        assertFalse(new PublishException(PublishException.Kind.SIGNED_OUT).spendsKey());
+        // Definitive 4xx answers still rotate it.
+        assertTrue(of(403, "{\"message\":\"no\"}").spendsKey());
+    }
 }

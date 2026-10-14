@@ -444,6 +444,20 @@ public class PublishPipelineTest {
         assertFalse(tokens.hasSession());
     }
 
+    @Test
+    public void unauthorizedPostFailsButKeepsTheKeySoARetryCannotDoublePost() throws Exception {
+        PublishJob job = newJob();
+        job.mediaId = "m1"; // already uploaded: only the post call runs
+        job.mediaPath = "/m1.mp4";
+        server.enqueue(new MockResponse().setResponseCode(401).setBody("{\"statusCode\":401}"));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("SIGNED_OUT", failed.errorKind);
+        // Nothing was stored for the key under a 401, so the same key is replayed after sign-in.
+        assertEquals("key-1", failed.idempotencyKey);
+    }
+
     // ---- auto-publish ----
 
     private static String preflight(boolean configured, String timing, int cost, int available) {

@@ -393,6 +393,13 @@ public class ScreenRecordService extends Service {
 
                 // Replace the face cam background and auto-crop in a service of their own, so
                 // it does not depend on the app being open (e.g. stopped from the notification)
+                // The auto-publish row is saved first, so even a process death right after this
+                // point leaves a job the startup sweep publishes.
+                try {
+                    PublishManager.get(this).beginAuto(file);
+                } catch (Exception e) {
+                    Log.e(TAG, "Could not save auto-publish", e);
+                }
                 boolean processing = false;
                 try {
                     processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop());
@@ -402,6 +409,7 @@ public class ScreenRecordService extends Service {
 
                 // Auto-publish (when switched on in Settings): waits for the processing queued
                 // above, then uploads the 9:16 crop or the original. No taps needed.
+                // Runs even when queuing failed, so the saved row is never left waiting.
                 try {
                     PublishManager.get(this).onRecordingStopped(file);
                 } catch (Exception e) {

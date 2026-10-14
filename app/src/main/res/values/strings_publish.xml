@@ -5,6 +5,7 @@
     <string name="publish_menu_again">Publish again…</string>
     <string name="publish_menu_retry">Retry publish</string>
     <string name="publish_menu_cancel">Cancel publishing</string>
+    <string name="publish_menu_set_up">Set up on the web</string>
 
     <string name="publish_channels_label">Publish to</string>
     <string name="publish_caption_label">Caption</string>

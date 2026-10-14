@@ -13,6 +13,10 @@
         android:icon="@drawable/ic_refresh"
         android:title="@string/publish_menu_retry" />
     <item
+        android:id="@+id/action_publish_set_up"
+        android:icon="@drawable/ic_publish_social"
+        android:title="@string/publish_menu_set_up" />
+    <item
         android:id="@+id/action_publish_cancel"
         android:icon="@drawable/ic_close"
         android:title="@string/publish_menu_cancel" />

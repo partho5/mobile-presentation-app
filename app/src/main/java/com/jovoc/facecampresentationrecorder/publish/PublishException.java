@@ -70,10 +70,13 @@ public class PublishException extends Exception {
     /**
      * True when the server answered definitively with a 4xx: it stores that answer against the
      * Idempotency-Key for 24 h and would replay it, so the next attempt needs a new key.
-     * 5xx, dropped connections, 429 and 409-in-progress are never stored.
+     * 5xx, dropped connections, 429 and 409-in-progress are never stored. Neither is a 401: the
+     * auth layer rejected the request before the idempotency middleware stored anything, so the
+     * key must survive the sign-in, or a Retry after an unknown-outcome post could post twice.
      */
     public boolean spendsKey() {
-        return status >= 400 && status < 500 && kind != Kind.RATE_LIMITED && kind != Kind.IN_PROGRESS;
+        return status >= 400 && status < 500 && kind != Kind.RATE_LIMITED && kind != Kind.IN_PROGRESS
+                && kind != Kind.SIGNED_OUT;
     }
 
     // ---- mapping ----

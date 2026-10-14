@@ -183,11 +183,13 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         holder.tvPublishStatus.setText(text);
         holder.tvPublishStatus.setTextColor(PublishLabels.color(job));
         // A live post's status line opens the post; recycled holders must not keep an old link.
+        // Same for a failed auto-publish that was never set up: the line opens the setup page.
         String liveUrl = PublishLabels.liveUrl(job);
-        if (liveUrl != null) {
+        final String linkUrl = liveUrl != null ? liveUrl : PublishLabels.setupUrl(job);
+        if (linkUrl != null) {
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-            holder.tvPublishStatus.setOnClickListener(v -> openLivePost(liveUrl));
+            holder.tvPublishStatus.setOnClickListener(v -> openLivePost(linkUrl));
         } else {
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() & ~android.graphics.Paint.UNDERLINE_TEXT_FLAG);
@@ -257,6 +259,8 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 job != null && !running ? R.string.publish_menu_again : R.string.publish_menu);
         menu.findItem(R.id.action_publish_retry).setVisible(failed);
         menu.findItem(R.id.action_publish_cancel).setVisible(running);
+        String setupUrl = PublishLabels.setupUrl(job);
+        menu.findItem(R.id.action_publish_set_up).setVisible(setupUrl != null);
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
@@ -268,6 +272,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 return true;
             } else if (id == R.id.action_publish_retry) {
                 if (job != null) PublishManager.get(context).retry(job.id);
+                return true;
+            } else if (id == R.id.action_publish_set_up) {
+                if (setupUrl != null) openLivePost(setupUrl);
                 return true;
             } else if (id == R.id.action_publish_cancel) {
                 if (job != null) confirmCancelPublish(job);

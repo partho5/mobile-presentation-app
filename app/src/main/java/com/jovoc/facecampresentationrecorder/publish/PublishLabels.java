@@ -4,6 +4,7 @@ import android.content.Context;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.ui.WebLinks;
 
 import java.text.DateFormat;
 import java.util.Date;
@@ -69,6 +70,18 @@ public final class PublishLabels {
                 ? c.getString(R.string.pub_err_remote_unknown) : error.trim();
         if (channel == null || channel.isEmpty()) return c.getString(R.string.status_failed, reason);
         return c.getString(R.string.status_failed_on, channel, reason);
+    }
+
+    /**
+     * The web page to open for a job that failed because auto-publish is not set up (the
+     * server's setup link when it sent one, else the Sets tab), or null for any other job.
+     */
+    public static String setupUrl(PublishJob job) {
+        if (job == null || !PublishJob.FAILED.equals(job.status)
+                || !"AUTO_NOT_CONFIGURED".equals(job.errorKind)) {
+            return null;
+        }
+        return WebLinks.isWebUrl(job.errorDetail) ? job.errorDetail : WebLinks.setsUrl();
     }
 
     /** The link of a post that is live, or null. */
