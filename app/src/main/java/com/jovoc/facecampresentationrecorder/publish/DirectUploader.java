@@ -310,7 +310,11 @@ public class DirectUploader {
         final int code;
 
         PartHttpException(int code) {
-            super("HTTP " + code);
+            this(code, "HTTP " + code);
+        }
+
+        PartHttpException(int code, String message) {
+            super(message);
             this.code = code;
         }
     }
@@ -464,7 +468,11 @@ public class DirectUploader {
             try (Response r = r2.newCall(request).execute()) {
                 if (!r.isSuccessful()) throw new PartHttpException(r.code());
                 String etag = r.header("ETag");
-                if (etag == null || etag.isEmpty()) throw new IOException("no ETag in the part response");
+                if (etag == null || etag.isEmpty()) {
+                    // An answer from R2, not a dropped connection: if it persists it is the
+                    // server's problem (SERVER), not "offline" (NETWORK), so it cannot loop silently.
+                    throw new PartHttpException(r.code(), "no ETag in the part response");
+                }
                 return etag;
             }
         }

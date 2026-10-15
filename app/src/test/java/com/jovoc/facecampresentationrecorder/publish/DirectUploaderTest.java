@@ -458,9 +458,20 @@ public class DirectUploaderTest {
     }
 
     @Test
+    public void etagMissingOnEveryTry_isAServerFailureNotANetworkOne() throws Exception {
+        answer = (n, attempt) -> n == 1 ? new MockResponse().setResponseCode(200) : ok(n);
+
+        PublishException e = failure(() -> run(null));
+
+        assertEquals(PublishException.Kind.SERVER, e.kind);
+        assertEquals(UploadPlan.MAX_TRIES, puts.get(1).get());
+        assertTrue(api.completes.isEmpty());
+    }
+
+    @Test
     public void connectionDroppedFiveTimes_isANetworkFailure() throws Exception {
         answer = (n, attempt) -> n == 2
-                ? new MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_START)
+                ? new MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AFTER_REQUEST)
                 : ok(n);
 
         PublishException e = failure(() -> run(null));
