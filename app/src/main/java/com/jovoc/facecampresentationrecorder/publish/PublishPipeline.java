@@ -66,11 +66,18 @@ public final class PublishPipeline {
     private final BooleanSupplier cancelled;
     private final int maxAttempts;
     private final LongSupplier clock;
+    /** Makes the poster of a video; null: no poster is sent. */
+    private final PosterSource posters;
+
+    /** Base64 of the poster image of a video file, or null for none; must not throw. */
+    public interface PosterSource {
+        String posterFor(File video);
+    }
 
     /** Legacy upload only (no direct upload). */
     public PublishPipeline(PublishApi api, Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock) {
-        this(api, null, null, store, listener, cancelled, maxAttempts, clock);
+        this(api, null, null, store, listener, cancelled, maxAttempts, clock, null);
     }
 
     /**
@@ -80,6 +87,13 @@ public final class PublishPipeline {
     public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
                            Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock) {
+        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, null);
+    }
+
+    /** @param posters makes the poster sent with the direct upload's {@code complete}; may be null */
+    public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
+                           Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock, PosterSource posters) {
         this.api = api;
         this.direct = direct;
         this.sessions = sessions;
@@ -88,6 +102,7 @@ public final class PublishPipeline {
         this.cancelled = cancelled;
         this.maxAttempts = maxAttempts;
         this.clock = clock;
+        this.posters = posters;
     }
 
     /** @param attempt zero-based run count of this job (WorkManager's run attempt count) */
@@ -240,10 +255,17 @@ public final class PublishPipeline {
 
     /**
      * The poster image sent with {@code complete} (base64 of a jpeg, png or webp up to 512 KiB),
-     * or null for none. The seam of RET-A2: only this method changes when posters exist.
+     * or null for none. It is made from {@code video}, the file actually uploaded (the edited
+     * crop when the user edited, never the master). Never fails the upload: any error is null.
      */
     String posterFor(File video) {
-        return null;
+        if (posters == null) return null;
+        try {
+            String poster = posters.posterFor(video);
+            return poster == null || poster.isEmpty() ? null : poster;
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
+        }
     }
 
     private void createPost(PublishJob job) throws PublishException {

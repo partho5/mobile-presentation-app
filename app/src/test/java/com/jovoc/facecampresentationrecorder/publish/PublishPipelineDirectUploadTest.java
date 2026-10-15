@@ -71,6 +71,8 @@ public class PublishPipelineDirectUploadTest {
     private volatile int createStatus = 201;     // 404 = a server without the routes
     private volatile String completeError;       // body of a 400 answer of complete, or null
     private volatile int legacyStatus = 200;
+    private volatile boolean refusePoster;       // a complete carrying a poster answers INVALID_POSTER
+    private volatile PublishPipeline.PosterSource posterSource = f -> null;
     private volatile String notFoundBody =
             "{\"statusCode\":404,\"message\":\"Cannot POST /public/v1/upload/multipart\"}";
 
@@ -132,7 +134,7 @@ public class PublishPipelineDirectUploadTest {
                     public void save(PublishJob job) {
                         if (rows.containsKey(job.id)) rows.put(job.id, job);
                     }
-                }, null, cancelled::get, 3, now::get);
+                }, null, cancelled::get, 3, now::get, f -> posterSource.posterFor(f));
     }
 
     @After
@@ -178,6 +180,10 @@ public class PublishPipelineDirectUploadTest {
                 }
             }
             if (path.endsWith("/complete")) {
+                if (refusePoster && r.getBody().clone().readUtf8().contains("\"poster\"")) {
+                    return new MockResponse().setResponseCode(400).setBody(
+                            "{\"statusCode\":400,\"code\":\"INVALID_POSTER\",\"message\":\"poster\"}");
+                }
                 if (completeError != null) {
                     return new MockResponse().setResponseCode(400).setBody(completeError);
                 }
@@ -265,6 +271,83 @@ public class PublishPipelineDirectUploadTest {
             if (p.startsWith("/public/v1/posts")) {
                 assertEquals("key-1", r.getHeader("Idempotency-Key"));
                 assertTrue(r.getBody().readUtf8().contains("m1"));
+            }
+        }
+    }
+
+    private List<String> completeBodies() {
+        List<String> out = new java.util.ArrayList<>();
+        for (RecordedRequest r : seen) {
+            if (r.getPath().endsWith("/complete")) out.add(r.getBody().clone().readUtf8());
+        }
+        return out;
+    }
+
+    @Test
+    public void thePosterOfTheUploadedFileIsSentWithComplete() throws Exception {
+        newJob();
+        File[] asked = new File[1];
+        posterSource = f -> {
+            asked[0] = f;
+            return "UE9TVEVS";
+        };
+
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+
+        assertEquals(video.getAbsolutePath(), asked[0].getAbsolutePath());
+        List<String> bodies = completeBodies();
+        assertEquals(1, bodies.size());
+        assertEquals("UE9TVEVS", new JSONObject(bodies.get(0)).getString("poster"));
+    }
+
+    @Test
+    public void aRefusedPosterIsDroppedAndTheUploadStillPosts() throws Exception {
+        newJob();
+        refusePoster = true;
+        posterSource = f -> "UE9TVEVS";
+
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+
+        List<String> bodies = completeBodies();
+        assertEquals(2, bodies.size());
+        assertTrue(new JSONObject(bodies.get(0)).has("poster"));
+        assertFalse(new JSONObject(bodies.get(1)).has("poster"));
+        assertEquals("m1", rows.get(7L).mediaId);
+        assertEquals(1, creates.get());
+        for (int n = 1; n <= 3; n++) assertEquals(1, putsOf(n)); // no part was sent again
+        assertEquals("key-1", rows.get(7L).idempotencyKey);
+    }
+
+    @Test
+    public void aPosterThatCannotBeMadeNeverFailsTheUpload() throws Exception {
+        newJob();
+        posterSource = f -> {
+            throw new IllegalStateException("no codec");
+        };
+
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+
+        List<String> bodies = completeBodies();
+        assertEquals(1, bodies.size());
+        assertFalse(new JSONObject(bodies.get(0)).has("poster"));
+    }
+
+    @Test
+    public void theLegacyUploadSendsNoPoster() throws Exception {
+        newJob();
+        createStatus = 404;
+        int[] asked = {0};
+        posterSource = f -> {
+            asked[0]++;
+            return "UE9TVEVS";
+        };
+
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+
+        assertEquals(1, count("POST", "/public/v1/upload"));
+        for (RecordedRequest r : seen) {
+            if (r.getPath().equals("/public/v1/upload")) {
+                assertFalse(r.getBody().clone().readUtf8().contains("UE9TVEVS"));
             }
         }
     }

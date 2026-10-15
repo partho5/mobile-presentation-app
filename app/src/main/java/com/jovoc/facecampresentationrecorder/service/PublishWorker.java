@@ -22,6 +22,7 @@ import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
+import com.jovoc.facecampresentationrecorder.publish.BitmapImaging;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploadApi;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploader;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
@@ -84,7 +85,8 @@ public class PublishWorker extends Worker {
                         dao.update(job);
                     }
                 },
-                this::onJobChanged, this::isStopped, MAX_ATTEMPTS, System::currentTimeMillis);
+                this::onJobChanged, this::isStopped, MAX_ATTEMPTS, System::currentTimeMillis,
+                BitmapImaging.source());
 
         PublishPipeline.Outcome outcome = pipeline.run(id, getRunAttemptCount());
 

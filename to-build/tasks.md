@@ -162,7 +162,7 @@ Rules (decided by the owner):
 | RET-B3 | Web delete → R2 delete; orphan + soft-deleted sweep | ✅ (backend repo) |
 | RET-B4 | Poster upload on `complete` (optional field) and use in the web preview | ✅ (backend repo) |
 | RET-A1 | App: card shows "Video removed from server" when the media is purged; Retry re-uploads from the local file if it still exists, otherwise explains it can't | ⬜ |
-| RET-A2 | App: generate and send the poster image with the upload (taken from the file actually uploaded, i.e. the edited 9:16 crop when the user edited, never the master) | ⬜ |
+| RET-A2 | App: generate and send the poster image with the upload (taken from the file actually uploaded, i.e. the edited 9:16 crop when the user edited, never the master) | ✅ |
 
 Backend RET-B1..B4 are done (2026-10-15). What the app needs (details: guide section 4.9, contract `api.media-retention.md`):
 - RET-A1: a purged media is refused with `410 MEDIA_PURGED` (`{statusCode, code, message}`) when a post is created or scheduled with it. Map it to a card state "Video removed from server" (not a generic failure, no automatic retry). Retry re-uploads from the local file if it still exists (new upload session, new media id, then the normal `POST /auto-publish`), otherwise show a plain message that the file is gone. Only phone-uploaded files are auto-purged; the rule is `MEDIA_RETENTION_DAYS` (default 1 day after the last channel's URL) and `MEDIA_RETENTION_ERROR_DAYS` (default 7 when a channel failed), never while a post still references the file.
