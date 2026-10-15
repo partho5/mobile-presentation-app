@@ -7,11 +7,34 @@
         style="@style/OnbTitle"
         android:text="@string/onb_title_what" />
 
-    <ScrollView style="@style/OnbScroll">
+    <!-- fillViewport: the image takes whatever height the body leaves, and scrolls with the
+         body when large fonts leave none. -->
+    <ScrollView
+        style="@style/OnbScroll"
+        android:fillViewport="true">
 
-        <TextView
-            android:id="@+id/onb_what_body"
-            style="@style/OnbBody" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/onb_what_body"
+                style="@style/OnbBody" />
+
+            <ImageView
+                android:id="@+id/onb_what_image"
+                android:layout_width="260dp"
+                android:layout_height="0dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp"
+                android:layout_weight="1"
+                android:importantForAccessibility="no"
+                android:minHeight="96dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/onb_personal_branding" />
+        </LinearLayout>
     </ScrollView>
 
     <TextView

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The art is a ring of portraits that nearly touches its square's corners. The inset keeps
+     the whole ring inside the view's bounds at every angle of the screen 1 spin. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/personal_branding"
+    android:insetLeft="8%"
+    android:insetTop="8%"
+    android:insetRight="8%"
+    android:insetBottom="8%" />

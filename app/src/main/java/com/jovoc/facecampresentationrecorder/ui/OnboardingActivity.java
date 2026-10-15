@@ -1,5 +1,7 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +14,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -61,12 +66,20 @@ public class OnboardingActivity extends AppCompatActivity {
     private static final String STATE_PAGE = "page";
     private static final String EXTRA_FROM_MENU = "from_menu";
 
+    /** Screen 1's image spins past a full turn, then eases back to rest: a wheel coming to a stop. */
+    private static final float SPIN_DEGREES = 375f;
+    private static final float REST_DEGREES = 360f;
+    private static final long SPIN_MS = 300;
+    private static final long SETTLE_MS = 200;
+
     /** The drawer's "How to Use & Guide": the same screens, but ending just returns to where the user was. */
     public static Intent forGuide(Context context) {
         return new Intent(context, OnboardingActivity.class).putExtra(EXTRA_FROM_MENU, true);
     }
 
     private ViewPager2 pager;
+    /** The spin plays once per launch, not again when the user swipes back to screen 1. */
+    private boolean imageSpun;
     private OnboardingBackgroundView background;
     private ViewGroup progress;
     private Button skip;
@@ -186,6 +199,22 @@ public class OnboardingActivity extends AppCompatActivity {
         return a + (b - a) * t;
     }
 
+    private void spinOnce(ImageView image) {
+        if (imageSpun || !ValueAnimator.areAnimatorsEnabled()) {
+            return;
+        }
+        imageSpun = true;
+        ObjectAnimator spin = ObjectAnimator.ofFloat(image, View.ROTATION, 0f, SPIN_DEGREES);
+        spin.setDuration(SPIN_MS);
+        spin.setInterpolator(new AccelerateDecelerateInterpolator());
+        ObjectAnimator settle = ObjectAnimator.ofFloat(image, View.ROTATION, SPIN_DEGREES, REST_DEGREES);
+        settle.setDuration(SETTLE_MS);
+        settle.setInterpolator(new DecelerateInterpolator());
+        AnimatorSet set = new AnimatorSet();
+        set.playSequentially(spin, settle);
+        set.start();
+    }
+
     /** Fills a screen's text: the app name in white, the one number that matters in amber. */
     private void bindPage(View page, int position) {
         String appName = getString(R.string.app_name);
@@ -194,6 +223,7 @@ public class OnboardingActivity extends AppCompatActivity {
         if (position == 0) {
             TextView body = page.findViewById(R.id.onb_what_body);
             body.setText(colored(getString(R.string.onb_what_body, appName), white, appName));
+            spinOnce(page.findViewById(R.id.onb_what_image));
         } else if (position == 1) {
             TextView publish = page.findViewById(R.id.onb_how_publish);
             SpannableString text = colored(getString(R.string.onb_how_publish, appName), white, appName);
