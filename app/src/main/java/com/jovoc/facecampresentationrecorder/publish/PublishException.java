@@ -82,13 +82,18 @@ public class PublishException extends Exception {
      * so no answer of an upload call may spend it (see {@link #forUploadStep}).
      */
     private final boolean uploadStep;
+    /**
+     * True for a 404 from a direct-upload route that carries no {@code code}: the server has no
+     * such route (an older deploy, or a proxy). A 404 with a code is a real answer of the routes.
+     */
+    private final boolean routeMissing;
 
     public PublishException(Kind kind, int status, String detail, int retryAfterSeconds) {
-        this(kind, status, detail, retryAfterSeconds, false, false);
+        this(kind, status, detail, retryAfterSeconds, false, false, false);
     }
 
     private PublishException(Kind kind, int status, String detail, int retryAfterSeconds,
-                             boolean storedAnswer, boolean uploadStep) {
+                             boolean storedAnswer, boolean uploadStep, boolean routeMissing) {
         super(kind.name());
         this.kind = kind;
         this.status = status;
@@ -96,6 +101,7 @@ public class PublishException extends Exception {
         this.retryAfterSeconds = retryAfterSeconds;
         this.storedAnswer = storedAnswer;
         this.uploadStep = uploadStep;
+        this.routeMissing = routeMissing;
     }
 
     public PublishException(Kind kind) {
@@ -152,7 +158,16 @@ public class PublishException extends Exception {
      */
     public PublishException forUploadStep() {
         if (uploadStep) return this;
-        return new PublishException(kind, status, detail, retryAfterSeconds, storedAnswer, true);
+        return new PublishException(kind, status, detail, retryAfterSeconds, storedAnswer, true,
+                routeMissing);
+    }
+
+    /**
+     * True when a direct-upload route answered 404 without a {@code code} (see
+     * {@link #fromUpload}): the only answer that may fall back to the legacy POST /upload.
+     */
+    public boolean isRouteMissing() {
+        return routeMissing;
     }
 
     // ---- mapping ----
@@ -185,7 +200,7 @@ public class PublishException extends Exception {
             boolean throttled = !ApiResponse.AUTH_RATE_LIMITED.equals(r.errorCode)
                     && message != null && message.contains("Throttler");
             return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds, throttled,
-                    false);
+                    false, false);
         }
         if (r.status == 400 && "File is too large.".equals(message)) {
             return new PublishException(Kind.TOO_LARGE, 400, message, -1);
@@ -245,7 +260,12 @@ public class PublishException extends Exception {
             // Retry-After. Not "stored", so nothing rotates.
             return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds);
         }
-        return from(r);
+        PublishException e = from(r);
+        if (r.status == 404 && r.errorCode == null && e.kind == Kind.REJECTED) {
+            return new PublishException(e.kind, e.status, e.detail, e.retryAfterSeconds, false, false,
+                    true);
+        }
+        return e;
     }
 
     /**

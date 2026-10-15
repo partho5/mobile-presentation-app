@@ -206,7 +206,7 @@ public final class PublishPipeline {
      * a proxy in front of it says so. Anything with a code is a real answer of the routes.
      */
     private static boolean isRouteMissing(PublishException e) {
-        return e.kind == PublishException.Kind.REJECTED && e.status == 404;
+        return e.isRouteMissing();
     }
 
     private void rememberLegacy(PublishJob job) {

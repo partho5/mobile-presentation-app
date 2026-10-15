@@ -71,6 +71,8 @@ public class PublishPipelineDirectUploadTest {
     private volatile int createStatus = 201;     // 404 = a server without the routes
     private volatile String completeError;       // body of a 400 answer of complete, or null
     private volatile int legacyStatus = 200;
+    private volatile String notFoundBody =
+            "{\"statusCode\":404,\"message\":\"Cannot POST /public/v1/upload/multipart\"}";
 
     private PublishPipeline pipeline;
     private File video;
@@ -155,8 +157,7 @@ public class PublishPipelineDirectUploadTest {
         if (path.equals("/public/v1/upload/multipart") && method.equals("POST")) {
             creates.incrementAndGet();
             if (createStatus == 404) {
-                return new MockResponse().setResponseCode(404).setBody(
-                        "{\"statusCode\":404,\"message\":\"Cannot POST /public/v1/upload/multipart\"}");
+                return new MockResponse().setResponseCode(404).setBody(notFoundBody);
             }
             return new MockResponse().setResponseCode(201).setBody(
                     "{\"id\":\"u" + creates.get() + "\",\"partSize\":" + PART_SIZE + ",\"partCount\":3}");
@@ -376,6 +377,21 @@ public class PublishPipelineDirectUploadTest {
         assertEquals("REJECTED", j.errorKind);
         assertEquals("key-1", j.idempotencyKey);
         assertEquals(0, count("POST", "/public/v1/posts"));
+    }
+
+    @Test
+    public void a404WithACodeIsARealAnswerAndNeverFallsBackToTheLegacyUpload() throws Exception {
+        newJob();
+        createStatus = 404;
+        notFoundBody = "{\"statusCode\":404,\"code\":\"UPLOAD_NOT_FOUND\",\"message\":\"x\"}";
+
+        PublishPipeline.Outcome out = pipeline.run(7, 0);
+
+        assertEquals(0, count("POST", "/public/v1/upload"));
+        assertFalse(sessions.get(7) != null && UploadSession.LEGACY.equals(sessions.get(7).status));
+        assertEquals("key-1", rows.get(7L).idempotencyKey);
+        assertEquals(0, count("POST", "/public/v1/posts"));
+        assertFalse(PublishPipeline.Outcome.DONE == out);
     }
 
     // ---- final errors ----
