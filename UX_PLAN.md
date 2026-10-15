@@ -30,7 +30,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 - Tests: delay applied, cancel inside the window uploads nothing, Off = no delay, replay after process kill still fires once.
 
 ## Part U2: Wi-Fi-only
-- Settings checkbox "Upload on Wi-Fi only" with a one-line hint about 1 GB videos.
+- Settings checkbox "Upload on Wi-Fi only" with a one-line hint that videos can reach several GB.
 - `PublishManager` enqueue: network constraint `UNMETERED` when set, else `CONNECTED` (existing).
 - Card state "Waiting for Wi-Fi" when a job is enqueued but blocked by the constraint.
 - Toggling the setting re-enqueues pending jobs with the right constraint (no duplicate work; keys unchanged).

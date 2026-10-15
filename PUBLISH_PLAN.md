@@ -101,7 +101,7 @@ Full plan and decisions: `to-build/tasks.md`. One Settings checkbox ("Auto-publi
 
 Contract: `Social-Media-Manager/_planning/02_contracts/api.mobile-direct-upload.md`; guide section 4.6. Scope `media:write`, headers `Authorization` + `x-workspace-id` (the job's pinned workspace) like every `/public/v1` call. **None of these calls carries an `Idempotency-Key`**, and a failure of the upload step never rotates the post's key (`PublishException.forUploadStep`).
 
-Used for every `.mp4` (manual and auto jobs share `PublishPipeline`, so both). Anything else (an image, a `.mov`) and a server without the routes use the legacy `POST /upload`. A video over `PublishApi.MAX_VIDEO_BYTES` (1 GiB) is still refused by the app before any call (`TOO_LARGE`), although the server's own cap is 4 GiB (`FILE_TOO_LARGE`): the app-side cap is unchanged from the legacy path.
+Used for every `.mp4` (manual and auto jobs share `PublishPipeline`, so both). Anything else (an image, a `.mov`) and a server without the routes use the legacy `POST /upload`. **Size caps:** the direct route has no client-side cap: the app sends `create` with the real size and the server's `MOBILE_UPLOAD_MAX_BYTES` (4 GiB by default, so an edited recording re-encoded at ~12 Mbps of over ~24 min still fits) answers `400 FILE_TOO_LARGE` (final). The 1 GiB cap (`PublishApi.LEGACY_MAX_VIDEO_BYTES`) belongs to the legacy `POST /upload` only: `PublishPipeline.upload` checks it right before that route, so a non-`.mp4` over 1 GiB, or a `.mp4` over 1 GiB whose direct routes are missing (code-less 404 fallback), fails `TOO_LARGE` ("video is over the 1 GB limit") without sending a byte.
 
 **Flow** (`publish/DirectUploader` over `publish/DirectUploadApi`; pure decisions in `publish/UploadPlan`):
 
@@ -120,7 +120,7 @@ Used for every `.mp4` (manual and auto jobs share `PublishPipeline`, so both). A
 
 **Room v6:** `MIGRATION_5_6` creates `upload_sessions` (`job_id` PK, `upload_id`, `size`, `part_size`, `part_count`, `parts_json`, `status` = `pending` / `completed` / `legacy`); no other table changes. Row deleted when the media id is stored, the job is cancelled or fails with an error the session cannot survive.
 
-**Progress:** total bytes sent out of the file size, throttled (`ProgressThrottle`: at least 64 KiB or 0.5 % and 250 ms apart), the pipeline writes the row every 2 % and the foreground notification updates every 5 %. A failed try's bytes are taken back out, so the bar never overstates.
+**Progress:** total bytes sent out of the file size, throttled (`ProgressThrottle`: at least 64 KiB or 0.5 % of the file (the larger) and 250 ms apart), the pipeline writes the row every 2 % and the foreground notification updates every 5 %. A failed try's bytes are taken back out, so the bar never overstates.
 
 ### Error codes and what the app does
 
@@ -130,6 +130,7 @@ Mapping lives in `PublishException.fromUpload` (routes with a code) and `from` (
 |---|---|---|---|
 | 400 `UNSUPPORTED_TYPE` | UNSUPPORTED_TYPE | final, FAILED; session dropped | "this video isn't a valid MP4 and can't be uploaded" |
 | 400 `FILE_TOO_LARGE` | FILE_TOO_LARGE | final, FAILED; session dropped | "video is over the upload size limit" |
+| (client) over 1 GiB on the legacy route | TOO_LARGE | final, FAILED; nothing sent (only non-`.mp4` or the 404 fallback; also a legacy 413 / 400 `File is too large.`) | "video is over the 1 GB limit" |
 | 400 `SIZE_MISMATCH` (at `complete`) | SIZE_MISMATCH | final for this upload (server aborted it), FAILED; session dropped, **Retry uploads again as a new session** | "the upload didn't arrive intact, retry to upload it again" |
 | 400 `CONTENT_TYPE_MISMATCH` | CONTENT_TYPE_MISMATCH | final, FAILED; session dropped | "the uploaded file isn't a valid MP4, it was not published" |
 | 429 `TOO_MANY_PENDING_UPLOADS` (5 unfinished) | TOO_MANY_PENDING_UPLOADS | retried with the WorkManager backoff (`Retry-After` is not honoured) | "too many unfinished uploads, try again later" |
