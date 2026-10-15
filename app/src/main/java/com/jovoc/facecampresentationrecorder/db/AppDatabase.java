@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Slide.class, PublishJob.class}, version = 5, exportSchema = false)
+@Database(entities = {Slide.class, PublishJob.class, UploadSession.class}, version = 6, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -17,6 +17,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract SlideDao slideDao();
 
     public abstract PublishJobDao publishJobDao();
+
+    public abstract UploadSessionDao uploadSessionDao();
 
     static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -61,6 +63,25 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /** The table of {@link UploadSession}; kept as text so a test can check what a migration runs. */
+    static final String CREATE_UPLOAD_SESSIONS = "CREATE TABLE IF NOT EXISTS `upload_sessions` ("
+            + "`job_id` INTEGER NOT NULL, `upload_id` TEXT, `size` INTEGER NOT NULL, "
+            + "`part_size` INTEGER NOT NULL, `part_count` INTEGER NOT NULL, "
+            + "`parts_json` TEXT, `status` TEXT, PRIMARY KEY(`job_id`))";
+
+    // Adds the direct-upload session table (resume after a kill); other tables are untouched.
+    static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(CREATE_UPLOAD_SESSIONS);
+        }
+    };
+
+    /** Every step from version 1 to the current one, in order. */
+    static final Migration[] MIGRATIONS = {
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
+    };
+
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -69,7 +90,7 @@ public abstract class AppDatabase extends RoomDatabase {
                             context.getApplicationContext(),
                             AppDatabase.class,
                             "presentation_db"
-                    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build();
+                    ).addMigrations(MIGRATIONS).build();
                 }
             }
         }

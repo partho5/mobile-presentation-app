@@ -69,7 +69,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 | Part | Scope | Status |
 |---|---|---|
 | DU-A1 | `DirectUploadApi` (create, parts, status, complete, abort) + models + unit tests | ✅ |
-| DU-A2 | `DirectUploader`: part loop, parallelism, retry, resume, progress; Room v6 `UploadSession` | ⬜ |
+| DU-A2 | `DirectUploader`: part loop, parallelism, retry, resume, progress; Room v6 `UploadSession` | ✅ |
 | DU-A3 | Pipeline integration + fallback to legacy `/upload` + error mapping | ⬜ |
 | DU-A4 | Device QA, docs (PUBLISH_PLAN.md, UX_PLAN.md), VPS before/after check | ⬜ |
 
