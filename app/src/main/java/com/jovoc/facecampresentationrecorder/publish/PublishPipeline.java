@@ -157,9 +157,9 @@ public final class PublishPipeline {
     private void upload(PublishJob job) throws PublishException {
         File file = new File(job.filePath);
         if (!file.isFile() || file.length() == 0) throw new PublishException(PublishException.Kind.FILE);
-        if (file.length() > PublishApi.MAX_VIDEO_BYTES) {
-            throw new PublishException(PublishException.Kind.TOO_LARGE);
-        }
+        // No size check here: the direct upload's cap (MOBILE_UPLOAD_MAX_BYTES, 4 GiB) is the
+        // server's to enforce (FILE_TOO_LARGE on create). The 1 GiB cap is checked below, only
+        // for the legacy /upload route.
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
 
         job.progress = 0;
@@ -190,6 +190,10 @@ public final class PublishPipeline {
             }
         }
         if (media == null) {
+            // Legacy route (non-mp4, older server, or the fallback just above): its cap is 1 GiB.
+            if (file.length() > PublishApi.LEGACY_MAX_VIDEO_BYTES) {
+                throw new PublishException(PublishException.Kind.TOO_LARGE);
+            }
             try {
                 media = api.upload(file, job.workspaceId, progress, cancelled);
             } catch (PublishException e) {

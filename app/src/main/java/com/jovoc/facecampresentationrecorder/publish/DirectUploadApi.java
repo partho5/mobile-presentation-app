@@ -58,7 +58,8 @@ public class DirectUploadApi {
     }
 
     /**
-     * POST /upload/multipart/:id/parts: fresh URLs for the parts about to be sent (2 to 4 per call;
+     * POST /upload/multipart/:id/parts: fresh URLs for the parts about to be sent (the API takes 1 to
+     * {@link #MAX_SIGN_PARTS} = 20 per call; the uploader asks for {@link UploadPlan#URL_BATCH} = 4;
      * a URL dies 900 s after signing).
      */
     public PartUrls signParts(String uploadId, List<Integer> partNumbers, String workspaceId)

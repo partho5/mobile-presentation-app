@@ -69,6 +69,7 @@ public class PublishPipelineDirectUploadTest {
     private final Map<Integer, AtomicInteger> puts = new HashMap<>();
     private volatile int failPart = -1;          // part whose PUT answers 500
     private volatile int createStatus = 201;     // 404 = a server without the routes
+    private volatile boolean createTooLarge;     // create answers 400 FILE_TOO_LARGE
     private volatile String completeError;       // body of a 400 answer of complete, or null
     private volatile int legacyStatus = 200;
     private volatile boolean refusePoster;       // a complete carrying a poster answers INVALID_POSTER
@@ -160,6 +161,10 @@ public class PublishPipelineDirectUploadTest {
         }
         if (path.equals("/public/v1/upload/multipart") && method.equals("POST")) {
             creates.incrementAndGet();
+            if (createTooLarge) {
+                return new MockResponse().setResponseCode(400).setBody(
+                        "{\"statusCode\":400,\"code\":\"FILE_TOO_LARGE\",\"message\":\"too large\"}");
+            }
             if (createStatus == 404) {
                 return new MockResponse().setResponseCode(404).setBody(notFoundBody);
             }
@@ -374,6 +379,69 @@ public class PublishPipelineDirectUploadTest {
         assertEquals(0, creates.get());
         assertEquals(1, count("POST", "/public/v1/upload"));
         assertEquals("legacy1", rows.get(7L).mediaId);
+    }
+
+    // ---- size caps: 1 GiB is the legacy route's, the direct route's cap is the server's ----
+
+    /** A sparse file just over 1 GiB (no real disk use; nothing reads its bytes in these tests). */
+    private File sparse(String name) throws Exception {
+        File f = tmp.newFile(name);
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(f, "rw")) {
+            raf.setLength(PublishApi.LEGACY_MAX_VIDEO_BYTES + 1);
+        }
+        return f;
+    }
+
+    @Test
+    public void aVideoOver1GiBIsOfferedToTheDirectRoute_andTheServersAnswerDecides() throws Exception {
+        PublishJob j = newJob();
+        j.filePath = sparse("big.mp4").getAbsolutePath();
+        createTooLarge = true;
+
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+
+        // The create call was made, with the real size; the server refused it as final.
+        assertEquals(1, creates.get());
+        boolean sentSize = false;
+        for (RecordedRequest r : seen) {
+            if (r.getPath().equals("/public/v1/upload/multipart")
+                    && r.getBody().clone().readUtf8().contains(
+                            "\"size\":" + (PublishApi.LEGACY_MAX_VIDEO_BYTES + 1))) {
+                sentSize = true;
+            }
+        }
+        assertTrue(sentSize);
+        PublishJob after = rows.get(7L);
+        assertEquals("FILE_TOO_LARGE", after.errorKind);
+        assertEquals("key-1", after.idempotencyKey);
+        assertEquals(0, count("POST", "/public/v1/upload"));
+        assertEquals(0, count("POST", "/public/v1/posts"));
+    }
+
+    @Test
+    public void aVideoOver1GiBDoesNotFallBackToTheLegacyUploadWhenTheRoutesAreMissing() throws Exception {
+        PublishJob j = newJob();
+        j.filePath = sparse("big.mp4").getAbsolutePath();
+        createStatus = 404;
+
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+
+        assertEquals(1, creates.get());
+        assertEquals("TOO_LARGE", rows.get(7L).errorKind);
+        assertEquals(0, count("POST", "/public/v1/upload")); // the legacy upload is never attempted
+        assertEquals(0, count("POST", "/public/v1/posts"));
+    }
+
+    @Test
+    public void aNonMp4OverTheLegacyCapIsRefusedBeforeAnyCall() throws Exception {
+        PublishJob j = newJob();
+        j.filePath = sparse("big.mov").getAbsolutePath();
+
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+
+        assertEquals("TOO_LARGE", rows.get(7L).errorKind);
+        assertEquals(0, creates.get());
+        assertEquals(0, count("POST", "/public/v1/upload"));
     }
 
     // ---- resume ----

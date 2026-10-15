@@ -32,8 +32,13 @@ public class PublishApi {
     /** The backend answers at most this many ids per GET /posts/status. */
     public static final int MAX_STATUS_IDS = 50;
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
-    /** The backend's video cap (credits.publish / custom.upload.validation). */
-    public static final long MAX_VIDEO_BYTES = 1024L * 1024L * 1024L;
+    /**
+     * The video cap of the legacy {@code POST /upload} only (credits.publish /
+     * custom.upload.validation). The direct upload has no client-side cap: the server's
+     * {@code MOBILE_UPLOAD_MAX_BYTES} (4 GiB by default) is authoritative and answers
+     * 400 FILE_TOO_LARGE on create.
+     */
+    public static final long LEGACY_MAX_VIDEO_BYTES = 1024L * 1024L * 1024L;
 
     /** What the backend stored for an upload; the post refers to the video by these. */
     public static final class Media {

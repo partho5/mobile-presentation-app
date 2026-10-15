@@ -23,7 +23,7 @@ public class PublishException extends Exception {
         REJECTED,
         /** 403 WORKSPACE_FORBIDDEN: the user is no longer a member of the job's workspace. */
         WORKSPACE_FORBIDDEN,
-        /** 413 / over the 1 GB video cap. */
+        /** 413, or over the 1 GiB cap of the legacy upload route (never raised for a direct upload). */
         TOO_LARGE,
         /** 429 (too many requests). */
         RATE_LIMITED,
