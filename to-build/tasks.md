@@ -71,7 +71,7 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 | DU-A1 | `DirectUploadApi` (create, parts, status, complete, abort) + models + unit tests | ✅ |
 | DU-A2 | `DirectUploader`: part loop, parallelism, retry, resume, progress; Room v6 `UploadSession` | ✅ |
 | DU-A3 | Pipeline integration + fallback to legacy `/upload` + error mapping | ✅ |
-| DU-A4 | Device QA, docs (PUBLISH_PLAN.md, UX_PLAN.md), VPS before/after check | ⬜ |
+| DU-A4 | Device QA, docs (PUBLISH_PLAN.md, UX_PLAN.md), VPS before/after check | ✅ docs; device QA pending (human) |
 
 ### DU-A1 API layer
 - `publish/DirectUploadApi`: the five calls above through `AuthRepository.execute`, same headers as other `/public/v1` calls (`Authorization`, `x-workspace-id`). Models: `UploadSessionInfo {id, partSize, partCount}`, `PartUrls`, `UploadedPart {n, etag, size}`.
