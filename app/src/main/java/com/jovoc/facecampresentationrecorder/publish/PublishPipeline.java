@@ -179,8 +179,9 @@ public final class PublishPipeline {
         PublishApi.Media media = null;
         if (useDirect(job, file)) {
             try {
+                // The poster is made lazily, just before complete, from the file uploaded here.
                 media = direct.upload(job.id, file, job.workspaceId, sessions, progress, cancelled,
-                        posterFor(file)).toMedia();
+                        (java.util.function.Supplier<String>) () -> posterFor(file)).toMedia();
             } catch (PublishException e) {
                 if (!isRouteMissing(e)) throw directFailure(job, e);
                 // An older server without /upload/multipart: use the legacy upload, and remember

@@ -96,7 +96,7 @@ public class DirectUploader {
     public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
                                   ApiClient.ProgressListener progress, BooleanSupplier cancelled)
             throws PublishException {
-        return upload(jobId, file, workspaceId, sessions, progress, cancelled, null);
+        return upload(jobId, file, workspaceId, sessions, progress, cancelled, (String) null);
     }
 
     /**
@@ -115,12 +115,25 @@ public class DirectUploader {
     public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
                                   ApiClient.ProgressListener progress, BooleanSupplier cancelled,
                                   String posterBase64) throws PublishException {
+        return upload(jobId, file, workspaceId, sessions, progress, cancelled, () -> posterBase64);
+    }
+
+    /**
+     * Like the poster overload, but the poster is made only when {@code complete} is about to be
+     * sent (once), so a frame grab never delays the first byte and a resume that needs no
+     * complete never makes one. The supplier may return null; if it throws, no poster is sent.
+     */
+    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
+                                  ApiClient.ProgressListener progress, BooleanSupplier cancelled,
+                                  java.util.function.Supplier<String> posterSource)
+            throws PublishException {
         if (file == null || !file.isFile() || file.length() == 0) {
             throw new PublishException(PublishException.Kind.FILE);
         }
         final long size = file.length();
         final BooleanSupplier stop = cancelled != null ? cancelled : () -> false;
-        String poster = posterBase64;
+        String poster = null;
+        boolean posterMade = false;
 
         UploadSession row = sessions.get(jobId);
         if (row != null && !UploadPlan.isUsable(row, size)) {
@@ -188,6 +201,14 @@ public class DirectUploader {
                 List<UploadedPart> parts = new ArrayList<>();
                 for (Map.Entry<Integer, String> e : finished.entrySet()) {
                     parts.add(new UploadedPart(e.getKey(), e.getValue(), -1));
+                }
+                if (!posterMade) {
+                    posterMade = true;
+                    try {
+                        poster = posterSource == null ? null : posterSource.get();
+                    } catch (Exception | OutOfMemoryError ignored) {
+                        poster = null; // a bonus only: never fails the upload
+                    }
                 }
                 CompletedUpload done = api.complete(row.uploadId, parts, poster, workspaceId);
                 sessions.setStatus(jobId, UploadSession.COMPLETED);
