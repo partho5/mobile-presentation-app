@@ -97,6 +97,15 @@ public final class PublishManager {
         io.execute(() -> {
             PublishJob job = dao.get(id);
             if (job == null || job.isActive()) return;
+            if (PurgedMedia.is(job)) {
+                // The server removed the video. Without the local file there is nothing to send:
+                // the card says so and the job stays as it is.
+                if (!PurgedMedia.fileExists(job)) return;
+                // A new upload session and a new media id: the removed id would be refused again,
+                // and a remembered session of this job would hand it back.
+                PurgedMedia.forgetMedia(job);
+                AppDatabase.getInstance(app).uploadSessionDao().delete(job.id);
+            }
             if (job.isRemoteFailed()) {
                 // The backend accepted it but the channel refused: a new publish. The old key
                 // would replay the first answer, so it is replaced; the upload is kept.

@@ -76,6 +76,18 @@ public class PublishExceptionTest {
         assertEquals(PublishException.Kind.MEDIA_NOT_FOUND, media.kind);
         assertTrue(media.spendsKey());
 
+        PublishException purged = of(410, "{\"statusCode\":410,\"code\":\"MEDIA_PURGED\","
+                + "\"message\":\"The video was removed\"}");
+        assertEquals(PublishException.Kind.MEDIA_PURGED, purged.kind);
+        assertFalse(purged.isRetryable()); // never retried on its own
+        assertFalse(purged.isUploadSession());
+        // A 4xx is stored under the key for 24 h: the next publish needs a new one.
+        assertTrue(purged.spendsKey());
+        // An upload-step failure never touches the key, whatever the status.
+        assertFalse(purged.forUploadStep().spendsKey());
+        // Any other 410 stays a plain rejection.
+        assertEquals(PublishException.Kind.REJECTED, of(410, "{\"statusCode\":410}").kind);
+
         PublishException forbidden = of(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}");
         assertEquals(PublishException.Kind.WORKSPACE_FORBIDDEN, forbidden.kind);
         assertFalse(forbidden.isRetryable());

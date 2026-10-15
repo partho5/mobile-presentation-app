@@ -37,6 +37,10 @@ public final class AutoPublishNotifier {
             return c.getResources().getQuantityString(R.plurals.auto_notif_published, n, n);
         }
         if ("SIGNED_OUT".equals(job.errorKind)) return c.getString(R.string.auto_notif_signed_out);
+        if (PurgedMedia.cannotRetry(job)) {
+            return c.getString(R.string.auto_notif_failed,
+                    c.getString(R.string.pub_err_media_purged_gone));
+        }
         return c.getString(R.string.auto_notif_failed,
                 PublishLabels.reason(c, job.errorKind, job.errorDetail));
     }

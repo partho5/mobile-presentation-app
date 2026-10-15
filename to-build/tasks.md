@@ -161,7 +161,7 @@ Rules (decided by the owner):
 | RET-B2 | Purge worker/cron implementing the rules; marks the row purged and removes the R2 object | ✅ (backend repo) |
 | RET-B3 | Web delete → R2 delete; orphan + soft-deleted sweep | ✅ (backend repo) |
 | RET-B4 | Poster upload on `complete` (optional field) and use in the web preview | ✅ (backend repo) |
-| RET-A1 | App: card shows "Video removed from server" when the media is purged; Retry re-uploads from the local file if it still exists, otherwise explains it can't | ⬜ |
+| RET-A1 | App: card shows "Video removed from server" when the media is purged; Retry re-uploads from the local file if it still exists, otherwise explains it can't | ✅ |
 | RET-A2 | App: generate and send the poster image with the upload (taken from the file actually uploaded, i.e. the edited 9:16 crop when the user edited, never the master) | ✅ |
 
 Backend RET-B1..B4 are done (2026-10-15). What the app needs (details: guide section 4.9, contract `api.media-retention.md`):

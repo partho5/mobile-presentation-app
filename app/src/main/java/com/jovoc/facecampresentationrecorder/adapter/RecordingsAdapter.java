@@ -35,6 +35,7 @@ import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.publish.PurgedMedia;
 import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -277,7 +278,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         // Publish entries follow the recording's publish state: start, again, retry or cancel.
         boolean running = job != null && job.isActive();
         boolean failed = job != null
-                && (PublishJob.FAILED.equals(job.status) || job.isRemoteFailed());
+                && (PublishJob.FAILED.equals(job.status) || job.isRemoteFailed())
+                // A removed video whose file is gone cannot be sent again: no Retry, the card says why.
+                && !PurgedMedia.cannotRetry(job);
         Menu menu = popup.getMenu();
         menu.findItem(R.id.action_publish).setVisible(!running);
         menu.findItem(R.id.action_publish).setTitle(

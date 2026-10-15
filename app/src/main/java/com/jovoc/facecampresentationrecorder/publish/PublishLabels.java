@@ -56,6 +56,10 @@ public final class PublishLabels {
                 }
                 return c.getString(R.string.status_published);
             case PublishJob.FAILED:
+                if (PurgedMedia.is(job)) {
+                    return c.getString(PurgedMedia.fileExists(job)
+                            ? R.string.status_media_purged : R.string.status_media_purged_gone);
+                }
                 return c.getString(R.string.status_failed, reason(c, job.errorKind, job.errorDetail));
             default:
                 return null;
@@ -75,6 +79,7 @@ public final class PublishLabels {
             if (PublishJob.REMOTE_DELETED.equals(job.remoteState)) return 0xFFBBBBBB;
             return 0xFF4ADE80;
         }
+        if (PurgedMedia.is(job)) return 0xFFFFB347;
         if (PublishJob.FAILED.equals(job.status)) return 0xFFFF6B6B;
         if (PublishJob.QUEUED.equals(job.status) && job.errorKind != null) return 0xFFFFB347;
         return 0xFF22D3EE;
@@ -139,6 +144,8 @@ public final class PublishLabels {
             }
             case "MEDIA_NOT_FOUND":
                 return c.getString(R.string.pub_err_media_gone);
+            case "MEDIA_PURGED":
+                return c.getString(R.string.pub_err_media_purged);
             case "INTERRUPTED":
                 return c.getString(R.string.pub_err_interrupted);
             case "UNSUPPORTED_TYPE":

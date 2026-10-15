@@ -766,6 +766,25 @@ public class PublishPipelineTest {
     }
 
     @Test
+    public void autoPostSaysMediaPurged_failsForGoodAndForgetsTheUpload() throws Exception {
+        newAutoJob();
+        rows.get(7L).mediaId = "gone";
+        rows.get(7L).mediaPath = "https://cdn.test/gone.mp4";
+        server.enqueue(new MockResponse().setResponseCode(410).setBody(
+                "{\"statusCode\":410,\"code\":\"MEDIA_PURGED\",\"message\":\"removed\"}"));
+
+        // Attempt 0 of 3: still FAILED, never RETRY.
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals(PublishJob.FAILED, failed.status);
+        assertEquals("MEDIA_PURGED", failed.errorKind);
+        assertNull(failed.mediaId);
+        assertNull(failed.mediaPath);
+        assertNotEquals("key-auto", failed.idempotencyKey);
+        assertEquals(1, server.getRequestCount());
+    }
+
+    @Test
     public void manualJobNeverTouchesTheAutoRoute() throws Exception {
         newJob();
         server.enqueue(new MockResponse().setBody(UPLOAD_OK));

@@ -41,6 +41,12 @@ public class PublishException extends Exception {
         CREDITS_SHORT,
         /** 404 MEDIA_NOT_FOUND: the server no longer has the uploaded video; it must be uploaded again. */
         MEDIA_NOT_FOUND,
+        /**
+         * 410 MEDIA_PURGED: the server deleted the uploaded video (retention). Final: no automatic
+         * retry. The answer is stored under the key, so it is replaced; a Retry uploads the local
+         * file again as a new media (when the file still exists).
+         */
+        MEDIA_PURGED,
 
         // ---- direct upload (/upload/multipart*): none of these involves an Idempotency-Key ----
 
@@ -217,6 +223,9 @@ public class PublishException extends Exception {
         }
         if (r.is(404, "MEDIA_NOT_FOUND")) {
             return new PublishException(Kind.MEDIA_NOT_FOUND, 404, null, -1);
+        }
+        if (r.is(410, "MEDIA_PURGED")) {
+            return new PublishException(Kind.MEDIA_PURGED, 410, null, -1);
         }
         if (r.status == 401) return new PublishException(Kind.SIGNED_OUT, 401, null, -1);
         if (r.status >= 400 && r.status < 500) {

@@ -50,6 +50,8 @@
     <string name="publish_open_link_failed">Couldn\'t open the link</string>
     <string name="status_live">Live</string>
     <string name="status_failed_on">Failed on %1$s: %2$s</string>
+    <string name="status_media_purged">Video removed from server</string>
+    <string name="status_media_purged_gone">Video removed from server. The file is no longer on this phone, so it can\'t be published again.</string>
     <string name="status_deleted_web">Deleted on web</string>
     <string name="status_auto_waiting">Auto-publish: waiting for processing</string>
     <string name="status_auto_undo">Publishing in %1$d s · Tap to cancel</string>
@@ -69,6 +71,8 @@
     <string name="pub_err_auto_not_set_up">auto-publish isn\'t set up yet, set it up on the website then retry</string>
     <string name="pub_err_credits_short">needs %1$s credits, you have %2$s</string>
     <string name="pub_err_media_gone">the uploaded video was lost, retry to upload it again</string>
+    <string name="pub_err_media_purged">the video was removed from the server, retry to upload it again</string>
+    <string name="pub_err_media_purged_gone">the video was removed from the server and the file is no longer on this phone</string>
     <string name="pub_err_remote_unknown">the channel refused the post</string>
     <string name="pub_err_interrupted">publishing was interrupted</string>
     <string name="pub_err_unsupported_type">this video isn\'t a valid MP4 and can\'t be uploaded</string>

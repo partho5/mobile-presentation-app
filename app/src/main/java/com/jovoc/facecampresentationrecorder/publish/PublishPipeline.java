@@ -308,6 +308,13 @@ public final class PublishPipeline {
             job.mediaId = null;
             job.mediaPath = null;
         }
+        if (e.kind == PublishException.Kind.MEDIA_PURGED) {
+            // The server deleted the video: never retried on its own. A Retry (offered only when
+            // the local file exists) uploads it again in a new session and gets a new media id,
+            // so the removed id and any stored upload session of this job are dropped now.
+            PurgedMedia.forgetMedia(job);
+            forgetUpload(job.id);
+        }
         move(job, PublishJob.FAILED);
         return Outcome.FAILED;
     }

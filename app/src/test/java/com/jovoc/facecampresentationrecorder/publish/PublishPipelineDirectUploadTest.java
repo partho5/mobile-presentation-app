@@ -72,6 +72,8 @@ public class PublishPipelineDirectUploadTest {
     private volatile String completeError;       // body of a 400 answer of complete, or null
     private volatile int legacyStatus = 200;
     private volatile boolean refusePoster;       // a complete carrying a poster answers INVALID_POSTER
+    private volatile String completeId = "m1"; // the media id complete answers
+    private volatile String purgedId;          // a post naming this media id answers 410 MEDIA_PURGED
     private volatile PublishPipeline.PosterSource posterSource = f -> null;
     private volatile String notFoundBody =
             "{\"statusCode\":404,\"message\":\"Cannot POST /public/v1/upload/multipart\"}";
@@ -188,7 +190,8 @@ public class PublishPipelineDirectUploadTest {
                     return new MockResponse().setResponseCode(400).setBody(completeError);
                 }
                 return new MockResponse().setResponseCode(201)
-                        .setBody("{\"id\":\"m1\",\"path\":\"https://cdn.test/x.mp4\"}");
+                        .setBody("{\"id\":\"" + completeId + "\",\"path\":\"https://cdn.test/"
+                                + ("m1".equals(completeId) ? "x" : completeId) + ".mp4\"}");
             }
             if (method.equals("GET")) {
                 StringBuilder parts = new StringBuilder();
@@ -212,6 +215,11 @@ public class PublishPipelineDirectUploadTest {
                         .setBody("{\"statusCode\":" + legacyStatus + ",\"message\":\"nope\"}");
             }
             return new MockResponse().setBody(LEGACY_OK);
+        }
+        if (purgedId != null && path.startsWith("/public/v1/") && !path.contains("upload")
+                && r.getBody().clone().readUtf8().contains(purgedId)) {
+            return new MockResponse().setResponseCode(410).setBody(
+                    "{\"statusCode\":410,\"code\":\"MEDIA_PURGED\",\"message\":\"removed\"}");
         }
         return new MockResponse().setBody(POST_OK);
     }
@@ -533,6 +541,91 @@ public class PublishPipelineDirectUploadTest {
     }
 
     // ---- in-memory Room ----
+
+    // ---- RET-A1: the server removed the video (410 MEDIA_PURGED) ----
+
+    private PublishJob uploadedJobWithRemovedVideo() {
+        PublishJob j = newJob();
+        j.mediaId = "gone";
+        j.mediaPath = "https://cdn.test/gone.mp4";
+        purgedId = "gone";
+        UploadSession stale = new UploadSession();
+        stale.jobId = 7;
+        stale.uploadId = "old-upload";
+        stale.size = 300 * 1024;
+        stale.partSize = PART_SIZE;
+        stale.partCount = 3;
+        stale.partsJson = UploadPlan.partsToJson(new TreeMap<>());
+        stale.status = UploadSession.COMPLETED;
+        sessions.put(stale);
+        return j;
+    }
+
+    @Test
+    public void aRemovedVideoEndsTheJobWithoutRetryAndRotatesTheKey() throws Exception {
+        uploadedJobWithRemovedVideo();
+
+        // Not RETRY, even with attempts left: the answer is final.
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+
+        PublishJob j = rows.get(7L);
+        assertEquals(PublishJob.FAILED, j.status);
+        assertEquals("MEDIA_PURGED", j.errorKind);
+        assertNull(j.mediaId);
+        assertNull(j.mediaPath);
+        assertNull("the stored session is dropped", sessions.get(7));
+        assertTrue(PurgedMedia.is(j));
+        assertTrue(PurgedMedia.fileExists(j));
+        assertFalse(PurgedMedia.cannotRetry(j));
+        // The 410 is stored under the old key for 24 h: the next publish must not reuse it.
+        assertFalse("key-1".equals(j.idempotencyKey));
+        assertEquals(1, count("POST", "/public/v1/posts"));
+        assertEquals(0, creates.get()); // nothing was uploaded by this run
+    }
+
+    @Test
+    public void retryWithTheFileUploadsAgainAsANewMediaAndPosts() throws Exception {
+        uploadedJobWithRemovedVideo();
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+        String newKey = rows.get(7L).idempotencyKey;
+
+        // The user taps Retry (the manager queues it again, the file still exists).
+        PublishJob j = rows.get(7L);
+        j.status = PublishJob.QUEUED;
+        j.errorKind = null;
+        completeId = "fresh";
+
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+
+        j = rows.get(7L);
+        assertEquals(PublishJob.DONE, j.status);
+        assertEquals("fresh", j.mediaId);
+        assertEquals(1, creates.get());                       // a NEW upload session
+        for (int n = 1; n <= 3; n++) assertEquals(1, putsOf(n));
+        assertEquals(2, count("POST", "/public/v1/posts"));
+        RecordedRequest last = null;
+        for (RecordedRequest r : seen) {
+            if (r.getPath().startsWith("/public/v1/posts")) last = r;
+        }
+        assertNotNull(last);
+        assertEquals(newKey, last.getHeader("Idempotency-Key"));
+        assertTrue(last.getBody().readUtf8().contains("fresh"));
+    }
+
+    @Test
+    public void retryWithoutTheFileIsNotOffered() throws Exception {
+        uploadedJobWithRemovedVideo();
+        assertEquals(PublishPipeline.Outcome.FAILED, pipeline.run(7, 0));
+        assertTrue(video.delete());
+
+        PublishJob j = rows.get(7L);
+        assertTrue(PurgedMedia.is(j));
+        assertFalse(PurgedMedia.fileExists(j));
+        assertTrue(PurgedMedia.cannotRetry(j));
+        // Another state, same file: Retry is only withheld for the removed video.
+        j.errorKind = "NETWORK";
+        assertFalse(PurgedMedia.cannotRetry(j));
+    }
 
     private static final class MemorySessions implements UploadSessionDao {
         private final Map<Long, UploadSession> map = new HashMap<>();
