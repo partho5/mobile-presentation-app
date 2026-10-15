@@ -290,7 +290,10 @@ public final class PublishManager {
     /** Same, and {@code done} runs once the job is gone (the notification action waits on it). */
     public void cancel(long id, Runnable done) {
         io.execute(() -> {
+            String workspaceId = null;
             try {
+                PublishJob job = dao.get(id);
+                if (job != null) workspaceId = job.workspaceId;
                 // Stop the work first so it cannot finish a post for a job that is being forgotten.
                 WorkManager.getInstance(app).cancelUniqueWork(workName(id));
                 dao.deleteById(id);
@@ -299,7 +302,22 @@ public final class PublishManager {
             } finally {
                 if (done != null) done.run();
             }
+            abortUpload(id, workspaceId);
         });
+    }
+
+    /**
+     * Frees the job's direct upload on the server (one of the workspace's 5 pending slots) and
+     * deletes its row. Best-effort and after the job is gone: a failure only leaves the upload to
+     * expire. Runs on {@link #io}; nothing happens for a job without a direct upload.
+     */
+    private void abortUpload(long jobId, String workspaceId) {
+        try {
+            new DirectUploader(new DirectUploadApi(SessionManager.get(app).repository()))
+                    .cancel(jobId, workspaceId, AppDatabase.getInstance(app).uploadSessionDao());
+        } catch (RuntimeException e) {
+            Log.w(LOG_TAG, "upload of job " + jobId + " not aborted", e);
+        }
     }
 
     /**

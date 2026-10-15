@@ -18,6 +18,12 @@ public class UploadSession {
     /** The server accepted the complete call; kept until the job saved the media id. */
     public static final String COMPLETED = "completed";
 
+    /**
+     * Not an upload: the server has no direct-upload routes (404), so this job uses the legacy
+     * POST /upload. Remembered here so a retry does not ask again. {@link #uploadId} is empty.
+     */
+    public static final String LEGACY = "legacy";
+
     /** The publish job this upload belongs to ({@link PublishJob#id}). */
     @PrimaryKey
     @ColumnInfo(name = "job_id")
@@ -41,6 +47,6 @@ public class UploadSession {
     @ColumnInfo(name = "parts_json")
     public String partsJson;
 
-    /** {@link #PENDING} or {@link #COMPLETED}. */
+    /** {@link #PENDING}, {@link #COMPLETED} or {@link #LEGACY}. */
     public String status;
 }

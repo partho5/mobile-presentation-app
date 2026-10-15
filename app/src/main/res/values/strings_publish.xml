@@ -71,6 +71,13 @@
     <string name="pub_err_media_gone">the uploaded video was lost, retry to upload it again</string>
     <string name="pub_err_remote_unknown">the channel refused the post</string>
     <string name="pub_err_interrupted">publishing was interrupted</string>
+    <string name="pub_err_unsupported_type">this video isn\'t a valid MP4 and can\'t be uploaded</string>
+    <string name="pub_err_file_too_large">video is over the upload size limit</string>
+    <string name="pub_err_size_mismatch">the upload didn\'t arrive intact, retry to upload it again</string>
+    <string name="pub_err_content_type_mismatch">the uploaded file isn\'t a valid MP4, it was not published</string>
+    <string name="pub_err_too_many_uploads">too many unfinished uploads, try again later</string>
+    <string name="pub_err_storage">storage problem, try again</string>
+    <string name="pub_err_upload_restart">the upload was interrupted, retry to upload it again</string>
 
     <!-- Notification -->
     <string name="publish_channel_name">Publishing</string>

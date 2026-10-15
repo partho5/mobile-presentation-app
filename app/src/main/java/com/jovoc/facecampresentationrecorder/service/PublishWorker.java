@@ -15,11 +15,15 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
+import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
+import com.jovoc.facecampresentationrecorder.publish.DirectUploadApi;
+import com.jovoc.facecampresentationrecorder.publish.DirectUploader;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
@@ -40,11 +44,14 @@ public class PublishWorker extends Worker {
     private static final String CHANNEL_ID = "publish_upload";
 
     private final PublishJobDao dao;
+    private final UploadSessionDao sessions;
     private int lastNotifiedPercent = -10;
 
     public PublishWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
-        dao = AppDatabase.getInstance(context).publishJobDao();
+        AppDatabase db = AppDatabase.getInstance(context);
+        dao = db.publishJobDao();
+        sessions = db.uploadSessionDao();
     }
 
     @NonNull
@@ -62,8 +69,10 @@ public class PublishWorker extends Worker {
             // Not allowed to start a foreground service right now; the work still runs.
         }
 
-        PublishApi api = new PublishApi(SessionManager.get(getApplicationContext()).repository());
+        AuthRepository repo = SessionManager.get(getApplicationContext()).repository();
+        PublishApi api = new PublishApi(repo);
         PublishPipeline pipeline = new PublishPipeline(api,
+                new DirectUploader(new DirectUploadApi(repo)), sessions,
                 new PublishPipeline.Store() {
                     @Override
                     public PublishJob load(long jobId) {
@@ -99,6 +108,14 @@ public class PublishWorker extends Worker {
         if (job != null && job.isActive()) {
             if (getStopReason() == WorkInfo.STOP_REASON_CANCELLED_BY_APP) {
                 dao.deleteById(id);
+                // Best-effort: frees the server-side upload (and the row) of a cancelled job.
+                try {
+                    new DirectUploader(new DirectUploadApi(
+                            SessionManager.get(getApplicationContext()).repository()))
+                            .cancel(id, job.workspaceId, sessions);
+                } catch (RuntimeException ignored) {
+                    // It expires on the server anyway.
+                }
             } else {
                 job.status = PublishJob.QUEUED;
                 dao.update(job);

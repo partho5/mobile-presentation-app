@@ -141,6 +141,24 @@ public final class PublishLabels {
                 return c.getString(R.string.pub_err_media_gone);
             case "INTERRUPTED":
                 return c.getString(R.string.pub_err_interrupted);
+            case "UNSUPPORTED_TYPE":
+                return c.getString(R.string.pub_err_unsupported_type);
+            case "FILE_TOO_LARGE":
+                return c.getString(R.string.pub_err_file_too_large);
+            case "SIZE_MISMATCH":
+                return c.getString(R.string.pub_err_size_mismatch);
+            case "CONTENT_TYPE_MISMATCH":
+                return c.getString(R.string.pub_err_content_type_mismatch);
+            case "TOO_MANY_PENDING_UPLOADS":
+                return c.getString(R.string.pub_err_too_many_uploads);
+            case "STORAGE_ERROR":
+                return c.getString(R.string.pub_err_storage);
+            case "UPLOAD_NOT_FOUND":
+            case "UPLOAD_NOT_PENDING":
+            case "INVALID_PARTS":
+            case "INVALID_POSTER":
+                // The uploader handles these itself; if one still ends a job, a Retry starts over.
+                return c.getString(R.string.pub_err_upload_restart);
             default:
                 return c.getString(R.string.pub_err_server);
         }

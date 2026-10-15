@@ -77,19 +77,25 @@ public class PublishException extends Exception {
      * replaced before the next attempt. The auth layer's 429 (AUTH_RATE_LIMITED) is not stored.
      */
     private final boolean storedAnswer;
+    /**
+     * True for a failure of the upload step: the post's Idempotency-Key has not been used yet,
+     * so no answer of an upload call may spend it (see {@link #forUploadStep}).
+     */
+    private final boolean uploadStep;
 
     public PublishException(Kind kind, int status, String detail, int retryAfterSeconds) {
-        this(kind, status, detail, retryAfterSeconds, false);
+        this(kind, status, detail, retryAfterSeconds, false, false);
     }
 
     private PublishException(Kind kind, int status, String detail, int retryAfterSeconds,
-                             boolean storedAnswer) {
+                             boolean storedAnswer, boolean uploadStep) {
         super(kind.name());
         this.kind = kind;
         this.status = status;
         this.detail = detail;
         this.retryAfterSeconds = retryAfterSeconds;
         this.storedAnswer = storedAnswer;
+        this.uploadStep = uploadStep;
     }
 
     public PublishException(Kind kind) {
@@ -132,9 +138,21 @@ public class PublishException extends Exception {
      * stored, so a retry with the same key only replays it; it needs a new key.
      */
     public boolean spendsKey() {
+        if (uploadStep) return false;
         if (kind == Kind.RATE_LIMITED) return storedAnswer;
         if (isUploadSession()) return false;
         return status >= 400 && status < 500 && kind != Kind.IN_PROGRESS && kind != Kind.SIGNED_OUT;
+    }
+
+    /**
+     * The same failure, marked as coming from the upload step. The post has not been sent, so no
+     * key is stored on the server for it: {@link #spendsKey()} is false whatever the status (a
+     * plain 4xx of the upload routes, such as a 404 from a server without them, must not
+     * rotate the key).
+     */
+    public PublishException forUploadStep() {
+        if (uploadStep) return this;
+        return new PublishException(kind, status, detail, retryAfterSeconds, storedAnswer, true);
     }
 
     // ---- mapping ----
@@ -166,7 +184,8 @@ public class PublishException extends Exception {
         if (r.status == 429) {
             boolean throttled = !ApiResponse.AUTH_RATE_LIMITED.equals(r.errorCode)
                     && message != null && message.contains("Throttler");
-            return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds, throttled);
+            return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds, throttled,
+                    false);
         }
         if (r.status == 400 && "File is too large.".equals(message)) {
             return new PublishException(Kind.TOO_LARGE, 400, message, -1);

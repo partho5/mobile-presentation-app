@@ -1,6 +1,9 @@
 package com.jovoc.facecampresentationrecorder.publish;
 
+import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.db.UploadSession;
+import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
 
 import java.io.File;
 import java.util.UUID;
@@ -23,6 +26,11 @@ import java.util.function.LongSupplier;
  * costs no 1 GB upload), and the post goes to POST /auto-publish, which builds it from the
  * server's preset. The pre-flight is skipped once the video is uploaded: a retry after an
  * unknown outcome must not be failed by a balance the post itself may already have spent.
+ *
+ * <p>A video goes to R2 through {@link DirectUploader} (the backend carries no video byte);
+ * anything else, and a server that answers 404 to the direct routes (remembered per job), uses
+ * the legacy POST /upload. None of the upload calls carries the post's Idempotency-Key, so a
+ * failure of the upload step never rotates it.
  */
 public final class PublishPipeline {
 
@@ -50,15 +58,31 @@ public final class PublishPipeline {
     }
 
     private final PublishApi api;
+    /** Null: every file takes the legacy POST /upload. */
+    private final DirectUploader direct;
+    private final UploadSessionDao sessions;
     private final Store store;
     private final Listener listener;
     private final BooleanSupplier cancelled;
     private final int maxAttempts;
     private final LongSupplier clock;
 
+    /** Legacy upload only (no direct upload). */
     public PublishPipeline(PublishApi api, Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock) {
+        this(api, null, null, store, listener, cancelled, maxAttempts, clock);
+    }
+
+    /**
+     * @param direct sends videos straight to R2; null for the legacy upload only
+     * @param sessions where {@code direct} keeps each job's upload (and the legacy choice)
+     */
+    public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
+                           Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock) {
         this.api = api;
+        this.direct = direct;
+        this.sessions = sessions;
         this.store = store;
         this.listener = listener;
         this.cancelled = cancelled;
@@ -69,7 +93,10 @@ public final class PublishPipeline {
     /** @param attempt zero-based run count of this job (WorkManager's run attempt count) */
     public Outcome run(long jobId, int attempt) {
         PublishJob job = store.load(jobId);
-        if (job == null) return Outcome.GONE;
+        if (job == null) {
+            forgetUpload(jobId);
+            return Outcome.GONE;
+        }
         if (PublishJob.DONE.equals(job.status)) return Outcome.DONE;
         job.errorKind = null;
         job.errorDetail = null;
@@ -79,7 +106,10 @@ public final class PublishPipeline {
             if (job.isAuto() && !uploaded) preflight(job);
             if (!uploaded) upload(job);
             // A job deleted while uploading (cancelled) must not go on to post.
-            if (store.load(jobId) == null) return Outcome.GONE;
+            if (store.load(jobId) == null) {
+                forgetUpload(jobId);
+                return Outcome.GONE;
+            }
             createPost(job);
             return Outcome.DONE;
         } catch (PublishException e) {
@@ -121,7 +151,7 @@ public final class PublishPipeline {
         move(job, PublishJob.UPLOADING);
 
         final int[] lastSaved = {0};
-        PublishApi.Media media = api.upload(file, job.workspaceId, (sent, total) -> {
+        ApiClient.ProgressListener progress = (sent, total) -> {
             int pct = total <= 0 ? 0 : (int) Math.min(99, sent * 100 / total);
             // Saving every chunk would hammer the database; every few percent is plenty.
             if (pct >= lastSaved[0] + 2) {
@@ -129,12 +159,91 @@ public final class PublishPipeline {
                 job.progress = pct;
                 save(job);
             }
-        }, cancelled);
+        };
+
+        PublishApi.Media media = null;
+        if (useDirect(job, file)) {
+            try {
+                media = direct.upload(job.id, file, job.workspaceId, sessions, progress, cancelled,
+                        posterFor(file)).toMedia();
+            } catch (PublishException e) {
+                if (!isRouteMissing(e)) throw directFailure(job, e);
+                // An older server without /upload/multipart: use the legacy upload, and remember
+                // it for this job so a retry does not ask again.
+                rememberLegacy(job);
+            }
+        }
+        if (media == null) {
+            try {
+                media = api.upload(file, job.workspaceId, progress, cancelled);
+            } catch (PublishException e) {
+                throw e.forUploadStep();
+            }
+        }
 
         job.mediaId = media.id;
         job.mediaPath = media.path;
         job.progress = 100;
         save(job);
+        // The media id is stored: the upload row has done its job (a kill before this line
+        // replays the idempotent complete and gets the same media).
+        forgetUpload(job.id);
+    }
+
+    /** Videos the server accepts on the direct routes (by extension, as the server decides). */
+    static boolean isDirectType(File file) {
+        return file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".mp4");
+    }
+
+    private boolean useDirect(PublishJob job, File file) {
+        if (direct == null || sessions == null || !isDirectType(file)) return false;
+        UploadSession row = sessions.get(job.id);
+        return row == null || !UploadSession.LEGACY.equals(row.status);
+    }
+
+    /**
+     * A 4xx without an upload code from a direct route: the server has no such route (404), or
+     * a proxy in front of it says so. Anything with a code is a real answer of the routes.
+     */
+    private static boolean isRouteMissing(PublishException e) {
+        return e.kind == PublishException.Kind.REJECTED && e.status == 404;
+    }
+
+    private void rememberLegacy(PublishJob job) {
+        UploadSession row = new UploadSession();
+        row.jobId = job.id;
+        row.uploadId = "";
+        row.size = 0;
+        row.partSize = 0;
+        row.partCount = 0;
+        row.partsJson = UploadPlan.partsToJson(new java.util.TreeMap<>());
+        row.status = UploadSession.LEGACY;
+        sessions.put(row);
+    }
+
+    /**
+     * A failure of the direct upload, as the pipeline reports it: marked as an upload-step
+     * failure (the idempotency key is never spent), and a session that cannot continue is
+     * dropped so the user's Retry starts a new one.
+     */
+    private PublishException directFailure(PublishJob job, PublishException e) {
+        boolean cannotContinue = e.kind != PublishException.Kind.CANCELLED
+                && e.isUploadSession() && !e.isRetryable();
+        if (cannotContinue) forgetUpload(job.id);
+        return e.forUploadStep();
+    }
+
+    /** Forgets the job's upload row (no server call). */
+    private void forgetUpload(long jobId) {
+        if (direct != null && sessions != null) direct.finish(jobId, sessions);
+    }
+
+    /**
+     * The poster image sent with {@code complete} (base64 of a jpeg, png or webp up to 512 KiB),
+     * or null for none. The seam of RET-A2: only this method changes when posters exist.
+     */
+    String posterFor(File video) {
+        return null;
     }
 
     private void createPost(PublishJob job) throws PublishException {
