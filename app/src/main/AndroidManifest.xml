@@ -64,6 +64,11 @@
             android:parentActivityName=".ui.AccountActivity" />
 
         <activity
+            android:name=".ui.ContactActivity"
+            android:exported="false"
+            android:label="@string/contact_title" />
+
+        <activity
             android:name=".ui.DevicesActivity"
             android:exported="false"
             android:label="@string/dev_title"

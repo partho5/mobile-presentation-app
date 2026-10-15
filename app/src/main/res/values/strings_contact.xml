@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_contact">Contact</string>
+    <string name="contact_title">Contact</string>
+    <string name="contact_name">Protim</string>
+    <string name="contact_message">Hi, I\'m Protim, the developer of this app. You can email me if needed.</string>
+    <string name="contact_email" translatable="false">partho8181bd@gmail.com</string>
+    <string name="contact_tap_to_email">Tap to send an email</string>
+    <string name="contact_copy">Copy email address</string>
+    <string name="contact_copied">Email address copied</string>
+</resources>

@@ -787,6 +787,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     }
                 } else if (itemId == R.id.nav_help) {
                     startActivity(com.jovoc.facecampresentationrecorder.ui.OnboardingActivity.forGuide(this));
+                } else if (itemId == R.id.nav_contact) {
+                    startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.ContactActivity.class));
                 } else if (itemId == R.id.nav_about) {
                     openAboutDialog();
                 }
