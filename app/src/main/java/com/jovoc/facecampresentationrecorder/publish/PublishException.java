@@ -40,7 +40,30 @@ public class PublishException extends Exception {
         /** Auto-publish pre-flight: the balance does not cover the cost. {@code detail} is "cost|available". */
         CREDITS_SHORT,
         /** 404 MEDIA_NOT_FOUND: the server no longer has the uploaded video; it must be uploaded again. */
-        MEDIA_NOT_FOUND
+        MEDIA_NOT_FOUND,
+
+        // ---- direct upload (/upload/multipart*): none of these involves an Idempotency-Key ----
+
+        /** 400 UNSUPPORTED_TYPE: the file is not an allowed video type. Final. */
+        UNSUPPORTED_TYPE,
+        /** 400 FILE_TOO_LARGE: over the server's upload cap. Final. */
+        FILE_TOO_LARGE,
+        /** 400 SIZE_MISMATCH: the stored object is not the declared size; the upload is aborted. Final for it. */
+        SIZE_MISMATCH,
+        /** 400 CONTENT_TYPE_MISMATCH: the bytes are not the declared type; the upload is aborted. Final. */
+        CONTENT_TYPE_MISMATCH,
+        /** 429 TOO_MANY_PENDING_UPLOADS: 5 unfinished uploads in the workspace; wait or free some. */
+        TOO_MANY_PENDING_UPLOADS,
+        /** 502 STORAGE_ERROR: R2 failed; the upload stays pending and the same call is safe to repeat. */
+        STORAGE_ERROR,
+        /** 404 UPLOAD_NOT_FOUND: no such upload in this workspace; create a new one. */
+        UPLOAD_NOT_FOUND,
+        /** 409 UPLOAD_NOT_PENDING: ask for the status; completed replays, aborted/expired starts over. */
+        UPLOAD_NOT_PENDING,
+        /** 400 INVALID_PARTS: a part is missing or refused; re-upload it and complete again. */
+        INVALID_PARTS,
+        /** 400 INVALID_POSTER: the poster was refused, nothing was claimed; resend without it. */
+        INVALID_POSTER
     }
 
     public final Kind kind;
@@ -76,7 +99,27 @@ public class PublishException extends Exception {
     /** True when the same request may succeed later without any change. */
     public boolean isRetryable() {
         return kind == Kind.NETWORK || kind == Kind.RATE_LIMITED || kind == Kind.IN_PROGRESS
-                || kind == Kind.SERVER;
+                || kind == Kind.SERVER || kind == Kind.TOO_MANY_PENDING_UPLOADS
+                || kind == Kind.STORAGE_ERROR;
+    }
+
+    /** True for the failures only the direct-upload routes answer (none has an Idempotency-Key). */
+    public boolean isUploadSession() {
+        switch (kind) {
+            case UNSUPPORTED_TYPE:
+            case FILE_TOO_LARGE:
+            case SIZE_MISMATCH:
+            case CONTENT_TYPE_MISMATCH:
+            case TOO_MANY_PENDING_UPLOADS:
+            case STORAGE_ERROR:
+            case UPLOAD_NOT_FOUND:
+            case UPLOAD_NOT_PENDING:
+            case INVALID_PARTS:
+            case INVALID_POSTER:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**
@@ -90,6 +133,7 @@ public class PublishException extends Exception {
      */
     public boolean spendsKey() {
         if (kind == Kind.RATE_LIMITED) return storedAnswer;
+        if (isUploadSession()) return false;
         return status >= 400 && status < 500 && kind != Kind.IN_PROGRESS && kind != Kind.SIGNED_OUT;
     }
 
@@ -145,6 +189,44 @@ public class PublishException extends Exception {
             return new PublishException(Kind.REJECTED, r.status, withChannelName(r.body, message), -1);
         }
         return new PublishException(Kind.SERVER, r.status, null, -1);
+    }
+
+    /**
+     * Interprets a non-2xx answer of a direct-upload route (/upload/multipart*). These routes
+     * never carry an Idempotency-Key, so nothing here spends or rotates one; answers without an
+     * upload code (401, 403, 5xx, the auth layer's 429, a plain 400) are mapped as {@link #from}.
+     */
+    public static PublishException fromUpload(ApiResponse r) {
+        String message = readMessage(r.body);
+        if (r.status == 400) {
+            Kind k = null;
+            if ("UNSUPPORTED_TYPE".equals(r.errorCode)) k = Kind.UNSUPPORTED_TYPE;
+            else if ("FILE_TOO_LARGE".equals(r.errorCode)) k = Kind.FILE_TOO_LARGE;
+            else if ("SIZE_MISMATCH".equals(r.errorCode)) k = Kind.SIZE_MISMATCH;
+            else if ("CONTENT_TYPE_MISMATCH".equals(r.errorCode)) k = Kind.CONTENT_TYPE_MISMATCH;
+            else if ("INVALID_PARTS".equals(r.errorCode)) k = Kind.INVALID_PARTS;
+            else if ("INVALID_POSTER".equals(r.errorCode)) k = Kind.INVALID_POSTER;
+            if (k != null) return new PublishException(k, 400, message, -1);
+        }
+        if (r.is(404, "UPLOAD_NOT_FOUND")) {
+            return new PublishException(Kind.UPLOAD_NOT_FOUND, 404, message, -1);
+        }
+        if (r.is(409, "UPLOAD_NOT_PENDING")) {
+            return new PublishException(Kind.UPLOAD_NOT_PENDING, 409, message, -1);
+        }
+        if (r.is(429, "TOO_MANY_PENDING_UPLOADS")) {
+            return new PublishException(Kind.TOO_MANY_PENDING_UPLOADS, 429, message,
+                    r.retryAfterSeconds);
+        }
+        if (r.is(502, "STORAGE_ERROR")) {
+            return new PublishException(Kind.STORAGE_ERROR, 502, message, -1);
+        }
+        if (r.status == 429 && !ApiResponse.AUTH_RATE_LIMITED.equals(r.errorCode)) {
+            // The create throttle (API_LIMIT per hour): no key is involved, a plain retry after
+            // Retry-After. Not "stored", so nothing rotates.
+            return new PublishException(Kind.RATE_LIMITED, 429, null, r.retryAfterSeconds);
+        }
+        return from(r);
     }
 
     /**

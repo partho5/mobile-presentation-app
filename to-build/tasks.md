@@ -16,7 +16,7 @@ Today the phone sends the whole file to `POST /public/v1/upload`: Caddy → ngin
 
 ## Decisions (made; change here if wrong)
 1. **Ownership is a DB row, not a key prefix.** New table `MobileUpload {id, organizationId, objectKey, uploadId, filename, size, partSize, partCount, status 'pending'|'completed'|'aborted'|'expired', mediaId?, createdAt, expiresAt}` (migration; no column on `Organization`). Every route checks `organizationId`. This keeps the flat random object key the rest of the system already expects.
-2. **Fixed part size 16 MiB** (a 1 GB file is 64 parts). `partCount = ceil(size / partSize)`, must be ≤ 10,000. Max file size env `MOBILE_UPLOAD_MAX_BYTES`, default 2 GiB.
+2. **Fixed part size 16 MiB** (a 1 GB file is 64 parts). `partCount = ceil(size / partSize)`, must be ≤ 10,000. Max file size env `MOBILE_UPLOAD_MAX_BYTES`, default **4 GiB** (256 parts). Reason: the app's video editor re-encodes at ~12 Mbps (~1.5× the 8 Mbps recording), and the 9:16 crop is a stream copy so it is the same size as the master; 2 GiB would reject edited recordings over ~24 min.
 3. **Allowed types:** same as the existing multipart path (`.mp4`, plus `.mov` only when `UploadFactory.processorEnabled()`), validated by extension at create and by magic bytes at complete.
 4. **Presigned part URLs are short-lived (15 min) and requested in batches of at most 20 part numbers**, so a long upload keeps asking for fresh URLs and a leaked URL is nearly useless.
 5. **`complete` is the only moment bytes become trusted:** `CompleteMultipartUpload`, `HEAD` size must equal the declared size, magic-byte check (shared function extracted from `r2.uploader.ts`), then the media row is created exactly as `POST /public/v1/upload` does. Any failure deletes the object and marks the row `aborted`.
@@ -26,15 +26,28 @@ Today the phone sends the whole file to `POST /public/v1/upload`: Caddy → ngin
 9. **The R2 PUT must never carry the device token.** The app uses a separate OkHttp client with no auth interceptor for presigned URLs.
 10. **Abandoned uploads:** a cron aborts `pending` rows older than 24 h (and their R2 multipart), plus an R2 lifecycle rule "abort incomplete multipart uploads after 1 day" as a backstop (human action in the Cloudflare dashboard).
 
-## Contract (routes under `/public/v1`, device token, scope `posts:write`)
+## Source of truth (the backend is built and verified; read these before coding)
+- Contract: `/home/haku/projects/Next.js/Social-Media-Manager/_planning/02_contracts/api.mobile-direct-upload.md` (direct upload) and `.../api.media-retention.md` (purge, poster, `410 MEDIA_PURGED`).
+- Guide: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/mobile-auto-publish-api-guide.md`: section 4.6 (direct upload, errors with the app action, Java/OkHttp sketch), 4.7 (hand checks), 4.9 (retention and poster).
+- If this file and those disagree, **they win**. Corrections already known:
+  - Scope is `media:write` (as `/upload*`), not `posts:write`.
+  - Never hardcode the part size (16 MiB) or limits; use `partSize` and `partCount` from the create answer. Max file 4 GiB.
+  - `status` is `pending | completing | completed | aborted | expired`.
+  - Extra errors: 409 `UPLOAD_NOT_PENDING`; 502 `STORAGE_ERROR` (retry safe, the row stays `pending`); 400 `INVALID_PARTS` at complete (re-upload that part, call complete again); 400 `INVALID_POSTER` (resend complete without the poster); 429 from the API throttle has no `code`.
+  - `GET status` on a `pending` row can answer `parts: []` after a 502 on complete; then call `complete` again.
+  - `complete` is idempotent: a repeat returns the same `{id, path}`.
+  - Abort on `aborted`/`expired` is 204; on `completed` or `completing` it is 409 (nothing to abort, the media is live).
+  - The R2 PUT carries no `Authorization` header (separate OkHttp client).
+
+## Contract (routes under `/public/v1`, device token, scope `media:write`)
 
 | Route | Body → Response | Errors |
 |---|---|---|
 | `POST /upload/multipart` | `{filename, size, contentType?}` → 201 `{id, partSize, partCount}` (`id` is the MobileUpload id) | 400 `UNSUPPORTED_TYPE`, 400 `FILE_TOO_LARGE`, 429 `TOO_MANY_PENDING_UPLOADS` (max 5 per workspace) |
 | `POST /upload/multipart/:id/parts` | `{partNumbers:[1..20 ints]}` → 200 `{urls:{"1":"https://…"}, expiresIn:900}` | 404 `UPLOAD_NOT_FOUND`, 400 `INVALID_PARTS` (out of 1..partCount or more than 20), 409 `UPLOAD_NOT_PENDING` |
-| `GET /upload/multipart/:id` | → 200 `{status, size, partSize, partCount, parts:[{n, etag, size}]}` (from `ListParts`, paged) | 404 |
-| `POST /upload/multipart/:id/complete` | `{parts:[{n, etag}]}` → 201 `{id, path}` (media). Idempotent: a repeat on a `completed` row returns the same media | 400 `SIZE_MISMATCH`, 400 `CONTENT_TYPE_MISMATCH`, 400 `INVALID_PARTS`, 404, 409 `UPLOAD_NOT_PENDING` |
-| `DELETE /upload/multipart/:id` | → 204, aborts the R2 upload and marks the row `aborted` | 404 |
+| `GET /upload/multipart/:id` | → 200 `{status, size, partSize, partCount, parts:[{n, etag, size}]}` (from `ListParts`, paged) | 404, 502 `STORAGE_ERROR` |
+| `POST /upload/multipart/:id/complete` | `{parts:[{n, etag}], poster?}` → 201 `{id, path, poster?}` (media). Idempotent: a repeat on a `completed` row returns the same media | 400 `SIZE_MISMATCH`, `CONTENT_TYPE_MISMATCH`, `UNSUPPORTED_TYPE`, `INVALID_PARTS`, `INVALID_POSTER`; 404; 409 `UPLOAD_NOT_PENDING`; 502 `STORAGE_ERROR` |
+| `DELETE /upload/multipart/:id` | → 204, aborts the R2 upload and marks the row `aborted` | 404, 409 `UPLOAD_NOT_PENDING`, 502 `STORAGE_ERROR` |
 
 All errors keep the existing shape `{statusCode, code, message}`.
 
@@ -55,14 +68,14 @@ Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecor
 
 | Part | Scope | Status |
 |---|---|---|
-| DU-A1 | `DirectUploadApi` (create, parts, status, complete, abort) + models + unit tests | ⬜ |
+| DU-A1 | `DirectUploadApi` (create, parts, status, complete, abort) + models + unit tests | ✅ |
 | DU-A2 | `DirectUploader`: part loop, parallelism, retry, resume, progress; Room v6 `UploadSession` | ⬜ |
 | DU-A3 | Pipeline integration + fallback to legacy `/upload` + error mapping | ⬜ |
 | DU-A4 | Device QA, docs (PUBLISH_PLAN.md, UX_PLAN.md), VPS before/after check | ⬜ |
 
 ### DU-A1 API layer
 - `publish/DirectUploadApi`: the five calls above through `AuthRepository.execute`, same headers as other `/public/v1` calls (`Authorization`, `x-workspace-id`). Models: `UploadSessionInfo {id, partSize, partCount}`, `PartUrls`, `UploadedPart {n, etag, size}`.
-- Parse errors into `PublishException` (new codes: `UNSUPPORTED_TYPE`, `FILE_TOO_LARGE`, `SIZE_MISMATCH`, `CONTENT_TYPE_MISMATCH` are final and rotate nothing; `TOO_MANY_PENDING_UPLOADS` and 5xx retry).
+- Parse errors into `PublishException` (new codes: `UNSUPPORTED_TYPE`, `FILE_TOO_LARGE`, `SIZE_MISMATCH`, `CONTENT_TYPE_MISMATCH` are final and rotate nothing; `TOO_MANY_PENDING_UPLOADS`, `STORAGE_ERROR` and 5xx retry). Per code, follow the guide 4.6 error table (what the app does for each). `complete` takes an optional `poster` (base64) so RET-A2 only fills it.
 - Unit tests with MockWebServer as in `PublishApiAutoPublishTest`: request shapes, parsing, error mapping.
 
 ### DU-A2 Uploader and resume
@@ -123,10 +136,10 @@ RAM note: these paths hold one chunk at a time, so a publish needs roughly the c
 
 | Part | Scope | Status |
 |---|---|---|
-| PUB-B1 | Base-URL audit: every media URL builder uses `CLOUDFLARE_BUCKET_URL`; decide how stored absolute URLs survive a base change (store key + rebase helper, or one-off migration script) | ⬜ |
-| PUB-B2 | TikTok pull opt-in setting + automatic fallback to `FILE_UPLOAD` + user-facing help text | ⬜ |
-| PUB-B3 | Audit the remaining providers (Mastodon, Bluesky, Reddit, Tumblr, Slack, Discord, Telegram, Twitch, WordPress, Skool, Whop, others): record which accept a URL; switch those that do; list the rest in the guide | ⬜ |
-| PUB-B4 | Document the map and settings in `mobile-auto-publish-api-guide.md` and the contract | ⬜ |
+| PUB-B1 | Base-URL audit: every media URL builder uses `CLOUDFLARE_BUCKET_URL`; decide how stored absolute URLs survive a base change (store key + rebase helper, or one-off migration script) | ✅ (backend repo) |
+| PUB-B2 | TikTok pull opt-in setting + automatic fallback to `FILE_UPLOAD` + user-facing help text | ✅ (backend repo) |
+| PUB-B3 | Audit the remaining providers (Mastodon, Bluesky, Reddit, Tumblr, Slack, Discord, Telegram, Twitch, WordPress, Skool, Whop, others): record which accept a URL; switch those that do; list the rest in the guide | ✅ (backend repo) |
+| PUB-B4 | Document the map and settings in `mobile-auto-publish-api-guide.md` and the contract | ✅ (backend repo) |
 
 **Human action (tell the user):** in Cloudflare, make sure `cdn.nanybot.com/nany-social/*` is reachable by the platform fetchers: no bot-fight or WAF challenge, no hotlink protection, no redirect, HTTPS only. Meta's fetchers (`facebookexternalhit`) must be allowed; Meta CDN URLs are rejected.
 
@@ -144,9 +157,14 @@ Rules (decided by the owner):
 
 | Part | Scope | Status |
 |---|---|---|
-| RET-B1 | Origin flag on `Media` (new nullable column or via `MobileUpload.mediaId`), env vars, reference-count query | ⬜ |
-| RET-B2 | Purge worker/cron implementing the rules; marks the row purged and removes the R2 object | ⬜ |
-| RET-B3 | Web delete → R2 delete; orphan + soft-deleted sweep | ⬜ |
-| RET-B4 | Poster upload on `complete` (optional field) and use in the web preview | ⬜ |
+| RET-B1 | Origin flag on `Media` (new nullable column or via `MobileUpload.mediaId`), env vars, reference-count query | ✅ (backend repo) |
+| RET-B2 | Purge worker/cron implementing the rules; marks the row purged and removes the R2 object | ✅ (backend repo) |
+| RET-B3 | Web delete → R2 delete; orphan + soft-deleted sweep | ✅ (backend repo) |
+| RET-B4 | Poster upload on `complete` (optional field) and use in the web preview | ✅ (backend repo) |
 | RET-A1 | App: card shows "Video removed from server" when the media is purged; Retry re-uploads from the local file if it still exists, otherwise explains it can't | ⬜ |
-| RET-A2 | App: generate and send the poster image with the upload | ⬜ |
+| RET-A2 | App: generate and send the poster image with the upload (taken from the file actually uploaded, i.e. the edited 9:16 crop when the user edited, never the master) | ⬜ |
+
+Backend RET-B1..B4 are done (2026-10-15). What the app needs (details: guide section 4.9, contract `api.media-retention.md`):
+- RET-A1: a purged media is refused with `410 MEDIA_PURGED` (`{statusCode, code, message}`) when a post is created or scheduled with it. Map it to a card state "Video removed from server" (not a generic failure, no automatic retry). Retry re-uploads from the local file if it still exists (new upload session, new media id, then the normal `POST /auto-publish`), otherwise show a plain message that the file is gone. Only phone-uploaded files are auto-purged; the rule is `MEDIA_RETENTION_DAYS` (default 1 day after the last channel's URL) and `MEDIA_RETENTION_ERROR_DAYS` (default 7 when a channel failed), never while a post still references the file.
+- RET-A2: the poster is an optional base64 `poster` field in the body of `POST /upload/multipart/:id/complete`: at most 512 KiB decoded, jpeg, png or webp (decided by the magic bytes), about 50 KB is the aim. Make it from the file actually uploaded (the edited 9:16 crop when the user edited, never the master), by a frame grab scaled down on the phone. `400 INVALID_POSTER` is answered before the row is claimed, so resend `complete` without the poster; never fail the upload because the poster could not be made. The answer gains `poster` (public URL) when stored. The backend body limit for that route is 1 MB.
+- Open decision (owner): the legacy `POST /upload` fallback has no poster field; a legacy upload simply has no poster.
