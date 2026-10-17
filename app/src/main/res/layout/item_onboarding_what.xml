@@ -36,8 +36,4 @@
                 android:src="@drawable/onb_personal_branding" />
         </LinearLayout>
     </ScrollView>
-
-    <TextView
-        style="@style/OnbAboveButton"
-        android:text="@string/onb_no_account" />
 </LinearLayout>

@@ -16,7 +16,6 @@
     <string name="onb_what_body">%1$s helps you make your face well known and establish a strong personal brand.</string>
     <!-- The phrase in onb_what_body that gets the brush underline. -->
     <string name="onb_what_brand_underline" translatable="false">personal brand</string>
-    <string name="onb_no_account">No account needed to start.</string>
 
     <string name="onb_how_publish">%1$s helps you create videos showing your face and publish them to 30+ social platforms.</string>
     <string name="onb_how_publish_highlight">30+</string>
