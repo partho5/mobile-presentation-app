@@ -15,7 +15,6 @@
             android:title="My Videos" />
         <item
             android:id="@+id/nav_account"
-            android:visible="false"
             android:icon="@drawable/ic_publish_social"
             android:title="@string/nav_account" />
         <item

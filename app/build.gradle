@@ -25,14 +25,14 @@ android {
         debug {
             // Same production backend as release. For a local backend use the debug backend-URL setting
             // (10.0.2.2 from the emulator, or the dev machine's LAN IP on a real phone).
-            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com/api"'
-            buildConfigField 'String', 'WEB_BASE_URL', '"https://social-media-schedular.nanybot.com"'
+            buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
+            buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
         }
         release {
             // Production host. Must be https; a release build refuses anything else. The deployed backend
             // serves its API under /api on the same host as the website (deploy/Caddyfile, NEXT_PUBLIC_BACKEND_URL).
-            buildConfigField 'String', 'API_BASE_URL', '"https://social-media-schedular.nanybot.com/api"'
-            buildConfigField 'String', 'WEB_BASE_URL', '"https://social-media-schedular.nanybot.com"'
+            buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
+            buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
