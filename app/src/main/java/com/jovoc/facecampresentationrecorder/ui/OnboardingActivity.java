@@ -71,6 +71,8 @@ public class OnboardingActivity extends AppCompatActivity {
     private static final float REST_DEGREES = 360f;
     private static final long SPIN_MS = 300;
     private static final long SETTLE_MS = 200;
+    /** The brush underline under "personal brand" fades in right after the spin settles. */
+    private static final long UNDERLINE_FADE_MS = 400;
 
     /** The drawer's "How to Use & Guide": the same screens, but ending just returns to where the user was. */
     public static Intent forGuide(Context context) {
@@ -199,11 +201,18 @@ public class OnboardingActivity extends AppCompatActivity {
         return a + (b - a) * t;
     }
 
-    private void spinOnce(ImageView image) {
+    private void spinOnce(ImageView image, BrushUnderlineSpan underline, TextView body) {
         if (imageSpun || !ValueAnimator.areAnimatorsEnabled()) {
             return;
         }
         imageSpun = true;
+        underline.setAlpha(0);
+        ValueAnimator fade = ValueAnimator.ofInt(0, 255);
+        fade.setDuration(UNDERLINE_FADE_MS);
+        fade.addUpdateListener(a -> {
+            underline.setAlpha((int) a.getAnimatedValue());
+            body.invalidate();
+        });
         ObjectAnimator spin = ObjectAnimator.ofFloat(image, View.ROTATION, 0f, SPIN_DEGREES);
         spin.setDuration(SPIN_MS);
         spin.setInterpolator(new AccelerateDecelerateInterpolator());
@@ -211,7 +220,7 @@ public class OnboardingActivity extends AppCompatActivity {
         settle.setDuration(SETTLE_MS);
         settle.setInterpolator(new DecelerateInterpolator());
         AnimatorSet set = new AnimatorSet();
-        set.playSequentially(spin, settle);
+        set.playSequentially(spin, settle, fade);
         set.start();
     }
 
@@ -222,8 +231,15 @@ public class OnboardingActivity extends AppCompatActivity {
         int amber = ContextCompat.getColor(this, R.color.onb_highlight);
         if (position == 0) {
             TextView body = page.findViewById(R.id.onb_what_body);
-            body.setText(colored(getString(R.string.onb_what_body, appName), white, appName));
-            spinOnce(page.findViewById(R.id.onb_what_image));
+            SpannableString text = colored(getString(R.string.onb_what_body, appName), white, appName);
+            BrushUnderlineSpan underline = new BrushUnderlineSpan(amber, getResources().getDisplayMetrics().density);
+            int at = text.toString().indexOf(getString(R.string.onb_what_brand_underline));
+            if (at >= 0) {
+                text.setSpan(underline, at, at + getString(R.string.onb_what_brand_underline).length(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            body.setText(text);
+            spinOnce(page.findViewById(R.id.onb_what_image), underline, body);
         } else if (position == 1) {
             TextView publish = page.findViewById(R.id.onb_how_publish);
             SpannableString text = colored(getString(R.string.onb_how_publish, appName), white, appName);
