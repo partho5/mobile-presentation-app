@@ -79,7 +79,7 @@ public final class AutoPublishInfo {
     }
 
     /** "youtube" -> "YouTube", "instagram-standalone" -> "Instagram", "x" -> "X". */
-    static String providerName(String identifier) {
+    public static String providerName(String identifier) {
         String base = identifier == null ? "" : identifier.trim().toLowerCase(Locale.ROOT);
         int dash = base.indexOf('-');
         if (dash > 0) base = base.substring(0, dash);

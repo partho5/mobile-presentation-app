@@ -29,8 +29,7 @@ public class ApiClient {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    private volatile String baseUrl;
-    private final boolean allowCleartext;
+    private final String baseUrl;
     private final OkHttpClient http;
 
     /** @param allowCleartext debug builds only: lets a LAN backend use http. */
@@ -40,7 +39,6 @@ public class ApiClient {
 
     /** For tests: supply the client (e.g. pointing at MockWebServer over http). */
     public ApiClient(String baseUrl, OkHttpClient http, boolean allowCleartext) {
-        this.allowCleartext = allowCleartext;
         this.baseUrl = validate(baseUrl, allowCleartext);
         this.http = http;
     }
@@ -53,11 +51,6 @@ public class ApiClient {
             throw new IllegalArgumentException("Backend URL must be https");
         }
         return trimmed;
-    }
-
-    /** Points the client at another backend (debug builds). Same rules as the constructor. */
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = validate(baseUrl, allowCleartext);
     }
 
     static OkHttpClient newHttp(boolean allowCleartext) {

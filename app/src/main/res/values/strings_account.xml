@@ -10,11 +10,6 @@
     <string name="acct_credits_unavailable">Balance unavailable. Tap to retry.</string>
     <string name="acct_devices_label">Devices</string>
     <string name="acct_devices_hint">See where you are signed in and sign devices out</string>
-    <string name="acct_backend_label">Backend URL (debug build)</string>
-    <string name="acct_backend_title">Backend URL</string>
-    <string name="acct_backend_message">Changing the backend signs you out of this phone, because the session belongs to the old backend.</string>
-    <string name="acct_backend_save">Save and sign out</string>
-    <string name="acct_backend_invalid">Enter a valid http(s) URL.</string>
 
     <string name="acct_delete">Delete account</string>
     <string name="acct_delete_title">Delete your account?</string>

@@ -734,15 +734,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    /** "Connect publishing" while signed out, "Account" once this device holds a session. */
-    private void updateAccountMenuItem() {
-        if (navigationView == null) return;
-        android.view.MenuItem item = navigationView.getMenu().findItem(R.id.nav_account);
-        if (item == null) return;
-        boolean signedIn = com.jovoc.facecampresentationrecorder.auth.SessionManager.get(this).hasSession();
-        item.setTitle(signedIn ? R.string.nav_account : R.string.nav_connect_publishing);
-    }
-
     /** White icons for every drawer entry except the full-colour "Auto upload" one, so the view-wide tint is off. */
     private void tintDrawerIcons() {
         navigationView.setItemIconTintList(null);
@@ -779,11 +770,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 } else if (itemId == R.id.nav_saved_recordings) {
                     openSavedRecordings();
                 } else if (itemId == R.id.nav_account) {
-                    // Signed out: "Connect publishing" opens sign-in; signed in: the account screen.
+                    // Signed in: the Auto upload screen; signed out: sign-in first, then that screen.
+                    Intent autoPublish = new Intent(this, com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity.class);
                     if (com.jovoc.facecampresentationrecorder.auth.SessionManager.get(this).hasSession()) {
-                        startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.AccountActivity.class));
+                        startActivity(autoPublish);
                     } else {
-                        com.jovoc.facecampresentationrecorder.auth.SessionManager.openSignIn(this, null);
+                        com.jovoc.facecampresentationrecorder.auth.SessionManager.openSignIn(this, autoPublish);
                     }
                 } else if (itemId == R.id.nav_help) {
                     startActivity(com.jovoc.facecampresentationrecorder.ui.OnboardingActivity.forGuide(this));
@@ -1992,7 +1984,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     protected void onResume() {
         super.onResume();
-        updateAccountMenuItem();
         updateCameraPermissionHint();
         // Permission may have been granted on the Settings screen or in system settings.
         if (!cameraPreviewStarted && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)

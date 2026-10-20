@@ -33,6 +33,7 @@ import com.bumptech.glide.Glide;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.Channel;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
@@ -253,7 +254,8 @@ public class PublishActivity extends AppCompatActivity {
             View row = inflater.inflate(R.layout.item_channel, channelsContainer, false);
             ((TextView) row.findViewById(R.id.tv_channel_name)).setText(c.name);
             TextView provider = row.findViewById(R.id.tv_channel_provider);
-            provider.setText(c.disabled ? getString(R.string.publish_channel_disabled) : c.identifier);
+            provider.setText(c.disabled ? getString(R.string.publish_channel_disabled)
+                    : AutoPublishInfo.providerName(c.identifier));
             CheckBox check = row.findViewById(R.id.check_channel);
             ImageView avatar = row.findViewById(R.id.iv_channel);
             if (c.picture != null && !c.picture.isEmpty()) {

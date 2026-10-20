@@ -189,32 +189,6 @@
                 app:tint="#888888" />
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/row_backend"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="?attr/selectableItemBackground"
-            android:minHeight="56dp"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/acct_backend_label"
-                android:textColor="#AAAAAA"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/tv_account_backend"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
-        </LinearLayout>
-
         <Button
             android:id="@+id/btn_sign_out"
             android:layout_width="match_parent"

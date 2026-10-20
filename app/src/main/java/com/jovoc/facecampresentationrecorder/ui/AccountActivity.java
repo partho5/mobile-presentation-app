@@ -4,10 +4,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -19,7 +17,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
@@ -83,7 +80,6 @@ public class AccountActivity extends AppCompatActivity {
         findViewById(R.id.row_devices).setOnClickListener(
                 v -> startActivity(new Intent(this, DevicesActivity.class)));
         findViewById(R.id.row_credits).setOnClickListener(v -> refresh(false));
-        setUpBackendRow();
 
         btnDelete = findViewById(R.id.btn_delete_account);
         btnDelete.setOnClickListener(v -> new MaterialAlertDialogBuilder(this)
@@ -184,33 +180,6 @@ public class AccountActivity extends AppCompatActivity {
                 ? getString(R.string.acct_credits_available_reserved, available, nf.format(b.reserved))
                 : getString(R.string.acct_credits_available, available);
         return b.low ? getString(R.string.acct_credits_low, text) : text;
-    }
-
-    // ---- debug-only backend URL ----
-
-    private void setUpBackendRow() {
-        View row = findViewById(R.id.row_backend);
-        if (!BuildConfig.DEBUG) return;
-        row.setVisibility(View.VISIBLE);
-        ((TextView) findViewById(R.id.tv_account_backend)).setText(session.baseUrl());
-        row.setOnClickListener(v -> {
-            EditText input = new EditText(this);
-            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-            input.setText(session.baseUrl());
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.acct_backend_title)
-                    .setMessage(R.string.acct_backend_message)
-                    .setView(input)
-                    .setPositiveButton(R.string.acct_backend_save, (d, w) -> {
-                        if (session.changeBaseUrl(input.getText().toString())) {
-                            SessionManager.openHome(this);
-                        } else {
-                            Toast.makeText(this, R.string.acct_backend_invalid, Toast.LENGTH_LONG).show();
-                        }
-                    })
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
-        });
     }
 
     /** Shows the link only when its URL is configured. */

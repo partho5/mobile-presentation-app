@@ -103,4 +103,8 @@
     <string name="auto_notif_failed">Auto-publish failed: %1$s</string>
     <string name="auto_notif_signed_out">Sign in to finish auto-publishing</string>
     <string name="auto_notif_set_up_action">Set up</string>
+
+    <!-- Auto upload screen (AutoPublishActivity) -->
+    <string name="ap_load_failed">Could not load your platforms. Check your connection and try again.</string>
+    <string name="ap_account_label">Account</string>
 </resources>

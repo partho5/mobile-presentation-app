@@ -52,6 +52,12 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ui.AutoPublishActivity"
+            android:exported="false"
+            android:label="@string/nav_connect_publishing"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".ui.SettingsActivity"
             android:exported="false"
             android:label="@string/set_title"
