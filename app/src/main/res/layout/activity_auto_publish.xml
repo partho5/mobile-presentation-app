@@ -138,15 +138,38 @@
                     android:minHeight="48dp"
                     android:orientation="horizontal">
 
-                    <TextView
+                    <!-- Label, then the premium crown and tier badge (PremiumMark; shown only for a paid feature) -->
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginEnd="12dp"
                         android:layout_weight="1"
-                        android:text="@string/ap_master_switch"
-                        android:textColor="#FFFFFF"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/ap_master_switch"
+                            android:textColor="#FFFFFF"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/iv_premium_auto_publish"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginStart="6dp"
+                            android:contentDescription="@string/premium_cd"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/tv_tier_auto_publish"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switch_auto_publish"

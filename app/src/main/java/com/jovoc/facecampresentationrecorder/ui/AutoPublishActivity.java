@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.TextView;
@@ -28,6 +29,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.Platforms;
@@ -55,9 +58,26 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private static final int COLOR_GREY = 0xFFAAAAAA;
     private static final int COLOR_AMBER = 0xFFFFB347;
 
+    /** Set when the screen should open on the upgrade sheet (the plan has no auto upload). */
+    private static final String EXTRA_UPGRADE = "upgrade";
+
     /** Opens this screen, through sign-in first when there is no session. */
     public static void open(Context context) {
-        Intent i = new Intent(context, AutoPublishActivity.class);
+        launch(context, new Intent(context, AutoPublishActivity.class));
+    }
+
+    /** As {@link #open}, on the upgrade sheet for auto upload. */
+    public static void openUpgrade(Context context) {
+        launch(context, new Intent(context, AutoPublishActivity.class).putExtra(EXTRA_UPGRADE, true));
+    }
+
+    /** For a notification: the screen on the upgrade sheet for auto upload. */
+    public static Intent upgradeIntent(Context context) {
+        return new Intent(context, AutoPublishActivity.class).putExtra(EXTRA_UPGRADE, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    }
+
+    private static void launch(Context context, Intent i) {
         if (SessionManager.get(context).hasSession()) {
             if (!(context instanceof android.app.Activity)) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(i);
@@ -80,6 +100,10 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private Button btnConnect;
     private TextView tvConnectBody;
     private SwitchCompat masterSwitch;
+    private ImageView masterCrown;
+    private TextView masterTier;
+    /** True while the code, not the user, sets the master switch, so that is not saved as a choice. */
+    private boolean syncingMaster;
     private View onBox;
     private TextView tvOff;
     private TextView tvTargets;
@@ -104,6 +128,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private final Map<String, Boolean> saving = new HashMap<>();
     /** Identifier of the platform whose web link is being requested; one at a time. */
     private String linkPending;
+    private final Entitlements.Listener planListener = this::syncMasterGate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -144,6 +169,11 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         findViewById(R.id.btn_auto_publish_retry).setOnClickListener(v -> refresh());
         findViewById(R.id.row_account).setOnClickListener(
                 v -> startActivity(new Intent(this, AccountActivity.class)));
+
+        // From the "needs a plan" notification or card (not again after a rotation).
+        if (savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_UPGRADE, false)) {
+            main.post(this::showUpgradeSheet);
+        }
     }
 
     @Override
@@ -156,8 +186,17 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
             return;
         }
         tvEmail.setText(session.email());
+        // The plan may have changed while away (billing page); also follows changes while open.
+        syncMasterGate();
+        Entitlements.addListener(planListener);
         // The user may come back from the browser after connecting a platform.
         refresh();
+    }
+
+    @Override
+    protected void onPause() {
+        Entitlements.removeListener(planListener);
+        super.onPause();
     }
 
     @Override
@@ -279,16 +318,24 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         btnConnect = findViewById(R.id.btn_next_connect);
         tvConnectBody = findViewById(R.id.tv_next_connect_body);
         masterSwitch = findViewById(R.id.switch_auto_publish);
+        masterCrown = findViewById(R.id.iv_premium_auto_publish);
+        masterTier = findViewById(R.id.tv_tier_auto_publish);
         onBox = findViewById(R.id.next_on_box);
         tvOff = findViewById(R.id.tv_next_off);
         tvTargets = findViewById(R.id.tv_next_targets);
         tvCredits = findViewById(R.id.tv_next_credits);
 
-        boolean on = prefs.getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
-        masterSwitch.setChecked(on);
-        showMasterState(on);
+        syncMasterGate();
         // The same pref PublishManager.beginAuto reads when a recording stops.
         masterSwitch.setOnCheckedChangeListener((b, checked) -> {
+            if (syncingMaster) return;
+            // A locked switch stays off: the tap opens the upgrade sheet, and the switch turns on
+            // if the user upgrades. The stored choice is never overwritten by a lock.
+            if (checked && !Entitlements.has(Feature.AUTO_PUBLISH)) {
+                showMaster(false);
+                Gate.run(this, Feature.AUTO_PUBLISH, () -> masterSwitch.setChecked(true));
+                return;
+            }
             prefs.edit().putBoolean(RecordSettings.KEY_AUTO_PUBLISH, checked).apply();
             ActivityLog.log("autopublish_toggle", "on", checked);
             showMasterState(checked);
@@ -395,6 +442,30 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private void showMasterState(boolean on) {
         onBox.setVisibility(on ? View.VISIBLE : View.GONE);
         tvOff.setVisibility(on ? View.GONE : View.VISIBLE);
+    }
+
+    /** Sets the switch without saving it as a choice. */
+    private void showMaster(boolean on) {
+        syncingMaster = true;
+        masterSwitch.setChecked(on);
+        syncingMaster = false;
+        showMasterState(on);
+    }
+
+    /**
+     * The switch shows the stored choice only while the plan covers it (off while locked, but the
+     * choice is kept and returns with the plan), with the premium look for the current plan.
+     */
+    private void syncMasterGate() {
+        showMaster(prefs.getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false)
+                && Entitlements.has(Feature.AUTO_PUBLISH));
+        PremiumMark.apply(masterCrown, masterTier, Feature.AUTO_PUBLISH);
+    }
+
+    /** Opened from the "needs a plan" notification or card: say what auto upload needs. */
+    private void showUpgradeSheet() {
+        if (isFinishing() || isDestroyed()) return;
+        PaywallSheet.show(this, Feature.AUTO_PUBLISH, this::syncMasterGate);
     }
 
     /** "Posts to YouTube, TikTok", then the cost per recording and the balance (amber when short). */

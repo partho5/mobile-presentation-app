@@ -92,6 +92,81 @@
                     android:orientation="vertical" />
             </LinearLayout>
 
+            <!-- Face cam over other apps: there is no switch (it follows you when you leave the app
+                 while recording), so this row shows only while the plan lacks it, as the way to
+                 the upgrade sheet (SettingsActivity.syncFloatingCam) -->
+            <LinearLayout
+                android:id="@+id/section_floating_cam"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <include layout="@layout/view_settings_divider" />
+
+                <LinearLayout
+                    android:id="@+id/row_floating_cam"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:minHeight="56dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/feature_floating_cam_name"
+                                android:textColor="#22D3EE"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <ImageView
+                                android:id="@+id/iv_premium_floating_cam"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginStart="6dp"
+                                android:contentDescription="@string/premium_cd"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/tv_tier_floating_cam"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/feature_floating_cam_benefit"
+                            android:textColor="#AAAAAA"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="#888888" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- Countdown -->
             <include layout="@layout/view_settings_divider" />
 

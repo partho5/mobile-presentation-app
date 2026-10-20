@@ -101,6 +101,15 @@ public final class PublishLabels {
                 && "AUTO_NOT_CONFIGURED".equals(job.errorKind);
     }
 
+    /**
+     * True for a job the server refused because the plan has no auto upload: its card and its
+     * notification open the Auto upload screen with the upgrade sheet.
+     */
+    public static boolean needsPlan(PublishJob job) {
+        return job != null && PublishJob.FAILED.equals(job.status)
+                && "NEEDS_PLAN".equals(job.errorKind);
+    }
+
     /** The link of a post that is live, or null. */
     public static String liveUrl(PublishJob job) {
         if (job == null || !PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) return null;
@@ -123,6 +132,8 @@ public final class PublishLabels {
                 return hasDetail ? detail : c.getString(R.string.pub_err_rejected);
             case "WORKSPACE_FORBIDDEN":
                 return c.getString(R.string.pub_err_workspace);
+            case "NEEDS_PLAN":
+                return c.getString(R.string.pub_err_needs_plan);
             case "TOO_LARGE":
                 return c.getString(R.string.pub_err_too_large);
             case "RATE_LIMITED":

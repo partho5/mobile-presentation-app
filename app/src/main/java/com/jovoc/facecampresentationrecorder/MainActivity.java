@@ -7,6 +7,8 @@ import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
+import com.jovoc.facecampresentationrecorder.ui.Gate;
+import com.jovoc.facecampresentationrecorder.ui.PremiumMark;
 import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
 import com.jovoc.facecampresentationrecorder.ui.SlideTransitionController;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
@@ -111,6 +113,8 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.adapter.SlideAdapter;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.ScreenRecordService;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
@@ -171,6 +175,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     // Drawing board (shown only while recording)
     private ImageButton btnDrawingBoard;
+    /** The button plus its premium crown; this is what shows and hides, with the recording. */
+    private View wrapDrawingBoard;
+    private ImageView crownDrawingBoard;
     private View drawingBoardContainer;
     private DrawingBoardController drawingBoardController;
     private boolean boardTouchActive = false;
@@ -180,6 +187,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     // Slide pen: marks drawn on the current slide (shown always, drawn only in pen mode while recording)
     private ImageButton btnSlidePen;
+    private View wrapSlidePen;
+    private ImageView crownSlidePen;
     private DrawingBoardView slideInkView;
     private SlideInkController slideInkController;
     // Cap on the ink layer's height so a very tall image can't force a huge bitmap.
@@ -1052,6 +1061,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         btnDrawingBoard = findViewById(R.id.btn_drawing_board);
+        wrapDrawingBoard = findViewById(R.id.wrap_drawing_board);
+        crownDrawingBoard = findViewById(R.id.iv_premium_drawing_board);
+        wrapSlidePen = findViewById(R.id.wrap_slide_pen);
+        crownSlidePen = findViewById(R.id.iv_premium_slide_pen);
         drawingBoardContainer = findViewById(R.id.drawing_board_container);
         if (drawingBoardContainer != null) {
             drawingBoardController = new DrawingBoardController(drawingBoardContainer);
@@ -1180,6 +1193,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void toggleDrawingBoard() {
         if (drawingBoardContainer == null || isDrawingBoardAnimating) return;
+        if (!isDrawingBoardVisible && !FeatureSnapshot.allows(Feature.DRAWING_BOARD)) {
+            // Only on screen while recording: no sheet (it would end up in the video).
+            Gate.lockedWhileRecording(this, Feature.DRAWING_BOARD);
+            return;
+        }
         ActivityLog.log("drawing_board_toggle", "on", !isDrawingBoardVisible);
         if (isDrawingBoardVisible) {
             hideDrawingBoard(true);
@@ -1188,7 +1206,15 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    /** The premium crown on the two recording tools: gold while the plan lacks one, none for a free tool. */
+    private void applyToolMarks() {
+        if (crownDrawingBoard != null) PremiumMark.apply(crownDrawingBoard, Feature.DRAWING_BOARD);
+        if (crownSlidePen != null) PremiumMark.apply(crownSlidePen, Feature.SLIDE_INK);
+    }
+
     private void showDrawingBoard() {
+        // The plan this recording started with decides, whoever asks.
+        if (!FeatureSnapshot.allows(Feature.DRAWING_BOARD)) return;
         if (slideInkController != null) slideInkController.setPenMode(false);
         sizeDrawingBoard();
         int side = drawingBoardContainer.getLayoutParams().height;
@@ -1498,8 +1524,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             hideSwipeHint();
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
-            if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.VISIBLE);
-            if (btnSlidePen != null) btnSlidePen.setVisibility(View.VISIBLE);
+            if (wrapDrawingBoard != null) wrapDrawingBoard.setVisibility(View.VISIBLE);
+            if (wrapSlidePen != null) wrapSlidePen.setVisibility(View.VISIBLE);
+            applyToolMarks();
 
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             int successfulRecordings = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
@@ -1520,8 +1547,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
-            if (btnDrawingBoard != null) btnDrawingBoard.setVisibility(View.GONE);
-            if (btnSlidePen != null) btnSlidePen.setVisibility(View.GONE);
+            if (wrapDrawingBoard != null) wrapDrawingBoard.setVisibility(View.GONE);
+            if (wrapSlidePen != null) wrapSlidePen.setVisibility(View.GONE);
             if (slideInkController != null) slideInkController.setPenMode(false);
             hideDrawingBoard(false);
 
@@ -2109,7 +2136,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (drawingBoardController != null) drawingBoardController.flush();
         if (slideInkController != null) slideInkController.flush();
         stopVideoIfPlaying();
-        if (isRecording && !isChangingConfigurations()) {
+        // The plan this recording started with decides; without it nothing floats over other apps,
+        // and the missing permission is not worth asking for.
+        if (isRecording && !isChangingConfigurations()
+                && FeatureSnapshot.allows(Feature.FLOATING_CAM)) {
             if (Settings.canDrawOverlays(this)) {
                 showFloatingCamOverlay();
             } else {

@@ -27,6 +27,17 @@ public class PublishLabelsTest {
     }
 
     @Test
+    public void planRefusalOffersTheUpgradeSheetNotSetup() {
+        PublishJob job = failed("NEEDS_PLAN", "auto_publish");
+        assertTrue(PublishLabels.needsPlan(job));
+        assertFalse(PublishLabels.needsSetup(job));
+        assertFalse(PublishLabels.needsPlan(null));
+        assertFalse(PublishLabels.needsPlan(failed("AUTO_NOT_CONFIGURED", null)));
+        job.status = PublishJob.DONE;
+        assertFalse(PublishLabels.needsPlan(job));
+    }
+
+    @Test
     public void otherJobsHaveNoSetupAction() {
         assertFalse(PublishLabels.needsSetup(null));
         assertFalse(PublishLabels.needsSetup(failed("NETWORK", null)));

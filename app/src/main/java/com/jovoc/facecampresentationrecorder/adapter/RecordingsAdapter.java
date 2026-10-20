@@ -201,9 +201,11 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         holder.tvPublishStatus.setText(text);
         holder.tvPublishStatus.setTextColor(PublishLabels.color(context, job));
         // A live post's status line opens the post; recycled holders must not keep an old link.
-        // A failed auto-publish that was never set up opens the Auto upload screen instead.
+        // A failed auto-publish that was never set up opens the Auto upload screen instead, and one
+        // the plan does not cover opens it on the upgrade sheet.
         final String linkUrl = PublishLabels.liveUrl(job);
-        final boolean setUp = linkUrl == null && PublishLabels.needsSetup(job);
+        final boolean needsPlan = linkUrl == null && PublishLabels.needsPlan(job);
+        final boolean setUp = needsPlan || linkUrl == null && PublishLabels.needsSetup(job);
         // Inside the undo window of an auto-publish the line itself is the Cancel: one tap, no
         // confirmation (nothing has been uploaded yet), the same cancel as the menu entry.
         final boolean undo = AutoPublishUndo.secondsLeft(job, System.currentTimeMillis()) > 0;
@@ -218,7 +220,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             holder.tvPublishStatus.setOnClickListener(v -> {
-                if (setUp) {
+                if (needsPlan) {
+                    AutoPublishActivity.openUpgrade(context);
+                } else if (setUp) {
                     AutoPublishActivity.open(context);
                 } else {
                     openLivePost(linkUrl);

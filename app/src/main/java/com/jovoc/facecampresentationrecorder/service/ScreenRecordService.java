@@ -37,6 +37,7 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
@@ -138,6 +139,8 @@ public class ScreenRecordService extends Service {
                 || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
+        // The plan when this recording started decides, not the plan now.
+        if (!FeatureSnapshot.allows(Feature.FLOATING_CAM)) return;
         if (overlay == null) {
             overlay = new FloatingCamOverlay(this, this::onOverlayStopClicked);
         }

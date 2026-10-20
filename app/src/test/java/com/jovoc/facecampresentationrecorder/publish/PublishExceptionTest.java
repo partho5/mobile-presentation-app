@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.jovoc.facecampresentationrecorder.auth.ApiResponse;
@@ -22,6 +23,31 @@ public class PublishExceptionTest {
         assertEquals("This needs 5 credits and you have 2.", e.detail);
         assertFalse(e.isRetryable());
         assertTrue(e.spendsKey());
+    }
+
+    @Test
+    public void featureNotInPlanNeedsAPlanAndIsNeverRetried() {
+        PublishException e = of(403, "{\"statusCode\":403,\"code\":\"FEATURE_NOT_IN_PLAN\","
+                + "\"feature\":\"auto_publish\",\"requiredPlan\":\"starter\"}");
+        assertEquals(PublishException.Kind.NEEDS_PLAN, e.kind);
+        assertEquals("auto_publish", e.detail);
+        assertFalse(e.isRetryable());
+        // A final 4xx the server stores under the key: the next attempt needs a new one.
+        assertTrue(e.spendsKey());
+        // No feature in the body: still a plan problem.
+        PublishException bare = of(403, "{\"code\":\"FEATURE_NOT_IN_PLAN\"}");
+        assertEquals(PublishException.Kind.NEEDS_PLAN, bare.kind);
+        assertNull(bare.detail);
+    }
+
+    @Test
+    public void otherForbiddenAnswersAreNotNeedsPlan() {
+        assertEquals(PublishException.Kind.WORKSPACE_FORBIDDEN,
+                of(403, "{\"code\":\"WORKSPACE_FORBIDDEN\"}").kind);
+        assertEquals(PublishException.Kind.REJECTED, of(403, "{\"message\":\"no\"}").kind);
+        // The code alone is not enough: it is a 403 answer.
+        assertEquals(PublishException.Kind.REJECTED,
+                of(400, "{\"code\":\"FEATURE_NOT_IN_PLAN\",\"message\":\"x\"}").kind);
     }
 
     @Test

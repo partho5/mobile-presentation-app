@@ -38,6 +38,13 @@
     <string name="paywall_unlocked">%1$s unlocked</string>
     <string name="paywall_link_failed">Couldn\'t open the upgrade page. Please try again.</string>
 
+    <!-- A locked tool tapped while recording (Gate.lockedWhileRecording): no sheet, it would end up in the video -->
+    <string name="plans_locked_recording">%1$s is on the %2$s plan. You can upgrade after you stop.</string>
+
+    <!-- Auto upload refused by the server for the plan (403 FEATURE_NOT_IN_PLAN) -->
+    <string name="pub_err_needs_plan">Your plan doesn\'t include auto upload</string>
+    <string name="auto_notif_needs_plan">Not posted: auto upload isn\'t in your plan. Tap to upgrade. Your recording is safe.</string>
+
     <!-- Plan row and plans sheet (AccountActivity, PlansSheet) -->
     <string name="plans_row_label">Plan</string>
     <string name="plans_title">Plans</string>

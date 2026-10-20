@@ -17,7 +17,8 @@ import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 /**
  * The notification an auto-publish job ends with, since nobody is looking at the screen:
  * "Published to N channels" / "Scheduled for ..." / "Auto-publish failed: reason". Tapping it
- * opens Saved Recordings.
+ * opens Saved Recordings; when the plan has no auto upload it opens the Auto upload screen on the
+ * upgrade sheet instead.
  */
 public final class AutoPublishNotifier {
 
@@ -36,6 +37,7 @@ public final class AutoPublishNotifier {
             return c.getResources().getQuantityString(R.plurals.auto_notif_published, n, n);
         }
         if ("SIGNED_OUT".equals(job.errorKind)) return c.getString(R.string.auto_notif_signed_out);
+        if ("NEEDS_PLAN".equals(job.errorKind)) return c.getString(R.string.auto_notif_needs_plan);
         if (PurgedMedia.cannotRetry(job)) {
             return c.getString(R.string.auto_notif_failed,
                     c.getString(R.string.pub_err_media_purged_gone));
@@ -54,8 +56,10 @@ public final class AutoPublishNotifier {
                     context.getString(R.string.auto_notif_channel_name),
                     NotificationManager.IMPORTANCE_DEFAULT));
         }
-        Intent open = new Intent(context, SavedRecordingsActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        Intent open = PublishLabels.needsPlan(job)
+                ? AutoPublishActivity.upgradeIntent(context)
+                : new Intent(context, SavedRecordingsActivity.class)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int id = ID_BASE + (int) (job.id % 1000);
         NotificationCompat.Builder b = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)

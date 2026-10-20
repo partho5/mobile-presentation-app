@@ -11,6 +11,8 @@ public final class ApiResponse {
     public static final String SESSION_REVOKED = "SESSION_REVOKED";
     public static final String AUTH_RATE_LIMITED = "AUTH_RATE_LIMITED";
     public static final String WORKSPACE_FORBIDDEN = "WORKSPACE_FORBIDDEN";
+    /** 403 body {statusCode, code, feature, requiredPlan}: a server-run feature the plan does not include. */
+    public static final String FEATURE_NOT_IN_PLAN = "FEATURE_NOT_IN_PLAN";
     public static final String MAIL_DELIVERY_FAILED = "MAIL_DELIVERY_FAILED";
 
     public final int status;

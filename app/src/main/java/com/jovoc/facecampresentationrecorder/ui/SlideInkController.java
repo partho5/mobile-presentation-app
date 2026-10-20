@@ -12,6 +12,8 @@ import android.widget.LinearLayout;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
 
 import java.util.ArrayList;
@@ -83,6 +85,11 @@ public class SlideInkController implements DrawingBoardView.Listener {
         setPenColor(SlideInkStorage.loadPenColor(context));
 
         btnPen.setOnClickListener(v -> {
+            if (!penMode && !FeatureSnapshot.allows(Feature.SLIDE_INK)) {
+                // Only on screen while recording: no sheet (it would end up in the video).
+                Gate.lockedWhileRecording(context, Feature.SLIDE_INK);
+                return;
+            }
             ActivityLog.log("ink_tool", "tool", "pen", "on", !penMode);
             setPenMode(!penMode);
         });
@@ -112,6 +119,8 @@ public class SlideInkController implements DrawingBoardView.Listener {
 
     public void setPenMode(boolean on) {
         if (penMode == on) return;
+        // Whatever calls this: the plan this recording started with decides (never mid-recording).
+        if (on && !FeatureSnapshot.allows(Feature.SLIDE_INK)) return;
         penMode = on;
         ink.setInputEnabled(on);
         tools.setVisibility(on ? View.VISIBLE : View.GONE);

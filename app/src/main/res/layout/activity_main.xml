@@ -559,33 +559,66 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <!-- Drawing board toggle, 50dp right of the stop button -->
-            <ImageButton
-                android:id="@+id/btn_drawing_board"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+            <!-- Drawing board toggle, 50dp right of the stop button. The wrapper is what shows and
+                 hides (MainActivity.updateUIState); the crown is the premium symbol (PremiumMark). -->
+            <FrameLayout
+                android:id="@+id/wrap_drawing_board"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginStart="50dp"
-                android:alpha="0.8"
-                android:background="@null"
-                android:contentDescription="Drawing board"
-                android:elevation="12dp"
-                android:padding="6dp"
-                android:src="@drawable/ic_drawing_board"
-                android:visibility="gone" />
+                android:clipChildren="false"
+                android:visibility="gone">
 
-            <!-- Slide pen toggle, 50dp right of the drawing board button -->
-            <ImageButton
-                android:id="@+id/btn_slide_pen"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                <ImageButton
+                    android:id="@+id/btn_drawing_board"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:alpha="0.8"
+                    android:background="@null"
+                    android:contentDescription="Drawing board"
+                    android:elevation="12dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_drawing_board" />
+
+                <ImageView
+                    android:id="@+id/iv_premium_drawing_board"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="top|end"
+                    android:contentDescription="@string/premium_cd"
+                    android:elevation="13dp"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <!-- Slide pen toggle, 50dp right of the drawing board button (same wrapper pattern) -->
+            <FrameLayout
+                android:id="@+id/wrap_slide_pen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginStart="50dp"
-                android:alpha="0.8"
-                android:background="@null"
-                android:contentDescription="Pen: draw on the slide"
-                android:elevation="12dp"
-                android:padding="6dp"
-                android:src="@drawable/ic_slide_pen"
-                android:visibility="gone" />
+                android:clipChildren="false"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/btn_slide_pen"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:alpha="0.8"
+                    android:background="@null"
+                    android:contentDescription="Pen: draw on the slide"
+                    android:elevation="12dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_slide_pen" />
+
+                <ImageView
+                    android:id="@+id/iv_premium_slide_pen"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="top|end"
+                    android:contentDescription="@string/premium_cd"
+                    android:elevation="13dp"
+                    android:visibility="gone" />
+            </FrameLayout>
         </LinearLayout>
 
         <!-- Slide pen tools: Undo, colour swatches (added in code), Clear. Only while pen mode is on. -->

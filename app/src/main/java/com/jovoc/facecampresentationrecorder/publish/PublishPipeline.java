@@ -5,6 +5,7 @@ import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.UploadSession;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
+import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 
 import java.io.File;
 import java.util.UUID;
@@ -27,6 +28,8 @@ import java.util.function.LongSupplier;
  * costs no 1 GB upload), and the post goes to POST /auto-publish, which builds it from the
  * server's preset. The pre-flight is skipped once the video is uploaded: a retry after an
  * unknown outcome must not be failed by a balance the post itself may already have spent.
+ * Either call may answer 403 FEATURE_NOT_IN_PLAN: the job then fails as NEEDS_PLAN at once (no
+ * retry) and the stored plan is fetched again.
  *
  * <p>A video goes to R2 through {@link DirectUploader} (the backend carries no video byte);
  * anything else, and a server that answers 404 to the direct routes (remembered per job), uses
@@ -295,6 +298,12 @@ public final class PublishPipeline {
 
     private Outcome fail(PublishJob job, PublishException e, int attempt) {
         if (e.kind == PublishException.Kind.CANCELLED) return Outcome.GONE;
+
+        if (e.kind == PublishException.Kind.NEEDS_PLAN) {
+            // The plan decides, so waiting cannot help: no retry. Fetch the plan again so the
+            // switch on the Auto upload screen follows the server; the caller tells the user.
+            EntitlementsRefresher.refreshNow();
+        }
 
         if (e.isRetryable() && attempt + 1 < maxAttempts) {
             // Waiting for a connection / the server: keep the media id and the progress, and the

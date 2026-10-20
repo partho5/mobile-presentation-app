@@ -785,6 +785,41 @@ public class PublishPipelineTest {
         assertEquals(1, server.getRequestCount());
     }
 
+    private static final String NOT_IN_PLAN = "{\"statusCode\":403,\"code\":\"FEATURE_NOT_IN_PLAN\","
+            + "\"feature\":\"auto_publish\",\"requiredPlan\":\"starter\"}";
+
+    @Test
+    public void preflightNotInPlan_failsAtOnceWithoutRetryOrUpload() throws Exception {
+        newAutoJob();
+        server.enqueue(new MockResponse().setResponseCode(403).setBody(NOT_IN_PLAN));
+
+        // Attempt 0 of 3: FAILED, never RETRY (waiting cannot change the plan).
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals(PublishJob.FAILED, failed.status);
+        assertEquals("NEEDS_PLAN", failed.errorKind);
+        assertEquals("auto_publish", failed.errorDetail);
+        assertNull(failed.mediaId);
+        assertTrue(PublishLabels.needsPlan(failed));
+        assertEquals(1, server.getRequestCount()); // the check only, no upload
+    }
+
+    @Test
+    public void autoPostNotInPlan_failsAtOnceAndRotatesTheKey() throws Exception {
+        newAutoJob();
+        rows.get(7L).mediaId = "m1";
+        rows.get(7L).mediaPath = "https://cdn.test/x.mp4";
+        server.enqueue(new MockResponse().setResponseCode(403).setBody(NOT_IN_PLAN));
+
+        assertEquals(PublishPipeline.Outcome.FAILED, run(0));
+        PublishJob failed = rows.get(7L);
+        assertEquals("NEEDS_PLAN", failed.errorKind);
+        assertNotEquals("key-auto", failed.idempotencyKey);
+        // The upload is kept: after an upgrade the card's Retry posts it without sending it again.
+        assertEquals("m1", failed.mediaId);
+        assertEquals(1, server.getRequestCount());
+    }
+
     @Test
     public void manualJobNeverTouchesTheAutoRoute() throws Exception {
         newJob();

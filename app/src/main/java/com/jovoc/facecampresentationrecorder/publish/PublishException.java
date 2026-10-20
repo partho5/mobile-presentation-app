@@ -23,6 +23,11 @@ public class PublishException extends Exception {
         REJECTED,
         /** 403 WORKSPACE_FORBIDDEN: the user is no longer a member of the job's workspace. */
         WORKSPACE_FORBIDDEN,
+        /**
+         * 403 FEATURE_NOT_IN_PLAN: the plan does not include the feature ({@code detail} is its id,
+         * e.g. auto_publish). Final: a retry is refused the same way until the plan changes.
+         */
+        NEEDS_PLAN,
         /** 413, or over the 1 GiB cap of the legacy upload route (never raised for a direct upload). */
         TOO_LARGE,
         /** 429 (too many requests). */
@@ -201,6 +206,9 @@ public class PublishException extends Exception {
         if (r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)) {
             return new PublishException(Kind.WORKSPACE_FORBIDDEN, 403, null, -1);
         }
+        if (r.is(403, ApiResponse.FEATURE_NOT_IN_PLAN)) {
+            return new PublishException(Kind.NEEDS_PLAN, 403, readField(r.body, "feature"), -1);
+        }
         if (r.status == 413) return new PublishException(Kind.TOO_LARGE, 413, message, -1);
         if (r.status == 429) {
             boolean throttled = !ApiResponse.AUTH_RATE_LIMITED.equals(r.errorCode)
@@ -291,6 +299,17 @@ public class PublishException extends Exception {
             return name + ": " + message;
         } catch (Exception e) {
             return message;
+        }
+    }
+
+    /** A top-level string field of a JSON object body; null when absent, empty or unreadable. */
+    static String readField(String body, String name) {
+        if (body == null || body.isEmpty() || body.charAt(0) != '{') return null;
+        try {
+            String v = new JSONObject(body).optString(name, "");
+            return v.isEmpty() ? null : v;
+        } catch (Exception e) {
+            return null;
         }
     }
 

@@ -113,6 +113,12 @@ public class SettingsActivity extends AppCompatActivity {
 
     private TextView autoUploadState;
 
+    private View floatingCamSection;
+    private ImageView floatingCamCrown;
+    private TextView floatingCamTier;
+    /** What floating_cam allowed when the permission rows were last built (the overlay row needs it). */
+    private boolean floatingCamAllowed = true;
+
     /** A permission this app needs that the user hasn't granted yet. */
     private static final class MissingPermission {
         final int labelRes;
@@ -166,6 +172,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupAutoCrop();
         setupBackground();
         setupAutoPublish();
+        setupFloatingCam();
     }
 
     @Override
@@ -371,6 +378,32 @@ public class SettingsActivity extends AppCompatActivity {
         if (bgGridBuilt && customBackgroundsAllowed != Entitlements.has(Feature.BG_CUSTOM)) {
             rebuildBackgroundGrid();
         }
+        syncFloatingCam();
+        showAutoUploadState();
+    }
+
+    // ---- face cam over other apps ----
+
+    /**
+     * Floating cam has no switch: the face cam follows the user when they leave the app while
+     * recording. So this row exists only while the plan lacks it, to say why it does not float and
+     * open the upgrade sheet. With the plan it disappears, and the overlay permission row appears.
+     */
+    private void setupFloatingCam() {
+        floatingCamSection = findViewById(R.id.section_floating_cam);
+        floatingCamCrown = findViewById(R.id.iv_premium_floating_cam);
+        floatingCamTier = findViewById(R.id.tv_tier_floating_cam);
+        findViewById(R.id.row_floating_cam).setOnClickListener(
+                v -> Gate.run(this, Feature.FLOATING_CAM, this::syncFloatingCam));
+        syncFloatingCam();
+    }
+
+    private void syncFloatingCam() {
+        boolean allowed = Entitlements.has(Feature.FLOATING_CAM);
+        floatingCamSection.setVisibility(allowed ? View.GONE : View.VISIBLE);
+        PremiumMark.apply(floatingCamCrown, floatingCamTier, Feature.FLOATING_CAM);
+        // The overlay permission is asked for only while the plan covers the face cam.
+        if (allowed != floatingCamAllowed) refreshPermissionRows();
     }
 
     // ---- auto upload ----
@@ -397,7 +430,8 @@ public class SettingsActivity extends AppCompatActivity {
     /** The row's subtitle from local state only: the Auto upload screen has the full picture. */
     private void showAutoUploadState() {
         int state = !SessionManager.get(this).hasSession() ? R.string.set_ap_row_not_set_up
-                : prefs.getBoolean(KEY_AUTO_PUBLISH, false) ? R.string.set_ap_row_on
+                : prefs.getBoolean(KEY_AUTO_PUBLISH, false) && Entitlements.has(Feature.AUTO_PUBLISH)
+                ? R.string.set_ap_row_on
                 : R.string.set_ap_row_off;
         autoUploadState.setText(state);
     }
@@ -776,7 +810,9 @@ public class SettingsActivity extends AppCompatActivity {
                         SettingsHelp.PERM_NOTIFICATIONS));
             }
         }
-        if (!Settings.canDrawOverlays(this)) {
+        // Only the face cam over other apps needs this; not worth asking for without the plan.
+        floatingCamAllowed = Entitlements.has(Feature.FLOATING_CAM);
+        if (floatingCamAllowed && !Settings.canDrawOverlays(this)) {
             rows.add(new MissingPermission(R.string.set_perm_overlay, null,
                     SettingsHelp.PERM_OVERLAY));
         }

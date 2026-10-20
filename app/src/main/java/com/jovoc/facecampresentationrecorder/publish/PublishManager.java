@@ -17,6 +17,8 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.service.GateWorker;
 import com.jovoc.facecampresentationrecorder.service.PublishWorker;
@@ -161,15 +163,18 @@ public final class PublishManager {
     private final RenameAliases aliases = new RenameAliases();
 
     /**
-     * A recording just stopped: when the Settings checkbox is on and the user is signed in, saves
-     * an auto-publish job that waits for the post-processing. Call this BEFORE
+     * A recording just stopped: when the auto upload switch is on, the plan covers it and the user
+     * is signed in, saves an auto-publish job that waits for the post-processing. Call this BEFORE
      * {@link BgReplaceService#enqueue}, and {@link #onRecordingStopped} after it: the row is
      * durable first, so a process death right after the recording stops cannot lose the job (the
      * startup sweep publishes it). Waits briefly for the insert; the workspace is pinned now.
      */
     public void beginAuto(File video) {
+        // The plan this recording started with (read here: the io thread may run after it ended).
+        // The stored switch is kept when it is off, and returns with the plan.
+        final boolean allowed = FeatureSnapshot.allows(Feature.AUTO_PUBLISH);
         Future<?> saved = io.submit(() -> {
-            boolean on = app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
+            boolean on = allowed && app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
                     .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
             if (!on || !SessionManager.get(app).hasSession()) return;
             String path = video.getAbsolutePath();
