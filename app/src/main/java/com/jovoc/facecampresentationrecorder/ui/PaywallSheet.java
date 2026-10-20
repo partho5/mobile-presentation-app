@@ -9,7 +9,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -283,10 +282,8 @@ public final class PaywallSheet {
     private void granted() {
         if (finished) return;
         finished = true; // the dismiss callback comes later; nothing may act on the sheet meanwhile
-        String tier = Entitlements.planName();
         dialog.dismiss();
-        Toast.makeText(host.getApplicationContext(), host.getString(R.string.paywall_unlocked, tier),
-                Toast.LENGTH_SHORT).show();
+        BillingLink.announceUnlocked(host); // once: the app-level watcher may have said it already
         if (onGranted != null) onGranted.run();
     }
 

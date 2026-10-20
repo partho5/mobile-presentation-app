@@ -11,7 +11,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 
@@ -244,9 +243,7 @@ public final class PlansSheet {
         if (up) {
             checking = false;
             main.removeCallbacks(stopChecking);
-            Toast.makeText(host.getApplicationContext(),
-                    host.getString(R.string.paywall_unlocked, Entitlements.planName()),
-                    Toast.LENGTH_SHORT).show();
+            BillingLink.announceUnlocked(host); // once: the app-level watcher may have said it already
         }
         render();
     }

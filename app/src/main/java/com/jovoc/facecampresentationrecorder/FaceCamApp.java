@@ -37,6 +37,7 @@ public class FaceCamApp extends Application {
         try {
             Entitlements.init(this);
             EntitlementsRefresher.init(this);
+            BillingLink.init(this);
         } catch (Exception e) {
             // Plans must never stop the app from starting; every gate then reads as Free.
         }
@@ -72,7 +73,7 @@ public class FaceCamApp extends Application {
             if (started++ == 0) {
                 ActivityLog.appForeground();
                 EntitlementsRefresher.refreshIfDue();
-                BillingLink.refreshIfPending(activity); // back from the billing page, maybe after a restart
+                BillingLink.refreshIfPending(activity); // billing trip pending (maybe after a restart): fetch the plan again
                 noticeDue = true;
             }
             // The launcher entry only forwards to the first real screen.
