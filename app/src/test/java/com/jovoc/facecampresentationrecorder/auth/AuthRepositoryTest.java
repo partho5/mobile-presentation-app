@@ -313,6 +313,39 @@ public class AuthRepositoryTest {
     }
 
     @Test
+    public void quietAccessTokenIsNullWithoutASession() {
+        assertNull(repo.quietAccessToken());
+        assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
+    public void quietAccessTokenReturnsAFreshTokenWithoutARequest() {
+        signedIn();
+        assertEquals("old", repo.quietAccessToken());
+        assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
+    public void quietAccessTokenRefreshesAnExpiredOne() {
+        signedIn();
+        now.addAndGet(900_000L);
+        server.enqueue(new MockResponse().setResponseCode(200).setBody(PAIR_2));
+        assertEquals("acc2", repo.quietAccessToken());
+        assertEquals("ref2", store.refreshToken());
+    }
+
+    @Test
+    public void quietAccessTokenRefusedRefreshDoesNotSignTheUserOut() {
+        signedIn();
+        now.addAndGet(900_000L);
+        server.enqueue(new MockResponse().setResponseCode(401)
+                .setBody("{\"statusCode\":401,\"code\":\"INVALID_GRANT\"}"));
+        assertNull(repo.quietAccessToken());
+        assertTrue(store.hasSession());
+        assertEquals(0, forcedSignOuts.get());
+    }
+
+    @Test
     public void refreshWhileOfflineKeepsTheSession() throws Exception {
         signedIn();
         server.shutdown();

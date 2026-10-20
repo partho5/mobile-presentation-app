@@ -121,6 +121,31 @@ public class AuthRepository {
      * produce one refresh request.
      */
     public void refreshIfStale(String staleAccess) throws AuthException {
+        refreshIfStale(staleAccess, false);
+    }
+
+    /**
+     * An access token that is valid now, for a background call that must not disturb the user
+     * (the activity log upload). Refreshes when needed, but a refresh the server refuses neither
+     * clears the session nor fires the forced-sign-out listener: the user's next real call does
+     * that. Null when there is no session or no token could be had.
+     */
+    public String quietAccessToken() {
+        if (!store.hasSession()) return null;
+        try {
+            String access = store.accessToken();
+            if (store.accessNeedsRefresh(clock.getAsLong())) {
+                refreshIfStale(access, true);
+                access = store.accessToken();
+            }
+            return access == null || access.isEmpty() ? null : access;
+        } catch (AuthException e) {
+            return null;
+        }
+    }
+
+    /** {@code quiet}: a refused refresh leaves the session as it is (see {@link #quietAccessToken}). */
+    private void refreshIfStale(String staleAccess, boolean quiet) throws AuthException {
         synchronized (refreshLock) {
             String refresh = store.refreshToken();
             if (refresh == null || refresh.isEmpty()) {
@@ -136,7 +161,7 @@ public class AuthRepository {
                 return;
             }
             if (r.status == 401) {
-                endSession(true);
+                if (!quiet) endSession(true);
                 throw new AuthException(AuthException.Kind.SESSION_ENDED);
             }
             if (r.status == 429) {
