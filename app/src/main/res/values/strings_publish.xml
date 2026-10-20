@@ -5,7 +5,7 @@
     <string name="publish_menu_again">Publish again…</string>
     <string name="publish_menu_retry">Retry publish</string>
     <string name="publish_menu_cancel">Cancel publishing</string>
-    <string name="publish_menu_set_up">Set up on the web</string>
+    <string name="publish_menu_set_up">Set up auto upload</string>
 
     <string name="publish_channels_label">Publish to</string>
     <string name="publish_caption_label">Caption</string>
@@ -68,7 +68,7 @@
     <string name="pub_err_busy">still being processed, try again</string>
     <string name="pub_err_server">server problem, try again</string>
     <string name="pub_err_file">the video file is missing</string>
-    <string name="pub_err_auto_not_set_up">auto-publish isn\'t set up yet, set it up on the website then retry</string>
+    <string name="pub_err_auto_not_set_up">auto upload isn\'t set up yet. Open Auto upload to finish it, then retry</string>
     <string name="pub_err_credits_short">needs %1$s credits, you have %2$s</string>
     <string name="pub_err_media_gone">the uploaded video was lost, retry to upload it again</string>
     <string name="pub_err_media_purged">the video was removed from the server, retry to upload it again</string>
@@ -121,4 +121,26 @@
     <string name="ap_save_failed">Couldn\'t save. Try again.</string>
     <string name="ap_link_failed">Couldn\'t open %1$s. Try again.</string>
     <string name="ap_refresh_failed">Couldn\'t refresh. Showing the last state.</string>
+
+    <!-- Next-step card -->
+    <string name="ap_next_connect_title">Connect your first platform</string>
+    <string name="ap_next_connect_body">Pick where your recordings should go. YouTube is a great start.</string>
+    <string name="ap_next_connect_button">Connect %1$s</string>
+    <string name="ap_next_enable_title">Turn on at least one channel</string>
+    <string name="ap_next_enable_body">Use the switches below to choose where your recordings go.</string>
+    <string name="ap_master_switch">Auto publish my recordings</string>
+    <string name="ap_master_off">New recordings won\'t be posted automatically.</string>
+    <string name="ap_next_posts_to">Posts to %1$s</string>
+    <string name="ap_next_cost_free">No credits needed</string>
+    <plurals name="ap_next_cost">
+        <item quantity="one">%1$d credit per recording</item>
+        <item quantity="other">%1$d credits per recording</item>
+    </plurals>
+    <string name="ap_next_credits">%1$s · %2$d available</string>
+    <string name="ap_next_credits_short">Not enough credits · %1$s, %2$d available</string>
+    <string name="ap_undo_header">Undo before publishing</string>
+    <string name="ap_undo_off">Off</string>
+    <string name="ap_undo_30">30 s</string>
+    <string name="ap_undo_60">60 s</string>
+    <string name="ap_undo_hint">Time to cancel from the recording card or the notification before it uploads.</string>
 </resources>

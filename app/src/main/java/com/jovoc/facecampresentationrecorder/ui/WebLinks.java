@@ -20,21 +20,6 @@ public final class WebLinks {
         return base + BuildConfig.CHANNELS_PATH;
     }
 
-    /**
-     * The Sets tab of the website's settings, used when the server sent no setup link for the
-     * auto-publish preset.
-     */
-    public static String setsUrl() {
-        String base = BuildConfig.WEB_BASE_URL;
-        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
-        return base + "/settings?tab=sets";
-    }
-
-    /** True for a link safe to hand to the browser: absolute http(s). */
-    public static boolean isWebUrl(String url) {
-        return url != null && (url.startsWith("https://") || url.startsWith("http://"));
-    }
-
     /** Empty until a privacy page exists (see build.gradle). */
     public static String privacyUrl() {
         return BuildConfig.PRIVACY_URL;

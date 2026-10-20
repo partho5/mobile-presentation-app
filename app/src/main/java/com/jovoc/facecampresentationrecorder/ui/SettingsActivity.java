@@ -7,7 +7,6 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_4_5;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTOCROP_9_16;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH;
-import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_PUBLISH_WIFI_ONLY;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_ASSET_PATH;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_REPLACE_ENABLED;
@@ -25,8 +24,6 @@ import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
@@ -56,11 +53,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
-import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
-import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
-import com.jovoc.facecampresentationrecorder.publish.PublishApi;
-import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.util.AudioInputSelection;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
@@ -77,7 +70,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -110,11 +102,7 @@ public class SettingsActivity extends AppCompatActivity {
     private final List<View> bgCards = new ArrayList<>();
     private final List<View> bgChecks = new ArrayList<>();
 
-    private TextView autoPublishStatus;
-    private final ExecutorService autoPublishExecutor = Executors.newSingleThreadExecutor();
-    private final Handler main = new Handler(Looper.getMainLooper());
-    /** Bumped per load so a slow, older answer never overwrites a newer one. */
-    private final AtomicInteger autoPublishLoad = new AtomicInteger();
+    private TextView autoUploadState;
 
     /** A permission this app needs that the user hasn't granted yet. */
     private static final class MissingPermission {
@@ -174,16 +162,14 @@ public class SettingsActivity extends AppCompatActivity {
         super.onResume();
         // Also covers returning from the system app-settings / overlay screens.
         refreshPermissionRows();
-        // Also after signing in, or after setting the preset up on the web and coming back.
-        loadAutoPublishStatus();
+        // Also after signing in, or after changing auto upload on its own screen.
+        showAutoUploadState();
         forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostResume);
     }
 
     @Override
     protected void onDestroy() {
         importExecutor.shutdown();
-        autoPublishExecutor.shutdownNow();
-        main.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
@@ -305,13 +291,13 @@ public class SettingsActivity extends AppCompatActivity {
         box.setOnCheckedChangeListener((b, checked) -> target.edit().putBoolean(key, checked).apply());
     }
 
-    // ---- auto-publish ----
+    // ---- auto upload ----
 
+    /** One row into the Auto upload screen, where auto-publish is set up; plus "Wi-Fi only". */
     private void setupAutoPublish() {
-        bindCheckBox(R.id.cb_auto_publish, prefs, KEY_AUTO_PUBLISH, false);
-        setupAutoPublishUndo();
+        autoUploadState = findViewById(R.id.tv_auto_upload_state);
+        findViewById(R.id.row_auto_upload).setOnClickListener(v -> AutoPublishActivity.open(this));
         setupWifiOnly();
-        autoPublishStatus = findViewById(R.id.tv_auto_publish_status);
     }
 
     /** "Upload on Wi-Fi only": applies to new uploads and re-queues the waiting ones. */
@@ -325,91 +311,12 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    /** "Undo before publishing": Off / 30 s / 60 s, default 30 s. */
-    private void setupAutoPublishUndo() {
-        RadioGroup group = findViewById(R.id.rg_auto_undo);
-        int seconds = AutoPublishUndo.normalize(
-                prefs.getInt(KEY_AUTO_PUBLISH_UNDO_SECONDS, AutoPublishUndo.DEFAULT_SECONDS));
-        group.check(seconds == AutoPublishUndo.OFF ? R.id.rb_auto_undo_0
-                : seconds == AutoPublishUndo.MAX_SECONDS ? R.id.rb_auto_undo_60
-                : R.id.rb_auto_undo_30);
-        group.setOnCheckedChangeListener((g, id) -> {
-            int value = id == R.id.rb_auto_undo_0 ? AutoPublishUndo.OFF
-                    : id == R.id.rb_auto_undo_60 ? AutoPublishUndo.MAX_SECONDS
-                    : 30;
-            prefs.edit().putInt(KEY_AUTO_PUBLISH_UNDO_SECONDS, value).apply();
-        });
-    }
-
-    /** Shows the status line for the current sign-in state; asks the server when signed in. */
-    private void loadAutoPublishStatus() {
-        int load = autoPublishLoad.incrementAndGet();
-        SessionManager session = SessionManager.get(this);
-        if (!session.hasSession()) {
-            showAutoPublishStatus(getString(R.string.set_ap_status_signed_out),
-                    v -> SessionManager.openSignIn(this, null));
-            return;
-        }
-        showAutoPublishStatus(getString(R.string.set_ap_status_loading), null);
-        PublishApi api = new PublishApi(session.repository());
-        try {
-            autoPublishExecutor.execute(() -> {
-                AutoPublishInfo info = null;
-                boolean signedOut = false;
-                try {
-                    info = api.autoPublishInfo();
-                } catch (PublishException e) {
-                    signedOut = e.kind == PublishException.Kind.SIGNED_OUT;
-                }
-                final AutoPublishInfo result = info;
-                final boolean ended = signedOut;
-                main.post(() -> {
-                    if (isFinishing() || isDestroyed() || load != autoPublishLoad.get()) return;
-                    applyAutoPublishResult(result, ended);
-                });
-            });
-        } catch (java.util.concurrent.RejectedExecutionException e) {
-            // Activity is shutting down.
-        }
-    }
-
-    private void applyAutoPublishResult(AutoPublishInfo info, boolean signedOut) {
-        if (signedOut) {
-            showAutoPublishStatus(getString(R.string.set_ap_status_signed_out),
-                    v -> SessionManager.openSignIn(this, null));
-        } else if (info == null) {
-            showAutoPublishStatus(getString(R.string.set_ap_status_failed),
-                    v -> loadAutoPublishStatus());
-        } else if (!info.configured) {
-            String url = WebLinks.isWebUrl(info.setupUrl) ? info.setupUrl : WebLinks.setsUrl();
-            showAutoPublishStatus(getString(R.string.set_ap_status_not_set_up),
-                    v -> WebLinks.open(this, url));
-        } else {
-            showAutoPublishStatus(readyLine(info), null);
-        }
-    }
-
-    private String readyLine(AutoPublishInfo info) {
-        List<String> names = info.providerNames();
-        if (names.isEmpty()) return getString(R.string.set_ap_status_ready_no_channels);
-        String cost = info.cost == 0
-                ? getString(R.string.set_ap_cost_free)
-                : getResources().getQuantityString(R.plurals.set_ap_cost, plural(info.cost),
-                        info.cost);
-        return getString(R.string.set_ap_status_ready, String.join(", ", names), cost,
-                info.available);
-    }
-
-    /** Plural selector that fits an int; amounts beyond it all read as "other". */
-    private static int plural(long n) {
-        return n > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) n;
-    }
-
-    private void showAutoPublishStatus(String text, View.OnClickListener onClick) {
-        autoPublishStatus.setText(text);
-        autoPublishStatus.setOnClickListener(onClick);
-        autoPublishStatus.setClickable(onClick != null);
-        autoPublishStatus.setTextColor(onClick != null ? ACCENT : 0xFFAAAAAA);
+    /** The row's subtitle from local state only: the Auto upload screen has the full picture. */
+    private void showAutoUploadState() {
+        int state = !SessionManager.get(this).hasSession() ? R.string.set_ap_row_not_set_up
+                : prefs.getBoolean(KEY_AUTO_PUBLISH, false) ? R.string.set_ap_row_on
+                : R.string.set_ap_row_off;
+        autoUploadState.setText(state);
     }
 
     // ---- AI background ----

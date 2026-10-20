@@ -30,7 +30,10 @@ public final class AutoPublishInfo {
     public final long cost;
     /** Credits the workspace has available right now. */
     public final long available;
-    /** Web page where the preset is chosen; empty when the server did not send one. */
+    /**
+     * Web page where the preset is chosen; empty when the server did not send one. Parsed but not
+     * used: the app's Auto upload screen is where auto-publish is set up.
+     */
     public final String setupUrl;
 
     public AutoPublishInfo(boolean configured, String setName, String timing, List<Channel> channels,

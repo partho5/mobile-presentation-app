@@ -6,14 +6,13 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
-import com.jovoc.facecampresentationrecorder.ui.WebLinks;
+import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 
 /**
  * The notification an auto-publish job ends with, since nobody is looking at the screen:
@@ -66,11 +65,11 @@ public final class AutoPublishNotifier {
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true);
         if ("AUTO_NOT_CONFIGURED".equals(job.errorKind)) {
-            String url = WebLinks.isWebUrl(job.errorDetail) ? job.errorDetail : WebLinks.setsUrl();
-            Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            // "Set up" opens the Auto upload screen (it sends a signed-out user to sign-in first).
+            Intent setUp = new Intent(context, AutoPublishActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             b.addAction(0, context.getString(R.string.auto_notif_set_up_action),
-                    PendingIntent.getActivity(context, id + 1000, web,
+                    PendingIntent.getActivity(context, id + 1000, setUp,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
         Notification n = b.build();

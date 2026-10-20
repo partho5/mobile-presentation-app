@@ -642,7 +642,8 @@ public class PublishPipelineTest {
 
         PublishJob failed = rows.get(7L);
         assertEquals("AUTO_NOT_CONFIGURED", failed.errorKind);
-        assertEquals("https://app.test/w/o1/settings?tab=sets", failed.errorDetail);
+        // The server's setup link is not kept: the fix is the Auto upload screen.
+        assertNull(failed.errorDetail);
         assertNull(failed.mediaId);
         assertEquals(1, server.getRequestCount()); // the GET only, no upload
     }

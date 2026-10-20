@@ -133,15 +133,15 @@ public final class PublishPipeline {
     }
 
     /**
-     * Asks the server whether this recording can be auto-published: a preset exists and the
-     * balance covers it. Both answers are the server's; the post call still decides.
+     * Asks the server whether this recording can be auto-published: some channel will receive it
+     * and the balance covers it. Both answers are the server's; the post call still decides.
      */
     private void preflight(PublishJob job) throws PublishException {
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
         AutoPublishInfo info = api.autoPublishInfo(job.workspaceId);
         if (!info.configured || info.activeChannels().isEmpty()) {
-            throw new PublishException(PublishException.Kind.AUTO_NOT_CONFIGURED, 0,
-                    info.setupUrl.isEmpty() ? null : info.setupUrl, -1);
+            // No detail: the fix is the Auto upload screen, not the server's setup link.
+            throw new PublishException(PublishException.Kind.AUTO_NOT_CONFIGURED);
         }
         if (!info.canAfford()) {
             throw new PublishException(PublishException.Kind.CREDITS_SHORT, 0,

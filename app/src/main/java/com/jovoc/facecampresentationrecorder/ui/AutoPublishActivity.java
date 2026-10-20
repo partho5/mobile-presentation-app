@@ -1,17 +1,22 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -22,14 +27,21 @@ import androidx.recyclerview.widget.SimpleItemAnimator;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
+import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.Platforms;
 import com.jovoc.facecampresentationrecorder.publish.Platforms.ChannelState;
 import com.jovoc.facecampresentationrecorder.publish.Platforms.Platform;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,12 +51,37 @@ import java.util.concurrent.Executors;
  */
 public class AutoPublishActivity extends AppCompatActivity implements PlatformListAdapter.Listener {
 
+    private static final int COLOR_GREY = 0xFFAAAAAA;
+    private static final int COLOR_AMBER = 0xFFFFB347;
+
+    /** Opens this screen, through sign-in first when there is no session. */
+    public static void open(Context context) {
+        Intent i = new Intent(context, AutoPublishActivity.class);
+        if (SessionManager.get(context).hasSession()) {
+            if (!(context instanceof android.app.Activity)) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(i);
+        } else {
+            SessionManager.openSignIn(context, i);
+        }
+    }
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private SessionManager session;
     private PublishApi api;
+    /** Holds the master switch (KEY_AUTO_PUBLISH) and the undo wait the pipeline reads. */
+    private SharedPreferences prefs;
     private View nextStepCard;
+    private View stepConnect;
+    private View stepEnable;
+    private View stepSwitch;
+    private Button btnConnect;
+    private SwitchCompat masterSwitch;
+    private View onBox;
+    private TextView tvOff;
+    private TextView tvTargets;
+    private TextView tvCredits;
     private RecyclerView platformList;
     private PlatformListAdapter adapter;
     private ProgressBar progress;
@@ -56,6 +93,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
 
     /** The last list the server sent; null until the first load succeeds. */
     private Platforms loaded;
+    /** Cost and balance for the status line; null until loaded (or when it could not be). */
+    private AutoPublishInfo info;
     private boolean refreshing;
     /** A refresh was asked for while one ran; its answer may predate a change on the web. */
     private boolean refreshAgain;
@@ -76,6 +115,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         }
         created = true;
         api = new PublishApi(session.repository());
+        prefs = getSharedPreferences(RecordSettings.PREF_NAME, MODE_PRIVATE);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -84,7 +124,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         });
 
         ((ImageButton) findViewById(R.id.btn_back)).setOnClickListener(v -> finish());
-        nextStepCard = findViewById(R.id.card_next_step);
+        setupNextStepCard();
         platformList = findViewById(R.id.rv_platforms);
         platformList.setLayoutManager(new LinearLayoutManager(this));
         adapter = new PlatformListAdapter(this, saving.keySet());
@@ -148,6 +188,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
             } catch (PublishException e) {
                 error = e;
             }
+            // Only for the card's cost line; the screen works without it.
+            AutoPublishInfo summary = result == null ? null : loadInfo();
             final Platforms platforms = result;
             final PublishException err = error;
             main.post(() -> {
@@ -157,6 +199,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 if (err != null) {
                     onRefreshFailed(err);
                 } else {
+                    // A failed cost check keeps the last answer rather than blanking the card.
+                    if (summary != null) info = summary;
                     bind(platforms);
                 }
                 if (refreshAgain) refresh();
@@ -198,12 +242,177 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         onPlatformsLoaded(platforms);
     }
 
+    /** GET /auto-publish on the io thread; null when it fails. */
+    @Nullable
+    private AutoPublishInfo loadInfo() {
+        try {
+            return api.autoPublishInfo();
+        } catch (PublishException e) {
+            return null;
+        }
+    }
+
+    /**
+     * After a channel switch was saved the cost may have changed: refetch it and redraw the card.
+     * The executor is single-threaded, so this answer never lands before an older one.
+     */
+    private void reloadInfo() {
+        io.execute(() -> {
+            AutoPublishInfo fresh = loadInfo();
+            main.post(() -> {
+                if (isFinishing() || isDestroyed() || fresh == null || loaded == null) return;
+                info = fresh;
+                onPlatformsLoaded(loaded);
+            });
+        });
+    }
+
+    // ---- next-step card ----
+
+    private void setupNextStepCard() {
+        nextStepCard = findViewById(R.id.card_next_step);
+        stepConnect = findViewById(R.id.next_step_connect);
+        stepEnable = findViewById(R.id.next_step_enable);
+        stepSwitch = findViewById(R.id.next_step_switch);
+        btnConnect = findViewById(R.id.btn_next_connect);
+        masterSwitch = findViewById(R.id.switch_auto_publish);
+        onBox = findViewById(R.id.next_on_box);
+        tvOff = findViewById(R.id.tv_next_off);
+        tvTargets = findViewById(R.id.tv_next_targets);
+        tvCredits = findViewById(R.id.tv_next_credits);
+
+        boolean on = prefs.getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
+        masterSwitch.setChecked(on);
+        showMasterState(on);
+        // The same pref PublishManager.beginAuto reads when a recording stops.
+        masterSwitch.setOnCheckedChangeListener((b, checked) -> {
+            prefs.edit().putBoolean(RecordSettings.KEY_AUTO_PUBLISH, checked).apply();
+            showMasterState(checked);
+        });
+        // The whole row is the touch target, not just the small switch.
+        findViewById(R.id.row_auto_publish_master).setOnClickListener(v -> masterSwitch.toggle());
+
+        // "Undo before publishing": Off / 30 s / 60 s, default 30 s.
+        RadioGroup undo = findViewById(R.id.rg_ap_undo);
+        int seconds = AutoPublishUndo.normalize(prefs.getInt(
+                RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS, AutoPublishUndo.DEFAULT_SECONDS));
+        undo.check(seconds == AutoPublishUndo.OFF ? R.id.rb_ap_undo_0
+                : seconds == AutoPublishUndo.MAX_SECONDS ? R.id.rb_ap_undo_60
+                : R.id.rb_ap_undo_30);
+        undo.setOnCheckedChangeListener((g, id) -> {
+            int value = id == R.id.rb_ap_undo_0 ? AutoPublishUndo.OFF
+                    : id == R.id.rb_ap_undo_60 ? AutoPublishUndo.MAX_SECONDS
+                    : AutoPublishUndo.DEFAULT_SECONDS;
+            prefs.edit().putInt(RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS, value).apply();
+        });
+    }
+
     /**
      * Called on the main thread whenever the platform list changes: after each successful load,
-     * and after a channel switch was saved. The next-step card (M3) is built from here.
+     * and after a channel switch was saved. Shows the one step that moves the user forward:
+     * connect a platform, then switch a channel on, then the master switch.
      */
     private void onPlatformsLoaded(Platforms platforms) {
-        // M3: next-step card.
+        if (!platforms.anyConnected()) {
+            Platform first = firstToConnect(platforms);
+            if (first == null) {
+                nextStepCard.setVisibility(View.GONE);
+                return;
+            }
+            btnConnect.setText(getString(R.string.ap_next_connect_button, first.name));
+            btnConnect.setOnClickListener(v -> startPlatformAction(first));
+            showStep(stepConnect);
+            return;
+        }
+        // With a web preset only the server knows where posts go; without its answer, say nothing.
+        if (platforms.usesPreset() && info == null) {
+            nextStepCard.setVisibility(View.GONE);
+            return;
+        }
+        List<String> targets = targetNames(platforms);
+        if (targets.isEmpty()) {
+            showStep(stepEnable);
+            return;
+        }
+        boolean wasShown = stepSwitch.getVisibility() == View.VISIBLE
+                && nextStepCard.getVisibility() == View.VISIBLE;
+        showStep(stepSwitch);
+        // Snap a switch that appears; keep the animation of one the user is looking at.
+        if (!wasShown) masterSwitch.jumpDrawablesToCurrentState();
+        showStatus(targets);
+    }
+
+    private void showStep(View step) {
+        stepConnect.setVisibility(step == stepConnect ? View.VISIBLE : View.GONE);
+        stepEnable.setVisibility(step == stepEnable ? View.VISIBLE : View.GONE);
+        stepSwitch.setVisibility(step == stepSwitch ? View.VISIBLE : View.GONE);
+        nextStepCard.setVisibility(View.VISIBLE);
+    }
+
+    /** YouTube when the server offers it, else the first video platform, else the first one. */
+    @Nullable
+    private static Platform firstToConnect(Platforms platforms) {
+        Platform youtube = platforms.find("youtube");
+        if (youtube != null && !youtube.isConnected()) return youtube;
+        Platform fallback = null;
+        for (Platform p : platforms.platforms) {
+            if (p.isConnected()) continue;
+            if (p.isVideo()) return p;
+            if (fallback == null) fallback = p;
+        }
+        return fallback;
+    }
+
+    /**
+     * Platforms a new recording would be posted to: those with a channel switched on that can
+     * post (not paused, no reconnect needed). With a web preset, the server's list instead.
+     */
+    private List<String> targetNames(Platforms platforms) {
+        if (platforms.usesPreset()) {
+            return info != null && info.configured ? info.providerNames() : new ArrayList<>();
+        }
+        Set<String> names = new LinkedHashSet<>();
+        for (Platform p : platforms.platforms) {
+            if (!p.isConnected() || !p.autoPublishSupported) continue;
+            for (ChannelState c : p.channels) {
+                if (c.autoPublish && !c.disabled && !c.refreshNeeded) {
+                    names.add(p.name);
+                    break;
+                }
+            }
+        }
+        return new ArrayList<>(names);
+    }
+
+    private void showMasterState(boolean on) {
+        onBox.setVisibility(on ? View.VISIBLE : View.GONE);
+        tvOff.setVisibility(on ? View.GONE : View.VISIBLE);
+    }
+
+    /** "Posts to YouTube, TikTok", then the cost per recording and the balance (amber when short). */
+    private void showStatus(List<String> targets) {
+        tvTargets.setText(getString(R.string.ap_next_posts_to, String.join(", ", targets)));
+        if (info == null) {
+            tvCredits.setVisibility(View.GONE);
+            return;
+        }
+        tvCredits.setVisibility(View.VISIBLE);
+        if (info.cost == 0) {
+            tvCredits.setText(R.string.ap_next_cost_free);
+            tvCredits.setTextColor(COLOR_GREY);
+            return;
+        }
+        String each = getResources().getQuantityString(R.plurals.ap_next_cost, plural(info.cost),
+                info.cost);
+        boolean enough = info.canAfford();
+        tvCredits.setText(getString(enough ? R.string.ap_next_credits : R.string.ap_next_credits_short,
+                each, info.available));
+        tvCredits.setTextColor(enough ? COLOR_GREY : COLOR_AMBER);
+    }
+
+    /** Plural selector that fits an int; amounts beyond it all read as "other". */
+    private static int plural(long n) {
+        return n > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) n;
     }
 
     /** The last loaded platform list, or null before the first successful load. */
@@ -295,7 +504,10 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                     Toast.makeText(this, R.string.ap_save_failed, Toast.LENGTH_SHORT).show();
                 }
                 adapter.notifyChannel(id);
-                if (saved && loaded != null) onPlatformsLoaded(loaded);
+                if (saved && loaded != null) {
+                    onPlatformsLoaded(loaded);
+                    reloadInfo();
+                }
             });
         });
     }

@@ -36,6 +36,7 @@ import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PurgedMedia;
+import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -199,9 +200,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         holder.tvPublishStatus.setText(text);
         holder.tvPublishStatus.setTextColor(PublishLabels.color(context, job));
         // A live post's status line opens the post; recycled holders must not keep an old link.
-        // Same for a failed auto-publish that was never set up: the line opens the setup page.
-        String liveUrl = PublishLabels.liveUrl(job);
-        final String linkUrl = liveUrl != null ? liveUrl : PublishLabels.setupUrl(job);
+        // A failed auto-publish that was never set up opens the Auto upload screen instead.
+        final String linkUrl = PublishLabels.liveUrl(job);
+        final boolean setUp = linkUrl == null && PublishLabels.needsSetup(job);
         // Inside the undo window of an auto-publish the line itself is the Cancel: one tap, no
         // confirmation (nothing has been uploaded yet), the same cancel as the menu entry.
         final boolean undo = AutoPublishUndo.secondsLeft(job, System.currentTimeMillis()) > 0;
@@ -212,10 +213,16 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
             holder.tvPublishStatus.setOnClickListener(v -> PublishManager.get(context).cancel(job.id));
-        } else if (linkUrl != null) {
+        } else if (linkUrl != null || setUp) {
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-            holder.tvPublishStatus.setOnClickListener(v -> openLivePost(linkUrl));
+            holder.tvPublishStatus.setOnClickListener(v -> {
+                if (setUp) {
+                    AutoPublishActivity.open(context);
+                } else {
+                    openLivePost(linkUrl);
+                }
+            });
         } else {
             holder.tvPublishStatus.setPaintFlags(
                     holder.tvPublishStatus.getPaintFlags() & ~android.graphics.Paint.UNDERLINE_TEXT_FLAG);
@@ -287,8 +294,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 job != null && !running ? R.string.publish_menu_again : R.string.publish_menu);
         menu.findItem(R.id.action_publish_retry).setVisible(failed);
         menu.findItem(R.id.action_publish_cancel).setVisible(running);
-        String setupUrl = PublishLabels.setupUrl(job);
-        menu.findItem(R.id.action_publish_set_up).setVisible(setupUrl != null);
+        menu.findItem(R.id.action_publish_set_up).setVisible(PublishLabels.needsSetup(job));
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
@@ -302,7 +308,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 if (job != null) PublishManager.get(context).retry(job.id);
                 return true;
             } else if (id == R.id.action_publish_set_up) {
-                if (setupUrl != null) openLivePost(setupUrl);
+                AutoPublishActivity.open(context);
                 return true;
             } else if (id == R.id.action_publish_cancel) {
                 if (job != null) confirmCancelPublish(job);

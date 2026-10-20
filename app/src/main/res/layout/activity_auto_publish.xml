@@ -51,13 +51,208 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <!-- Next-step card: connect first platform / master switch / status (filled in M3). -->
+        <!-- Next-step card: exactly one of its three steps shows (AutoPublishActivity.onPlatformsLoaded). -->
         <LinearLayout
             android:id="@+id/card_next_step"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_ap_next_card"
             android:orientation="vertical"
-            android:visibility="gone" />
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <!-- Step 1: nothing connected yet. -->
+            <LinearLayout
+                android:id="@+id/next_step_connect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ap_next_connect_title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/ap_next_connect_body"
+                    android:textColor="#AAAAAA"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/btn_next_connect"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="14dp"
+                    android:backgroundTint="#22D3EE"
+                    android:textColor="#000000"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Step 2: connected, but no channel would receive a recording. -->
+            <LinearLayout
+                android:id="@+id/next_step_enable"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ap_next_enable_title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/ap_next_enable_body"
+                    android:textColor="#AAAAAA"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <!-- Step 3: ready: the master switch, and while it is on, where posts go and the undo wait. -->
+            <LinearLayout
+                android:id="@+id/next_step_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/row_auto_publish_master"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="12dp"
+                        android:layout_weight="1"
+                        android:text="@string/ap_master_switch"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_auto_publish"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="@string/ap_master_switch"
+                        android:minHeight="48dp"
+                        app:thumbTint="@color/ap_switch_thumb"
+                        app:trackTint="@color/ap_switch_track" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_next_off"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/ap_master_off"
+                    android:textColor="#888888"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:id="@+id/next_on_box"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_next_targets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="#DDDDDD"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tv_next_credits"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="#AAAAAA"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="#14FFFFFF" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ap_undo_header"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_ap_undo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rb_ap_undo_0"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:buttonTint="#22D3EE"
+                            android:minHeight="48dp"
+                            android:text="@string/ap_undo_off"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_ap_undo_30"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:buttonTint="#22D3EE"
+                            android:minHeight="48dp"
+                            android:text="@string/ap_undo_30"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_ap_undo_60"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:buttonTint="#22D3EE"
+                            android:minHeight="48dp"
+                            android:text="@string/ap_undo_60"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp" />
+                    </RadioGroup>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ap_undo_hint"
+                        android:textColor="#888888"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
 
         <ProgressBar
             android:id="@+id/progress_auto_publish"
