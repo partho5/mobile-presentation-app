@@ -30,6 +30,7 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
@@ -569,6 +570,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         io.execute(() -> {
             boolean ok;
             boolean gone = false;
+            boolean noPlan = false;
             try {
                 api.setChannelAutoPublish(id, enabled);
                 ok = true;
@@ -576,9 +578,13 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 ok = false;
                 // 404: the channel was removed on the web.
                 gone = e.status == 404;
+                // 403 FEATURE_NOT_IN_PLAN: the server says the plan has no auto upload.
+                noPlan = e.kind == PublishException.Kind.NEEDS_PLAN;
             }
+            if (noPlan) EntitlementsRefresher.refreshNow();
             final boolean saved = ok;
             final boolean deleted = gone;
+            final boolean refused = noPlan;
             main.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 saving.remove(id);
@@ -586,7 +592,13 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 ChannelState current = findChannel(id);
                 if (current != null) current.autoPublish = saved ? enabled : !enabled;
                 if (!saved) {
-                    Toast.makeText(this, R.string.ap_save_failed, Toast.LENGTH_SHORT).show();
+                    // The upgrade sheet when the plan here lacks it too; else the stored plan is
+                    // out of date (refreshing now) and the usual toast will do.
+                    if (refused && !Entitlements.has(Feature.AUTO_PUBLISH)) {
+                        showUpgradeSheet();
+                    } else {
+                        Toast.makeText(this, R.string.ap_save_failed, Toast.LENGTH_SHORT).show();
+                    }
                 }
                 adapter.notifyChannel(id);
                 if (saved && loaded != null) {
