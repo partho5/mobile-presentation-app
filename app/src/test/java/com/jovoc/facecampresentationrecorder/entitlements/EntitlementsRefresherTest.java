@@ -231,6 +231,21 @@ public class EntitlementsRefresherTest {
     }
 
     @Test
+    public void aWorkspaceTheAccountLostIsDroppedAndTheTokenKept() {
+        signIn();
+        tokens.saveWorkspace("w1", "Team");
+        assertTrue(state.accept(pro("s1"), CATALOGUE));
+        String stored = prefsKv.data.get("token");
+        server.enqueue(error(403, "WORKSPACE_FORBIDDEN"));
+        refresher().fetchOnce();
+
+        assertNull("the next fetch uses the server's default", tokens.workspaceId());
+        assertTrue(tokens.hasSession());
+        assertEquals("pro", state.plan());
+        assertEquals(stored, prefsKv.data.get("token"));
+    }
+
+    @Test
     public void signedOutSendsNoAuthorizationAndNoWorkspace() throws Exception {
         tokens.saveWorkspace("w1", "Team"); // a leftover pick must not leak into an anonymous call
         server.enqueue(ok(anonymousFree()));

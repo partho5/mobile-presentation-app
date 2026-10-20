@@ -57,16 +57,24 @@ final class EntitlementsApi {
      */
     Fetched fetch() {
         Map<String, String> headers = null;
+        String workspace = null;
         if (auth != null && auth.store().hasSession()) {
             String access = auth.quietAccessToken();
             if (access == null) return null;
             headers = new HashMap<>();
             headers.put("Authorization", "Bearer " + access);
-            String workspace = auth.store().workspaceId();
+            workspace = auth.store().workspaceId();
             if (workspace != null) headers.put(AuthRepository.HEADER_WORKSPACE, workspace);
         }
         try {
-            return parse(client.send("GET", PATH, null, headers));
+            ApiResponse r = client.send("GET", PATH, null, headers);
+            // As in AuthRepository.execute: a workspace the account lost is dropped, or every later
+            // fetch would be refused the same way and the token would run out.
+            if (workspace != null && r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)
+                    && workspace.equals(auth.store().workspaceId())) {
+                auth.store().clearWorkspace();
+            }
+            return parse(r);
         } catch (IOException e) {
             return null;
         }
