@@ -37,6 +37,8 @@ public class PublishApi {
     /** web-link targets: the app-keys page of a provider, or its connect flow. */
     public static final String LINK_CREDENTIALS = "credentials";
     public static final String LINK_CONNECT = "connect";
+    /** web-link target: the billing page, with the plan to highlight as the identifier. */
+    public static final String LINK_BILLING = "billing";
     /** The backend answers at most this many ids per GET /posts/status. */
     public static final int MAX_STATUS_IDS = 50;
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";

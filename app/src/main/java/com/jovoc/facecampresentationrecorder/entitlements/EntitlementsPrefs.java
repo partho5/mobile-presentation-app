@@ -76,7 +76,7 @@ final class EntitlementsPrefs {
         }
     }
 
-    private static final class SharedPrefsStore implements KeyValueStore {
+    static final class SharedPrefsStore implements KeyValueStore {
 
         private final SharedPreferences sp;
 

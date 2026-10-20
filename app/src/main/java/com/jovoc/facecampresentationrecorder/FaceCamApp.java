@@ -12,6 +12,8 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.ui.BillingLink;
+import com.jovoc.facecampresentationrecorder.ui.PlanNotice;
 import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
 
 /**
@@ -57,6 +59,8 @@ public class FaceCamApp extends Application {
 
         private int started;
         private boolean recreating;
+        /** The app just came to the foreground: the plan-ended notice is checked on the first real screen. */
+        private boolean noticeDue;
 
         @Override
         public void onActivityStarted(@NonNull Activity activity) {
@@ -68,6 +72,8 @@ public class FaceCamApp extends Application {
             if (started++ == 0) {
                 ActivityLog.appForeground();
                 EntitlementsRefresher.refreshIfDue();
+                BillingLink.refreshIfPending(activity); // back from the billing page, maybe after a restart
+                noticeDue = true;
             }
             // The launcher entry only forwards to the first real screen.
             if (!(activity instanceof StartupActivity)) {
@@ -91,6 +97,10 @@ public class FaceCamApp extends Application {
 
         @Override
         public void onActivityResumed(@NonNull Activity activity) {
+            if (noticeDue && PlanNotice.canShowOn(activity)) {
+                noticeDue = false;
+                PlanNotice.showIfDue(activity);
+            }
         }
 
         @Override

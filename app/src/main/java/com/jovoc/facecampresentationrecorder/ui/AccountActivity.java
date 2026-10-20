@@ -25,6 +25,7 @@ import com.jovoc.facecampresentationrecorder.account.Workspace;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 
 import java.text.NumberFormat;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +46,9 @@ public class AccountActivity extends AppCompatActivity {
     private Button btnDelete;
     private ProgressBar progress;
     private TextView tvWorkspace;
+    private TextView tvPlan;
     private TextView tvCredits;
+    private final Entitlements.Listener planListener = this::showPlan;
     private int generation;
     private boolean created;
 
@@ -72,6 +75,7 @@ public class AccountActivity extends AppCompatActivity {
         ((TextView) findViewById(R.id.tv_account_email)).setText(session.email());
         ((TextView) findViewById(R.id.tv_account_device)).setText(session.deviceName());
         tvWorkspace = findViewById(R.id.tv_account_workspace);
+        tvPlan = findViewById(R.id.tv_account_plan);
         tvCredits = findViewById(R.id.tv_account_credits);
         progress = findViewById(R.id.progress_account);
         btnSignOut = findViewById(R.id.btn_sign_out);
@@ -79,6 +83,10 @@ public class AccountActivity extends AppCompatActivity {
         findViewById(R.id.row_workspace).setOnClickListener(v -> {
             ActivityLog.log("account_row", "item", "workspace");
             startActivity(new Intent(this, WorkspaceActivity.class));
+        });
+        findViewById(R.id.row_plan).setOnClickListener(v -> {
+            ActivityLog.log("account_row", "item", "plan");
+            PlansSheet.show(this);
         });
         findViewById(R.id.row_devices).setOnClickListener(v -> {
             ActivityLog.log("account_row", "item", "devices");
@@ -111,6 +119,21 @@ public class AccountActivity extends AppCompatActivity {
         super.onResume();
         // The workspace may have changed on the picker screen, and the balance with it.
         if (created && session.hasSession()) refresh(false);
+        if (created) {
+            showPlan();
+            Entitlements.addListener(planListener);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Entitlements.removeListener(planListener);
+    }
+
+    /** The "Plan" row: the name of the plan in force; follows a refresh or a purchase. */
+    private void showPlan() {
+        tvPlan.setText(Entitlements.planName());
     }
 
     @Override

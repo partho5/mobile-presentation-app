@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Premium symbol (PremiumMark) -->
+    <string name="premium_cd">Premium</string>
+
+    <!-- Feature names and one-line benefits (FeatureLabels). 9:16 comes first. -->
+    <string name="feature_crop_9_16_name">9:16 vertical video</string>
+    <string name="feature_crop_9_16_benefit">Auto-crop your recordings for Shorts, TikTok and Reels.</string>
+    <string name="feature_crop_4_5_name">4:5 crop</string>
+    <string name="feature_crop_4_5_benefit">Auto-crop your recordings for Instagram and Facebook feed posts.</string>
+    <string name="feature_crop_1_1_name">1:1 square crop</string>
+    <string name="feature_crop_1_1_benefit">Auto-crop square videos for Instagram, Facebook and X.</string>
+    <string name="feature_floating_cam_name">Face cam over other apps</string>
+    <string name="feature_floating_cam_benefit">Keep your face on screen while you show other apps.</string>
+    <string name="feature_drawing_board_name">Drawing board</string>
+    <string name="feature_drawing_board_benefit">Sketch your idea while you talk.</string>
+    <string name="feature_slide_ink_name">Draw on slides</string>
+    <string name="feature_slide_ink_benefit">Underline and circle things right on your slides.</string>
+    <string name="feature_auto_publish_name">Auto upload</string>
+    <string name="feature_auto_publish_benefit">Post your recording to your social channels automatically.</string>
+    <string name="feature_bg_replace_name">Face cam background replacement</string>
+    <string name="feature_bg_replace_benefit">Swap your room for a clean background. No green screen needed.</string>
+    <string name="feature_bg_custom_name">Your own backgrounds</string>
+    <string name="feature_bg_custom_benefit">Use your own photos behind your face cam.</string>
+
+    <!-- Upgrade sheet (PaywallSheet) -->
+    <string name="paywall_benefit_generic">Included in the %1$s plan.</string>
+    <string name="plans_price_month">%1$s / month</string>
+    <string name="paywall_tier_price">%1$s · %2$s</string>
+    <string name="paywall_available_on">Available on %1$s.</string>
+    <string name="paywall_upgrade">Upgrade to %1$s</string>
+    <string name="paywall_sign_in_upgrade">Sign in to upgrade</string>
+    <string name="paywall_sign_in_subscribed">Already subscribed? Sign in</string>
+    <string name="paywall_refresh">Already upgraded? Refresh</string>
+    <string name="paywall_not_now">Not now</string>
+    <string name="paywall_checking">Checking your plan…</string>
+    <string name="paywall_no_change">Nothing new yet. If you just upgraded, give it a moment and tap Refresh again.</string>
+    <string name="paywall_unlocked">%1$s unlocked</string>
+    <string name="paywall_link_failed">Couldn\'t open the upgrade page. Please try again.</string>
+
+    <!-- Plan row and plans sheet (AccountActivity, PlansSheet) -->
+    <string name="plans_row_label">Plan</string>
+    <string name="plans_title">Plans</string>
+    <string name="plans_subtitle">You\'re on %1$s</string>
+    <string name="plans_your_plan">Your plan</string>
+    <string name="plans_everything_in">Everything in %1$s, plus:</string>
+    <string name="plans_everything_in_only">Everything in %1$s</string>
+    <string name="plans_done">Done</string>
+
+    <!-- Plan ended notice (PlanNotice), shown once on the next app open -->
+    <string name="plans_lapse_message">Your plan ended. %1$s features are off. Your recordings are safe.</string>
+    <string name="plans_lapse_partial">Your plan changed to %1$s. %2$s features are off. Your recordings are safe.</string>
+    <string name="plans_lapse_ok">OK</string>
+</resources>
