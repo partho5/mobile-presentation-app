@@ -245,8 +245,11 @@ public class OnboardingActivity extends AppCompatActivity {
             SpannableString text = colored(getString(R.string.onb_how_publish, appName), white, appName);
             publish.setText(colored(text, amber, getString(R.string.onb_how_publish_highlight)));
             TextView offer = page.findViewById(R.id.onb_how_offer);
-            offer.setText(colored(getString(R.string.onb_how_offer), amber,
-                    getString(R.string.onb_how_offer_highlight)));
+            SpannableString offerText = new SpannableString(getString(R.string.onb_how_offer));
+            for (String part : getResources().getStringArray(R.array.onb_how_offer_highlights)) {
+                colored(offerText, amber, part);
+            }
+            offer.setText(offerText);
         } else if (position == 2) {
             TextView talk = page.findViewById(R.id.onb_todo_talk);
             talk.setText(colored(new SpannableString(getString(R.string.onb_todo_talk)), amber,

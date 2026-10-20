@@ -21,40 +21,45 @@
     <string name="onb_how_publish_highlight">30+</string>
     <string name="onb_how_ai">Our AI analyses your video and writes captions, descriptions and hashtags, and does SEO where applicable.</string>
     <string name="onb_how_edit">With some basic video editing.</string>
-    <string name="onb_how_offer">You give 2 minutes and 2 clicks.</string>
-    <string name="onb_how_offer_highlight">2 minutes and 2 clicks</string>
-    <string name="onb_how_above_button">That\'s great. Now</string>
+    <string name="onb_how_offer">Click Start\nTalk for 2 minutes\nClick Stop</string>
+    <string-array name="onb_how_offer_highlights" translatable="false">
+        <item>Start</item>
+        <item>2 minutes</item>
+        <item>Stop</item>
+    </string-array>
 
-    <string name="onb_todo_talk">You just talk for 2 minutes every day.</string>
+    <string name="onb_todo_talk">Just talk for 2 minutes. Every day.</string>
     <string name="onb_todo_talk_highlight">2 minutes</string>
-    <string name="onb_todo_grow">%1$s does tons of work to grow a strong personal brand.</string>
-    <string name="onb_todo_doubt">Sounds unbelievable?</string>
+    <string name="onb_todo_grow">%1$s does the rest to grow your personal brand.</string>
+    <string name="onb_todo_doubt">Sounds impossible?</string>
     <string name="onb_founder_photo_desc">Photo of Protim</string>
-    <string name="onb_note_personal">Let me tell you something personally.</string>
-    <string name="onb_note_intro">I am Protim, a software engineer with AI specialisation.</string>
+    <string name="onb_note_personal">Let me tell you personally.</string>
+    <string name="onb_note_intro">I am Protim, a software engineer. I specialise in AI.</string>
     <string name="onb_note_brands">I work with global brands.</string>
-    <string name="onb_note_secrets">Let me share the proven strategies that build dominant personal branding.</string>
+    <string name="onb_note_secrets">Let me share the proven strategies for building a strong personal brand.</string>
     <string name="onb_brand_strategy">Proven strategy of brand building</string>
 
     <!-- The story on screen 4. [[double brackets]] mark the words that get the highlighter. -->
     <string-array name="onb_story">
-        <item>Working with a lot of service providers, I noticed how they do [[personal branding]].</item>
-        <item>The one common thing they all do is, they share helpful tips about their service.</item>
-        <item>But there is a twist here. However good content you create, if you don\'t publish regularly and consistently, the social media algorithm will never show your posts to [[more audience]].</item>
-        <item>And these days, video content gets the most reach.</item>
-        <item>Now here is a thing. Which style of video can create the most trust?</item>
-        <item>In recent years, people got very unreliable service behind perfectly edited motion graphics videos.</item>
-        <item>So fancy but faceless videos still get views, but not [[trust]].</item>
-        <item>A real human face, speaking sincerely, creates [[more trust]] than a highly edited video.</item>
-        <item>And this is exactly what service providers are doing now.</item>
-        <item>After recording, the video needs editing.</item>
-        <item>Moreover, you have to write a well planned script before creating the video.</item>
-        <item>Every platform needs a different video shape.</item>
-        <item>So to do all this work every day, service providers hire two kinds of people:</item>
-        <item>1. A video editor, so that consistency is never missed.</item>
-        <item>2. A social media manager, to work on the social platforms regularly.</item>
-        <item>For the last three years I was thinking how to bring this [[cost]] down.</item>
-        <item>Then I developed a software system where you just open the app and start talking. [[2-3 minutes]] of talking, then close the app.</item>
-        <item>Now whatever work needs to be done, [[the app does all the rest]].</item>
+        <item>Working with many service providers, I noticed how they build [[personal branding]].</item>
+        <item>They all do 2 common things:</item>
+        <item>1. They share helpful tips about their service.</item>
+        <item>2. They NEVER miss their posting schedule.</item>
+        <item>But there is a problem. If you don\'t post regularly, social media stops showing your posts to [[more people]].</item>
+        <item>And today, videos get the most reach.</item>
+        <item>Now the question is: what kind of video builds the most trust?</item>
+        <item>Many people paid for bad service after watching a perfectly edited video. So fancy, faceless videos still get views. But not [[trust]].</item>
+        <item>A real face, speaking honestly, builds [[more trust]]. That is why service providers now show their face.</item>
+        <item>But one video takes a lot of work.</item>
+        <item>Write a script. Record. Edit. Resize for every platform (9:16, 4:5, 3:4). Post everywhere. Every single day. 30 days a month.</item>
+        <item>Skip a few days, and any social media platform will reduce your views.</item>
+        <item>So most service providers hire two people:</item>
+        <item>1. A video editor</item>
+        <item>2. A social media manager</item>
+        <item>That is a big [[cost]] every month.</item>
+        <item>For the last three years, I was thinking how to bring this cost down.</item>
+        <item>So I built an app. Open it. Talk for [[2-3 minutes]]. Close it. [[The app does all the rest]].</item>
+        <item>You stay consistent. No editor. No manager. No extra cost.</item>
+        <item>You start building your [[personal brand]].</item>
     </string-array>
 </resources>

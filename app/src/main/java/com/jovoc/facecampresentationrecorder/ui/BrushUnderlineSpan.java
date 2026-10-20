@@ -45,7 +45,7 @@ final class BrushUnderlineSpan implements LineBackgroundSpan {
         float x0 = left + p.measureText(text, start, from) - 3 * density;
         float x1 = left + p.measureText(text, start, to) + 5 * density;
         float thickness = Math.max(2.5f * density, p.getTextSize() * 0.13f);
-        float centerY = baseline + p.descent() * 0.75f;
+        float centerY = baseline + p.descent() * 0.75f + 4 * density;
         buildStroke(x0, x1, centerY, thickness, lineNumber * 5 + 3);
 
         paint.setColor(color);
