@@ -13,8 +13,6 @@ android {
         versionCode 4
         versionName "1.0"
 
-        // Connect-channels page on WEB_BASE_URL (the frontend's /launches route).
-        buildConfigField 'String', 'CHANNELS_PATH', '"/launches"'
         // TODO(LEGAL-URLS): no privacy / terms page exists yet. Put the full https URLs here;
         // while empty the Account screen hides the two links. Google Play needs a privacy URL.
         buildConfigField 'String', 'PRIVACY_URL', '""'

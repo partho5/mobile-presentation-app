@@ -17,7 +17,7 @@ public final class Platforms {
     public static final String MODE_AUTOMATIC = "automatic";
     public static final String MODE_PRESET = "preset";
 
-    /** False for a member who cannot add app keys; only the workspace owner can. */
+    /** False for a member who cannot add app keys; any workspace admin (ADMIN/SUPERADMIN) can. */
     public final boolean canManageCredentials;
     /** {@link #MODE_AUTOMATIC} (the switches decide) or {@link #MODE_PRESET} (a web Set decides). */
     public final String mode;

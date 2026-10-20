@@ -143,7 +143,6 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     private void bindPlatform(PlatformHolder h, Platform p) {
         Context c = h.itemView.getContext();
         h.name.setText(p.name);
-        h.icon.setContentDescription(p.name);
         int radius = Math.round(8 * c.getResources().getDisplayMetrics().density);
         if (p.icon.isEmpty()) {
             Glide.with(h.icon).clear(h.icon);
@@ -173,7 +172,6 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         Context c = h.itemView.getContext();
         String name = ch.name.isEmpty() ? p.name : ch.name;
         h.name.setText(name);
-        h.avatar.setContentDescription(name);
         if (ch.picture == null) {
             Glide.with(h.avatar).clear(h.avatar);
             h.avatar.setImageResource(R.drawable.bg_ap_icon_placeholder);

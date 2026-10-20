@@ -91,12 +91,12 @@
                     android:textSize="14sp" />
 
                 <Button
-                    android:id="@+id/btn_channels_web"
+                    android:id="@+id/btn_channels_connect"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:backgroundTint="#22D3EE"
-                    android:text="@string/publish_open_web"
+                    android:text="@string/publish_connect_platform"
                     android:textColor="#000000"
                     android:visibility="gone" />
 

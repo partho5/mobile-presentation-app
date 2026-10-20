@@ -77,6 +77,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private View stepEnable;
     private View stepSwitch;
     private Button btnConnect;
+    private TextView tvConnectBody;
     private SwitchCompat masterSwitch;
     private View onBox;
     private TextView tvOff;
@@ -275,6 +276,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         stepEnable = findViewById(R.id.next_step_enable);
         stepSwitch = findViewById(R.id.next_step_switch);
         btnConnect = findViewById(R.id.btn_next_connect);
+        tvConnectBody = findViewById(R.id.tv_next_connect_body);
         masterSwitch = findViewById(R.id.switch_auto_publish);
         onBox = findViewById(R.id.next_on_box);
         tvOff = findViewById(R.id.tv_next_off);
@@ -320,6 +322,9 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 return;
             }
             btnConnect.setText(getString(R.string.ap_next_connect_button, first.name));
+            // Recommend YouTube only when the button actually connects it.
+            tvConnectBody.setText("youtube".equals(first.identifier)
+                    ? R.string.ap_next_connect_body_youtube : R.string.ap_next_connect_body);
             btnConnect.setOnClickListener(v -> startPlatformAction(first));
             showStep(stepConnect);
             return;
@@ -487,13 +492,17 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         String id = channel.id;
         io.execute(() -> {
             boolean ok;
+            boolean gone = false;
             try {
                 api.setChannelAutoPublish(id, enabled);
                 ok = true;
             } catch (PublishException e) {
                 ok = false;
+                // 404: the channel was removed on the web.
+                gone = e.status == 404;
             }
             final boolean saved = ok;
+            final boolean deleted = gone;
             main.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 saving.remove(id);
@@ -508,6 +517,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                     onPlatformsLoaded(loaded);
                     reloadInfo();
                 }
+                // Reload so the deleted channel disappears instead of staying stale.
+                if (deleted) refresh();
             });
         });
     }

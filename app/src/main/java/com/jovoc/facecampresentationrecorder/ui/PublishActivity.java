@@ -71,7 +71,7 @@ public class PublishActivity extends AppCompatActivity {
     private ProgressBar progressChannels;
     private View channelsErrorBox;
     private Button btnChannelsRetry;
-    private Button btnChannelsWeb;
+    private Button btnChannelsConnect;
     private boolean showingNoChannels;
     private TextView tvChannelsError;
     private LinearLayout channelsContainer;
@@ -143,9 +143,10 @@ public class PublishActivity extends AppCompatActivity {
         btnPublish = findViewById(R.id.btn_publish);
 
         btnChannelsRetry = findViewById(R.id.btn_channels_retry);
-        btnChannelsWeb = findViewById(R.id.btn_channels_web);
+        btnChannelsConnect = findViewById(R.id.btn_channels_connect);
         btnChannelsRetry.setOnClickListener(v -> loadChannels());
-        btnChannelsWeb.setOnClickListener(v -> WebLinks.open(this, WebLinks.channelsUrl()));
+        // Platforms are connected on the app's Auto upload screen; onResume looks again on return.
+        btnChannelsConnect.setOnClickListener(v -> AutoPublishActivity.open(this));
         tvCost.setOnClickListener(v -> {
             if (costState == COST_FAILED) scheduleCostLoad();
         });
@@ -190,7 +191,7 @@ public class PublishActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Back from the browser after connecting a channel: look again without a manual refresh.
+        // Back from Auto upload after connecting a platform: look again without a manual refresh.
         if (showingNoChannels && api != null) loadChannels();
     }
 
@@ -232,11 +233,11 @@ public class PublishActivity extends AppCompatActivity {
         });
     }
 
-    /** {@code noChannels}: the account has none, which is fixed on the website, not by retrying. */
+    /** {@code noChannels}: the account has none, which is fixed on the Auto upload screen, not by retrying. */
     private void showChannelsError(String message, boolean noChannels) {
         tvChannelsError.setText(message);
         showingNoChannels = noChannels;
-        btnChannelsWeb.setVisibility(noChannels ? View.VISIBLE : View.GONE);
+        btnChannelsConnect.setVisibility(noChannels ? View.VISIBLE : View.GONE);
         btnChannelsRetry.setText(noChannels ? R.string.publish_refresh : R.string.publish_retry);
         channelsErrorBox.setVisibility(View.VISIBLE);
         refreshConfirm();

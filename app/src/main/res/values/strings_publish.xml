@@ -17,8 +17,8 @@
     <string name="publish_pick_time">Time</string>
     <string name="publish_schedule_past">Pick a time at least a few minutes from now.</string>
     <string name="publish_loading_channels">Loading your channels…</string>
-    <string name="publish_no_channels">No channels connected yet. Channels are connected on the Nany Social website: open it, connect a channel, then come back and tap Refresh.</string>
-    <string name="publish_open_web">Open website to connect channels</string>
+    <string name="publish_no_channels">No channels connected yet. Connect a platform in Auto upload, then come back here.</string>
+    <string name="publish_connect_platform">Connect a platform</string>
     <string name="publish_refresh">Refresh</string>
     <string name="publish_channel_disabled">Disabled</string>
     <string name="publish_retry">Try again</string>
@@ -124,7 +124,8 @@
 
     <!-- Next-step card -->
     <string name="ap_next_connect_title">Connect your first platform</string>
-    <string name="ap_next_connect_body">Pick where your recordings should go. YouTube is a great start.</string>
+    <string name="ap_next_connect_body">Pick where your recordings should go.</string>
+    <string name="ap_next_connect_body_youtube">Pick where your recordings should go. YouTube is a great start.</string>
     <string name="ap_next_connect_button">Connect %1$s</string>
     <string name="ap_next_enable_title">Turn on at least one channel</string>
     <string name="ap_next_enable_body">Use the switches below to choose where your recordings go.</string>

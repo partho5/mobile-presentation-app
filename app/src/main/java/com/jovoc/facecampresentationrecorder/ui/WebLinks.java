@@ -14,12 +14,6 @@ public final class WebLinks {
 
     private WebLinks() {}
 
-    public static String channelsUrl() {
-        String base = BuildConfig.WEB_BASE_URL;
-        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
-        return base + BuildConfig.CHANNELS_PATH;
-    }
-
     /** Empty until a privacy page exists (see build.gradle). */
     public static String privacyUrl() {
         return BuildConfig.PRIVACY_URL;
