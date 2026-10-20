@@ -128,7 +128,7 @@ public final class Platforms {
             if (p == null) continue;
             String identifier = p.optString("identifier", "").trim();
             if (identifier.isEmpty()) continue;
-            String name = p.optString("name", "").replace('\n', ' ').trim();
+            String name = optText(p, "name").replace('\n', ' ').trim();
             if (name.isEmpty()) name = AutoPublishInfo.providerName(identifier);
             list.add(new Platform(identifier, name, optText(p, "icon"), p.optString("group", ""),
                     p.optString("status", ""), p.optBoolean("autoPublishSupported", false),
@@ -149,7 +149,7 @@ public final class Platforms {
             String id = c.optString("id", "");
             if (id.isEmpty()) continue;
             String picture = optText(c, "picture");
-            out.add(new ChannelState(id, c.optString("name", "").trim(),
+            out.add(new ChannelState(id, optText(c, "name").replace('\n', ' ').trim(),
                     picture.isEmpty() ? null : picture,
                     c.optBoolean("disabled", false), c.optBoolean("refreshNeeded", false),
                     c.optBoolean("autoPublish", false)));

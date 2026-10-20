@@ -290,8 +290,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 saving.remove(id);
                 // A refresh may have replaced the list meanwhile: update the channel shown now.
                 ChannelState current = findChannel(id);
+                if (current != null) current.autoPublish = saved ? enabled : !enabled;
                 if (!saved) {
-                    if (current != null) current.autoPublish = !enabled;
                     Toast.makeText(this, R.string.ap_save_failed, Toast.LENGTH_SHORT).show();
                 }
                 adapter.notifyChannel(id);
