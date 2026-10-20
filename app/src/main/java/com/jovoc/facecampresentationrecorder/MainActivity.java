@@ -467,9 +467,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final String KEY_CAM_POS_Y = "key_cam_pos_y";
     private static final String KEY_CAM_LENS_FACING = "key_cam_lens_facing";
     private static final String KEY_COUNTDOWN_SECONDS = RecordSettings.KEY_COUNTDOWN_SECONDS;
-    private static final String KEY_AUTOCROP_9_16 = RecordSettings.KEY_AUTOCROP_9_16;
-    private static final String KEY_AUTOCROP_4_5 = RecordSettings.KEY_AUTOCROP_4_5;
-    private static final String KEY_AUTOCROP_1_1 = RecordSettings.KEY_AUTOCROP_1_1;
 
     private void saveCameraState() {
         if (cameraCardContainer == null || cameraRootWrapper == null) return;
@@ -589,14 +586,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             hideCropGuideLines();
             return;
         }
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-
+        // A ratio the plan does not cover gets no guide line, as it gets no crop
         showOneGuideLine(guideLineView916, guideLabel916,
-                prefs.getBoolean(KEY_AUTOCROP_9_16, true), 9, 16);
+                RecordSettings.autoCrop916(this), 9, 16);
         showOneGuideLine(guideLineView45, guideLabel45,
-                prefs.getBoolean(KEY_AUTOCROP_4_5, false), 4, 5);
+                RecordSettings.autoCrop45(this), 4, 5);
         showOneGuideLine(guideLineView11, guideLabel11,
-                prefs.getBoolean(KEY_AUTOCROP_1_1, false), 1, 1);
+                RecordSettings.autoCrop11(this), 1, 1);
     }
 
     private void showOneGuideLine(View line, TextView label,
@@ -658,14 +654,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-
+        // Recording: these follow the plan the recording started with
         checkGuideLineOverlap(GUIDE_9_16, guideLineView916, guideLabel916,
-                prefs.getBoolean(KEY_AUTOCROP_9_16, true), 9, 16);
+                RecordSettings.autoCrop916(this), 9, 16);
         checkGuideLineOverlap(GUIDE_4_5, guideLineView45, guideLabel45,
-                prefs.getBoolean(KEY_AUTOCROP_4_5, false), 4, 5);
+                RecordSettings.autoCrop45(this), 4, 5);
         checkGuideLineOverlap(GUIDE_1_1, guideLineView11, guideLabel11,
-                prefs.getBoolean(KEY_AUTOCROP_1_1, false), 1, 1);
+                RecordSettings.autoCrop11(this), 1, 1);
     }
 
     private void checkGuideLineOverlap(int index, View line, TextView label,
@@ -3669,9 +3664,9 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
-    /** "Editing video to 9:16, 4:5 and 1:1 format …", listing the ratios ticked in Settings. */
-    private String cropProgressMessage() {
-        java.util.List<int[]> ratios = BgReplaceService.readAutoCropRatios(this);
+    /** "Editing video to 9:16, 4:5 and 1:1 format …", listing the ratios this recording is cropped to. */
+    private String cropProgressMessage(String path) {
+        java.util.List<int[]> ratios = BgReplaceService.cropRatiosFor(path);
         StringBuilder list = new StringBuilder();
         for (int i = 0; i < ratios.size(); i++) {
             if (i > 0) list.append(i == ratios.size() - 1 ? " and " : ", ");
@@ -3688,7 +3683,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
         if (row == null || tvIcon == null || tvCropStatus == null) return;
         tvIcon.setText("⏳");
-        tvCropStatus.setText(cropProgressMessage());
+        tvCropStatus.setText(cropProgressMessage(path));
         row.setVisibility(View.VISIBLE);
 
         // The hourglass ticks round in 30° steps every 300 ms instead of spinning smoothly

@@ -8,6 +8,8 @@ import android.media.MediaScannerConnection;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.util.UserBackgrounds;
 
 import java.io.File;
@@ -36,10 +38,16 @@ public final class FaceBgReplaceTask {
     /**
      * Returns true if the replaced video now sits at {@code video}. Setting {@code cancel} aborts
      * the run: all resources and the temp file are released and the original stays as it was.
+     * {@code features} is the plan the recording started with: without bg_replace nothing runs and
+     * the original stays; without bg_custom an uploaded background gives way to the default.
      */
     public static boolean replace(Context context, File video, List<BubbleTrack.Entry> track,
-                                  AtomicBoolean cancel,
+                                  FeatureSnapshot features, AtomicBoolean cancel,
                                   OfflineBgProcessor.ProgressListener listener) {
+        if (!features.has(Feature.BG_REPLACE)) {
+            Log.w(TAG, "bg_replace is not in the plan; keeping original");
+            return false;
+        }
         Context app = context.getApplicationContext();
         // DCIM only accepts media file types, so temp files there must end in .mp4
         File processed = new File(video.getParentFile(), baseName(video) + ".bgtmp.mp4");
@@ -47,7 +55,7 @@ public final class FaceBgReplaceTask {
         boolean ok = false;
         Bitmap background = null;
         try {
-            background = loadSelectedBackground(app);
+            background = loadSelectedBackground(app, features.has(Feature.BG_CUSTOM));
             new OfflineBgProcessor(app).withCancelFlag(cancel)
                     .processBubble(video, processed, background, track, listener);
             // A cancel that arrives as the encode finishes still wins: never swap after it
@@ -91,10 +99,16 @@ public final class FaceBgReplaceTask {
     /** Used when nothing is saved or the saved background no longer exists (e.g. a deleted upload). */
     public static final String DEFAULT_BG_ASSET = "bg_samples/modern-office.webp";
 
-    /** The background chosen in Settings, falling back to the default, then to a plain colour. */
-    public static Bitmap loadSelectedBackground(Context context) {
-        String saved = context.getSharedPreferences("facecam_prefs", Context.MODE_PRIVATE)
-                .getString("bg_asset_path", DEFAULT_BG_ASSET);
+    /**
+     * The background chosen in Settings, falling back to the default, then to a plain colour.
+     * An uploaded photo counts only while {@code customAllowed} (the bg_custom feature); the saved
+     * choice is left alone so it applies again when the plan does.
+     */
+    public static Bitmap loadSelectedBackground(Context context, boolean customAllowed) {
+        String saved = UserBackgrounds.effectivePath(
+                context.getSharedPreferences("facecam_prefs", Context.MODE_PRIVATE)
+                        .getString("bg_asset_path", DEFAULT_BG_ASSET),
+                customAllowed, DEFAULT_BG_ASSET);
         Bitmap bitmap = decodeBackground(context, saved);
         if (bitmap == null && !DEFAULT_BG_ASSET.equals(saved)) {
             bitmap = decodeBackground(context, DEFAULT_BG_ASSET);

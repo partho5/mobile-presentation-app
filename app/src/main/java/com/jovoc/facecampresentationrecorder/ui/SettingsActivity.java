@@ -54,6 +54,8 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.util.AudioInputSelection;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
@@ -102,6 +104,12 @@ public class SettingsActivity extends AppCompatActivity {
     private boolean importing;
     private final List<View> bgCards = new ArrayList<>();
     private final List<View> bgChecks = new ArrayList<>();
+    /** What bg_custom allowed when the grid was last built; own photos are locked cards without it. */
+    private boolean customBackgroundsAllowed;
+    private boolean bgGridBuilt;
+
+    private final List<GatedBox> gatedBoxes = new ArrayList<>();
+    private final Entitlements.Listener planListener = this::onPlanChanged;
 
     private TextView autoUploadState;
 
@@ -167,6 +175,9 @@ public class SettingsActivity extends AppCompatActivity {
         refreshPermissionRows();
         // Also after signing in, or after changing auto upload on its own screen.
         showAutoUploadState();
+        // The plan may have changed while away (billing page, sign-in); also follows changes while open.
+        onPlanChanged();
+        Entitlements.addListener(planListener);
         forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostResume);
     }
 
@@ -178,6 +189,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        Entitlements.removeListener(planListener);
         // Stops any help video; onDestroy is covered too since pause always precedes it.
         forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostPause);
         super.onPause();
@@ -287,18 +299,78 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void setupAutoCrop() {
-        bindCheckBox(R.id.cb_crop_9_16, prefs, KEY_AUTOCROP_9_16, true);
-        bindCheckBox(R.id.cb_crop_4_5, prefs, KEY_AUTOCROP_4_5, false);
-        bindCheckBox(R.id.cb_crop_1_1, prefs, KEY_AUTOCROP_1_1, false);
+        bindGatedCheckBox(R.id.cb_crop_9_16, R.id.tv_tier_crop_9_16, prefs, KEY_AUTOCROP_9_16, true,
+                Feature.CROP_9_16);
+        bindGatedCheckBox(R.id.cb_crop_4_5, R.id.tv_tier_crop_4_5, prefs, KEY_AUTOCROP_4_5, false,
+                Feature.CROP_4_5);
+        bindGatedCheckBox(R.id.cb_crop_1_1, R.id.tv_tier_crop_1_1, prefs, KEY_AUTOCROP_1_1, false,
+                Feature.CROP_1_1);
     }
 
-    private void bindCheckBox(int viewId, SharedPreferences target, String key, boolean defaultValue) {
-        CheckBox box = findViewById(viewId);
-        box.setChecked(target.getBoolean(key, defaultValue));
-        box.setOnCheckedChangeListener((b, checked) -> {
+    /** A toggle behind a plan feature: its stored choice only counts while the plan covers it. */
+    private static final class GatedBox {
+        final CheckBox box;
+        final TextView tier;
+        final SharedPreferences target;
+        final String key;
+        final boolean defaultValue;
+        final String feature;
+        /** True while the code, not the user, sets the box, so that is not saved as a choice. */
+        boolean syncing;
+
+        GatedBox(CheckBox box, TextView tier, SharedPreferences target, String key,
+                 boolean defaultValue, String feature) {
+            this.box = box;
+            this.tier = tier;
+            this.target = target;
+            this.key = key;
+            this.defaultValue = defaultValue;
+            this.feature = feature;
+        }
+
+        /** Shows the stored choice (off while locked, but kept) and the premium look for the current plan. */
+        void sync() {
+            show(target.getBoolean(key, defaultValue) && Entitlements.has(feature));
+            PremiumMark.apply(box, feature);
+            PremiumMark.apply(null, tier, feature);
+        }
+
+        void show(boolean checked) {
+            syncing = true;
+            box.setChecked(checked);
+            syncing = false;
+        }
+    }
+
+    /**
+     * A checkbox saved to {@code target}. While {@code feature} is locked it stays off: tapping it
+     * opens the upgrade sheet instead, and the tick is applied if the user upgrades. The stored
+     * value is never overwritten by a lock, so it comes back with the plan.
+     */
+    private void bindGatedCheckBox(int boxId, int tierId, SharedPreferences target, String key,
+                                   boolean defaultValue, String feature) {
+        GatedBox gated = new GatedBox(findViewById(boxId), findViewById(tierId), target, key,
+                defaultValue, feature);
+        gatedBoxes.add(gated);
+        gated.box.setOnCheckedChangeListener((b, checked) -> {
+            if (gated.syncing) return;
+            if (checked && !Entitlements.has(feature)) {
+                gated.show(false);
+                Gate.run(this, feature, () -> gated.box.setChecked(true));
+                return;
+            }
             target.edit().putBoolean(key, checked).apply();
             ActivityLog.log("setting_change", "key", key, "value", checked);
         });
+        gated.sync();
+    }
+
+    /** The plan changed (or the screen came back): every gated control follows it. */
+    private void onPlanChanged() {
+        for (GatedBox gated : gatedBoxes) gated.sync();
+        if (bgGridBuilt && customBackgroundsAllowed != Entitlements.has(Feature.BG_CUSTOM)) {
+            rebuildBackgroundGrid();
+        }
     }
 
     // ---- auto upload ----
@@ -337,12 +409,14 @@ public class SettingsActivity extends AppCompatActivity {
      * photos (deletable, max {@link UserBackgrounds#MAX_UPLOADS}), then an "add your photo" card.
      */
     private void setupBackground() {
-        bindCheckBox(R.id.cb_bg_replace, bgPrefs, KEY_BG_REPLACE_ENABLED, true);
+        bindGatedCheckBox(R.id.cb_bg_replace, R.id.tv_tier_bg_replace, bgPrefs, KEY_BG_REPLACE_ENABLED,
+                true, Feature.BG_REPLACE);
 
         photoPicker = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
             if (uri != null) {
                 ActivityLog.log("background_add");
-                importBackground(uri);
+                // The plan may have ended while the picker was open: ask again rather than import
+                Gate.run(this, Feature.BG_CUSTOM, () -> importBackground(uri));
             }
         });
 
@@ -387,6 +461,8 @@ public class SettingsActivity extends AppCompatActivity {
         bgPaths.clear();
         bgCards.clear();
         bgChecks.clear();
+        customBackgroundsAllowed = Entitlements.has(Feature.BG_CUSTOM);
+        bgGridBuilt = true;
 
         for (String assetPath : builtInBackgrounds) {
             addBackgroundCard(grid, assetPath, bgDisplayName(assetPath), null);
@@ -399,8 +475,11 @@ public class SettingsActivity extends AppCompatActivity {
         }
         addUploadCard(grid, mine.size());
 
-        // Nothing saved (or a removed background): show the default sample, which is what gets used.
-        String saved = bgPrefs.getString(KEY_BG_ASSET_PATH, FaceBgReplaceTask.DEFAULT_BG_ASSET);
+        // Nothing saved, a removed background, or an own photo the plan no longer covers (kept, but
+        // not selectable): show the default sample, which is what gets used.
+        String saved = UserBackgrounds.effectivePath(
+                bgPrefs.getString(KEY_BG_ASSET_PATH, FaceBgReplaceTask.DEFAULT_BG_ASSET),
+                customBackgroundsAllowed, FaceBgReplaceTask.DEFAULT_BG_ASSET);
         int selected = bgPaths.indexOf(saved);
         if (selected < 0) {
             selected = bgPaths.indexOf(FaceBgReplaceTask.DEFAULT_BG_ASSET);
@@ -446,11 +525,22 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         final int idx = bgPaths.size();
+        // An own photo stays on disk when bg_custom is off but cannot be picked: the tap opens the
+        // upgrade sheet and, if the user upgrades, picks it.
+        boolean locked = userFile != null && !customBackgroundsAllowed;
+        if (locked) {
+            card.setAlpha(0.6f);
+            addPremiumCorner(card, Feature.BG_CUSTOM);
+        }
         card.setOnClickListener(v -> {
-            bgPrefs.edit().putString(KEY_BG_ASSET_PATH, path).apply();
-            ActivityLog.log("setting_change", "key", "background",
-                    "value", userFile != null ? "own_photo" : "built_in");
-            markSelectedBackground(idx);
+            Runnable select = () -> {
+                bgPrefs.edit().putString(KEY_BG_ASSET_PATH, path).apply();
+                ActivityLog.log("setting_change", "key", "background",
+                        "value", userFile != null ? "own_photo" : "built_in");
+                markSelectedBackground(idx);
+            };
+            if (userFile != null) Gate.run(this, Feature.BG_CUSTOM, select);
+            else select.run();
         });
         bgPaths.add(path);
         bgCards.add(card);
@@ -474,8 +564,10 @@ public class SettingsActivity extends AppCompatActivity {
                 ? getString(R.string.set_bg_add_full)
                 : getString(R.string.set_bg_add_count, uploaded, UserBackgrounds.MAX_UPLOADS));
         addCardContent(card, plus, label);
-        card.setAlpha(full ? 0.6f : 1f);
-        card.setOnClickListener(v -> {
+        card.setAlpha(full || !customBackgroundsAllowed ? 0.6f : 1f);
+        addPremiumCorner(card, Feature.BG_CUSTOM);
+        // Locked: the upgrade sheet first; the picker opens once the user has upgraded
+        card.setOnClickListener(v -> Gate.run(this, Feature.BG_CUSTOM, () -> {
             if (importing) return;
             if (!UserBackgrounds.canAddMore(UserBackgrounds.list(this).size())) {
                 Toast.makeText(this,
@@ -487,7 +579,32 @@ public class SettingsActivity extends AppCompatActivity {
             photoPicker.launch(new PickVisualMediaRequest.Builder()
                     .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
                     .build());
-        });
+        }));
+    }
+
+    /** The premium symbol in a card's top-right corner: crown, plus the tier name while it is locked. */
+    private void addPremiumCorner(FrameLayout card, String feature) {
+        if (!PremiumMark.isPremium(feature)) return;
+        float d = getResources().getDisplayMetrics().density;
+        int pad = (int) (4 * d);
+
+        LinearLayout corner = new LinearLayout(this);
+        corner.setOrientation(LinearLayout.HORIZONTAL);
+        corner.setGravity(Gravity.CENTER_VERTICAL);
+        TextView badge = new TextView(this);
+        LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        badgeLp.setMarginEnd(pad);
+        corner.addView(badge, badgeLp);
+        ImageView crown = new ImageView(this);
+        corner.addView(crown, new LinearLayout.LayoutParams((int) (20 * d), (int) (20 * d)));
+        PremiumMark.apply(crown, badge, feature);
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.END);
+        lp.setMargins(pad, pad, pad, pad);
+        card.addView(corner, lp);
     }
 
     /** Empty clickable card with the shared border and grid placement. */

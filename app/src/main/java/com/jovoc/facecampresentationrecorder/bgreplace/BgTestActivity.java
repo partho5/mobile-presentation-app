@@ -37,6 +37,8 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 
 import java.io.File;
@@ -209,7 +211,8 @@ public class BgTestActivity extends AppCompatActivity {
         if (!dir.exists()) dir.mkdirs();
         String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         File output = new File(dir, stamp + "-bg.mp4");
-        Bitmap background = FaceBgReplaceTask.loadSelectedBackground(this);
+        Bitmap background = FaceBgReplaceTask.loadSelectedBackground(this,
+                Entitlements.has(Feature.BG_CUSTOM));
         long startMs = SystemClock.elapsedRealtime();
 
         new Thread(() -> {

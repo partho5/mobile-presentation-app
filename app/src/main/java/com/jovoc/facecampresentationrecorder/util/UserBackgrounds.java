@@ -57,6 +57,16 @@ public final class UserBackgrounds {
         return savedPath != null && savedPath.startsWith("/");
     }
 
+    /**
+     * The saved background to actually use. Uploaded photos are kept on disk when the bg_custom
+     * feature is off but are not selectable: a saved one then gives way to {@code fallback}.
+     * The saved preference itself is not changed, so it applies again when the plan does.
+     */
+    public static String effectivePath(String savedPath, boolean customAllowed, String fallback) {
+        if (savedPath == null) return fallback;
+        return isUserPath(savedPath) && !customAllowed ? fallback : savedPath;
+    }
+
     public static boolean delete(File file) {
         return file.delete();
     }

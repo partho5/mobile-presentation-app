@@ -37,6 +37,7 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
@@ -78,6 +79,8 @@ public class ScreenRecordService extends Service {
     private FloatingCamOverlay overlay;
 
     private boolean isRecording = false;
+    /** The plan when this recording started; null when none runs. Also FeatureSnapshot.allows(). */
+    private FeatureSnapshot features;
     /** elapsedRealtime when the recording began; 0 when none runs. For the activity log. */
     private long recordStartedAt = 0;
     private String stopSource = "unknown";
@@ -327,6 +330,9 @@ public class ScreenRecordService extends Service {
 
                     mediaRecorder.start();
                     BubbleTrack.start();
+                    // The plan is read once here and kept until this recording and its
+                    // post-processing are done: nothing switches on or off mid-recording.
+                    features = FeatureSnapshot.beginRecording();
                     isRecording = true;
                     recordStartedAt = SystemClock.elapsedRealtime();
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
@@ -425,7 +431,8 @@ public class ScreenRecordService extends Service {
                 }
                 boolean processing = false;
                 try {
-                    processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop());
+                    processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop(),
+                            features != null ? features : FeatureSnapshot.take());
                 } catch (Exception e) {
                     Log.e(TAG, "Could not start post-recording processing", e);
                 }
@@ -450,6 +457,9 @@ public class ScreenRecordService extends Service {
             }
         }
 
+        // The queued job holds its own copy of the snapshot
+        features = null;
+        FeatureSnapshot.endRecording();
         stopSelf();
     }
 

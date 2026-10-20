@@ -2,10 +2,14 @@ package com.jovoc.facecampresentationrecorder.util;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
 import androidx.core.content.ContextCompat;
+
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +37,64 @@ public final class RecordSettings {
     public static final String BG_PREF_NAME = "facecam_prefs";
     public static final String KEY_BG_REPLACE_ENABLED = "bg_replace_enabled";
     public static final String KEY_BG_ASSET_PATH = "bg_asset_path";
+
+    /**
+     * Gated getters: the stored choice AND the plan. A lapsed plan keeps the stored value but it
+     * reads as off, so it comes back by itself if the plan does. Without a snapshot they follow the
+     * running recording's (see {@link FeatureSnapshot#allows}), else the plan as it is now; the
+     * post-recording job passes the snapshot its recording started with.
+     */
+    public static boolean autoCrop916(Context context) {
+        return autoCrop916(context, null);
+    }
+
+    public static boolean autoCrop45(Context context) {
+        return autoCrop45(context, null);
+    }
+
+    public static boolean autoCrop11(Context context) {
+        return autoCrop11(context, null);
+    }
+
+    public static boolean autoCrop916(Context context, FeatureSnapshot features) {
+        return appPrefs(context).getBoolean(KEY_AUTOCROP_9_16, true) && allows(features, Feature.CROP_9_16);
+    }
+
+    public static boolean autoCrop45(Context context, FeatureSnapshot features) {
+        return appPrefs(context).getBoolean(KEY_AUTOCROP_4_5, false) && allows(features, Feature.CROP_4_5);
+    }
+
+    public static boolean autoCrop11(Context context, FeatureSnapshot features) {
+        return appPrefs(context).getBoolean(KEY_AUTOCROP_1_1, false) && allows(features, Feature.CROP_1_1);
+    }
+
+    /** "Replace face cam background" (Settings), on by default; it also needs the bg_replace feature. */
+    public static boolean bgReplaceEnabled(Context context, FeatureSnapshot features) {
+        return context.getSharedPreferences(BG_PREF_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_BG_REPLACE_ENABLED, true) && allows(features, Feature.BG_REPLACE);
+    }
+
+    /** The ratios to crop to, 9:16 first (the order of the Settings list). */
+    public static List<int[]> autoCropRatios(Context context, FeatureSnapshot features) {
+        return ratios(autoCrop916(context, features), autoCrop45(context, features),
+                autoCrop11(context, features));
+    }
+
+    static List<int[]> ratios(boolean r916, boolean r45, boolean r11) {
+        List<int[]> ratios = new ArrayList<>();
+        if (r916) ratios.add(new int[]{9, 16});
+        if (r45) ratios.add(new int[]{4, 5});
+        if (r11) ratios.add(new int[]{1, 1});
+        return ratios;
+    }
+
+    private static boolean allows(FeatureSnapshot features, String feature) {
+        return features != null ? features.has(feature) : FeatureSnapshot.allows(feature);
+    }
+
+    private static SharedPreferences appPrefs(Context context) {
+        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+    }
 
     /** Runtime permissions the app needs that aren't granted yet. */
     public static List<String> missingPermissions(Context context) {

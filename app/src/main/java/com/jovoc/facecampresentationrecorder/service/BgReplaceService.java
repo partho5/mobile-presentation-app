@@ -7,7 +7,6 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
@@ -27,7 +26,9 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
 import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 
 import java.io.File;
@@ -74,14 +75,18 @@ public class BgReplaceService extends Service {
         final List<BubbleTrack.Entry> track;
         final boolean replace;
         final List<int[]> ratios;
+        /** The plan as the recording started; the job never looks at the live plan. */
+        final FeatureSnapshot features;
         /** Set when the user cancels the background replace; the crops still run. */
         final AtomicBoolean cancelled = new AtomicBoolean();
 
-        Job(File video, List<BubbleTrack.Entry> track, boolean replace, List<int[]> ratios) {
+        Job(File video, List<BubbleTrack.Entry> track, boolean replace, List<int[]> ratios,
+            FeatureSnapshot features) {
             this.video = video;
             this.track = track;
             this.replace = replace;
             this.ratios = ratios;
+            this.features = features;
         }
     }
 
@@ -104,29 +109,37 @@ public class BgReplaceService extends Service {
     /**
      * Queues a recording for processing. Returns true only when background replace will run, i.e.
      * when the UI should wait for {@link Listener#onReady}; auto-crops alone run silently in the
-     * background and the recording can be shown right away.
+     * background and the recording can be shown right away. {@code features} is the plan snapshot
+     * the recording started with: what Settings has ticked counts only for what that plan covers.
      */
-    public static boolean enqueue(Context context, File video, List<BubbleTrack.Entry> track) {
-        boolean replace = context.getSharedPreferences("facecam_prefs", MODE_PRIVATE)
-                .getBoolean("bg_replace_enabled", true) && BubbleTrack.hasVisible(track);
-        List<int[]> ratios = readAutoCropRatios(context);
+    public static boolean enqueue(Context context, File video, List<BubbleTrack.Entry> track,
+                                  FeatureSnapshot features) {
+        boolean replace = RecordSettings.bgReplaceEnabled(context, features)
+                && BubbleTrack.hasVisible(track);
+        List<int[]> ratios = RecordSettings.autoCropRatios(context, features);
         if (!replace && ratios.isEmpty()) return false;
         synchronized (LOCK) {
-            QUEUE.add(new Job(video, track, replace, ratios));
+            QUEUE.add(new Job(video, track, replace, ratios, features));
             if (!ratios.isEmpty()) CROP_PENDING.add(video.getAbsolutePath());
         }
         context.startForegroundService(new Intent(context, BgReplaceService.class));
         return replace;
     }
 
-    /** Auto-crop ratios chosen in Settings. */
-    public static List<int[]> readAutoCropRatios(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences("app_prefs", MODE_PRIVATE);
-        List<int[]> ratios = new ArrayList<>();
-        if (prefs.getBoolean("key_autocrop_9_16", true)) ratios.add(new int[]{9, 16});
-        if (prefs.getBoolean("key_autocrop_4_5", false)) ratios.add(new int[]{4, 5});
-        if (prefs.getBoolean("key_autocrop_1_1", false)) ratios.add(new int[]{1, 1});
-        return ratios;
+    /**
+     * The ratios the recording at {@code path} is queued or being cropped to (empty once done or
+     * unknown), so a message never lists a ratio the job will not make.
+     */
+    public static List<int[]> cropRatiosFor(String path) {
+        synchronized (LOCK) {
+            if (running != null && running.video.getAbsolutePath().equals(path)) {
+                return new ArrayList<>(running.ratios);
+            }
+            for (Job j : QUEUE) {
+                if (j.video.getAbsolutePath().equals(path)) return new ArrayList<>(j.ratios);
+            }
+            return new ArrayList<>();
+        }
     }
 
     /** How long the current background replace has been running; 0 when none is. */
@@ -312,7 +325,7 @@ public class BgReplaceService extends Service {
                 if (warmUp.isEstimating()) MAIN.postDelayed(estimate, ESTIMATE_TICK_MS);
                 boolean ok;
                 try {
-                    ok = FaceBgReplaceTask.replace(this, video, job.track, job.cancelled,
+                    ok = FaceBgReplaceTask.replace(this, video, job.track, job.features, job.cancelled,
                             percent -> setReplaceStage(job, warmUp.real(percent)));
                 } finally {
                     MAIN.removeCallbacks(estimate);

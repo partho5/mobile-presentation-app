@@ -30,6 +30,25 @@ public class UserBackgroundsTest {
     }
 
     @Test
+    public void anOwnPhotoGivesWayToTheFallbackWhileCustomBackgroundsAreLocked() {
+        String own = "/data/user/0/app/files/user_backgrounds/bg_1.jpg";
+        String fallback = "bg_samples/modern-office.webp";
+
+        assertEquals(fallback, UserBackgrounds.effectivePath(own, false, fallback));
+        assertEquals(own, UserBackgrounds.effectivePath(own, true, fallback));
+    }
+
+    @Test
+    public void aBuiltInBackgroundIsNeverAffectedByTheLock() {
+        String fallback = "bg_samples/modern-office.webp";
+
+        assertEquals("bg_samples/sunlit-studio.webp",
+                UserBackgrounds.effectivePath("bg_samples/sunlit-studio.webp", false, fallback));
+        assertEquals(fallback, UserBackgrounds.effectivePath(null, false, fallback));
+        assertEquals(fallback, UserBackgrounds.effectivePath(null, true, fallback));
+    }
+
+    @Test
     public void smallImagesAreNotDownsampled() {
         assertEquals(1, UserBackgrounds.sampleSizeFor(800, 600, 1920));
         assertEquals(1, UserBackgrounds.sampleSizeFor(1920, 1080, 1920));

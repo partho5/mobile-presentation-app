@@ -244,35 +244,81 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
-            <CheckBox
-                android:id="@+id/cb_crop_9_16"
+            <!-- Each gated row: the toggle plus a tier badge (shown while locked, see SettingsActivity) -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:buttonTint="#22D3EE"
-                android:minHeight="48dp"
-                android:text="@string/set_crop_9_16"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <CheckBox
-                android:id="@+id/cb_crop_4_5"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:buttonTint="#22D3EE"
-                android:minHeight="48dp"
-                android:text="@string/set_crop_4_5"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                <CheckBox
+                    android:id="@+id/cb_crop_9_16"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_crop_9_16"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
 
-            <CheckBox
-                android:id="@+id/cb_crop_1_1"
+                <TextView
+                    android:id="@+id/tv_tier_crop_9_16"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:buttonTint="#22D3EE"
-                android:minHeight="48dp"
-                android:text="@string/set_crop_1_1"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/cb_crop_4_5"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_crop_4_5"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_tier_crop_4_5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/cb_crop_1_1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_crop_1_1"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_tier_crop_1_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
                 android:layout_width="match_parent"
@@ -330,15 +376,30 @@
                 android:textColor="#FBBF24"
                 android:textSize="14sp" />
 
-            <CheckBox
-                android:id="@+id/cb_bg_replace"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:buttonTint="#22D3EE"
-                android:minHeight="48dp"
-                android:text="@string/set_bg_replace"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/cb_bg_replace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_bg_replace"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_tier_bg_replace"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
