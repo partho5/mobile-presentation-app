@@ -25,6 +25,7 @@ import com.jovoc.facecampresentationrecorder.account.Workspace;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
+import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 
 import java.util.List;
@@ -164,6 +165,8 @@ public class WorkspaceActivity extends AppCompatActivity {
                 PublishManager.get(this).pinDefaultWorkspace(serverDefaultId);
             }
             store.saveWorkspace(w.id, w.name);
+            // Each workspace has its own plan.
+            EntitlementsRefresher.refreshNow();
             Toast.makeText(getApplicationContext(), getString(R.string.ws_switched, w.name),
                     Toast.LENGTH_SHORT).show();
         }

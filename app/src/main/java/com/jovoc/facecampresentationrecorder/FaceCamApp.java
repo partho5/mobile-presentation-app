@@ -11,6 +11,7 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
 
 /**
@@ -33,6 +34,7 @@ public class FaceCamApp extends Application {
         super.onCreate();
         try {
             Entitlements.init(this);
+            EntitlementsRefresher.init(this);
         } catch (Exception e) {
             // Plans must never stop the app from starting; every gate then reads as Free.
         }
@@ -63,7 +65,10 @@ public class FaceCamApp extends Application {
                 started++;
                 return;
             }
-            if (started++ == 0) ActivityLog.appForeground();
+            if (started++ == 0) {
+                ActivityLog.appForeground();
+                EntitlementsRefresher.refreshIfDue();
+            }
             // The launcher entry only forwards to the first real screen.
             if (!(activity instanceof StartupActivity)) {
                 ActivityLog.log("screen_view", "screen", activity.getClass().getSimpleName());

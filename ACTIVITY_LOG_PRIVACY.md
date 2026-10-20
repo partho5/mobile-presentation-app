@@ -10,7 +10,7 @@ Backend: `social.nanybot.com/api` `POST /activity/batches`. Plan and event list:
   stopped (with how long it ran and how it was stopped, and the saved size in MB), topics added /
   edited / deleted (type only), background replacement started / done / cancelled, videos played /
   renamed / shared / deleted (counts only), publish taps and results (platform and error type), sign-in
-  steps, and crashes (the exception type and the code location, never its message).
+  steps, changes of the subscription plan (the plan name before and after, e.g. free to pro), and crashes (the exception type and the code location, never its message).
 - **A device id**: a UUID made from the phone's MediaDrm (Widevine) id with SHA-256 and an app-specific
   salt, or a random UUID where MediaDrm is unavailable. The raw hardware id is never stored or sent.
   It is not the advertising id and is not shared with anyone else.

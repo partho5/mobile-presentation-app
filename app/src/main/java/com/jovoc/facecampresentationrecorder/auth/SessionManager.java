@@ -13,6 +13,7 @@ import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -110,6 +111,8 @@ public final class SessionManager {
             try {
                 boolean created = repo.exchangeCode(email, code, defaultDeviceName());
                 ActivityLog.log("signin_success", "new_account", created);
+                // The wipe on the new session left Free; fetch this account's plan.
+                EntitlementsRefresher.refreshNow();
                 return created;
             } catch (AuthException e) {
                 logSignInFailure("code", e);
