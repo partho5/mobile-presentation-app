@@ -31,8 +31,10 @@ android {
             buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
             buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
             // How the upgrade sheet sends people to pay: "web" (a button that opens the billing
-            // page) or "none" (names the plan only, no buy link).
-            buildConfigField 'String', 'CHECKOUT_LINK', '"web"'
+            // page) or "none" (names the plan only, no buy link). Debug follows release ("none") on
+            // purpose, so the real Play-safe scenario is what gets tested; flip it to "web" only to
+            // test the billing-page flow.
+            buildConfigField 'String', 'CHECKOUT_LINK', '"none"'
         }
         release {
             // Production host. Must be https; a release build refuses anything else. The deployed backend
