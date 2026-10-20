@@ -11,6 +11,7 @@ import android.widget.Toast;
 import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -53,6 +54,7 @@ public final class SessionManager {
         TokenStore store = new TokenStore(new SecureKeyValueStore(appContext));
         this.repo = new AuthRepository(api, store);
         repo.setForcedSignOutListener(() -> main.post(() -> {
+            ActivityLog.log("session_ended");
             // Signing in is optional, so a dead session is not a wall: say so and go home.
             Toast.makeText(appContext, R.string.session_ended_toast, Toast.LENGTH_LONG).show();
             openHome(appContext);
@@ -88,19 +90,42 @@ public final class SessionManager {
 
     public void requestCode(String email, Callback<Void> cb) {
         async(() -> {
-            repo.requestCode(email);
+            try {
+                repo.requestCode(email);
+            } catch (AuthException e) {
+                logSignInFailure("email", e);
+                throw e;
+            }
+            ActivityLog.log("signin_code_requested");
             return null;
         }, cb);
     }
 
     /** Result is true when a new account was created. */
     public void exchangeCode(String email, String code, Callback<Boolean> cb) {
-        async(() -> repo.exchangeCode(email, code, defaultDeviceName()), cb);
+        async(() -> {
+            try {
+                boolean created = repo.exchangeCode(email, code, defaultDeviceName());
+                ActivityLog.log("signin_success", "new_account", created);
+                return created;
+            } catch (AuthException e) {
+                logSignInFailure("code", e);
+                throw e;
+            }
+        }, cb);
     }
 
     /** Result is true when the server confirmed the revoke; the local session is cleared either way. */
     public void signOut(Callback<Boolean> cb) {
-        async(repo::signOut, cb);
+        async(() -> {
+            boolean confirmed = repo.signOut();
+            ActivityLog.log("signout", "server_confirmed", confirmed);
+            return confirmed;
+        }, cb);
+    }
+
+    private static void logSignInFailure(String step, AuthException e) {
+        ActivityLog.log("signin_fail", "step", step, "kind", e.kind.name().toLowerCase(Locale.ROOT));
     }
 
     /**

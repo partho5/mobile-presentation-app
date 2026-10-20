@@ -5,7 +5,9 @@ import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.jovoc.facecampresentationrecorder.FaceCamApp;
 import com.jovoc.facecampresentationrecorder.MainActivity;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 
 /**
@@ -19,9 +21,10 @@ public class StartupActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        boolean onboarding = OnboardingGate.shouldShow(this);
+        ActivityLog.log("app_open", "cold", FaceCamApp.consumeColdStart(), "first_run", onboarding);
         PublishManager.get(this).sweepAuto();
-        startActivity(new Intent(this,
-                OnboardingGate.shouldShow(this) ? OnboardingActivity.class : MainActivity.class));
+        startActivity(new Intent(this, onboarding ? OnboardingActivity.class : MainActivity.class));
         finish();
     }
 }

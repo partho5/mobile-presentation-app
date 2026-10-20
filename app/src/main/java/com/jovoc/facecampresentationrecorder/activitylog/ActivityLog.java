@@ -11,6 +11,7 @@ import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -89,6 +90,20 @@ public final class ActivityLog {
         }
     }
 
+    /**
+     * Like {@link #log} but waits up to {@code maxWaitMs} for the event to reach the buffer, for a
+     * moment when the process is about to die (a crash) and a queued event would be lost.
+     */
+    public static void logAndWait(String action, long maxWaitMs, Object... meta) {
+        try {
+            ActivityLog self = instance;
+            if (self == null || !ActivityMeta.isValidAction(action)) return;
+            self.submit(action, ActivityMeta.toJson(meta)).get(maxWaitMs, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            // Logging must never affect the app; a late write is simply lost.
+        }
+    }
+
     /** A screen of the app came to the foreground after the app was away (or for the first time). */
     public static void appForeground() {
         try {
@@ -114,11 +129,16 @@ public final class ActivityLog {
     }
 
     private void enqueue(String action, String metaJson) {
+        submit(action, metaJson);
+    }
+
+    /** Stamps the event now (time, zone, session) and hands the write to the writer thread. */
+    private Future<?> submit(String action, String metaJson) {
         final long now = System.currentTimeMillis();
         final int tz = TimeZone.getDefault().getOffset(now) / 60000;
         final String session = sessions.current();
         if (BuildConfig.DEBUG) Log.d(TAG, action + (metaJson == null ? "" : " " + metaJson));
-        writer.execute(() -> store(now, tz, session, action, metaJson));
+        return writer.submit(() -> store(now, tz, session, action, metaJson));
     }
 
     /** Runs on the writer thread. */

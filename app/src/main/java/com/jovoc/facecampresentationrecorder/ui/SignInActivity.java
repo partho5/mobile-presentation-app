@@ -24,6 +24,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
@@ -73,6 +74,7 @@ public class SignInActivity extends AppCompatActivity {
             finishSignedIn(false);
             return;
         }
+        if (savedInstanceState == null) ActivityLog.log("signin_start", "has_next", next != null);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.sign_in_root), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
