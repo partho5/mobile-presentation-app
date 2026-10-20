@@ -11,6 +11,8 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.InterruptedIOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,12 @@ public class PublishApi {
     public static final String PATH_CHARGE_PREVIEW = "/posts/charge-preview";
     public static final String PATH_AUTO_PUBLISH = "/public/v1/auto-publish";
     public static final String PATH_POSTS_STATUS = "/public/v1/posts/status";
+    public static final String PATH_PLATFORMS = "/public/v1/platforms";
+    public static final String PATH_AUTO_PUBLISH_CHANNELS = "/public/v1/auto-publish/channels/";
+    public static final String PATH_WEB_LINK = "/public/v1/web-link";
+    /** web-link targets: the app-keys page of a provider, or its connect flow. */
+    public static final String LINK_CREDENTIALS = "credentials";
+    public static final String LINK_CONNECT = "connect";
     /** The backend answers at most this many ids per GET /posts/status. */
     public static final int MAX_STATUS_IDS = 50;
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
@@ -108,6 +116,55 @@ public class PublishApi {
         if (!r.isSuccess()) throw PublishException.from(r);
         try {
             return AutoPublishInfo.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    /** GET /public/v1/platforms: every supported platform, its state and connected channels. */
+    public Platforms platforms() throws PublishException {
+        ApiResponse r = authed(() -> repo.execute("GET", PATH_PLATFORMS, null, null));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return Platforms.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    /** PUT /public/v1/auto-publish/channels/:id {enabled}: include the channel in auto-publish or not. */
+    public void setChannelAutoPublish(String integrationId, boolean enabled) throws PublishException {
+        String path = PATH_AUTO_PUBLISH_CHANNELS + pathSegment(integrationId);
+        String body;
+        try {
+            body = new JSONObject().put("enabled", enabled).toString();
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+        ApiResponse r = authed(() -> repo.execute("PUT", path, body, null));
+        if (!r.isSuccess()) throw PublishException.from(r);
+    }
+
+    /**
+     * POST /public/v1/web-link: a one-time link that opens the website already signed in, on the
+     * page for {@code target} ({@link #LINK_CREDENTIALS} / {@link #LINK_CONNECT}) of the provider.
+     * Single use and short-lived: request it right before opening, never keep it.
+     */
+    public String webLink(String target, String identifier) throws PublishException {
+        String body;
+        try {
+            body = new JSONObject().put("target", target).put("identifier", identifier).toString();
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+        ApiResponse r = authed(() -> repo.execute("POST", PATH_WEB_LINK, body, null));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            String url = r.json().optString("url", "");
+            if (!url.startsWith("https://") && !url.startsWith("http://")) {
+                throw new JSONException("no url");
+            }
+            return url;
         } catch (JSONException e) {
             throw new PublishException(PublishException.Kind.SERVER);
         }
@@ -207,6 +264,15 @@ public class PublishApi {
             h.put(AuthRepository.HEADER_WORKSPACE, workspaceId);
         }
         return h;
+    }
+
+    /** An id as one URL path segment. */
+    private static String pathSegment(String id) {
+        try {
+            return URLEncoder.encode(id, "UTF-8").replace("+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private interface Call {

@@ -107,4 +107,18 @@
     <!-- Auto upload screen (AutoPublishActivity) -->
     <string name="ap_load_failed">Could not load your platforms. Check your connection and try again.</string>
     <string name="ap_account_label">Account</string>
+    <string name="ap_section_video">Video platforms</string>
+    <string name="ap_section_other">Other platforms</string>
+    <string name="ap_not_connected">Not connected</string>
+    <string name="ap_connected">Connected</string>
+    <string name="ap_manual_only">Manual posting only</string>
+    <string name="ap_reconnect">Reconnect</string>
+    <string name="ap_paused">Paused</string>
+    <string name="ap_channel_switch_cd">Auto publish to %1$s</string>
+    <string name="ap_preset_note">Using your web preset “%1$s”</string>
+    <string name="ap_ask_owner">Ask your workspace owner to add %1$s keys.</string>
+    <string name="ap_ok">OK</string>
+    <string name="ap_save_failed">Couldn\'t save. Try again.</string>
+    <string name="ap_link_failed">Couldn\'t open %1$s. Try again.</string>
+    <string name="ap_refresh_failed">Couldn\'t refresh. Showing the last state.</string>
 </resources>
