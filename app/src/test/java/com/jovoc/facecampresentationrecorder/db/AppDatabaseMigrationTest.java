@@ -37,14 +37,32 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsSixAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsSevenAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(5, all.length);
+        assertEquals(6, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(6, all[all.length - 1].endVersion);
+        assertEquals(7, all[all.length - 1].endVersion);
+    }
+
+    @Test
+    public void migration6to7_createsTheActivityBufferAndTouchesNothingElse() {
+        List<String> sql = run(AppDatabase.MIGRATION_6_7);
+        assertEquals(1, sql.size());
+        String s = sql.get(0);
+        assertTrue(s.startsWith("CREATE TABLE IF NOT EXISTS `activity_events`"));
+        assertTrue(!s.contains("publish_jobs") && !s.contains("slides") && !s.contains("upload_sessions"));
+        String[] columns = {"`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", "`ts` INTEGER NOT NULL",
+                "`tz` INTEGER NOT NULL", "`session` TEXT", "`action` TEXT", "`meta_json` TEXT",
+                "`batch_id` TEXT"};
+        for (String c : columns) assertTrue("missing " + c, s.contains(c));
+        int fields = 0;
+        for (java.lang.reflect.Field f : ActivityEvent.class.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) fields++;
+        }
+        assertEquals(fields, columns.length);
     }
 
     @Test

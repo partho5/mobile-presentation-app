@@ -9,7 +9,8 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Slide.class, PublishJob.class, UploadSession.class}, version = 6, exportSchema = false)
+@Database(entities = {Slide.class, PublishJob.class, UploadSession.class, ActivityEvent.class},
+        version = 7, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -19,6 +20,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract PublishJobDao publishJobDao();
 
     public abstract UploadSessionDao uploadSessionDao();
+
+    public abstract ActivityEventDao activityEventDao();
 
     static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -77,9 +80,24 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /** The table of {@link ActivityEvent}; kept as text so a test can check what a migration runs. */
+    static final String CREATE_ACTIVITY_EVENTS = "CREATE TABLE IF NOT EXISTS `activity_events` ("
+            + "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ts` INTEGER NOT NULL, "
+            + "`tz` INTEGER NOT NULL, `session` TEXT, `action` TEXT, `meta_json` TEXT, "
+            + "`batch_id` TEXT)";
+
+    // Adds the activity log buffer table; every other table is untouched.
+    static final Migration MIGRATION_6_7 = new Migration(6, 7) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(CREATE_ACTIVITY_EVENTS);
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
-            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+            MIGRATION_6_7
     };
 
     public static AppDatabase getInstance(Context context) {
