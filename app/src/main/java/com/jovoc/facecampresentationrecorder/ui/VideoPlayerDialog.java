@@ -43,6 +43,7 @@ import com.bumptech.glide.signature.ObjectKey;
 import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -431,7 +432,9 @@ public class VideoPlayerDialog {
                 ContextCompat.RECEIVER_NOT_EXPORTED);
 
         // Cleanup on dismiss
+        final long openedAt = android.os.SystemClock.elapsedRealtime();
         dialog.setOnDismissListener(d -> {
+            ActivityLog.log("player_close", "open_ms", android.os.SystemClock.elapsedRealtime() - openedAt);
             dismissed = true;
             handler.removeCallbacksAndMessages(null);
             if (activeVideo != null) {

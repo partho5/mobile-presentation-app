@@ -22,6 +22,7 @@ import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.CreditBalance;
 import com.jovoc.facecampresentationrecorder.account.Workspace;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 
@@ -75,11 +76,18 @@ public class AccountActivity extends AppCompatActivity {
         progress = findViewById(R.id.progress_account);
         btnSignOut = findViewById(R.id.btn_sign_out);
 
-        findViewById(R.id.row_workspace).setOnClickListener(
-                v -> startActivity(new Intent(this, WorkspaceActivity.class)));
-        findViewById(R.id.row_devices).setOnClickListener(
-                v -> startActivity(new Intent(this, DevicesActivity.class)));
-        findViewById(R.id.row_credits).setOnClickListener(v -> refresh(false));
+        findViewById(R.id.row_workspace).setOnClickListener(v -> {
+            ActivityLog.log("account_row", "item", "workspace");
+            startActivity(new Intent(this, WorkspaceActivity.class));
+        });
+        findViewById(R.id.row_devices).setOnClickListener(v -> {
+            ActivityLog.log("account_row", "item", "devices");
+            startActivity(new Intent(this, DevicesActivity.class));
+        });
+        findViewById(R.id.row_credits).setOnClickListener(v -> {
+            ActivityLog.log("account_row", "item", "credits");
+            refresh(false);
+        });
 
         btnDelete = findViewById(R.id.btn_delete_account);
         btnDelete.setOnClickListener(v -> new MaterialAlertDialogBuilder(this)
@@ -195,6 +203,7 @@ public class AccountActivity extends AppCompatActivity {
     // ---- delete account ----
 
     private void deleteAccount() {
+        ActivityLog.log("account_delete");
         btnSignOut.setEnabled(false);
         btnDelete.setEnabled(false);
         progress.setVisibility(View.VISIBLE);

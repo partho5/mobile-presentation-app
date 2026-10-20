@@ -26,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
@@ -269,6 +270,9 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         scanExecutor.shutdownNow();
     }
 
+    /** The first listing of this visit is logged once; pull-to-refresh and rescans are not new visits. */
+    private boolean listingLogged;
+
     private void confirmDeleteSelected() {
         if (adapter == null) return;
         int count = adapter.getSelectedCount();
@@ -281,7 +285,10 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle(count == 1 ? "Delete Recording" : "Delete " + count + " Recordings")
                 .setMessage(message)
-                .setPositiveButton("Delete", (d, w) -> adapter.deleteSelected())
+                .setPositiveButton("Delete", (d, w) -> {
+                    ActivityLog.log("video_delete", "count", count);
+                    adapter.deleteSelected();
+                })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
@@ -306,6 +313,10 @@ public class SavedRecordingsActivity extends AppCompatActivity {
                 recordingList.addAll(scanned);
                 adapter.notifyDataSetChanged();
                 updateUI();
+                if (!listingLogged) {
+                    listingLogged = true;
+                    ActivityLog.log("videos_open", "count", scanned.size());
+                }
                 if (fromSwipe) swipeRefresh.setRefreshing(false);
             });
         });

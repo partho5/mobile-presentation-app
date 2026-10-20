@@ -15,6 +15,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 
 /** The developer's contact screen: his face, a short note, and the email as the one thing to tap. */
 public class ContactActivity extends AppCompatActivity {
@@ -34,6 +35,7 @@ public class ContactActivity extends AppCompatActivity {
     }
 
     private void composeEmail() {
+        ActivityLog.log("contact_email");
         Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"));
         intent.putExtra(Intent.EXTRA_EMAIL, new String[]{getString(R.string.contact_email)});
         intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.app_name));
@@ -45,6 +47,7 @@ public class ContactActivity extends AppCompatActivity {
     }
 
     private void copyEmail() {
+        ActivityLog.log("contact_copy");
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) {
             cm.setPrimaryClip(ClipData.newPlainText(getString(R.string.contact_name),

@@ -26,6 +26,7 @@ import androidx.recyclerview.widget.SimpleItemAnimator;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
@@ -289,6 +290,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         // The same pref PublishManager.beginAuto reads when a recording stops.
         masterSwitch.setOnCheckedChangeListener((b, checked) -> {
             prefs.edit().putBoolean(RecordSettings.KEY_AUTO_PUBLISH, checked).apply();
+            ActivityLog.log("autopublish_toggle", "on", checked);
             showMasterState(checked);
         });
         // The whole row is the touch target, not just the small switch.
@@ -306,6 +308,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                     : id == R.id.rb_ap_undo_60 ? AutoPublishUndo.MAX_SECONDS
                     : AutoPublishUndo.DEFAULT_SECONDS;
             prefs.edit().putInt(RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS, value).apply();
+            ActivityLog.log("undo_choice", "seconds", value);
         });
     }
 
@@ -441,6 +444,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     public void startPlatformAction(Platform platform) {
         if (platform == null || linkPending != null || isFinishing() || isDestroyed()) return;
         boolean credentials = platform.needsCredentials();
+        ActivityLog.log("platform_tap", "platform", platform.identifier, "state", platform.status);
         if (credentials && loaded != null && !loaded.canManageCredentials) {
             new MaterialAlertDialogBuilder(this)
                     .setMessage(getString(R.string.ap_ask_owner, platform.name))
@@ -487,6 +491,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     public void onChannelToggled(ChannelState channel, boolean enabled) {
         if (saving.containsKey(channel.id) || channel.autoPublish == enabled) return;
         channel.autoPublish = enabled;
+        ActivityLog.log("channel_toggle", "on", enabled);
         saving.put(channel.id, enabled);
         adapter.notifyChannel(channel.id);
         String id = channel.id;

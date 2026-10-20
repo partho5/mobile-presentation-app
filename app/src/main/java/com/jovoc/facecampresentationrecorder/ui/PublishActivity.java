@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.bumptech.glide.Glide;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
@@ -99,7 +100,11 @@ public class PublishActivity extends AppCompatActivity {
 
     private final ActivityResultLauncher<String> notificationPermission =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(),
-                    granted -> queueJob()); // the upload runs either way; this only shows its notification
+                    granted -> {
+                        ActivityLog.log("permission_result", "perm", "notifications",
+                                "granted", granted, "source", "publish");
+                        queueJob(); // the upload runs either way; this only shows its notification
+                    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -391,11 +396,14 @@ public class PublishActivity extends AppCompatActivity {
 
     private void onPublishClicked() {
         if (submitting || selected.isEmpty()) return;
+        ActivityLog.log("publish_tap", "channels", selected.size(),
+                "mode", isScheduled() ? "schedule" : "now");
         submitting = true;
         refreshConfirm();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
+            ActivityLog.log("permission_prompt", "perm", "notifications", "source", "publish");
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
         } else {
             queueJob();

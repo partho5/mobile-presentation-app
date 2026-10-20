@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.publish;
 
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.UploadSession;
@@ -288,6 +289,7 @@ public final class PublishPipeline {
         job.remoteUrl = null;
         job.errorKind = null;
         job.errorDetail = null;
+        ActivityLog.log("publish_result", "ok", true, "mode", job.mode);
         move(job, PublishJob.DONE);
     }
 
@@ -319,6 +321,7 @@ public final class PublishPipeline {
             PurgedMedia.forgetMedia(job);
             forgetUpload(job.id);
         }
+        ActivityLog.log("publish_result", "ok", false, "kind", e.kind.name(), "mode", job.mode);
         move(job, PublishJob.FAILED);
         return Outcome.FAILED;
     }

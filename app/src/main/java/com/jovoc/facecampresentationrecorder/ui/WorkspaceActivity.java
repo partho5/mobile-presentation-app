@@ -22,6 +22,7 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.Workspace;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
@@ -157,6 +158,7 @@ public class WorkspaceActivity extends AppCompatActivity {
     private void pick(Workspace w, boolean isCurrent) {
         TokenStore store = session.repository().store();
         if (!isCurrent || store.workspaceId() == null) {
+            ActivityLog.log("workspace_switch");
             // Jobs queued under the server's default must not follow the switch.
             if (store.workspaceId() == null && serverDefaultId != null) {
                 PublishManager.get(this).pinDefaultWorkspace(serverDefaultId);

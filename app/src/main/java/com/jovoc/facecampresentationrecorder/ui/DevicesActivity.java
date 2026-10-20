@@ -24,6 +24,7 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.DeviceSession;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 
 import java.util.List;
@@ -164,6 +165,7 @@ public class DevicesActivity extends AppCompatActivity {
     }
 
     private void revoke(DeviceSession d) {
+        ActivityLog.log("device_revoke", "scope", "one");
         setBusy(true);
         io.execute(() -> {
             AccountException error = null;
@@ -193,6 +195,7 @@ public class DevicesActivity extends AppCompatActivity {
     }
 
     private void revokeOthers() {
+        ActivityLog.log("device_revoke", "scope", "others");
         setBusy(true);
         io.execute(() -> {
             AccountException error = null;

@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.BG_PREF_NAME;
@@ -137,6 +138,8 @@ public class SettingsActivity extends AppCompatActivity {
                 granted -> {
                     String permission = pendingPermission;
                     pendingPermission = null;
+                    ActivityLog.log("permission_result", "perm", permissionLogName(permission),
+                            "granted", granted);
                     if (!granted && permission != null
                             && !ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
                         // Denied for good: the system dialog won't appear again, only app settings can help.
@@ -204,6 +207,7 @@ public class SettingsActivity extends AppCompatActivity {
                     : id == R.id.rb_countdown_10 ? 10
                     : 3;
             prefs.edit().putInt(KEY_COUNTDOWN_SECONDS, value).apply();
+            ActivityLog.log("setting_change", "key", "countdown_s", "value", value);
         });
     }
 
@@ -212,6 +216,7 @@ public class SettingsActivity extends AppCompatActivity {
         group.check(prefs.getBoolean(KEY_RECORD_AUDIO, true) ? R.id.rb_audio_mic : R.id.rb_audio_mute);
         group.setOnCheckedChangeListener((g, id) -> {
             prefs.edit().putBoolean(KEY_RECORD_AUDIO, id == R.id.rb_audio_mic).apply();
+            ActivityLog.log("setting_change", "key", "record_audio", "value", id == R.id.rb_audio_mic);
             refreshAudioInputs();
         });
     }
@@ -241,6 +246,8 @@ public class SettingsActivity extends AppCompatActivity {
             View checked = g.findViewById(checkedId);
             if (checked == null) return;
             int deviceId = (Integer) checked.getTag();
+            ActivityLog.log("setting_change", "key", "mic_source",
+                    "value", deviceId == AudioInputSelection.PHONE_MIC ? "phone" : "external");
             if (deviceId == AudioInputSelection.PHONE_MIC) {
                 AudioInputs.selectPhoneMic();
             } else {
@@ -288,7 +295,10 @@ public class SettingsActivity extends AppCompatActivity {
     private void bindCheckBox(int viewId, SharedPreferences target, String key, boolean defaultValue) {
         CheckBox box = findViewById(viewId);
         box.setChecked(target.getBoolean(key, defaultValue));
-        box.setOnCheckedChangeListener((b, checked) -> target.edit().putBoolean(key, checked).apply());
+        box.setOnCheckedChangeListener((b, checked) -> {
+            target.edit().putBoolean(key, checked).apply();
+            ActivityLog.log("setting_change", "key", key, "value", checked);
+        });
     }
 
     // ---- auto upload ----
@@ -307,6 +317,7 @@ public class SettingsActivity extends AppCompatActivity {
         box.setOnCheckedChangeListener((b, checked) -> {
             // apply() updates the in-memory prefs at once, so the re-enqueue below reads the new value.
             prefs.edit().putBoolean(KEY_PUBLISH_WIFI_ONLY, checked).apply();
+            ActivityLog.log("setting_change", "key", "publish_wifi_only", "value", checked);
             PublishManager.get(this).onWifiOnlyChanged();
         });
     }
@@ -329,7 +340,10 @@ public class SettingsActivity extends AppCompatActivity {
         bindCheckBox(R.id.cb_bg_replace, bgPrefs, KEY_BG_REPLACE_ENABLED, true);
 
         photoPicker = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
-            if (uri != null) importBackground(uri);
+            if (uri != null) {
+                ActivityLog.log("background_add");
+                importBackground(uri);
+            }
         });
 
         builtInBackgrounds.clear();
@@ -434,6 +448,8 @@ public class SettingsActivity extends AppCompatActivity {
         final int idx = bgPaths.size();
         card.setOnClickListener(v -> {
             bgPrefs.edit().putString(KEY_BG_ASSET_PATH, path).apply();
+            ActivityLog.log("setting_change", "key", "background",
+                    "value", userFile != null ? "own_photo" : "built_in");
             markSelectedBackground(idx);
         });
         bgPaths.add(path);
@@ -551,7 +567,10 @@ public class SettingsActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.set_bg_delete_title)
                 .setMessage(R.string.set_bg_delete_message)
-                .setPositiveButton(R.string.set_bg_delete_yes, (d, w) -> deleteBackground(file))
+                .setPositiveButton(R.string.set_bg_delete_yes, (d, w) -> {
+                    ActivityLog.log("background_delete");
+                    deleteBackground(file);
+                })
                 .setNegativeButton(R.string.set_bg_delete_no, null)
                 .show();
     }
@@ -683,7 +702,17 @@ public class SettingsActivity extends AppCompatActivity {
         permissionsHelp.setBlocks(help);
     }
 
+    /** Short name of a permission, for the activity log (null = the overlay special access). */
+    private static String permissionLogName(String permission) {
+        if (permission == null) return "overlay";
+        if (Manifest.permission.CAMERA.equals(permission)) return "camera";
+        if (Manifest.permission.RECORD_AUDIO.equals(permission)) return "mic";
+        if (Manifest.permission.POST_NOTIFICATIONS.equals(permission)) return "notifications";
+        return "other";
+    }
+
     private void requestMissingPermission(MissingPermission item) {
+        ActivityLog.log("permission_prompt", "perm", permissionLogName(item.runtimePermission), "source", "settings");
         if (item.runtimePermission == null) {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.fromParts("package", getPackageName(), null)));

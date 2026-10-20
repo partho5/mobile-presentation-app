@@ -29,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
@@ -298,6 +299,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
+            ActivityLog.log("video_menu", "item", menuItemName(id));
             if (id == R.id.action_play) {
                 openVideo(item);
                 return true;
@@ -352,6 +354,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 new VideoRenameHelper.RenameCallback() {
                     @Override
                     public void onRenamed(File oldFile, File newFile) {
+                        ActivityLog.log("video_rename");
                         PublishManager.get(context).onRenamed(oldFile, newFile);
                         item.setFile(newFile);
                         int pos = itemList.indexOf(item);
@@ -360,7 +363,22 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 });
     }
 
+    /** Short name of a card-menu action, for the activity log. */
+    private static String menuItemName(int id) {
+        if (id == R.id.action_play) return "play";
+        if (id == R.id.action_publish) return "publish";
+        if (id == R.id.action_publish_retry) return "publish_retry";
+        if (id == R.id.action_publish_set_up) return "publish_set_up";
+        if (id == R.id.action_publish_cancel) return "publish_cancel";
+        if (id == R.id.action_rename) return "rename";
+        if (id == R.id.action_share) return "share";
+        if (id == R.id.action_select) return "select";
+        if (id == R.id.action_delete) return "delete";
+        return "other";
+    }
+
     private void shareVideo(RecordingItem item) {
+        ActivityLog.log("video_share");
         try {
             Uri uri = FileProvider.getUriForFile(
                     context,
@@ -382,6 +400,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 .setMessage("Delete \"" + item.getFileName() + "\"?")
                 .setPositiveButton("Delete", (d, w) -> {
                     if (deleteFile(item)) {
+                        ActivityLog.log("video_delete", "count", 1);
                         int pos = itemList.indexOf(item);
                         if (pos >= 0) {
                             itemList.remove(pos);
@@ -405,6 +424,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     }
 
     private void enterSelectionMode(int position) {
+        ActivityLog.log("video_select_mode");
         selectionMode = true;
         itemList.get(position).setSelected(true);
         notifyDataSetChanged();
@@ -517,6 +537,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     }
 
     private void openVideo(RecordingItem item) {
+        ActivityLog.log("video_play");
         try {
             File file = item.getFile();
             if (file == null || !file.exists()) {
