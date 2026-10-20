@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 
 import java.util.ArrayList;
@@ -81,24 +82,31 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         intro = container.findViewById(R.id.drawing_board_intro);
 
         toolPen.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "pen");
             boolean wasEraser = board.isEraserMode();
             setEraser(false, true);
             // Pen already active and palette open: a second tap closes it.
             showPalette(wasEraser || palette.getVisibility() != View.VISIBLE);
         });
         toolEraser.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "eraser");
             setEraser(true, true);
             showPalette(false);
         });
         toolUndo.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "undo");
             board.undo();
             onActionCommitted();
         });
         toolRedo.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "redo");
             board.redo();
             onActionCommitted();
         });
-        toolClear.setOnClickListener(v -> board.clearBoard());
+        toolClear.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "clear");
+            board.clearBoard();
+        });
 
         buildSwatches();
         board.setListener(this);

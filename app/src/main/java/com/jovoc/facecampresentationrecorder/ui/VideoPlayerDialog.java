@@ -314,6 +314,7 @@ public class VideoPlayerDialog {
         // Rename Action — the prompt, validation and MediaStore bookkeeping live
         // in VideoRenameHelper; this only saves and restores playback around it.
         btnRename.setOnClickListener(v -> {
+            ActivityLog.log("player_action", "item", "rename");
             Version current = findVersion(playingPath);
             if (current == null) return;
             VideoRenameHelper.promptRename(context, current.file,
@@ -349,6 +350,7 @@ public class VideoPlayerDialog {
 
         // Delete Action — always the version in the centre
         btnDelete.setOnClickListener(v -> {
+            ActivityLog.log("player_action", "item", "delete");
             Version current = findVersion(playingPath);
             if (current == null) return;
             final File fileToDelete = current.file;
@@ -390,6 +392,7 @@ public class VideoPlayerDialog {
 
         // Share Action — always the version in the centre
         btnShare.setOnClickListener(v -> {
+            ActivityLog.log("player_action", "item", "share");
             Version current = findVersion(playingPath);
             if (current == null) return;
             try {
@@ -414,6 +417,7 @@ public class VideoPlayerDialog {
             btnAllVideos.setVisibility(View.GONE);
         } else {
             btnAllVideos.setOnClickListener(v -> {
+                ActivityLog.log("player_action", "item", "all_videos");
                 dialog.dismiss();
                 context.startActivity(new Intent(context, SavedRecordingsActivity.class));
             });

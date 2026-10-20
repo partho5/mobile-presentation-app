@@ -11,6 +11,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
 
 import java.util.ArrayList;
@@ -81,12 +82,19 @@ public class SlideInkController implements DrawingBoardView.Listener {
         ink.setListener(this);
         setPenColor(SlideInkStorage.loadPenColor(context));
 
-        btnPen.setOnClickListener(v -> setPenMode(!penMode));
+        btnPen.setOnClickListener(v -> {
+            ActivityLog.log("ink_tool", "tool", "pen", "on", !penMode);
+            setPenMode(!penMode);
+        });
         toolUndo.setOnClickListener(v -> {
+            ActivityLog.log("ink_tool", "tool", "undo");
             ink.undo();
             onActionCommitted();
         });
-        toolClear.setOnClickListener(v -> ink.clearBoard());
+        toolClear.setOnClickListener(v -> {
+            ActivityLog.log("ink_tool", "tool", "clear");
+            ink.clearBoard();
+        });
         stylePenButton();
     }
 
