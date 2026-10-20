@@ -208,6 +208,12 @@ public final class PaywallSheet {
     private void onRefresh() {
         if (finished || checking) return;
         ActivityLog.log("paywall_action", "action", "refresh", "feature", feature);
+        // The user is looking at the sheet, so nobody is away in the browser (split-screen: no resume came).
+        awaiting = Await.NONE;
+        if (Entitlements.has(feature)) {
+            granted();
+            return;
+        }
         EntitlementsRefresher.refreshBurst();
         startChecking(CHECK_BILLING_MS);
     }
