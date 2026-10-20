@@ -3,6 +3,7 @@ package com.jovoc.facecampresentationrecorder.ui;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
@@ -46,6 +47,8 @@ public final class BillingLink {
 
     /**
      * Asks the server for a one-time billing link for {@code planKey} and opens it in the browser.
+     * When the server refuses the request (the billing target may not be deployed yet) the website's
+     * plain {@code /billing?tier=KEY} page opens instead, so the user can still sign in there.
      * {@code beforeOpen} runs on the main thread right before the browser starts; {@code onFailed}
      * when no link could be had (a message has already been shown). Neither runs if the screen is gone.
      */
@@ -60,7 +63,8 @@ public final class BillingLink {
             } catch (PublishException e) {
                 error = e;
             }
-            final String link = url;
+            final String link = url != null ? url
+                    : error != null && usesFallback(error) ? fallbackUrl(planKey) : null;
             final PublishException err = error;
             MAIN.post(() -> {
                 if (host.isFinishing() || host.isDestroyed()) return;
@@ -79,11 +83,17 @@ public final class BillingLink {
         });
     }
 
+    /** The server answered but refused (not offline, not signed out): the plain billing page still works. */
+    static boolean usesFallback(PublishException e) {
+        return e.kind != PublishException.Kind.NETWORK && e.kind != PublishException.Kind.SIGNED_OUT;
+    }
+
+    static String fallbackUrl(String planKey) {
+        return BuildConfig.WEB_BASE_URL + "/billing?tier=" + Uri.encode(planKey);
+    }
+
     private static String failureMessage(Context c, PublishException e) {
         if (e != null && e.kind == PublishException.Kind.NETWORK) return c.getString(R.string.err_offline);
-        if (e != null && e.kind == PublishException.Kind.RATE_LIMITED) {
-            return c.getString(R.string.err_rate_limited_unknown);
-        }
         return c.getString(R.string.paywall_link_failed);
     }
 
@@ -93,7 +103,7 @@ public final class BillingLink {
 
     /**
      * Call when the app comes back to the front. If the user went to the billing page since the
-     * last call, fetches the plan now, again after 3 s and after 10 s (the payment can reach the
+     * last call, fetches the plan now, again after 3 s and after 10 s (the upgrade can reach the
      * server a moment after the browser closes). Once per trip: the first caller takes it.
      * @return true when a refresh was started
      */

@@ -30,20 +30,17 @@ android {
             // (10.0.2.2 from the emulator, or the dev machine's LAN IP on a real phone).
             buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
             buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
-            // How the upgrade sheet sends people to pay: "web" (a button that opens the billing
-            // page) or "none" (names the plan only, no buy link). Debug follows release ("none") on
-            // purpose, so the real Play-safe scenario is what gets tested; flip it to "web" only to
-            // test the billing-page flow.
-            buildConfigField 'String', 'CHECKOUT_LINK', '"none"'
+            // Upgrade sheet: "web" = in-app Upgrade button that opens the billing page. The owner
+            // chose "web" for all builds; "none" (names the plan only, no buy link) is still
+            // supported if Play objects.
+            buildConfigField 'String', 'CHECKOUT_LINK', '"web"'
         }
         release {
             // Production host. Must be https; a release build refuses anything else. The deployed backend
             // serves its API under /api on the same host as the website (deploy/Caddyfile, NEXT_PUBLIC_BACKEND_URL).
             buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
             buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
-            // TODO(PLAY-POLICY): stays "none" (no buy link, Play-safe) until Google Play's rules for
-            // the target countries have been checked; then "web" turns the billing-page button on.
-            buildConfigField 'String', 'CHECKOUT_LINK', '"none"'
+            buildConfigField 'String', 'CHECKOUT_LINK', '"web"'
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
