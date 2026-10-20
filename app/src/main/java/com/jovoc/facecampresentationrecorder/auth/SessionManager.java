@@ -12,6 +12,7 @@ import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -52,6 +53,8 @@ public final class SessionManager {
         this.appContext = appContext;
         this.api = new ApiClient(BuildConfig.API_BASE_URL, BuildConfig.DEBUG);
         TokenStore store = new TokenStore(new SecureKeyValueStore(appContext));
+        // A token signed for the old session means nothing after sign-out, a dead session or a new sign-in.
+        store.setSessionListener(Entitlements::clear);
         this.repo = new AuthRepository(api, store);
         repo.setForcedSignOutListener(() -> main.post(() -> {
             ActivityLog.log("session_ended");

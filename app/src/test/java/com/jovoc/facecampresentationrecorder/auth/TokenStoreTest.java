@@ -78,6 +78,31 @@ public class TokenStoreTest {
     }
 
     @Test
+    public void sessionListenerFiresOnClearAndOnANewSessionIdOnly() {
+        int[] calls = {0};
+        store.setSessionListener(() -> calls[0]++);
+        store.saveTokens("a1", "r1", "s1", 900, 0); // sign-in: a new session
+        assertEquals(1, calls[0]);
+        store.saveTokens("a2", "r2", "s1", 900, 0); // refresh: same session
+        assertEquals(1, calls[0]);
+        store.saveTokens("a3", "r3", "s2", 900, 0); // signed in again as someone else
+        assertEquals(2, calls[0]);
+        store.clear(); // sign-out or a dead session
+        assertEquals(3, calls[0]);
+    }
+
+    @Test
+    public void failingSessionListenerNeverBreaksTheStore() {
+        store.setSessionListener(() -> {
+            throw new IllegalStateException("boom");
+        });
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        assertTrue(store.hasSession());
+        store.clear();
+        assertFalse(store.hasSession());
+    }
+
+    @Test
     public void garbageExpiryCountsAsExpired() {
         store.saveTokens("acc", "ref", "sid", 900, 0);
         kv.data.put("access_expires_at", "not-a-number");

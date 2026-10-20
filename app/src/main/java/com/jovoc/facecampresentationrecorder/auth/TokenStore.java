@@ -20,9 +20,19 @@ public class TokenStore {
 
     private final KeyValueStore kv;
     private final Object lock = new Object();
+    private volatile Runnable sessionListener;
 
     public TokenStore(KeyValueStore kv) {
         this.kv = kv;
+    }
+
+    /**
+     * Called (on the calling thread) when the session ends ({@link #clear}) or a different session
+     * id is saved, i.e. whenever things tied to the old session must go. A refresh that keeps the
+     * session id does not count. A failing listener never breaks the store.
+     */
+    public void setSessionListener(Runnable listener) {
+        this.sessionListener = listener;
     }
 
     /** Stores a freshly issued or rotated pair. Email/device name are kept unless given. */
@@ -33,9 +43,13 @@ public class TokenStore {
         m.put(K_REFRESH, refresh);
         m.put(K_SESSION, sessionId);
         m.put(K_EXPIRES, String.valueOf(nowMs + expiresInSeconds * 1000L));
+        boolean newSession;
         synchronized (lock) {
+            String previous = kv.get(K_SESSION);
             kv.putAll(m);
+            newSession = sessionId != null && !sessionId.isEmpty() && !sessionId.equals(previous);
         }
+        if (newSession) notifySessionChanged();
     }
 
     public void saveIdentity(String email, String deviceName) {
@@ -121,6 +135,17 @@ public class TokenStore {
     public void clear() {
         synchronized (lock) {
             kv.clear();
+        }
+        notifySessionChanged();
+    }
+
+    private void notifySessionChanged() {
+        Runnable l = sessionListener;
+        if (l == null) return;
+        try {
+            l.run();
+        } catch (RuntimeException ignored) {
+            // Whatever hangs off the session must not stop it from starting or ending.
         }
     }
 

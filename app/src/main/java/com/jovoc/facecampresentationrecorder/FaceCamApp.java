@@ -10,9 +10,13 @@ import androidx.annotation.Nullable;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
 
-/** Starts the activity log (what users do in the app) and its background upload schedule. */
+/**
+ * Starts the paid-feature checks and the activity log (what users do in the app) with its
+ * background upload schedule.
+ */
 public class FaceCamApp extends Application {
 
     private static boolean coldStart = true;
@@ -27,6 +31,11 @@ public class FaceCamApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        try {
+            Entitlements.init(this);
+        } catch (Exception e) {
+            // Plans must never stop the app from starting; every gate then reads as Free.
+        }
         try {
             ActivityLog.init(this);
             ActivityLog.setListener(new ActivityLogScheduler(this));
