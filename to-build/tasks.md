@@ -1,40 +1,45 @@
 Understand my intent. Restate it back to confirm. Flag any gaps or ambiguities. Ask for my confirmation. Once confirmed, proceed with the work. Finish with a git commit.
 -----------------
 
-# Zero-friction Auto Publish — mobile side (decided 2026-10-20)
+RULE: this PC hangs under load, so do not run gradle, unit tests or the emulator. Write code only and verify by reading it against this plan; the owner builds and runs tests on a higher-RAM PC. Build one part at a time and update Progress below.
 
-Goal: a first-time user opens the drawer item, sees every supported platform, and simply follows the next step shown until auto-publish works. No Set, no web hunting, no second login, no debug info. Backend side: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (API contract lives there; copy below).
+# Mobile Activity Log — app side (decided 2026-10-20)
+
+Goal: record what each user does in the app (open, permissions, recording, menus, publishing, …) as `time | action | meta`, buffer it on the device and upload it in batches, so the backend can print a clear per-user timeline. Backend side + table: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (contract copied below).
 
 ## Decisions
-- Drawer item label never changes: always `nav_connect_publishing` ("Auto upload to social media"). Signed out → sign-in; signed in → new **AutoPublishActivity** (not AccountActivity).
-- AutoPublishActivity, top to bottom:
-  1. **Next-step card**: nothing connected → "Connect your first platform" (tap = YouTube's action); connected but switch off → big switch "Auto publish my recordings"; ready → switch on + status "Posts to YouTube, TikTok · N credits each · M available"; plus the "Undo before publishing" choice (Off/30 s/60 s) when on.
-  2. **Platform list** (server order): section "Video platforms", then "Other platforms". Row = Glide icon + name + state:
-     - `connected` → green check; under it one row per channel (avatar, name) with a switch (include in auto-publish). If `autoPublishSupported:false` → grey "Manual posting only", no switch. `refreshNeeded` → small amber "Reconnect" (tap = connect action).
-     - `needs_credentials` → small red "Not connected"; tap → `web-link target=credentials` → open in browser. If `canManageCredentials:false` → dialog "Ask your workspace owner to add <Platform> keys".
-     - `ready_to_connect` → small red "Not connected"; tap → `web-link target=connect`.
-  3. Footer row "Account · <email> ›" → AccountActivity.
-  - If `autoPublish.mode=='preset'`: small grey line "Using your web preset “<name>”".
-  - Refresh on `onResume` (user returns from browser). Loading / error-with-retry states. No URLs, IDs or debug text anywhere.
-- Settings' auto-publish section collapses to one row that opens AutoPublishActivity (or sign-in).
-- `AUTO_NOT_CONFIGURED` error + notification "Set up" action open AutoPublishActivity instead of the web sets page.
-- AccountActivity: remove the debug "Backend URL" row and its dialog; remove the debug base-URL override in SessionManager (always `BuildConfig.API_BASE_URL`).
+- **Reusable logger** `activitylog/ActivityLog`: static facade, `ActivityLog.log("record_stop", "duration_ms", 92000, "source", "button")` (meta optional, pairs). Never throws, never blocks the UI: one background executor, every call wrapped in try/catch; not initialised or any failure = silently dropped. Not named `SlideLogger` (that is the debug file logger).
+- **What is logged**: in-app actions only. Meta is flat scalars: ≤10 keys, key `^[a-z0-9_]{1,24}$`, string ≤64, ≤512 B in total; violators are dropped. Never in meta: email, tokens, file names, topic/caption text, channel or account names, URLs with query. Allowed: counts, durations, enum-like ids (`youtube`, `camera`), on/off, error kinds. Logging is always on (no opt-out switch); the owner updates the privacy policy.
+- **Event** = `{t epoch ms UTC, tz minutes, s session id, a action ^[a-z0-9_]{1,48}$, m meta?}`. Session id = random 8 chars, new after 30 min in the background.
+- **Identity**: `deviceId` = SHA-256 of the MediaDrm Widevine device-unique-id (salted `facecam-activity-v1`), first 16 bytes as a UUID; never send the raw id. MediaDrm missing or throwing (emulator, no Widevine) → random UUID. Both cached in a plain SharedPreferences file `activity_log_prefs`, **not** `SecureKeyValueStore` (that store is cleared at sign-out). Exclude that file from cloud backup and device transfer (`data_extraction_rules.xml`), or a restore would copy one deviceId to a second phone. Sent with every batch; once signed in the server links the earlier anonymous rows to the account by this id (no app work needed).
+- **Buffer**: Room table `activity_events`, capped at 2000 rows; when full the oldest are dropped and one `log_overflow {dropped}` event is added.
+- **When to send** (`UploadPolicy`, pure): send when EITHER (a) pending ≥ 10 and ≥ 15 min since the last send/attempt-success — heavy users may send several times a day, the cooldown stops a click burst sending every 10 clicks; OR (b) pending ≥ 1 and ≥ 3 days since the last successful send (clock starts at first run) — light users still get flushed. A send drains the buffer oldest-first in batches of ≤100 (≤5 batches per run, then reschedules).
+- **How**: WorkManager, `NetworkType.UNMETERED` (Wi-Fi only, never mobile data), works with the app closed. Trigger (a) is checked after each logged event and enqueues a unique one-time job (delayed by the remaining cooldown); trigger (b) is a unique periodic job every 12 h. The worker re-checks the policy before sending.
+- **Reliability**: each batch gets a `batch_id` stored on its rows before the first attempt, so a retry resends the identical batch (server is idempotent). Success (204) deletes the rows and sets `lastSendAt`. IO error / 429 / 5xx → keep rows, WorkManager backoff, `lastSendAt` untouched. 400 / 413 → that batch is poison: delete it, log nothing, carry on.
+- **Auth**: if `store.hasSession()`, send through `AuthRepository.executeAuthed` (refreshes the token like any call; a refresh the server rejects ends the session exactly as it would for any other request); on `AuthException` resend the same batch anonymously. No session → anonymous.
 
-## API contract (from backend)
-- `GET /public/v1/platforms` → `{ canManageCredentials, autoPublish:{mode:'automatic'|'preset', presetName?}, platforms:[{ identifier, name, icon, group:'video'|'other', status:'connected'|'needs_credentials'|'ready_to_connect', guideUrl, autoPublishSupported, channels:[{id,name,picture,disabled,refreshNeeded,autoPublish}] }] }`
-- `PUT /public/v1/auto-publish/channels/:integrationId` `{enabled:boolean}` → 204
-- `POST /public/v1/web-link` `{target:'credentials'|'connect', identifier}` → `{url}` (single use, 60 s — request it on tap, never cache)
-- `GET /public/v1/auto-publish` unchanged shape (status line, cost, available).
+## API contract (from backend — keep exact)
+`POST /activity/batches` on `BuildConfig.API_BASE_URL`, `Authorization: Bearer` optional.
+`{ batchId, deviceId, app:{version,build}, device:{os,model}, events:[{t,tz,s,a,m?}] }` (1..100 events) → 204 stored (also if `batchId` already stored) · 400 nothing valid · 413 too large · 429 throttled.
+
+## Event catalogue (action → meta; names fixed here, add new ones in the same style)
+- **Automatic (A3)**: `app_open {first_run}` · `app_foreground` · `app_background` · `screen_view {screen}` (every Activity start) · `app_crash {type, where}` (exception class + top frame only, no message) · `log_overflow {dropped}` · `signin_start` · `signin_code_requested` · `signin_success` · `signin_fail {kind}` · `signout`.
+- **Permissions (A4)**: `permission_prompt {perm}` · `permission_result {perm, granted}` (perm = camera, mic, notifications, overlay, screen_capture) · `permission_rationale {action: shown|ok|cancel}`.
+- **Recording (A4)**: `record_tap` · `record_blocked {reason}` (no_internet_for_topic, permission) · `record_countdown_cancel` · `record_start {countdown_s, topics, camera}` · `record_stop {duration_ms, source}` (button, notification, system, error — logged once, in `ScreenRecordService`) · `record_saved {duration_ms, size_mb}` · `record_error {kind}`.
+- **Studio (A4)**: `camera_flip` · `drawing_board_toggle {on}` · `topic_next` · `topic_prev` · `menu_toggle` · `bgreplace_start` · `bgreplace_done {duration_ms}` · `bgreplace_cancel`.
+- **Topics (A4)**: `topics_open` · `topic_add {type}` (text, image, video, website, youtube) · `topic_edit {type}` · `topic_delete` · `topics_delete_all` · `topic_toggle {enabled}`.
+- **My videos (A5)**: `videos_open {count}` · `video_play` · `video_menu {item}` (play, publish, rename, share, select, …) · `video_rename` · `video_share` · `video_delete {count}` · `video_select_mode`.
+- **Drawer + settings (A5)**: `drawer_open` · `drawer_item {item}` · `setting_change {key, value}` (allow-list of non-sensitive keys only) · `background_add` · `background_delete` · `contact_open`.
+- **Account + publish (A5)**: `workspace_switch` · `device_revoke` · `publish_open` · `publish_tap {platforms, mode}` (now, schedule) · `publish_result {ok, kind}` · `autopublish_open` · `autopublish_toggle {on}` · `platform_tap {platform, state}` · `channel_toggle {platform, on}` · `undo_choice {seconds}`.
+- **Onboarding + help (A5)**: `onboarding_page {n}` · `onboarding_skip` · `onboarding_done` · `howto_video_play` · `player_open` · `player_close {watched_ms}`.
 
 ## Parts
-- [x] **M1** Routing + cleanup: fixed drawer label, signed-in → AutoPublishActivity shell (toolbar, footer account row, manifest); remove debug backend row + SessionManager override.
-- [x] **M2** Platforms list: `PublishApi.platforms()/setChannelAutoPublish()/webLink()` + model; RecyclerView with sections, states, taps, per-channel switches (optimistic, revert on failure), onResume refresh, loading/error.
-- [x] **M3** Next-step card + master switch + undo choice + status line; Settings section → one row; not-configured error/notification → AutoPublishActivity; copy updates.
+- [ ] **A1** Core, no network: package `activitylog` (`ActivityLog`, `ActivityEvent`, meta sanitiser, session tracker, `DeviceId`); Room entity `activity_events` (id, ts, tz, session, action, meta_json, batch_id nullable) + DAO + `AppDatabase` v6→v7 `MIGRATION_6_7` (additive, like the existing ones); buffer cap; backup exclusion for `activity_log_prefs`. Unit tests: sanitiser, session rotation, DeviceId hash→UUID (pure static method), overflow trim.
+- [ ] **A2** Upload: `UploadPolicy` (pure), `ActivityLogApi` (ApiClient + executeAuthed with anonymous fallback), `ActivityLogWorker`, `ActivityLogScheduler`; new `FaceCamApp extends Application` (manifest `android:name`; there is none today) that calls `ActivityLog.init` and schedules the periodic job. Unit tests: `UploadPolicy` table (9 events/1 h → no; 10 events within cooldown → no; 10 events after cooldown → yes; 1 event at 2 d 23 h → no; 1 event at 3 d → yes; 0 events at 5 d → no), `ActivityLogApi` against MockWebServer (204 / 400 / 429 / anonymous fallback / same batch resent).
+- [ ] **A3** Automatic coverage: `registerActivityLifecycleCallbacks` in `FaceCamApp` (`app_foreground/background`, `screen_view`, session rotation); `app_open` in `StartupActivity`; crash handler that logs `app_crash` then calls the previous handler; auth events in `SessionManager` / `SignInFlow`.
+- [ ] **A4** Recording studio: `MainActivity` (record flow, permission launchers, rationale dialog, countdown, camera flip, drawing board, slide navigation, topics manager dialogs), `ScreenRecordService` (the single `record_stop` with duration and source), `BgReplaceService`, `FloatingCamOverlay`.
+- [ ] **A5** Everything else: `SavedRecordingsActivity` + card menu, drawer, `SettingsActivity`, `PublishActivity`, `AutoPublishActivity`, `AccountActivity`, `WorkspaceActivity`, `DevicesActivity`, `ContactActivity`, onboarding, `VideoPlayerDialog`, `YouTubeDialog`.
+- [ ] **A6** Wrap-up: grep every `setOnClickListener` / launcher / menu handler and confirm each is logged or consciously skipped; check wire format against the backend contract `_planning/02_contracts/api.activity-log.md` (S2); add a short "what is collected" list the owner can paste into the privacy policy and Play Data safety form (App activity, Device or other IDs).
 
 ## Progress (runner-maintained)
-- M1 done 2026-10-20: drawer always "Auto upload to social media" → AutoPublishActivity (sign-in returns there); shell ids `card_next_step`, `rv_platforms`, `progress_auto_publish`, `auto_publish_error_box`/`tv_auto_publish_error`/`btn_auto_publish_retry`, `row_account`; debug backend URL row + SessionManager override removed; Publish screen shows "YouTube" not raw `youtube`.
-- M1 verified PASS.
-- M2 platforms list: done (af94291), verified FIXED (28e9aa6: "null" names, saved switch value kept across refresh). Platforms.java model, PlatformListAdapter, item_ap_* layouts.
-- M3 next-step card + master switch + undo + Settings single row + AUTO_NOT_CONFIGURED → in-app screen: done (d9d3983), verified FIXED (df85da8: manual Publish screen "Connect a platform" opens Auto upload, generic connect copy, TalkBack, 404 refresh).
-- Cross-repo contract check (app ↔ backend B5/B2/B4): PASS.
-- OPEN for the owner: build + run on a device (gradle not run here because the PC hangs); unit tests PlatformsTest, PublishLabelsTest, PublishPipelineTest.
+- OPEN for the owner: privacy policy + Play Data safety update before the release that sends logs; build and run the unit tests on a higher-RAM PC.
