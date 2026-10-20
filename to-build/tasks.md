@@ -28,8 +28,13 @@ Goal: a first-time user opens the drawer item, sees every supported platform, an
 
 ## Parts
 - [x] **M1** Routing + cleanup: fixed drawer label, signed-in → AutoPublishActivity shell (toolbar, footer account row, manifest); remove debug backend row + SessionManager override.
-- [ ] **M2** Platforms list: `PublishApi.platforms()/setChannelAutoPublish()/webLink()` + model; RecyclerView with sections, states, taps, per-channel switches (optimistic, revert on failure), onResume refresh, loading/error.
-- [ ] **M3** Next-step card + master switch + undo choice + status line; Settings section → one row; not-configured error/notification → AutoPublishActivity; copy updates.
+- [x] **M2** Platforms list: `PublishApi.platforms()/setChannelAutoPublish()/webLink()` + model; RecyclerView with sections, states, taps, per-channel switches (optimistic, revert on failure), onResume refresh, loading/error.
+- [x] **M3** Next-step card + master switch + undo choice + status line; Settings section → one row; not-configured error/notification → AutoPublishActivity; copy updates.
 
 ## Progress (runner-maintained)
 - M1 done 2026-10-20: drawer always "Auto upload to social media" → AutoPublishActivity (sign-in returns there); shell ids `card_next_step`, `rv_platforms`, `progress_auto_publish`, `auto_publish_error_box`/`tv_auto_publish_error`/`btn_auto_publish_retry`, `row_account`; debug backend URL row + SessionManager override removed; Publish screen shows "YouTube" not raw `youtube`.
+- M1 verified PASS.
+- M2 platforms list: done (af94291), verified FIXED (28e9aa6: "null" names, saved switch value kept across refresh). Platforms.java model, PlatformListAdapter, item_ap_* layouts.
+- M3 next-step card + master switch + undo + Settings single row + AUTO_NOT_CONFIGURED → in-app screen: done (d9d3983), verified FIXED (df85da8: manual Publish screen "Connect a platform" opens Auto upload, generic connect copy, TalkBack, 404 refresh).
+- Cross-repo contract check (app ↔ backend B5/B2/B4): PASS.
+- OPEN for the owner: build + run on a device (gradle not run here because the PC hangs); unit tests PlatformsTest, PublishLabelsTest, PublishPipelineTest.

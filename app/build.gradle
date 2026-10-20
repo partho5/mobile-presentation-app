@@ -21,7 +21,7 @@ android {
 
     buildTypes {
         debug {
-            // Same production backend as release. For a local backend use the debug backend-URL setting
+            // Same production backend as release. For a local backend change API_BASE_URL here
             // (10.0.2.2 from the emulator, or the dev machine's LAN IP on a real phone).
             buildConfigField 'String', 'API_BASE_URL', '"https://social.nanybot.com/api"'
             buildConfigField 'String', 'WEB_BASE_URL', '"https://social.nanybot.com"'
