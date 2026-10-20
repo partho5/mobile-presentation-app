@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
 import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
@@ -295,6 +296,7 @@ public class BgReplaceService extends Service {
                 WarmUpProgress warmUp = new WarmUpProgress(OfflineBgProcessor.isWarmUpNeeded(this));
                 long startMs = SystemClock.elapsedRealtime();
                 replaceStartedAtMs = startMs;
+                ActivityLog.log("bgreplace_start");
                 synchronized (LOCK) {
                     replacing = job;
                 }
@@ -318,6 +320,11 @@ public class BgReplaceService extends Service {
                         replacing = null;
                     }
                     replaceStartedAtMs = 0;
+                }
+                if (ok) {
+                    ActivityLog.log("bgreplace_done", "duration_ms", SystemClock.elapsedRealtime() - startMs);
+                } else if (!job.cancelled.get()) {
+                    ActivityLog.log("record_error", "kind", "bgreplace_failed");
                 }
                 if (!ok) {
                     toast(job.cancelled.get()

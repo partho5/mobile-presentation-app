@@ -107,6 +107,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.adapter.SlideAdapter;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
@@ -753,6 +754,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
         if (btnOpenDrawer != null) {
             btnOpenDrawer.setOnClickListener(v -> {
+                ActivityLog.log("drawer_open");
                 if (drawerLayout != null) {
                     drawerLayout.openDrawer(GravityCompat.START);
                 }
@@ -763,6 +765,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             tintDrawerIcons();
             navigationView.setNavigationItemSelectedListener(item -> {
                 int itemId = item.getItemId();
+                ActivityLog.log("drawer_item", "item", drawerItemName(itemId));
                 if (itemId == R.id.nav_edit_slides) {
                     openSlideManagerDialog();
                 } else if (itemId == R.id.nav_record_settings) {
@@ -911,6 +914,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         int next = getSavedLensFacing() == CameraSelector.LENS_FACING_FRONT
                 ? CameraSelector.LENS_FACING_BACK : CameraSelector.LENS_FACING_FRONT;
         getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putInt(KEY_CAM_LENS_FACING, next).apply();
+        ActivityLog.log("camera_flip", "to", next == CameraSelector.LENS_FACING_FRONT ? "front" : "back");
 
         btnFlipCamera.animate().rotationBy(180f).setDuration(300).start();
 
@@ -1181,6 +1185,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void toggleDrawingBoard() {
         if (drawingBoardContainer == null || isDrawingBoardAnimating) return;
+        ActivityLog.log("drawing_board_toggle", "on", !isDrawingBoardVisible);
         if (isDrawingBoardVisible) {
             hideDrawingBoard(true);
         } else {
@@ -1294,6 +1299,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void startRecordingFlow() {
         if (isRecording) return;
+        ActivityLog.log("record_tap");
 
         // Check for website/youtube slides requiring internet before proceeding
         for (int i = 0; i < slides.size(); i++) {
@@ -1301,11 +1307,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (s.isDisabled()) continue;
             if (Slide.TYPE_WEBSITE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
+                    ActivityLog.log("record_blocked", "reason", "no_internet_for_topic", "type", "website");
                     Toast.makeText(this, "Topic " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             } else if (Slide.TYPE_YOUTUBE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
+                    ActivityLog.log("record_blocked", "reason", "no_internet_for_topic", "type", "youtube");
                     Toast.makeText(this, "Topic " + (i + 1) + " is YouTube video, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
@@ -1336,12 +1344,14 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 } else {
                     captureIntent = projectionManager.createScreenCaptureIntent();
                 }
+                ActivityLog.log("permission_prompt", "perm", "screen_capture");
                 screenCaptureLauncher.launch(captureIntent);
             }
         }
     }
 
     private void showPermissionRationaleDialog(List<String> missingPermissions) {
+        ActivityLog.log("permission_rationale", "action", "shown", "perms", permissionNames(missingPermissions));
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_permission_rationale, null);
         builder.setView(dialogView);
@@ -1383,6 +1393,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             btnGrant.setText("Open Settings");
             btnGrant.setOnClickListener(v -> {
                 dialog.dismiss();
+                ActivityLog.log("permission_rationale", "action", "open_settings");
                 openAppSettings();
             });
         } else {
@@ -1394,13 +1405,63 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     editor.putBoolean("asked_perm_" + perm, true);
                 }
                 editor.apply();
+                ActivityLog.log("permission_rationale", "action", "ok");
+                ActivityLog.log("permission_prompt", "perm", permissionNames(missingPermissions));
                 permissionLauncher.launch(missingPermissions.toArray(new String[0]));
             });
         }
 
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnCancel.setOnClickListener(v -> {
+            ActivityLog.log("permission_rationale", "action", "cancel");
+            dialog.dismiss();
+        });
 
         dialog.show();
+    }
+
+    /** Short name of an Android permission, for the activity log. */
+    private static String permissionName(String permission) {
+        if (Manifest.permission.CAMERA.equals(permission)) return "camera";
+        if (Manifest.permission.RECORD_AUDIO.equals(permission)) return "mic";
+        if (Manifest.permission.POST_NOTIFICATIONS.equals(permission)) return "notifications";
+        return "other";
+    }
+
+    private static String permissionNames(java.util.Collection<String> permissions) {
+        StringBuilder names = new StringBuilder();
+        for (String permission : permissions) {
+            if (names.length() > 0) names.append(',');
+            names.append(permissionName(permission));
+        }
+        return names.toString();
+    }
+
+    private int activeTopicCount() {
+        int n = 0;
+        if (slides != null) {
+            for (Slide s : slides) {
+                if (!s.isDisabled()) n++;
+            }
+        }
+        return n;
+    }
+
+    /** The recording is about to begin (after the countdown, when there is one). */
+    private void logRecordStart(int countdownSeconds) {
+        ActivityLog.log("record_start", "countdown_s", countdownSeconds, "topics", activeTopicCount(),
+                "camera", ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED);
+    }
+
+    private static String drawerItemName(int itemId) {
+        if (itemId == R.id.nav_edit_slides) return "topics";
+        if (itemId == R.id.nav_record_settings) return "settings";
+        if (itemId == R.id.nav_saved_recordings) return "my_videos";
+        if (itemId == R.id.nav_account) return "auto_upload";
+        if (itemId == R.id.nav_help) return "guide";
+        if (itemId == R.id.nav_contact) return "contact";
+        if (itemId == R.id.nav_about) return "about";
+        return "other";
     }
 
     private void openAppSettings() {
@@ -1414,6 +1475,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (isRecording) {
             Intent serviceIntent = new Intent(this, ScreenRecordService.class);
             serviceIntent.setAction(ScreenRecordService.ACTION_STOP);
+            serviceIntent.putExtra(ScreenRecordService.EXTRA_STOP_SOURCE, "button");
             startService(serviceIntent);
             onRecordingStoppedUi();
         }
@@ -1481,6 +1543,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         permissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 result -> {
+                    for (java.util.Map.Entry<String, Boolean> entry : result.entrySet()) {
+                        ActivityLog.log("permission_result", "perm", permissionName(entry.getKey()),
+                                "granted", Boolean.TRUE.equals(entry.getValue()));
+                    }
                     boolean allGranted = true;
                     for (Boolean granted : result.values()) {
                         if (!Boolean.TRUE.equals(granted)) {
@@ -1503,6 +1569,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         screenCaptureLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
+                    ActivityLog.log("permission_result", "perm", "screen_capture",
+                            "granted", result.getResultCode() == RESULT_OK && result.getData() != null);
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Intent serviceIntent = new Intent(this, ScreenRecordService.class);
                         serviceIntent.setAction(ScreenRecordService.ACTION_START);
@@ -1516,6 +1584,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                             showCropGuideLines();
                             triggerStartFlashEffect(() -> {
                                 hideCropGuideLines();
+                                logRecordStart(0);
                                 ContextCompat.startForegroundService(this, serviceIntent);
                                 isRecording = true;
                                 isMenuBarVisible = false;
@@ -1734,6 +1803,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     private void toggleMenuBarAndSystemBars() {
         isMenuBarVisible = !isMenuBarVisible;
+        ActivityLog.log("menu_toggle", "visible", isMenuBarVisible);
         setPresentationMode(!isMenuBarVisible);
         updateUIState();
     }
@@ -1768,6 +1838,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     if (uri != null) {
                         String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
                         if (localPath != null) {
+                            ActivityLog.log("topic_add", "type", "image");
                             Slide newSlide = new Slide(Slide.TYPE_IMAGE, slides.size(), null, localPath);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
@@ -1783,6 +1854,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     if (uri != null && slideToUpdateImage != null) {
                         String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
                         if (localPath != null) {
+                            ActivityLog.log("topic_edit", "type", "image");
                             slideToUpdateImage.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateImage;
                             int posToUpdate = targetSlidePosition;
@@ -1810,6 +1882,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     if (uri != null) {
                         String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
                         if (localPath != null) {
+                            ActivityLog.log("topic_add", "type", "video");
                             Slide newSlide = new Slide(Slide.TYPE_VIDEO, slides.size(), null, localPath);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
@@ -1825,6 +1898,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     if (uri != null && slideToUpdateVideo != null) {
                         String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
                         if (localPath != null) {
+                            ActivityLog.log("topic_edit", "type", "video");
                             slideToUpdateVideo.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateVideo;
                             int posToUpdate = targetSlidePosition;
@@ -2532,6 +2606,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         for (int i = currentSlideIndex - 1; i >= 0; i--) {
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
+                ActivityLog.log("topic_prev", "recording", isRecording);
                 SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
                 pendingNavDirection = -1;
                 renderCurrentSlide();
@@ -2544,6 +2619,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
+                ActivityLog.log("topic_next", "recording", isRecording);
                 SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
                 pendingNavDirection = 1;
                 renderCurrentSlide();
@@ -2741,6 +2817,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     // --- Slide Manager Dialog ---
 
     private void openSlideManagerDialog() {
+        ActivityLog.log("topics_open", "count", slides == null ? 0 : slides.size());
         managerDialog = new BottomSheetDialog(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_slide_manager, null);
         managerDialog.setContentView(dialogView);
@@ -2962,6 +3039,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }
 
             if (slideToEdit != null) {
+                ActivityLog.log("topic_edit", "type", "text");
                 slideToEdit.setTextContent(text);
                 repository.update(slideToEdit, () -> {
                     dialog.dismiss();
@@ -2969,6 +3047,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     renderCurrentSlide();
                 });
             } else {
+                ActivityLog.log("topic_add", "type", "text");
                 Slide newSlide = new Slide(Slide.TYPE_TEXT, slides.size(), text, null);
                 repository.insert(newSlide, id -> {
                     dialog.dismiss();
@@ -3054,6 +3133,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
 
                 if (slideToEdit != null) {
+                    ActivityLog.log("topic_edit", "type", "website");
                     slideToEdit.setTextContent(inputUrl);
                     repository.update(slideToEdit, () -> {
                         dialog.dismiss();
@@ -3061,6 +3141,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         renderCurrentSlide();
                     });
                 } else {
+                    ActivityLog.log("topic_add", "type", "website");
                     Slide newSlide = new Slide(Slide.TYPE_WEBSITE, slides.size(), inputUrl, null);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
@@ -3110,6 +3191,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
 
                 if (slideToEdit != null) {
+                    ActivityLog.log("topic_edit", "type", "youtube");
                     slideToEdit.setTextContent(input);
                     repository.update(slideToEdit, () -> {
                         dialog.dismiss();
@@ -3117,6 +3199,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         renderCurrentSlide();
                     });
                 } else {
+                    ActivityLog.log("topic_add", "type", "youtube");
                     Slide newSlide = new Slide(Slide.TYPE_YOUTUBE, slides.size(), input, null);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
@@ -3139,6 +3222,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .setTitle("Item Disabled")
                     .setMessage("This item is currently disabled and hidden during presentation. Would you like to enable it?")
                     .setPositiveButton("Enable", (dialog, which) -> {
+                        ActivityLog.log("topic_toggle", "enabled", true);
                         slide.setDisabled(false);
                         repository.update(slide, () -> {
                             if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
@@ -3164,6 +3248,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     public void onMoveUp(int position) {
         if (position > 0) {
+            ActivityLog.log("topic_move", "dir", "up");
             Collections.swap(slides, position, position - 1);
             repository.updateAll(slides, () -> {
                 slideAdapter.setSlides(slides);
@@ -3177,6 +3262,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     @Override
     public void onMoveDown(int position) {
         if (position < slides.size() - 1) {
+            ActivityLog.log("topic_move", "dir", "down");
             Collections.swap(slides, position, position + 1);
             repository.updateAll(slides, () -> {
                 slideAdapter.setSlides(slides);
@@ -3195,6 +3281,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .setTitle("Disable Item?")
                     .setMessage("This item will be hidden during presentation mode. You can re-enable it later.")
                     .setPositiveButton("Disable", (dialog, which) -> {
+                        ActivityLog.log("topic_toggle", "enabled", false);
                         slide.setDisabled(true);
                         repository.update(slide, () -> {
                             if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
@@ -3211,6 +3298,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     .setTitle("Permanently Delete?")
                     .setMessage("This item will be permanently deleted. This action cannot be undone.")
                     .setPositiveButton("Delete", (dialog, which) -> {
+                        ActivityLog.log("topic_delete");
                         repository.delete(slide, () -> {
                             if (slideInkController != null) slideInkController.discard(slide.getId());
                             slides.remove(position);
@@ -3244,6 +3332,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
     /** Removes every topic and its local files. Single place for a future server-sync hook. */
     private void deleteAllSlides() {
+        ActivityLog.log("topics_delete_all", "count", slides.size());
         final List<Slide> doomed = new ArrayList<>(slides);
         repository.deleteAll(() -> {
             stopVideoIfPlaying();
@@ -3346,6 +3435,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 }
                 hideCropGuideLines();
                 triggerStartFlashEffect(() -> {
+                    logRecordStart(countdownSeconds);
                     ContextCompat.startForegroundService(MainActivity.this, serviceIntent);
                     isRecording = true;
                     isMenuBarVisible = false;
@@ -3357,6 +3447,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void cancelCountdown() {
+        ActivityLog.log("record_countdown_cancel");
         if (countDownTimer != null) {
             countDownTimer.cancel();
             countDownTimer = null;
@@ -3529,6 +3620,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 .setMessage("Your recording will keep its original background.")
                 .setPositiveButton("Yes, cancel", (d, which) -> {
                     if (BgReplaceService.cancelReplace()) {
+                        ActivityLog.log("bgreplace_cancel");
                         showProcessingDialog(BgReplaceService.STAGE_CANCELLING, -1);
                     }
                 })

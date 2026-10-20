@@ -23,6 +23,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
@@ -34,6 +35,7 @@ import androidx.camera.core.CameraSelector;
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
@@ -64,6 +66,8 @@ public class ScreenRecordService extends Service {
     public static final String EXTRA_VIDEO_PATH = "EXTRA_VIDEO_PATH";
     /** True when background replace is running; the UI waits for its result before showing the file. */
     public static final String EXTRA_PROCESSING = "EXTRA_PROCESSING";
+    /** Who asked to stop, for the activity log: button, notification, overlay, system, error, destroyed. */
+    public static final String EXTRA_STOP_SOURCE = "EXTRA_STOP_SOURCE";
 
     private final IBinder binder = new LocalBinder();
 
@@ -74,6 +78,9 @@ public class ScreenRecordService extends Service {
     private FloatingCamOverlay overlay;
 
     private boolean isRecording = false;
+    /** elapsedRealtime when the recording began; 0 when none runs. For the activity log. */
+    private long recordStartedAt = 0;
+    private String stopSource = "unknown";
     private String currentVideoPath = null;
 
     public class LocalBinder extends Binder {
@@ -104,6 +111,8 @@ public class ScreenRecordService extends Service {
                     startRecordingInternal(resultCode, resultData);
                 }
             } else if (ACTION_STOP.equals(action)) {
+                String source = intent.getStringExtra(EXTRA_STOP_SOURCE);
+                if (source != null) stopSource = source;
                 stopRecordingInternal();
             } else if (ACTION_SHOW_OVERLAY.equals(action)) {
                 showOverlay(intent.getIntExtra(EXTRA_OVERLAY_X, 0),
@@ -143,6 +152,7 @@ public class ScreenRecordService extends Service {
     }
 
     private void onOverlayStopClicked() {
+        stopSource = "overlay";
         // Launch first: the visible overlay window is what exempts us from background-launch limits
         try {
             Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
@@ -180,7 +190,8 @@ public class ScreenRecordService extends Service {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
 
-        Intent stopIntent = new Intent(this, ScreenRecordService.class).setAction(ACTION_STOP);
+        Intent stopIntent = new Intent(this, ScreenRecordService.class).setAction(ACTION_STOP)
+                .putExtra(EXTRA_STOP_SOURCE, "notification");
         PendingIntent stopPendingIntent = PendingIntent.getService(this, 1, stopIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -297,6 +308,7 @@ public class ScreenRecordService extends Service {
                             @Override
                             public void onStop() {
                                 super.onStop();
+                                if (isRecording) stopSource = "system";
                                 stopRecordingInternal();
                             }
                         }, new Handler(Looper.getMainLooper()));
@@ -316,11 +328,13 @@ public class ScreenRecordService extends Service {
                     mediaRecorder.start();
                     BubbleTrack.start();
                     isRecording = true;
+                    recordStartedAt = SystemClock.elapsedRealtime();
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
                 }
             }
         } catch (Throwable t) {
             Log.e(TAG, "Fatal exception during startRecordingInternal", t);
+            ActivityLog.log("record_error", "kind", "start_failed", "type", t.getClass().getSimpleName());
             Toast.makeText(this, "Failed to start recording: " + t.getMessage(), Toast.LENGTH_LONG).show();
             stopRecordingInternal();
         }
@@ -338,6 +352,12 @@ public class ScreenRecordService extends Service {
             stopSelf();
             return;
         }
+
+        boolean wasRecording = isRecording;
+        long durationMs = recordStartedAt > 0 ? SystemClock.elapsedRealtime() - recordStartedAt : 0;
+        String source = stopSource;
+        recordStartedAt = 0;
+        stopSource = "unknown";
 
         try {
             if (mediaRecorder != null) {
@@ -365,6 +385,7 @@ public class ScreenRecordService extends Service {
         }
 
         isRecording = false;
+        if (wasRecording) ActivityLog.log("record_stop", "duration_ms", durationMs, "source", source);
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);
         } catch (Exception ignored) {}
@@ -372,6 +393,8 @@ public class ScreenRecordService extends Service {
         if (currentVideoPath != null) {
             File file = new File(currentVideoPath);
             if (file.exists() && file.length() > 0) {
+                ActivityLog.log("record_saved", "duration_ms", durationMs,
+                        "size_mb", file.length() / (1024 * 1024));
                 // Register with MediaStore for instant Camera / Gallery visibility
                 try {
                     ContentValues values = new ContentValues();
@@ -422,6 +445,7 @@ public class ScreenRecordService extends Service {
                 finishIntent.putExtra(EXTRA_PROCESSING, processing);
                 sendBroadcast(finishIntent);
             } else {
+                ActivityLog.log("record_error", "kind", "empty_file");
                 Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
             }
         }
@@ -435,6 +459,7 @@ public class ScreenRecordService extends Service {
 
     @Override
     public void onDestroy() {
+        if (isRecording) stopSource = "destroyed";
         stopRecordingInternal();
         super.onDestroy();
     }
