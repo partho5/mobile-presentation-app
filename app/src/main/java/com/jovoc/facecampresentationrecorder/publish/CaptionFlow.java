@@ -40,6 +40,8 @@ public final class CaptionFlow {
      * (NETWORK) is tried again for as long as the run lasts.
      */
     static final int SERVER_ATTEMPTS = 6;
+    /** Server errors in a row while polling (about 5 minutes) before the captions are given up. */
+    static final int POLL_SERVER_ERRORS = 30;
     /** Pause before the second try; doubled before each later one up to {@link #RETRY_MAX_MS}. */
     static final long RETRY_FIRST_MS = 2_000L;
     static final long RETRY_MAX_MS = 30_000L;
@@ -356,10 +358,12 @@ public final class CaptionFlow {
                 return;
             }
             if (!PublishJob.AI_PENDING.equals(state)) return; // already settled in an earlier run
+            int serverErrors = 0; // in a row; a lost connection never counts
             while (true) {
                 if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
                 try {
                     String s = api.captionStatus(id, job.workspaceId).status;
+                    serverErrors = 0;
                     if (AiCaptionStatus.READY.equals(s)) {
                         settle(PublishJob.AI_READY, null);
                         return;
@@ -377,6 +381,11 @@ public final class CaptionFlow {
                     if (!isTransient(e)) {
                         if (e.kind == PublishException.Kind.NEEDS_PLAN) onNeedsPlan.run();
                         settle(PublishJob.AI_UNAVAILABLE, PublishJob.AI_CAPTION_NONE);
+                        return;
+                    }
+                    if (e.kind != PublishException.Kind.NETWORK && ++serverErrors >= POLL_SERVER_ERRORS) {
+                        // The server keeps failing (not the phone's network): post with the user's text.
+                        settle(PublishJob.AI_UNAVAILABLE, null);
                         return;
                     }
                 }
