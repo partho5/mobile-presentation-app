@@ -22,8 +22,15 @@ import java.util.function.LongSupplier;
  */
 public final class CaptionFlow {
 
-    /** How long after the video upload a post waits for its captions (one place to change it). */
-    public static final long CAPTION_WAIT_MS = 120_000L;
+    /**
+     * How long after the video upload a post waits for its captions, for a short recording (one place
+     * to change it). A longer recording waits more: see {@link #waitMs}.
+     */
+    public static final long CAPTION_WAIT_MS = 180_000L;
+    /** Extra wait for each whole minute of speech: the server transcribes in pieces, one after the other. */
+    public static final long CAPTION_WAIT_PER_MINUTE_MS = 10_000L;
+    /** The wait never goes beyond this (a 60 minute talk waits 13 minutes). */
+    public static final long CAPTION_WAIT_MAX_MS = 900_000L;
     static final long POLL_MS = 3_000L;
     /** Tries of one thread-A call (audio upload, caption create) on a passing network / server error. */
     static final int CALL_ATTEMPTS = 4;
@@ -109,6 +116,17 @@ public final class CaptionFlow {
         return new CaptionFlow(api, audio, up, clock, Thread::sleep, EntitlementsRefresher::refreshNow);
     }
 
+    /** The wait after the video for a recording with this much speech; 0 or unknown gives the base. */
+    public static long waitMs(long audioSeconds) {
+        long minutes = Math.max(0L, audioSeconds) / 60L;
+        return Math.min(CAPTION_WAIT_MAX_MS, CAPTION_WAIT_MS + minutes * CAPTION_WAIT_PER_MINUTE_MS);
+    }
+
+    /** Seconds of speech in a 16 kHz mono 16-bit WAV of this size (44-byte header); 0 when empty. */
+    static long wavSeconds(long bytes) {
+        return bytes <= 44L ? 0L : (bytes - 44L) / 32_000L;
+    }
+
     /** True while the job still owes caption work: wanted and no caption id fixed yet. */
     static boolean inFlight(PublishJob job) {
         if (job.aiCaptionId != null) return false;
@@ -157,6 +175,8 @@ public final class CaptionFlow {
         private final BooleanSupplier cancelled;
         private final Saver saver;
         private volatile boolean aborted;
+        /** Seconds of speech in the extracted WAV; 0 until thread A has made it (then the base wait). */
+        private volatile long audioSeconds;
         private Thread thread;
 
         Run(PublishJob job, BooleanSupplier cancelled, Saver saver) {
@@ -191,6 +211,7 @@ public final class CaptionFlow {
                     set(PublishJob.AI_NO_AUDIO, null);
                     return;
                 }
+                audioSeconds = wavSeconds(wav.length());
                 set(PublishJob.AI_UPLOADING, null);
                 // Resumable, so a retry continues where the last try stopped.
                 String audioId = retrying(() -> upload.upload(job.id, wav, job.workspaceId, this::stop));
@@ -274,14 +295,14 @@ public final class CaptionFlow {
         // ---- the wait after the video ----
 
         /**
-         * Waits for thread A, then polls the caption, for at most {@link #CAPTION_WAIT_MS} from now.
-         * Always leaves a state on the job, and ends thread A. Throws only CANCELLED.
+         * Waits for thread A, then polls the caption, for at most {@link #waitMs} from now (longer for a
+         * longer recording). Always leaves a state on the job, and ends thread A. Throws only CANCELLED.
          */
         public void finish() throws PublishException {
-            long deadline = clock.getAsLong() + CAPTION_WAIT_MS;
+            long start = clock.getAsLong();
             try {
-                waitForThread(deadline);
-                poll(deadline);
+                waitForThread(start);
+                poll(start);
             } finally {
                 // Whatever happened, no step of thread A may write after this point.
                 synchronized (job) {
@@ -297,10 +318,15 @@ public final class CaptionFlow {
             }
         }
 
-        private void waitForThread(long deadline) throws PublishException {
+        /** When the wait ends: it grows with the speech once thread A has measured the WAV. */
+        private long deadline(long start) {
+            return start + waitMs(audioSeconds);
+        }
+
+        private void waitForThread(long start) throws PublishException {
             while (thread != null && thread.isAlive()) {
                 if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
-                if (clock.getAsLong() >= deadline) return;
+                if (clock.getAsLong() >= deadline(start)) return;
                 try {
                     thread.join(20);
                 } catch (InterruptedException e) {
@@ -310,7 +336,7 @@ public final class CaptionFlow {
             }
         }
 
-        private void poll(long deadline) throws PublishException {
+        private void poll(long start) throws PublishException {
             String id;
             String state;
             synchronized (job) {
@@ -348,7 +374,7 @@ public final class CaptionFlow {
                         return;
                     }
                 }
-                if (clock.getAsLong() + POLL_MS >= deadline) {
+                if (clock.getAsLong() + POLL_MS >= deadline(start)) {
                     settle(PublishJob.AI_TIMEOUT, null);
                     return;
                 }

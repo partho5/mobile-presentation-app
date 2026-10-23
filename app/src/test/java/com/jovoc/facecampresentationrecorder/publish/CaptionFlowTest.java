@@ -197,7 +197,7 @@ public class CaptionFlowTest {
         CaptionFlow.Run run = flow.start(j, cancelled::get, x -> { });
         assertTrue(uploadEntered.await(5, TimeUnit.SECONDS));
 
-        tick.set(60_000L); // the wait is over after two reads
+        tick.set(60_000L); // the wait is over after a few reads
         run.finish();
         assertEquals(PublishJob.AI_TIMEOUT, j.aiCaptionState);
         assertNull(j.aiCaptionId);
@@ -248,5 +248,25 @@ public class CaptionFlowTest {
             Thread.sleep(5);
         }
         return true;
+    }
+
+    @Test
+    public void theWaitGrowsWithTheSpeechAndStopsAtTheCap() {
+        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(0));
+        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(-5));
+        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(59)); // under a minute
+        assertEquals(CaptionFlow.CAPTION_WAIT_MS + 10 * CaptionFlow.CAPTION_WAIT_PER_MINUTE_MS,
+                CaptionFlow.waitMs(10 * 60));
+        assertEquals(CaptionFlow.CAPTION_WAIT_MS + 60 * CaptionFlow.CAPTION_WAIT_PER_MINUTE_MS,
+                CaptionFlow.waitMs(3_600));
+        assertEquals(CaptionFlow.CAPTION_WAIT_MAX_MS, CaptionFlow.waitMs(10_000_000L));
+    }
+
+    @Test
+    public void speechSecondsComeFromTheWavSize() {
+        assertEquals(0, CaptionFlow.wavSeconds(0));
+        assertEquals(0, CaptionFlow.wavSeconds(44));
+        assertEquals(120, CaptionFlow.wavSeconds(44 + 32_000L * 120)); // 16 kHz x 2 bytes
+        assertEquals(3_600, CaptionFlow.wavSeconds(44 + 32_000L * 3_600));
     }
 }
