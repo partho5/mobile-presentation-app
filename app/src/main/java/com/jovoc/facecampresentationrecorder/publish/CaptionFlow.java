@@ -25,6 +25,10 @@ public final class CaptionFlow {
     /** How long after the video upload a post waits for its captions (one place to change it). */
     public static final long CAPTION_WAIT_MS = 120_000L;
     static final long POLL_MS = 3_000L;
+    /** Tries of one thread-A call (audio upload, caption create) on a passing network / server error. */
+    static final int CALL_ATTEMPTS = 4;
+    /** Pause before the second try; doubled before each later one (2 s, 4 s, 8 s). */
+    static final long RETRY_FIRST_MS = 2_000L;
 
     /** The speech WAV of a job. */
     public interface Audio {
@@ -52,6 +56,11 @@ public final class CaptionFlow {
     /** Writes the job (the pipeline's save: row, listener). */
     public interface Saver {
         void save(PublishJob job);
+    }
+
+    /** One thread-A call that may be tried again. */
+    private interface Call<T> {
+        T run() throws PublishException;
     }
 
     private final PublishApi api;
@@ -183,7 +192,8 @@ public final class CaptionFlow {
                     return;
                 }
                 set(PublishJob.AI_UPLOADING, null);
-                String audioId = upload.upload(job.id, wav, job.workspaceId, this::stop);
+                // Resumable, so a retry continues where the last try stopped.
+                String audioId = retrying(() -> upload.upload(job.id, wav, job.workspaceId, this::stop));
                 if (stop()) return;
                 // The speech is up: the WAV has done its job.
                 audio.discard(job.id);
@@ -193,7 +203,8 @@ public final class CaptionFlow {
                         saver.save(job);
                     }
                 }
-                AiCaptionCreated created = api.createCaption(job, audioId);
+                // Same aiCaptionKey on every try: the server answers a repeat with the same caption.
+                AiCaptionCreated created = retrying(() -> api.createCaption(job, audioId));
                 if (created.skippedCredits) {
                     set(PublishJob.AI_SKIPPED_CREDITS, null);
                 } else {
@@ -207,6 +218,31 @@ public final class CaptionFlow {
                 set(PublishJob.AI_UNAVAILABLE, null);
             } finally {
                 audio.discard(job.id);
+            }
+        }
+
+        /**
+         * Runs {@code call}, trying again after a passing error (network, server, rate limit) up to
+         * {@link #CALL_ATTEMPTS} times with a doubling pause, so one dropped connection does not cost
+         * the job its captions. Stops at once when the run is given up (the video is up and the wait
+         * is over, or the job is cancelled). Any other failure is final.
+         */
+        private <T> T retrying(Call<T> call) throws PublishException {
+            long pause = RETRY_FIRST_MS;
+            for (int attempt = 1; ; attempt++) {
+                try {
+                    return call.run();
+                } catch (PublishException e) {
+                    if (!isTransient(e) || attempt >= CALL_ATTEMPTS || stop()) throw e;
+                }
+                try {
+                    sleeper.sleep(pause);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new PublishException(PublishException.Kind.CANCELLED);
+                }
+                if (stop()) throw new PublishException(PublishException.Kind.CANCELLED);
+                pause *= 2;
             }
         }
 
@@ -342,11 +378,12 @@ public final class CaptionFlow {
                 saver.save(job);
             }
         }
+    }
 
-        private boolean isTransient(PublishException e) {
-            return e.kind == PublishException.Kind.NETWORK || e.kind == PublishException.Kind.SERVER
-                    || e.kind == PublishException.Kind.RATE_LIMITED
-                    || e.kind == PublishException.Kind.IN_PROGRESS;
-        }
+    /** A passing failure: worth another try within the wait. */
+    static boolean isTransient(PublishException e) {
+        return e.kind == PublishException.Kind.NETWORK || e.kind == PublishException.Kind.SERVER
+                || e.kind == PublishException.Kind.RATE_LIMITED
+                || e.kind == PublishException.Kind.IN_PROGRESS;
     }
 }

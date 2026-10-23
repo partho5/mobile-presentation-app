@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.ui.AccountActivity;
 import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 
 /**
@@ -30,11 +31,14 @@ public final class AutoPublishNotifier {
     /** The one line shown for a finished (DONE or FAILED) auto-publish job. */
     public static String message(Context c, PublishJob job) {
         if (PublishJob.DONE.equals(job.status)) {
+            // The post is live either way; a second line says how its captions were written, or why
+            // the user's own text went out (the card carries the same line).
             if (PublishJob.MODE_AUTO_SLOT.equals(job.mode)) {
-                return c.getString(R.string.auto_notif_scheduled);
+                return PublishLabels.withAi(c, c.getString(R.string.auto_notif_scheduled), job);
             }
             int n = countIds(job.postIds);
-            return c.getResources().getQuantityString(R.plurals.auto_notif_published, n, n);
+            return PublishLabels.withAi(c,
+                    c.getResources().getQuantityString(R.plurals.auto_notif_published, n, n), job);
         }
         if ("SIGNED_OUT".equals(job.errorKind)) return c.getString(R.string.auto_notif_signed_out);
         if ("NEEDS_PLAN".equals(job.errorKind)) return c.getString(R.string.auto_notif_needs_plan);
@@ -76,8 +80,24 @@ public final class AutoPublishNotifier {
                     PendingIntent.getActivity(context, id + 1000, setUp,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
+        if (creditsSkipped(job)) {
+            // Captions were skipped for lack of credits: one tap to the credits screen.
+            Intent topUp = new Intent(context, AccountActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            b.addAction(0, context.getString(R.string.auto_notif_top_up_action),
+                    PendingIntent.getActivity(context, id + 2000, topUp,
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        // Two lines when captions need a word: the second must not be cut off.
+        b.setStyle(new NotificationCompat.BigTextStyle().bigText(message(context, job)));
         Notification n = b.build();
         nm.notify(id, n);
+    }
+
+    /** True for a posted job whose AI captions were left out for lack of credits. */
+    static boolean creditsSkipped(PublishJob job) {
+        return job != null && PublishJob.DONE.equals(job.status)
+                && PublishJob.AI_SKIPPED_CREDITS.equals(job.aiCaptionState);
     }
 
     static int countIds(String commaSeparated) {

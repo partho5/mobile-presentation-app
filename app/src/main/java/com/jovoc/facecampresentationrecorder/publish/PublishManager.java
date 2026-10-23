@@ -57,6 +57,13 @@ public final class PublishManager {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     /** Status look-ups wait on the network; they must not hold up publish actions on {@link #io}. */
     private final ExecutorService statusIo = Executors.newSingleThreadExecutor();
+    /** Makes the speech WAV of a job during its undo window; low priority, never blocks {@link #io}. */
+    private final ExecutorService audioPrep = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "audio-prep");
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.setDaemon(true);
+        return t;
+    });
 
     private static final long MIN_STATUS_INTERVAL_MS = 20_000L;
     private boolean statusRunning;
@@ -288,8 +295,28 @@ public final class PublishManager {
                 (jobId, delayMs) -> schedule(app, jobId, delayMs));
         if (result == AutoPublishRelease.Result.QUEUED_DELAYED) {
             UndoNotifier.show(app, job, AutoPublishUndo.delayMillis(undo), now);
+            prepareAudio(job);
         }
         if (result != AutoPublishRelease.Result.NOT_WAITING) broadcast(app);
+    }
+
+    /**
+     * The undo window is open: nothing is uploaded or charged yet, so the speech WAV for AI captions
+     * is made now and the worker finds it ready. An undone recording deletes it again (see
+     * {@link AudioExtractor#prepare}). Runs on {@link #io}; the work itself on {@link #audioPrep}.
+     */
+    private void prepareAudio(PublishJob job) {
+        if (!PublishJob.AI_EXTRACTING.equals(job.aiCaptionState) || job.aiCaptionId != null) return;
+        final long id = job.id;
+        final File video = new File(job.filePath);
+        audioPrep.execute(() -> {
+            try {
+                AudioExtractor.prepare(app.getCacheDir(), id, video, () -> dao.get(id) != null);
+            } catch (RuntimeException e) {
+                // The worker extracts it itself.
+                Log.w(LOG_TAG, "audio of job " + id + " not prepared", e);
+            }
+        });
     }
 
     /**
