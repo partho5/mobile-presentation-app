@@ -31,14 +31,15 @@ import java.util.Set;
 final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     interface Listener {
-        /** A platform that is not connected was tapped (or a channel asked to be reconnected). */
+        /** A platform that is not connected was tapped, a channel asked to be reconnected, or
+         * "Add channel" was tapped. */
         void onPlatformAction(Platform platform);
 
         /** The user flipped a channel's auto-publish switch. */
         void onChannelToggled(ChannelState channel, boolean enabled);
     }
 
-    private static final int TYPE_HEADER = 0, TYPE_PLATFORM = 1, TYPE_CHANNEL = 2;
+    private static final int TYPE_HEADER = 0, TYPE_PLATFORM = 1, TYPE_CHANNEL = 2, TYPE_ADD = 3;
     private static final int COLOR_GREY = 0xFF888888;
     private static final int COLOR_AMBER = 0xFFFFB347;
 
@@ -88,6 +89,7 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             items.add(new Item(TYPE_PLATFORM, 0, p, null));
             if (!p.isConnected()) continue;
             for (ChannelState c : p.channels) items.add(new Item(TYPE_CHANNEL, 0, p, c));
+            items.add(new Item(TYPE_ADD, 0, p, null));
         }
     }
 
@@ -123,6 +125,8 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 return new HeaderHolder(inflater.inflate(R.layout.item_ap_header, parent, false));
             case TYPE_PLATFORM:
                 return new PlatformHolder(inflater.inflate(R.layout.item_ap_platform, parent, false));
+            case TYPE_ADD:
+                return new AddHolder(inflater.inflate(R.layout.item_ap_add, parent, false));
             default:
                 return new ChannelHolder(inflater.inflate(R.layout.item_ap_channel, parent, false));
         }
@@ -135,9 +139,20 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             ((HeaderHolder) holder).title.setText(it.titleRes);
         } else if (holder instanceof PlatformHolder) {
             bindPlatform((PlatformHolder) holder, it.platform);
+        } else if (holder instanceof AddHolder) {
+            bindAdd((AddHolder) holder, it.platform);
         } else {
             bindChannel((ChannelHolder) holder, it.platform, it.channel);
         }
+    }
+
+    private void bindAdd(AddHolder h, Platform p) {
+        Context c = h.itemView.getContext();
+        boolean busy = p.identifier.equals(busyIdentifier);
+        h.label.setText(c.getString(p.channels.isEmpty() ? R.string.ap_add_first_channel
+                : R.string.ap_add_channel, p.name));
+        h.progress.setVisibility(busy ? View.VISIBLE : View.GONE);
+        h.itemView.setOnClickListener(v -> listener.onPlatformAction(p));
     }
 
     private void bindPlatform(PlatformHolder h, Platform p) {
@@ -244,6 +259,17 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             connected = v.findViewById(R.id.iv_ap_platform_connected);
             state = v.findViewById(R.id.tv_ap_platform_state);
             progress = v.findViewById(R.id.progress_ap_platform);
+        }
+    }
+
+    private static final class AddHolder extends RecyclerView.ViewHolder {
+        final TextView label;
+        final ProgressBar progress;
+
+        AddHolder(View v) {
+            super(v);
+            label = v.findViewById(R.id.tv_ap_add);
+            progress = v.findViewById(R.id.progress_ap_add);
         }
     }
 

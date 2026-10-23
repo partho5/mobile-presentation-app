@@ -112,6 +112,8 @@
     <string name="ap_not_connected">Not connected</string>
     <string name="ap_connected">Connected</string>
     <string name="ap_manual_only">Manual posting only</string>
+    <string name="ap_add_channel">+ Add another %1$s channel</string>
+    <string name="ap_add_first_channel">+ Add a %1$s channel</string>
     <string name="ap_reconnect">Reconnect</string>
     <string name="ap_paused">Paused</string>
     <string name="ap_channel_switch_cd">Auto publish to %1$s</string>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Add another channel" under a connected platform; opens the platform's connect page. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="48dp"
+    android:orientation="horizontal"
+    android:paddingStart="44dp">
+
+    <TextView
+        android:id="@+id/tv_ap_add"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#22D3EE"
+        android:textSize="14sp" />
+
+    <ProgressBar
+        android:id="@+id/progress_ap_add"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:indeterminateTint="#22D3EE"
+        android:visibility="gone" />
+</LinearLayout>
