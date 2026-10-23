@@ -36,6 +36,8 @@ public class CaptionFlowTest {
     /** Counted down on every discard: the finish() one and thread A's own at the end. */
     private final CountDownLatch discards = new CountDownLatch(2);
 
+    /** The statuses the fake server answers in turn; READY once they are used up. */
+    private final List<String> statusScript = Collections.synchronizedList(new ArrayList<>());
     private final List<PublishException> uploadFailures = new ArrayList<>();
     private final List<PublishException> createFailures = new ArrayList<>();
     private CountDownLatch uploadEntered;
@@ -55,7 +57,7 @@ public class CaptionFlowTest {
 
         @Override
         public AiCaptionStatus captionStatus(String captionId, String workspaceId) {
-            return new AiCaptionStatus(AiCaptionStatus.READY);
+            return new AiCaptionStatus(statusScript.isEmpty() ? AiCaptionStatus.READY : statusScript.remove(0));
         }
     };
 
@@ -143,15 +145,27 @@ public class CaptionFlowTest {
     }
 
     @Test
-    public void createIsTriedAgainThenGivenUpAfterTheLastTry() throws Exception {
-        for (int i = 0; i < 10; i++) createFailures.add(failure(PublishException.Kind.SERVER));
+    public void aPassingServerErrorIsTriedAgainThenGivenUpAfterTheLastTry() throws Exception {
+        for (int i = 0; i < 20; i++) createFailures.add(failure(PublishException.Kind.SERVER));
         PublishJob j = job();
         CaptionFlow.Run run = flow.start(j, cancelled::get, x -> { });
         run.finish();
-        assertEquals(CaptionFlow.CALL_ATTEMPTS, creates.get());
-        assertEquals(Arrays.asList(2_000L, 4_000L, 8_000L), pauses);
+        assertEquals(CaptionFlow.SERVER_ATTEMPTS, creates.get());
+        assertEquals(Arrays.asList(2_000L, 4_000L, 8_000L, 16_000L, 30_000L), pauses);
         assertEquals(PublishJob.AI_UNAVAILABLE, j.aiCaptionState);
         assertNull(j.aiCaptionId);
+    }
+
+    @Test
+    public void aLostConnectionIsTriedAgainUntilItComesBack() throws Exception {
+        for (int i = 0; i < 12; i++) createFailures.add(failure(PublishException.Kind.NETWORK));
+        PublishJob j = job();
+        flow.start(j, cancelled::get, x -> { }).finish();
+        assertEquals(13, creates.get()); // well past the server limit: a slow network is not a failure
+        assertEquals(12, pauses.size());
+        assertEquals(Long.valueOf(CaptionFlow.RETRY_MAX_MS), Collections.max(pauses)); // the pause stops growing
+        assertEquals("cap1", j.aiCaptionId);
+        assertEquals(PublishJob.AI_READY, j.aiCaptionState);
     }
 
     @Test
@@ -197,7 +211,7 @@ public class CaptionFlowTest {
         CaptionFlow.Run run = flow.start(j, cancelled::get, x -> { });
         assertTrue(uploadEntered.await(5, TimeUnit.SECONDS));
 
-        tick.set(60_000L); // the wait is over after a few reads
+        tick.set(3_600_000L); // the wait (3 h) is over after a few reads
         run.finish();
         assertEquals(PublishJob.AI_TIMEOUT, j.aiCaptionState);
         assertNull(j.aiCaptionId);
@@ -217,7 +231,7 @@ public class CaptionFlowTest {
         CaptionFlow.Run run = flow.start(j, cancelled::get, x -> { });
         assertTrue(uploadEntered.await(5, TimeUnit.SECONDS));
 
-        tick.set(60_000L);
+        tick.set(3_600_000L);
         run.finish();
         assertTrue(discards.await(5, TimeUnit.SECONDS));
         assertEquals(PublishJob.AI_TIMEOUT, j.aiCaptionState);
@@ -251,22 +265,54 @@ public class CaptionFlowTest {
     }
 
     @Test
-    public void theWaitGrowsWithTheSpeechAndStopsAtTheCap() {
-        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(0));
-        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(-5));
-        assertEquals(CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.waitMs(59)); // under a minute
-        assertEquals(CaptionFlow.CAPTION_WAIT_MS + 10 * CaptionFlow.CAPTION_WAIT_PER_MINUTE_MS,
-                CaptionFlow.waitMs(10 * 60));
-        assertEquals(CaptionFlow.CAPTION_WAIT_MS + 60 * CaptionFlow.CAPTION_WAIT_PER_MINUTE_MS,
-                CaptionFlow.waitMs(3_600));
-        assertEquals(CaptionFlow.CAPTION_WAIT_MAX_MS, CaptionFlow.waitMs(10_000_000L));
+    public void theWaitIsTheServersOwnLimitUnlessAScheduledPostIsSooner() {
+        long start = 1_000_000L;
+        PublishJob now = job();
+        now.mode = PublishJob.MODE_NOW;
+        assertEquals(start + CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.deadlineFor(now, start));
+        assertTrue(CaptionFlow.CAPTION_WAIT_MS > 3 * 60 * 60_000L); // past the server's 3 h stale rule
+
+        PublishJob far = job();
+        far.mode = PublishJob.MODE_SCHEDULE;
+        far.scheduleAt = start + CaptionFlow.CAPTION_WAIT_MS * 2;
+        assertEquals(start + CaptionFlow.CAPTION_WAIT_MS, CaptionFlow.deadlineFor(far, start));
+
+        PublishJob soon = job();
+        soon.mode = PublishJob.MODE_SCHEDULE;
+        soon.scheduleAt = start + 600_000L;
+        assertEquals(start + 600_000L - CaptionFlow.SCHEDULE_MARGIN_MS, CaptionFlow.deadlineFor(soon, start));
+
+        PublishJob late = job();
+        late.mode = PublishJob.MODE_SCHEDULE;
+        late.scheduleAt = start - 5_000L; // its time is already here: no wait at all
+        assertEquals(start, CaptionFlow.deadlineFor(late, start));
     }
 
     @Test
-    public void speechSecondsComeFromTheWavSize() {
-        assertEquals(0, CaptionFlow.wavSeconds(0));
-        assertEquals(0, CaptionFlow.wavSeconds(44));
-        assertEquals(120, CaptionFlow.wavSeconds(44 + 32_000L * 120)); // 16 kHz x 2 bytes
-        assertEquals(3_600, CaptionFlow.wavSeconds(44 + 32_000L * 3_600));
+    public void aScheduledPostStopsWaitingBeforeItsTime() throws Exception {
+        uploadEntered = new CountDownLatch(1);
+        uploadRelease = new CountDownLatch(1);
+        swallowInterrupt = true;
+        PublishJob j = job();
+        j.mode = PublishJob.MODE_SCHEDULE;
+        j.scheduleAt = 400_000L; // reads move the clock 60 s each: the wait ends at 340 s
+        CaptionFlow.Run run = flow.start(j, cancelled::get, x -> { });
+        assertTrue(uploadEntered.await(5, TimeUnit.SECONDS));
+
+        tick.set(60_000L);
+        run.finish();
+        assertEquals(PublishJob.AI_TIMEOUT, j.aiCaptionState);
+        uploadRelease.countDown();
+        assertTrue(discards.await(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void theCaptionIsAskedAboutLessOftenAfterTheFirstTwoMinutes() throws Exception {
+        for (int i = 0; i < 80; i++) statusScript.add(AiCaptionStatus.GENERATING);
+        PublishJob j = job();
+        flow.start(j, cancelled::get, x -> { }).finish();
+        assertEquals(PublishJob.AI_READY, j.aiCaptionState); // still waiting patiently, then READY
+        assertEquals(Long.valueOf(CaptionFlow.POLL_MS), pauses.get(0));
+        assertEquals(Long.valueOf(CaptionFlow.POLL_SLOW_MS), pauses.get(pauses.size() - 1));
     }
 }

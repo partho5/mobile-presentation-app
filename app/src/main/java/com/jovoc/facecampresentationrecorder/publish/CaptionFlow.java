@@ -23,19 +23,36 @@ import java.util.function.LongSupplier;
 public final class CaptionFlow {
 
     /**
-     * How long after the video upload a post waits for its captions, for a short recording (one place
-     * to change it). A longer recording waits more: see {@link #waitMs}.
+     * The longest a post waits for its captions after the video is up. It is the server's own limit, not
+     * the app's: the server ends a caption job that has not moved for 3 hours (it then reads FAILED), so
+     * waiting longer can never help. A slow phone or network is never a reason to give up before that;
+     * only the user's Cancel, a scheduled post's time ({@link #deadlineFor}) or this limit end the wait.
      */
-    public static final long CAPTION_WAIT_MS = 180_000L;
-    /** Extra wait for each whole minute of speech: the server transcribes in pieces, one after the other. */
-    public static final long CAPTION_WAIT_PER_MINUTE_MS = 10_000L;
-    /** The wait never goes beyond this (a 60 minute talk waits 13 minutes). */
-    public static final long CAPTION_WAIT_MAX_MS = 900_000L;
+    public static final long CAPTION_WAIT_MS = 190L * 60_000L;
     static final long POLL_MS = 3_000L;
-    /** Tries of one thread-A call (audio upload, caption create) on a passing network / server error. */
-    static final int CALL_ATTEMPTS = 4;
-    /** Pause before the second try; doubled before each later one (2 s, 4 s, 8 s). */
+    /** After {@link #POLL_SLOW_AFTER_MS} of waiting the caption is asked about less often. */
+    static final long POLL_SLOW_MS = 10_000L;
+    static final long POLL_SLOW_AFTER_MS = 120_000L;
+    /** A scheduled post is made this long before its time at the latest. */
+    static final long SCHEDULE_MARGIN_MS = 60_000L;
+    /**
+     * Tries of a thread-A call on a passing SERVER / RATE_LIMITED / IN_PROGRESS answer. A lost connection
+     * (NETWORK) is tried again for as long as the run lasts.
+     */
+    static final int SERVER_ATTEMPTS = 6;
+    /** Pause before the second try; doubled before each later one up to {@link #RETRY_MAX_MS}. */
     static final long RETRY_FIRST_MS = 2_000L;
+    static final long RETRY_MAX_MS = 30_000L;
+
+    /** When the wait that starts at {@code start} must end for this job. */
+    static long deadlineFor(PublishJob job, long start) {
+        long end = start + CAPTION_WAIT_MS;
+        if (PublishJob.MODE_SCHEDULE.equals(job.mode) && job.scheduleAt > 0) {
+            // A post cannot wait past its own time.
+            end = Math.min(end, Math.max(start, job.scheduleAt - SCHEDULE_MARGIN_MS));
+        }
+        return end;
+    }
 
     /** The speech WAV of a job. */
     public interface Audio {
@@ -116,17 +133,6 @@ public final class CaptionFlow {
         return new CaptionFlow(api, audio, up, clock, Thread::sleep, EntitlementsRefresher::refreshNow);
     }
 
-    /** The wait after the video for a recording with this much speech; 0 or unknown gives the base. */
-    public static long waitMs(long audioSeconds) {
-        long minutes = Math.max(0L, audioSeconds) / 60L;
-        return Math.min(CAPTION_WAIT_MAX_MS, CAPTION_WAIT_MS + minutes * CAPTION_WAIT_PER_MINUTE_MS);
-    }
-
-    /** Seconds of speech in a 16 kHz mono 16-bit WAV of this size (44-byte header); 0 when empty. */
-    static long wavSeconds(long bytes) {
-        return bytes <= 44L ? 0L : (bytes - 44L) / 32_000L;
-    }
-
     /** True while the job still owes caption work: wanted and no caption id fixed yet. */
     static boolean inFlight(PublishJob job) {
         if (job.aiCaptionId != null) return false;
@@ -175,8 +181,6 @@ public final class CaptionFlow {
         private final BooleanSupplier cancelled;
         private final Saver saver;
         private volatile boolean aborted;
-        /** Seconds of speech in the extracted WAV; 0 until thread A has made it (then the base wait). */
-        private volatile long audioSeconds;
         private Thread thread;
 
         Run(PublishJob job, BooleanSupplier cancelled, Saver saver) {
@@ -211,7 +215,6 @@ public final class CaptionFlow {
                     set(PublishJob.AI_NO_AUDIO, null);
                     return;
                 }
-                audioSeconds = wavSeconds(wav.length());
                 set(PublishJob.AI_UPLOADING, null);
                 // Resumable, so a retry continues where the last try stopped.
                 String audioId = retrying(() -> upload.upload(job.id, wav, job.workspaceId, this::stop));
@@ -243,18 +246,21 @@ public final class CaptionFlow {
         }
 
         /**
-         * Runs {@code call}, trying again after a passing error (network, server, rate limit) up to
-         * {@link #CALL_ATTEMPTS} times with a doubling pause, so one dropped connection does not cost
-         * the job its captions. Stops at once when the run is given up (the video is up and the wait
-         * is over, or the job is cancelled). Any other failure is final.
+         * Runs {@code call}. A lost connection is tried again for as long as the run lasts (the upload
+         * resumes where it stopped, so a slow or dropping network costs time, never the captions); a passing
+         * server answer (5xx, rate limit) up to {@link #SERVER_ATTEMPTS} times. The pause doubles up to
+         * {@link #RETRY_MAX_MS}. It stops at once when the run is given up or cancelled. Any other
+         * failure is final.
          */
         private <T> T retrying(Call<T> call) throws PublishException {
             long pause = RETRY_FIRST_MS;
-            for (int attempt = 1; ; attempt++) {
+            int passing = 0;
+            while (true) {
                 try {
                     return call.run();
                 } catch (PublishException e) {
-                    if (!isTransient(e) || attempt >= CALL_ATTEMPTS || stop()) throw e;
+                    if (!isTransient(e) || stop()) throw e;
+                    if (e.kind != PublishException.Kind.NETWORK && ++passing >= SERVER_ATTEMPTS) throw e;
                 }
                 try {
                     sleeper.sleep(pause);
@@ -263,7 +269,7 @@ public final class CaptionFlow {
                     throw new PublishException(PublishException.Kind.CANCELLED);
                 }
                 if (stop()) throw new PublishException(PublishException.Kind.CANCELLED);
-                pause *= 2;
+                pause = Math.min(pause * 2, RETRY_MAX_MS);
             }
         }
 
@@ -295,8 +301,9 @@ public final class CaptionFlow {
         // ---- the wait after the video ----
 
         /**
-         * Waits for thread A, then polls the caption, for at most {@link #waitMs} from now (longer for a
-         * longer recording). Always leaves a state on the job, and ends thread A. Throws only CANCELLED.
+         * Waits for thread A, then polls the caption, until it is final or {@link #deadlineFor} (3 hours,
+         * or a scheduled post's time). Always leaves a state on the job, and ends thread A. Throws only
+         * CANCELLED.
          */
         public void finish() throws PublishException {
             long start = clock.getAsLong();
@@ -318,9 +325,8 @@ public final class CaptionFlow {
             }
         }
 
-        /** When the wait ends: it grows with the speech once thread A has measured the WAV. */
         private long deadline(long start) {
-            return start + waitMs(audioSeconds);
+            return deadlineFor(job, start);
         }
 
         private void waitForThread(long start) throws PublishException {
@@ -374,12 +380,13 @@ public final class CaptionFlow {
                         return;
                     }
                 }
-                if (clock.getAsLong() + POLL_MS >= deadline(start)) {
+                long every = clock.getAsLong() - start < POLL_SLOW_AFTER_MS ? POLL_MS : POLL_SLOW_MS;
+                if (clock.getAsLong() + every >= deadline(start)) {
                     settle(PublishJob.AI_TIMEOUT, null);
                     return;
                 }
                 try {
-                    sleeper.sleep(POLL_MS);
+                    sleeper.sleep(every);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new PublishException(PublishException.Kind.CANCELLED);

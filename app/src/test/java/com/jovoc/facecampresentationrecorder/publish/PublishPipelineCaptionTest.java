@@ -260,7 +260,7 @@ public class PublishPipelineCaptionTest {
         assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
         assertEquals(PublishJob.AI_TIMEOUT, j.aiCaptionState);
         assertEquals(1, api.postBodies.size());
-        // 120 s of 3 s polls, not an endless loop
+        // polls stop at the limit, not an endless loop
         assertTrue(api.statusCalls.get() <= CaptionFlow.CAPTION_WAIT_MS / CaptionFlow.POLL_MS + 2);
     }
 

@@ -168,8 +168,8 @@ public final class PublishPipeline {
     }
 
     /**
-     * After the video: waits for the caption (at most {@link CaptionFlow#waitMs}: {@link CaptionFlow#CAPTION_WAIT_MS} plus a little for each minute of speech), then
-     * fixes what the publish call will send and stores it, so every retry under the same
+     * After the video: waits for the caption until it is final (or {@link CaptionFlow#CAPTION_WAIT_MS},
+     * the server's own limit; a scheduled post's time if sooner), then fixes what the publish call will send and stores it, so every retry under the same
      * Idempotency-Key sends the same body: the caption id (or "none") and, for a manual "now" post,
      * its date. Only a cancel escapes this method.
      */
