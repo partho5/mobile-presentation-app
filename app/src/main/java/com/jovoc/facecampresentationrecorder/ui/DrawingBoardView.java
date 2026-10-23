@@ -4,11 +4,13 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.SystemClock;
 import android.util.AttributeSet;
@@ -157,6 +159,8 @@ public class DrawingBoardView extends View {
     private List<TextItem> texts = new ArrayList<>();   // what the cursor shows (live copy)
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trashPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF borderRect = new RectF();
     private final float touchSlop;
     private final float textHitPad;
     private boolean textMode = false;
@@ -184,6 +188,11 @@ public class DrawingBoardView extends View {
         textPaint.setTextAlign(Align.CENTER);
         textPaint.setTypeface(Typeface.DEFAULT_BOLD);
         trashPaint.setStrokeCap(Paint.Cap.ROUND);
+        float d = context.getResources().getDisplayMetrics().density;
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setColor(0xCCFFFFFF);
+        borderPaint.setStrokeWidth(1.5f * d);
+        borderPaint.setPathEffect(new DashPathEffect(new float[]{6f * d, 4f * d}, 0f));
         penWidth = PEN_WIDTH_DP * density;
         eraserWidth = ERASER_WIDTH_DP * density;
         strokePaint.setStyle(Paint.Style.STROKE);
@@ -660,8 +669,14 @@ public class DrawingBoardView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         if (bitmap != null) canvas.drawBitmap(bitmap, 0f, 0f, null);
-        for (TextItem t : texts) drawText(canvas, t, false, t == dragging && overTrash);
-        if (editing != null) drawText(canvas, editing, true, false);
+        for (TextItem t : texts) {
+            drawText(canvas, t, false, t == dragging && overTrash);
+            if (t == dragging) drawBorder(canvas, t);
+        }
+        if (editing != null) {
+            drawText(canvas, editing, true, false);
+            drawBorder(canvas, editing);
+        }
         if (dragging != null && dragMoved) drawTrash(canvas);
     }
 
@@ -677,6 +692,18 @@ public class DrawingBoardView extends View {
         }
         textPaint.setColor(t.color);
         return px;
+    }
+
+    /** Dashed box round a text being typed or dragged: the same area that picks it up on touch. */
+    private void drawBorder(Canvas canvas, TextItem t) {
+        float px = applyTextPaint(t);
+        float halfW = textPaint.measureText(t.text) / 2f + textHitPad;
+        float halfH = px * 0.7f + textHitPad;
+        float cx = t.x * getWidth();
+        float cy = t.y * getHeight();
+        borderRect.set(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
+        float r = 6f * getResources().getDisplayMetrics().density;
+        canvas.drawRoundRect(borderRect, r, r, borderPaint);
     }
 
     private void drawText(Canvas canvas, TextItem t, boolean caret, boolean fade) {
