@@ -39,12 +39,26 @@ public class DirectUploadApi {
      */
     public UploadSessionInfo create(String filename, long size, String workspaceId)
             throws PublishException {
+        return create(filename, size, workspaceId, UploadKind.VIDEO);
+    }
+
+    /**
+     * POST /upload/multipart for a given {@link UploadKind}: audio sends
+     * {@code purpose: "transcript_audio"} and only accepts a ".wav" name; the video never does.
+     */
+    public UploadSessionInfo create(String filename, long size, String workspaceId, UploadKind kind)
+            throws PublishException {
         if (filename == null || filename.isEmpty() || size < 1) {
             throw new IllegalArgumentException("filename and size are required");
         }
+        if (!kind.allows(filename)) {
+            throw new IllegalArgumentException("file type not allowed for " + kind);
+        }
         String body;
         try {
-            body = new JSONObject().put("filename", filename).put("size", size).toString();
+            JSONObject o = new JSONObject().put("filename", filename).put("size", size);
+            if (kind.purpose != null) o.put("purpose", kind.purpose);
+            body = o.toString();
         } catch (JSONException e) {
             throw new IllegalArgumentException(e);
         }
@@ -122,6 +136,32 @@ public class DirectUploadApi {
                 PublishApi.workspaceHeaders(workspaceId, null));
         try {
             return CompletedUpload.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    /**
+     * POST /upload/multipart/:id/complete of a transcript_audio upload: answers {@code { id }} (no
+     * path, no poster), so it has its own parser. A repeat answers the same id.
+     */
+    public CompletedAudio completeAudio(String uploadId, List<UploadedPart> parts, String workspaceId)
+            throws PublishException {
+        if (parts == null || parts.isEmpty()) throw new IllegalArgumentException("no parts");
+        String body;
+        try {
+            JSONArray a = new JSONArray();
+            for (UploadedPart p : parts) {
+                a.put(new JSONObject().put("n", p.n).put("etag", p.etag));
+            }
+            body = new JSONObject().put("parts", a).toString();
+        } catch (JSONException e) {
+            throw new IllegalArgumentException(e);
+        }
+        ApiResponse r = authed("POST", path(uploadId, "/complete"), body,
+                PublishApi.workspaceHeaders(workspaceId, null));
+        try {
+            return CompletedAudio.parse(r.body);
         } catch (JSONException e) {
             throw new PublishException(PublishException.Kind.SERVER);
         }

@@ -72,6 +72,8 @@ public final class PublishPipeline {
     private final LongSupplier clock;
     /** Makes the poster of a video; null: no poster is sent. */
     private final PosterSource posters;
+    /** AI captions next to the video upload; null: no captions. */
+    private final CaptionFlow captions;
 
     /** Base64 of the poster image of a video file, or null for none; must not throw. */
     public interface PosterSource {
@@ -98,6 +100,14 @@ public final class PublishPipeline {
     public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
                            Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock, PosterSource posters) {
+        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, posters, null);
+    }
+
+    /** @param captions runs the AI captions of jobs that want them; may be null (none) */
+    public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
+                           Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock, PosterSource posters,
+                           CaptionFlow captions) {
         this.api = api;
         this.direct = direct;
         this.sessions = sessions;
@@ -107,6 +117,7 @@ public final class PublishPipeline {
         this.maxAttempts = maxAttempts;
         this.clock = clock;
         this.posters = posters;
+        this.captions = captions;
     }
 
     /** @param attempt zero-based run count of this job (WorkManager's run attempt count) */
@@ -120,19 +131,65 @@ public final class PublishPipeline {
         job.errorKind = null;
         job.errorDetail = null;
 
+        CaptionFlow.Run caption = null;
         try {
             boolean uploaded = job.mediaId != null && !job.mediaId.isEmpty();
             if (job.isAuto() && !uploaded) preflight(job);
+            // Thread A (audio -> caption) runs beside the video upload; it never throws.
+            caption = startCaption(job);
             if (!uploaded) upload(job);
             // A job deleted while uploading (cancelled) must not go on to post.
             if (store.load(jobId) == null) {
                 forgetUpload(jobId);
                 return Outcome.GONE;
             }
+            settleCaption(job, caption);
+            caption = null;
             createPost(job);
             return Outcome.DONE;
         } catch (PublishException e) {
+            if (caption != null) caption.abandon(); // before fail() saves the job
             return fail(job, e, attempt);
+        } finally {
+            // Cancel, failure or done: the extracted WAV and thread A end with the run.
+            if (caption != null) caption.abandon();
+            if (captions != null) captions.discard(jobId);
+        }
+    }
+
+    /** Starts thread A for a job that wants AI captions and has none yet; null when not needed. */
+    private CaptionFlow.Run startCaption(PublishJob job) {
+        if (captions == null) return null;
+        try {
+            return captions.start(job, cancelled, this::save);
+        } catch (RuntimeException e) {
+            return null; // AI never fails the job
+        }
+    }
+
+    /**
+     * After the video: waits for the caption (at most {@link CaptionFlow#CAPTION_WAIT_MS}), then
+     * fixes what the publish call will send and stores it, so every retry under the same
+     * Idempotency-Key sends the same body: the caption id (or "none") and, for a manual "now" post,
+     * its date. Only a cancel escapes this method.
+     */
+    private void settleCaption(PublishJob job, CaptionFlow.Run caption) throws PublishException {
+        long waitStart = clock.getAsLong();
+        if (caption != null) caption.finish();
+        synchronized (job) {
+            // Counts and states only, never caption or transcript text.
+            if (caption != null) {
+                ActivityLog.log("ai_captions_result", "state", String.valueOf(job.aiCaptionState),
+                        "wait_ms", Math.max(0L, clock.getAsLong() - waitStart), "mode", job.mode);
+            }
+            if (job.aiCaptionId == null || job.aiCaptionId.isEmpty()) {
+                job.aiCaptionId = PublishJob.AI_CAPTION_NONE;
+            }
+            if (PublishJob.MODE_NOW.equals(job.mode) && !job.isAuto()
+                    && (job.publishDate == null || job.publishDate.isEmpty())) {
+                job.publishDate = PublishRequestBuilder.isoUtc(clock.getAsLong());
+            }
+            save(job);
         }
     }
 
@@ -310,14 +367,14 @@ public final class PublishPipeline {
             // key unless the server stored a refusal under it (the throttler's 429).
             job.errorKind = e.kind.name();
             job.errorDetail = null;
-            if (e.spendsKey()) job.idempotencyKey = newKey();
+            if (e.spendsKey()) rotateKey(job);
             move(job, PublishJob.QUEUED);
             return Outcome.RETRY;
         }
 
         job.errorKind = e.kind.name();
         job.errorDetail = e.detail;
-        if (e.spendsKey()) job.idempotencyKey = newKey();
+        if (e.spendsKey()) rotateKey(job);
         if (e.kind == PublishException.Kind.MEDIA_NOT_FOUND) {
             // The server lost the upload: a Retry must send the video again.
             job.mediaId = null;
@@ -335,6 +392,12 @@ public final class PublishPipeline {
         return Outcome.FAILED;
     }
 
+    /** A new publish key means a new body is allowed: the stored "now" date is made again. */
+    private static void rotateKey(PublishJob job) {
+        job.idempotencyKey = newKey();
+        job.publishDate = null;
+    }
+
     public static String newKey() {
         return UUID.randomUUID().toString();
     }
@@ -344,9 +407,12 @@ public final class PublishPipeline {
         save(job);
     }
 
+    /** Thread A saves the same job object: one writer at a time. */
     private void save(PublishJob job) {
-        job.updatedAt = clock.getAsLong();
-        store.save(job);
+        synchronized (job) {
+            job.updatedAt = clock.getAsLong();
+            store.save(job);
+        }
         if (listener != null) listener.onChanged(job);
     }
 }

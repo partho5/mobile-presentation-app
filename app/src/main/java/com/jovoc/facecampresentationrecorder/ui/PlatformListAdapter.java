@@ -16,6 +16,8 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.CenterCrop;
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.publish.Platforms;
 import com.jovoc.facecampresentationrecorder.publish.Platforms.ChannelState;
 import com.jovoc.facecampresentationrecorder.publish.Platforms.Platform;
@@ -37,6 +39,9 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
 
         /** The user flipped a channel's auto-publish switch. */
         void onChannelToggled(ChannelState channel, boolean enabled);
+
+        /** The user flipped a channel's "Text post from your video" switch. */
+        void onTextPostToggled(ChannelState channel, boolean enabled);
     }
 
     private static final int TYPE_HEADER = 0, TYPE_PLATFORM = 1, TYPE_CHANNEL = 2, TYPE_ADD = 3;
@@ -95,6 +100,11 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
 
     void setBusy(String identifier) {
         busyIdentifier = identifier;
+        notifyItemRangeChanged(0, items.size());
+    }
+
+    /** The plan changed: locked rows must look locked (or open) again. */
+    void refreshGate() {
         notifyItemRangeChanged(0, items.size());
     }
 
@@ -210,10 +220,23 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             h.itemView.setOnClickListener(v -> listener.onPlatformAction(p));
         } else if (ch.disabled) {
             state = c.getString(R.string.ap_paused);
-        } else if (!p.autoPublishSupported) {
+        } else if (p.channelRow() == Platforms.ChannelRow.MANUAL_ONLY) {
             state = c.getString(R.string.ap_manual_only);
         }
+        boolean textRow = state == null && p.channelRow() == Platforms.ChannelRow.TEXT_POST;
+        // The crown (muted when unlocked, gold when locked) only on the text-post label.
+        if (textRow) {
+            h.state.setText(R.string.ap_text_post);
+            h.state.setTextColor(COLOR_GREY);
+            PremiumMark.apply(h.state, Feature.AI_CAPTIONS);
+        } else {
+            h.state.setCompoundDrawablesRelative(null, null, null, null);
+        }
 
+        if (textRow) {
+            bindTextSwitch(h, name, ch);
+            return;
+        }
         if (state != null) {
             h.state.setText(state);
             h.state.setTextColor(stateColor);
@@ -233,6 +256,21 @@ final class PlatformListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         h.toggle.setEnabled(!saving);
         h.toggle.setOnCheckedChangeListener((b, on) -> listener.onChannelToggled(ch, on));
         // The whole row is the touch target, not just the small switch.
+        if (!saving) h.itemView.setOnClickListener(v -> h.toggle.toggle());
+    }
+
+    /** The text-post switch: off while the plan lacks it (a tap opens the upgrade sheet). */
+    private void bindTextSwitch(ChannelHolder h, String name, ChannelState ch) {
+        Context c = h.itemView.getContext();
+        h.state.setVisibility(View.VISIBLE);
+        h.toggle.setVisibility(View.VISIBLE);
+        h.toggle.setContentDescription(c.getString(R.string.ap_text_post_switch_cd, name));
+        h.toggle.setChecked(ch.textPostOn && Entitlements.has(Feature.AI_CAPTIONS));
+        if (!ch.id.equals(h.boundId)) h.toggle.jumpDrawablesToCurrentState();
+        h.boundId = ch.id;
+        boolean saving = savingIds.contains(ch.id);
+        h.toggle.setEnabled(!saving);
+        h.toggle.setOnCheckedChangeListener((b, on) -> listener.onTextPostToggled(ch, on));
         if (!saving) h.itemView.setOnClickListener(v -> h.toggle.toggle());
     }
 

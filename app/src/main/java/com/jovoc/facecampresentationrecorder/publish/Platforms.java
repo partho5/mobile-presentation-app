@@ -51,16 +51,24 @@ public final class Platforms {
         public final String group;
         public final String status;
         public final boolean autoPublishSupported;
+        /** True when the server can post a text version of a video here (platforms.textPost). */
+        public final boolean textPost;
         public final List<ChannelState> channels;
 
         public Platform(String identifier, String name, String icon, String group, String status,
                         boolean autoPublishSupported, List<ChannelState> channels) {
+            this(identifier, name, icon, group, status, autoPublishSupported, false, channels);
+        }
+
+        public Platform(String identifier, String name, String icon, String group, String status,
+                        boolean autoPublishSupported, boolean textPost, List<ChannelState> channels) {
             this.identifier = identifier;
             this.name = name;
             this.icon = icon == null ? "" : icon;
             this.group = GROUP_VIDEO.equals(group) ? GROUP_VIDEO : GROUP_OTHER;
             this.status = status == null ? STATUS_READY_TO_CONNECT : status;
             this.autoPublishSupported = autoPublishSupported;
+            this.textPost = textPost;
             this.channels = Collections.unmodifiableList(new ArrayList<>(channels));
         }
 
@@ -75,7 +83,16 @@ public final class Platforms {
         public boolean isVideo() {
             return GROUP_VIDEO.equals(group);
         }
+
+        /** What a connected channel row of this platform offers. */
+        public ChannelRow channelRow() {
+            if (autoPublishSupported) return ChannelRow.AUTO_PUBLISH;
+            return textPost ? ChannelRow.TEXT_POST : ChannelRow.MANUAL_ONLY;
+        }
     }
+
+    /** The control on a channel row: the auto-publish switch, the text-post switch, or a note. */
+    public enum ChannelRow { AUTO_PUBLISH, TEXT_POST, MANUAL_ONLY }
 
     /** A connected channel of a platform and whether recordings auto-publish to it. */
     public static final class ChannelState {
@@ -88,9 +105,17 @@ public final class Platforms {
         public final boolean refreshNeeded;
         /** Not final: the screen flips it optimistically (main thread only) while the PUT runs. */
         public boolean autoPublish;
+        /** As {@link #autoPublish}, for the "Text post from your video" switch (channels.textPostOn). */
+        public boolean textPostOn;
 
         public ChannelState(String id, String name, String picture, boolean disabled,
                             boolean refreshNeeded, boolean autoPublish) {
+            this(id, name, picture, disabled, refreshNeeded, autoPublish, false);
+        }
+
+        public ChannelState(String id, String name, String picture, boolean disabled,
+                            boolean refreshNeeded, boolean autoPublish, boolean textPostOn) {
+            this.textPostOn = textPostOn;
             this.id = id;
             this.name = name;
             this.picture = picture;
@@ -132,7 +157,7 @@ public final class Platforms {
             if (name.isEmpty()) name = AutoPublishInfo.providerName(identifier);
             list.add(new Platform(identifier, name, optText(p, "icon"), p.optString("group", ""),
                     p.optString("status", ""), p.optBoolean("autoPublishSupported", false),
-                    parseChannels(p.optJSONArray("channels"))));
+                    p.optBoolean("textPost", false), parseChannels(p.optJSONArray("channels"))));
         }
         JSONObject auto = o.optJSONObject("autoPublish");
         String mode = auto == null ? MODE_AUTOMATIC : auto.optString("mode", MODE_AUTOMATIC);
@@ -152,7 +177,7 @@ public final class Platforms {
             out.add(new ChannelState(id, optText(c, "name").replace('\n', ' ').trim(),
                     picture.isEmpty() ? null : picture,
                     c.optBoolean("disabled", false), c.optBoolean("refreshNeeded", false),
-                    c.optBoolean("autoPublish", false)));
+                    c.optBoolean("autoPublish", false), c.optBoolean("textPostOn", false)));
         }
         return out;
     }

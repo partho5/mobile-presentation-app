@@ -12,7 +12,7 @@ Backend: `social.nanybot.com/api` `POST /activity/batches`. Plan and event list:
   renamed / shared / deleted (counts only), publish taps and results (platform and error type), sign-in
   steps, changes of the subscription plan (the plan name before and after, e.g. free to pro), the
   upgrade sheet being shown (which feature, which plan the user is on) and which of its buttons was
-  tapped (upgrade / sign in / refresh / close), the plans list being opened, and crashes (the exception type and the code location, never its message).
+  tapped (upgrade / sign in / refresh / close), the plans list being opened, the AI captions switch being turned on or off (and on which screen), how an AI caption ended (its state, how many milliseconds the upload waited for it, and the publish mode, never the caption or transcript text), the "text post" channel switch being turned on or off, and crashes (the exception type and the code location, never its message).
 - **A device id**: a UUID made from the phone's MediaDrm (Widevine) id with SHA-256 and an app-specific
   salt, or a random UUID where MediaDrm is unavailable. The raw hardware id is never stored or sent.
   It is not the advertising id and is not shared with anyone else.

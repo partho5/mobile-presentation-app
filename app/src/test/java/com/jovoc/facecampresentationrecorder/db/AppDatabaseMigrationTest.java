@@ -37,14 +37,14 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsSevenAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsEightAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(6, all.length);
+        assertEquals(7, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(7, all[all.length - 1].endVersion);
+        assertEquals(8, all[all.length - 1].endVersion);
     }
 
     @Test
@@ -87,5 +87,37 @@ public class AppDatabaseMigrationTest {
             if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) fields++;
         }
         assertEquals(fields, columns.length - 1);
+    }
+
+    @Test
+    public void migration7to8_createsTheAudioSessionTableWithTheVideoTablesColumns() {
+        List<String> sql = run(AppDatabase.MIGRATION_7_8);
+        String s = sql.get(0);
+        assertTrue(s.startsWith("CREATE TABLE IF NOT EXISTS `audio_upload_sessions`"));
+        String[] columns = {"`job_id` INTEGER NOT NULL", "`upload_id` TEXT", "`size` INTEGER NOT NULL",
+                "`part_size` INTEGER NOT NULL", "`part_count` INTEGER NOT NULL", "`parts_json` TEXT",
+                "`status` TEXT", "PRIMARY KEY(`job_id`)"};
+        for (String c : columns) assertTrue("missing " + c, s.contains(c));
+        int fields = 0;
+        for (java.lang.reflect.Field f : AudioUploadSession.class.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) fields++;
+        }
+        assertEquals(fields, columns.length - 1);
+        assertTrue(!s.contains("`upload_sessions`"));
+    }
+
+    @Test
+    public void migration7to8_addsTheFourNullableCaptionColumnsToPublishJobs() {
+        List<String> sql = run(AppDatabase.MIGRATION_7_8);
+        assertEquals(5, sql.size());
+        String[] cols = {"aiCaptionId", "aiCaptionState", "aiCaptionKey", "publishDate"};
+        for (int i = 0; i < cols.length; i++) {
+            assertEquals("ALTER TABLE `publish_jobs` ADD COLUMN `" + cols[i] + "` TEXT", sql.get(i + 1));
+            try {
+                PublishJob.class.getField(cols[i]);
+            } catch (NoSuchFieldException e) {
+                throw new AssertionError("no PublishJob." + cols[i]);
+            }
+        }
     }
 }

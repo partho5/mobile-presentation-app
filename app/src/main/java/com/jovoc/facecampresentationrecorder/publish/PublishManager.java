@@ -15,6 +15,7 @@ import androidx.work.WorkManager;
 
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
+import com.jovoc.facecampresentationrecorder.db.AudioSessionStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
@@ -173,6 +174,7 @@ public final class PublishManager {
         // The plan this recording started with (read here: the io thread may run after it ended).
         // The stored switch is kept when it is off, and returns with the plan.
         final boolean allowed = FeatureSnapshot.allows(Feature.AUTO_PUBLISH);
+        final boolean aiAllowed = FeatureSnapshot.allows(Feature.AI_CAPTIONS);
         Future<?> saved = io.submit(() -> {
             boolean on = allowed && app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
                     .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
@@ -186,6 +188,11 @@ public final class PublishManager {
             job.filePath = path;
             job.fileName = video.getName();
             job.mode = PublishJob.MODE_AUTO;
+            // AI captions: the plan this recording started with plus the user's switch.
+            job.aiCaptionState = AiCaptionsSwitch.active(true, aiAllowed,
+                    app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
+                            .getBoolean(RecordSettings.KEY_AI_CAPTIONS, true))
+                    ? PublishJob.AI_EXTRACTING : PublishJob.AI_OFF;
             job.status = PublishJob.WAITING_PROCESSING;
             job.idempotencyKey = PublishPipeline.newKey();
             job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
@@ -327,8 +334,12 @@ public final class PublishManager {
      */
     private void abortUpload(long jobId, String workspaceId) {
         try {
+            AppDatabase db = AppDatabase.getInstance(app);
+            // The extracted speech WAV goes with the cancelled job.
+            AudioExtractor.delete(AudioExtractor.outputFor(app.getCacheDir(), jobId));
             new DirectUploader(new DirectUploadApi(SessionManager.get(app).repository()))
-                    .cancel(jobId, workspaceId, AppDatabase.getInstance(app).uploadSessionDao());
+                    .cancel(jobId, workspaceId, db.uploadSessionDao(),
+                            new AudioSessionStore(db.audioUploadSessionDao()));
         } catch (RuntimeException e) {
             Log.w(LOG_TAG, "upload of job " + jobId + " not aborted", e);
         }

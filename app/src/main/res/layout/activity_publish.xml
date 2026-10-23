@@ -116,10 +116,78 @@
                 android:layout_marginTop="4dp"
                 android:orientation="vertical" />
 
+            <LinearLayout
+                android:id="@+id/row_ai_captions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:minHeight="48dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="12dp"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/publish_ai_switch"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tv_ai_cost"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:textColor="#AAAAAA"
+                        android:textSize="13sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_premium_ai_captions"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginStart="6dp"
+                        android:contentDescription="@string/premium_cd"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tv_tier_ai_captions"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switch_ai_captions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/publish_ai_switch"
+                    android:minHeight="48dp"
+                    app:thumbTint="@color/ap_switch_thumb"
+                    app:trackTint="@color/ap_switch_track" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_ai_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/publish_ai_hint"
+                android:textColor="#888888"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:text="@string/publish_caption_label"
                 android:textColor="#AAAAAA"
                 android:textSize="13sp" />

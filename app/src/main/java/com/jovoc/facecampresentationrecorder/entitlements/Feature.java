@@ -21,6 +21,7 @@ public final class Feature {
     public static final String AUTO_PUBLISH = "auto_publish";
     public static final String CROP_4_5 = "crop_4_5";
     public static final String CROP_1_1 = "crop_1_1";
+    public static final String AI_CAPTIONS = "ai_captions";
     public static final String BG_REPLACE = "bg_replace";
     public static final String BG_CUSTOM = "bg_custom";
 
@@ -45,6 +46,7 @@ public final class Feature {
         m.put(AUTO_PUBLISH, PLAN_FREE);
         m.put(CROP_4_5, PLAN_STARTER);
         m.put(CROP_1_1, PLAN_STARTER);
+        m.put(AI_CAPTIONS, PLAN_STARTER);
         m.put(BG_REPLACE, PLAN_PRO);
         m.put(BG_CUSTOM, PLAN_PRO);
         DEFAULT_LOWEST = Collections.unmodifiableMap(m);

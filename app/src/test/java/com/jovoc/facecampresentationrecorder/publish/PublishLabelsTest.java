@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.publish;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -44,5 +45,38 @@ public class PublishLabelsTest {
         PublishJob done = failed("AUTO_NOT_CONFIGURED", null);
         done.status = PublishJob.DONE;
         assertFalse(PublishLabels.needsSetup(done));
+    }
+
+    private static PublishJob captioned(String mode, String remote, String captionId) {
+        PublishJob j = new PublishJob();
+        j.status = PublishJob.DONE;
+        j.mode = mode;
+        j.remoteState = remote;
+        j.aiCaptionId = captionId;
+        return j;
+    }
+
+    @Test
+    public void captionActionEditWhenScheduledSeeWhenPosted() {
+        assertEquals(PublishLabels.CaptionAction.EDIT,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_SCHEDULE, null, "c1")));
+        assertEquals(PublishLabels.CaptionAction.EDIT,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_AUTO_SLOT, null, "c1")));
+        assertEquals(PublishLabels.CaptionAction.SEE,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_SCHEDULE, PublishJob.REMOTE_PUBLISHED, "c1")));
+        assertEquals(PublishLabels.CaptionAction.SEE,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_NOW, PublishJob.REMOTE_PUBLISHED, "c1")));
+    }
+
+    @Test
+    public void captionActionHiddenWithoutCaption() {
+        assertEquals(PublishLabels.CaptionAction.NONE, PublishLabels.captionAction(null));
+        assertEquals(PublishLabels.CaptionAction.NONE,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_SCHEDULE, null, null)));
+        assertEquals(PublishLabels.CaptionAction.NONE,
+                PublishLabels.captionAction(captioned(PublishJob.MODE_SCHEDULE, null, PublishJob.AI_CAPTION_NONE)));
+        PublishJob failed = captioned(PublishJob.MODE_SCHEDULE, null, "c1");
+        failed.status = PublishJob.FAILED;
+        assertEquals(PublishLabels.CaptionAction.NONE, PublishLabels.captionAction(failed));
     }
 }

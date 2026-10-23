@@ -9,8 +9,9 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Slide.class, PublishJob.class, UploadSession.class, ActivityEvent.class},
-        version = 7, exportSchema = false)
+@Database(entities = {Slide.class, PublishJob.class, UploadSession.class, ActivityEvent.class,
+        AudioUploadSession.class},
+        version = 8, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -22,6 +23,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract UploadSessionDao uploadSessionDao();
 
     public abstract ActivityEventDao activityEventDao();
+
+    public abstract AudioUploadSessionDao audioUploadSessionDao();
 
     static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -94,10 +97,30 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /** The table of {@link AudioUploadSession}; same columns as {@code upload_sessions}. */
+    static final String CREATE_AUDIO_UPLOAD_SESSIONS =
+            "CREATE TABLE IF NOT EXISTS `audio_upload_sessions` ("
+            + "`job_id` INTEGER NOT NULL, `upload_id` TEXT, `size` INTEGER NOT NULL, "
+            + "`part_size` INTEGER NOT NULL, `part_count` INTEGER NOT NULL, "
+            + "`parts_json` TEXT, `status` TEXT, PRIMARY KEY(`job_id`))";
+
+    // AI captions: the speech-audio upload table and the caption state of a publish job (all
+    // nullable); the video's upload_sessions and every other column are untouched.
+    static final Migration MIGRATION_7_8 = new Migration(7, 8) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(CREATE_AUDIO_UPLOAD_SESSIONS);
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `aiCaptionId` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `aiCaptionState` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `aiCaptionKey` TEXT");
+            database.execSQL("ALTER TABLE `publish_jobs` ADD COLUMN `publishDate` TEXT");
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7
+            MIGRATION_6_7, MIGRATION_7_8
     };
 
     public static AppDatabase getInstance(Context context) {

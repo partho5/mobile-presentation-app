@@ -6,6 +6,7 @@ import android.app.TimePickerDialog;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,6 +26,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -34,21 +36,31 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
+import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.publish.AiCaptionsSwitch;
+import com.jovoc.facecampresentationrecorder.publish.AudioDuration;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.Channel;
+import com.jovoc.facecampresentationrecorder.publish.Platforms;
+import com.jovoc.facecampresentationrecorder.publish.ChargePreview;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -77,6 +89,16 @@ public class PublishActivity extends AppCompatActivity {
     private TextView tvChannelsError;
     private LinearLayout channelsContainer;
     private EditText editCaption;
+    private SharedPreferences prefs;
+    private SwitchCompat aiSwitch;
+    private ImageView aiCrown;
+    private TextView aiTier;
+    private TextView tvAiCost;
+    private View aiHint;
+    /** True while the code, not the user, sets the AI switch, so that is not saved as a choice. */
+    private boolean syncingAi;
+    /** Audio track length of the file in seconds; -1 none, null until measured (io thread only). */
+    private Long audioSeconds;
     private RadioGroup groupWhen;
     private View scheduleRow;
     private Button btnPickDate;
@@ -88,11 +110,17 @@ public class PublishActivity extends AppCompatActivity {
     /** Enabled channels by id, in list order; {@link #selected} holds the ticked ids. */
     private final Map<String, Channel> channelsById = new LinkedHashMap<>();
     private final List<String> selected = new ArrayList<>();
+    /** Provider identifiers of non-video platforms (they get a text post); empty until known. */
+    private final Set<String> textPlatforms = new HashSet<>();
+    /** Channel id -> its "Text post (AI)" line, shown while AI captions are on. */
+    private final Map<String, TextView> textPostTags = new HashMap<>();
     private final Calendar scheduleAt = Calendar.getInstance();
 
     private static final int COST_NONE = 0, COST_LOADING = 1, COST_OK = 2, COST_FAILED = 3;
     private int costState = COST_NONE;
     private int costAmount;
+    /** Credits AI captions add, from the server for this file's audio length; 0 is free. */
+    private int aiCredits;
     private int costRequest;
     private boolean submitting;
 
@@ -139,6 +167,12 @@ public class PublishActivity extends AppCompatActivity {
         tvChannelsError = findViewById(R.id.tv_channels_error);
         channelsContainer = findViewById(R.id.channels_container);
         editCaption = findViewById(R.id.edit_caption);
+        prefs = getSharedPreferences(RecordSettings.PREF_NAME, MODE_PRIVATE);
+        aiSwitch = findViewById(R.id.switch_ai_captions);
+        aiCrown = findViewById(R.id.iv_premium_ai_captions);
+        aiTier = findViewById(R.id.tv_tier_ai_captions);
+        tvAiCost = findViewById(R.id.tv_ai_cost);
+        aiHint = findViewById(R.id.tv_ai_hint);
         groupWhen = findViewById(R.id.group_when);
         scheduleRow = findViewById(R.id.schedule_row);
         btnPickDate = findViewById(R.id.btn_pick_date);
@@ -180,6 +214,22 @@ public class PublishActivity extends AppCompatActivity {
                 android.text.format.DateFormat.is24HourFormat(this)).show());
         btnPublish.setOnClickListener(v -> onPublishClicked());
 
+        // AI captions (KEY_AI_CAPTIONS): a locked switch stays off and opens the upgrade sheet.
+        syncAiGate();
+        aiSwitch.setOnCheckedChangeListener((b, checked) -> {
+            if (syncingAi) return;
+            if (checked && !Entitlements.has(Feature.AI_CAPTIONS)) {
+                showAi(false);
+                Gate.run(this, Feature.AI_CAPTIONS, () -> aiSwitch.setChecked(true));
+                return;
+            }
+            prefs.edit().putBoolean(RecordSettings.KEY_AI_CAPTIONS, checked).apply();
+            ActivityLog.log("ai_captions_toggle", "on", checked, "where", "publish");
+            showAi(checked);
+            onAiChanged();
+        });
+        findViewById(R.id.row_ai_captions).setOnClickListener(v -> aiSwitch.toggle());
+
         // One publish at a time per recording.
         io.execute(() -> {
             PublishJob latest = PublishManager.get(this).latestFor(file.getAbsolutePath());
@@ -198,6 +248,49 @@ public class PublishActivity extends AppCompatActivity {
         super.onResume();
         // Back from Auto upload after connecting a platform: look again without a manual refresh.
         if (showingNoChannels && api != null) loadChannels();
+        // The plan may have changed (upgrade sheet, billing page).
+        if (aiSwitch != null && aiActive() != aiSwitch.isChecked()) {
+            syncAiGate();
+            onAiChanged();
+        }
+    }
+
+    // ---- AI captions ----
+
+    /** True when AI captions will run for this publish: switch on, signed in, plan covers it. */
+    private boolean aiActive() {
+        return AiCaptionsSwitch.active(true, Entitlements.has(Feature.AI_CAPTIONS),
+                prefs.getBoolean(RecordSettings.KEY_AI_CAPTIONS, true));
+    }
+
+    private void syncAiGate() {
+        showAi(aiActive());
+        PremiumMark.apply(aiCrown, aiTier, Feature.AI_CAPTIONS);
+    }
+
+    /** Sets the switch without saving it as a choice, and the hint that goes with it. */
+    private void showAi(boolean on) {
+        syncingAi = true;
+        aiSwitch.setChecked(on);
+        syncingAi = false;
+        aiHint.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (!on) tvAiCost.setText("");
+    }
+
+    /** The switch or the plan changed: the cost line must be asked again. */
+    private void onAiChanged() {
+        aiCredits = 0;
+        syncTextPostTags();
+        scheduleCostLoad();
+    }
+
+    private void showAiCost() {
+        if (!aiActive() || costState != COST_OK) {
+            tvAiCost.setText("");
+            return;
+        }
+        tvAiCost.setText(aiCredits == 0 ? getString(R.string.publish_ai_switch_free)
+                : getResources().getQuantityString(R.plurals.publish_ai_switch_cost, aiCredits, aiCredits));
     }
 
     @Override
@@ -222,11 +315,24 @@ public class PublishActivity extends AppCompatActivity {
             } catch (PublishException e) {
                 error = e;
             }
+            // Which platforms are not video ones; best effort, the tag just stays hidden without it.
+            Set<String> nonVideo = new HashSet<>();
+            if (error == null) {
+                try {
+                    for (Platforms.Platform p : api.platforms().platforms) {
+                        if (!p.isVideo()) nonVideo.add(p.identifier);
+                    }
+                } catch (PublishException ignored) {
+                    // no tag
+                }
+            }
             final List<Channel> result = list;
             final PublishException err = error;
             main.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 progressChannels.setVisibility(View.GONE);
+                textPlatforms.clear();
+                textPlatforms.addAll(nonVideo);
                 if (err != null) {
                     showChannelsError(PublishLabels.reason(this, err), false);
                 } else if (result.isEmpty()) {
@@ -252,6 +358,7 @@ public class PublishActivity extends AppCompatActivity {
         channelsById.clear();
         selected.clear();
         channelsContainer.removeAllViews();
+        textPostTags.clear();
         int enabledCount = 0;
         for (Channel c : list) if (!c.disabled) enabledCount++;
 
@@ -262,6 +369,9 @@ public class PublishActivity extends AppCompatActivity {
             TextView provider = row.findViewById(R.id.tv_channel_provider);
             provider.setText(c.disabled ? getString(R.string.publish_channel_disabled)
                     : AutoPublishInfo.providerName(c.identifier));
+            if (!c.disabled && textPlatforms.contains(c.identifier)) {
+                textPostTags.put(c.id, row.findViewById(R.id.tv_channel_text_post));
+            }
             CheckBox check = row.findViewById(R.id.check_channel);
             ImageView avatar = row.findViewById(R.id.iv_channel);
             if (c.picture != null && !c.picture.isEmpty()) {
@@ -286,7 +396,14 @@ public class PublishActivity extends AppCompatActivity {
             }
             channelsContainer.addView(row);
         }
+        syncTextPostTags();
         onSelectionChanged();
+    }
+
+    /** "Text post (AI)" under non-video channels, only while AI captions will run. */
+    private void syncTextPostTags() {
+        int vis = aiActive() ? View.VISIBLE : View.GONE;
+        for (TextView t : textPostTags.values()) t.setVisibility(vis);
     }
 
     private void onSelectionChanged() {
@@ -312,28 +429,53 @@ public class PublishActivity extends AppCompatActivity {
     private void loadCost() {
         final int request = costRequest;
         final List<String> ids = new ArrayList<>(selected);
+        final boolean ai = aiActive();
         io.execute(() -> {
             int amount = 0;
+            int aiAmount = 0;
             boolean ok = true;
             try {
-                amount = api.chargePreview(ids);
+                long seconds = -1;
+                if (ai) {
+                    // The audio track's length, not the video's: that is what the server charges on.
+                    if (audioSeconds == null) audioSeconds = AudioDuration.seconds(file);
+                    seconds = audioSeconds;
+                }
+                ChargePreview preview = api.chargePreview(ids, seconds);
+                amount = preview.amount;
+                aiAmount = preview.aiCaptions;
             } catch (PublishException e) {
                 ok = false;
             }
             final int a = amount;
+            final int aiA = aiAmount;
             final boolean success = ok;
             main.post(() -> {
                 if (request != costRequest || isFinishing() || isDestroyed()) return; // selection moved on
                 costState = success ? COST_OK : COST_FAILED;
                 costAmount = a;
+                aiCredits = aiA;
                 refreshConfirm();
             });
         });
     }
 
-    private String costText() {
+    private String publishCostText() {
         return costAmount == 1 ? getString(R.string.publish_cost_one_credit)
                 : getString(R.string.publish_cost_credits, costAmount);
+    }
+
+    /** "N credits + M for AI captions"; "AI captions free" when the server says 0. Empty: no cost. */
+    private String costText() {
+        boolean ai = aiActive();
+        if (!ai) return costAmount > 0 ? publishCostText() : "";
+        if (aiCredits > 0) {
+            return costAmount > 0
+                    ? getString(R.string.publish_cost_ai_extra, publishCostText(), aiCredits)
+                    : getString(R.string.publish_cost_ai_only, aiCredits);
+        }
+        return costAmount > 0 ? getString(R.string.publish_cost_with_ai_free, publishCostText())
+                : getString(R.string.publish_cost_ai_free);
     }
 
     // ---- schedule ----
@@ -371,9 +513,10 @@ public class PublishActivity extends AppCompatActivity {
                 tvCost.setText(R.string.publish_cost_unavailable);
                 break;
             case COST_OK:
-                // Free actions show no cost.
-                tvCost.setVisibility(costAmount > 0 ? View.VISIBLE : View.GONE);
-                tvCost.setText(costText());
+                // Free actions show no cost (AI captions say so when they are on).
+                String text = costText();
+                tvCost.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+                tvCost.setText(text);
                 break;
             default:
                 tvCost.setVisibility(View.GONE);
@@ -382,7 +525,7 @@ public class PublishActivity extends AppCompatActivity {
         String label;
         if (n == 0) {
             label = getString(R.string.publish_confirm_none);
-        } else if (costState == COST_OK && costAmount > 0) {
+        } else if (costState == COST_OK && (costAmount > 0 || (aiActive() && aiCredits > 0))) {
             label = n == 1 ? getString(R.string.publish_confirm_one_cost, costText())
                     : getString(R.string.publish_confirm_many_cost, n, costText());
         } else {
@@ -390,6 +533,7 @@ public class PublishActivity extends AppCompatActivity {
                     : getString(R.string.publish_confirm_many, n);
         }
         btnPublish.setText(label);
+        showAiCost();
         // The cost must be known before the user can confirm.
         btnPublish.setEnabled(n > 0 && costState == COST_OK && scheduleOk && !submitting);
     }
@@ -423,6 +567,8 @@ public class PublishActivity extends AppCompatActivity {
         job.channelsJson = Channel.toJson(chosen);
         job.mode = isScheduled() ? PublishJob.MODE_SCHEDULE : PublishJob.MODE_NOW;
         job.scheduleAt = isScheduled() ? scheduleAt.getTimeInMillis() : 0L;
+        // The switch as it is when Publish is tapped: on only for a plan that includes it.
+        job.aiCaptionState = aiActive() ? PublishJob.AI_EXTRACTING : PublishJob.AI_OFF;
 
         PublishManager.get(this).enqueue(job, () -> main.post(() -> {
             Toast.makeText(getApplicationContext(), R.string.publish_started, Toast.LENGTH_LONG).show();

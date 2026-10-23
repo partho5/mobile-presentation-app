@@ -22,6 +22,17 @@
     <string name="publish_refresh">Refresh</string>
     <string name="publish_channel_disabled">Disabled</string>
     <string name="publish_retry">Try again</string>
+    <string name="publish_ai_switch">AI captions</string>
+    <plurals name="publish_ai_switch_cost">
+        <item quantity="one">+%1$d credit</item>
+        <item quantity="other">+%1$d credits</item>
+    </plurals>
+    <string name="publish_ai_switch_free">free</string>
+    <string name="publish_ai_hint">Optional: a line to keep word for word (link, offer). AI writes the rest.</string>
+    <string name="publish_cost_ai_extra">%1$s + %2$d for AI captions</string>
+    <string name="publish_cost_ai_only">%1$d for AI captions</string>
+    <string name="publish_cost_ai_free">AI captions free</string>
+    <string name="publish_cost_with_ai_free">%1$s · AI captions free</string>
     <string name="publish_cost_loading">Checking cost…</string>
     <string name="publish_cost_unavailable">Cost unavailable. Tap to retry.</string>
     <string name="publish_cost_free">No credits needed</string>
@@ -87,6 +98,14 @@
     <string name="publish_channel_name">Publishing</string>
     <string name="publish_notif_title">Publishing recording</string>
     <string name="publish_notif_cancel">Cancel</string>
+    <string name="publish_notif_captions">Writing captions…</string>
+    <string name="captions_see">See captions</string>
+    <string name="captions_edit">Edit captions</string>
+    <string name="captions_link_failed">Open the web dashboard \u2192 AI captions</string>
+    <string name="status_ai_ready">AI captions</string>
+    <string name="status_ai_skipped_credits">Posted with your text: not enough credits for AI captions</string>
+    <string name="status_ai_no_speech">Posted with your text: no speech found</string>
+    <string name="status_ai_unavailable">Posted with your text: AI captions unavailable</string>
 
     <!-- Undo window notification -->
     <string name="undo_notif_title">Publishing soon</string>
@@ -112,6 +131,9 @@
     <string name="ap_not_connected">Not connected</string>
     <string name="ap_connected">Connected</string>
     <string name="ap_manual_only">Manual posting only</string>
+    <string name="ap_text_post">Text post from your video</string>
+    <string name="ap_text_post_switch_cd">Text post from your video to %1$s</string>
+    <string name="publish_text_post_ai">Text post (AI)</string>
     <string name="ap_add_channel">+ Add another %1$s channel</string>
     <string name="ap_add_first_channel">+ Add a %1$s channel</string>
     <string name="ap_reconnect">Reconnect</string>
@@ -141,6 +163,13 @@
     </plurals>
     <string name="ap_next_credits">%1$s · %2$d available</string>
     <string name="ap_next_credits_short">Not enough credits · %1$s, %2$d available</string>
+    <string name="ap_ai_switch">AI captions</string>
+    <string name="ap_ai_body">AI writes the caption, title and hashtags for each platform from what you say.</string>
+    <plurals name="ap_ai_cost">
+        <item quantity="one">%1$d credit per minute of video, rounded down</item>
+        <item quantity="other">%1$d credits per minute of video, rounded down</item>
+    </plurals>
+    <string name="ap_ai_cost_free">No credits needed</string>
     <string name="ap_undo_header">Undo before publishing</string>
     <string name="ap_undo_off">Off</string>
     <string name="ap_undo_30">30 s</string>

@@ -18,11 +18,14 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
+import com.jovoc.facecampresentationrecorder.db.AudioSessionStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
+import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
 import com.jovoc.facecampresentationrecorder.publish.BitmapImaging;
+import com.jovoc.facecampresentationrecorder.publish.CaptionFlow;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploadApi;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploader;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
@@ -46,13 +49,17 @@ public class PublishWorker extends Worker {
 
     private final PublishJobDao dao;
     private final UploadSessionDao sessions;
+    private final AudioSessionStore audioSessions;
     private int lastNotifiedPercent = -10;
+    /** True while the notification reads "Writing captions…" (video done first). */
+    private volatile boolean writingCaptions;
 
     public PublishWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
         AppDatabase db = AppDatabase.getInstance(context);
         dao = db.publishJobDao();
         sessions = db.uploadSessionDao();
+        audioSessions = new AudioSessionStore(db.audioUploadSessionDao());
     }
 
     @NonNull
@@ -72,8 +79,11 @@ public class PublishWorker extends Worker {
 
         AuthRepository repo = SessionManager.get(getApplicationContext()).repository();
         PublishApi api = new PublishApi(repo);
+        DirectUploader direct = new DirectUploader(new DirectUploadApi(repo));
+        CaptionFlow captions = CaptionFlow.create(api, direct, audioSessions,
+                getApplicationContext().getCacheDir(), System::currentTimeMillis);
         PublishPipeline pipeline = new PublishPipeline(api,
-                new DirectUploader(new DirectUploadApi(repo)), sessions,
+                direct, sessions,
                 new PublishPipeline.Store() {
                     @Override
                     public PublishJob load(long jobId) {
@@ -86,7 +96,7 @@ public class PublishWorker extends Worker {
                     }
                 },
                 this::onJobChanged, this::isStopped, MAX_ATTEMPTS, System::currentTimeMillis,
-                BitmapImaging.source());
+                BitmapImaging.source(), captions);
 
         PublishPipeline.Outcome outcome = pipeline.run(id, getRunAttemptCount());
 
@@ -110,11 +120,13 @@ public class PublishWorker extends Worker {
         if (job != null && job.isActive()) {
             if (getStopReason() == WorkInfo.STOP_REASON_CANCELLED_BY_APP) {
                 dao.deleteById(id);
+                // The extracted speech WAV goes with the cancelled job.
+                AudioExtractor.delete(AudioExtractor.outputFor(getApplicationContext().getCacheDir(), id));
                 // Best-effort: frees the server-side upload (and the row) of a cancelled job.
                 try {
                     new DirectUploader(new DirectUploadApi(
                             SessionManager.get(getApplicationContext()).repository()))
-                            .cancel(id, job.workspaceId, sessions);
+                            .cancel(id, job.workspaceId, sessions, audioSessions);
                 } catch (RuntimeException ignored) {
                     // It expires on the server anyway.
                 }
@@ -128,6 +140,18 @@ public class PublishWorker extends Worker {
 
     private void onJobChanged(PublishJob job) {
         PublishManager.broadcast(getApplicationContext());
+        // The video is up (100 %) while its captions are still being written: say so, once.
+        boolean writing = PublishJob.UPLOADING.equals(job.status) && job.progress >= 100
+                && !PublishJob.AI_CAPTION_NONE.equals(job.aiCaptionId) && isWaitingCaptions(job.aiCaptionState);
+        if (writing != writingCaptions) {
+            writingCaptions = writing;
+            try {
+                setForegroundAsync(foregroundInfo(job.id, job.fileName, job.progress));
+            } catch (RuntimeException ignored) {
+                // see doWork
+            }
+            return;
+        }
         if (PublishJob.UPLOADING.equals(job.status) && job.progress >= lastNotifiedPercent + 5) {
             lastNotifiedPercent = job.progress;
             try {
@@ -136,6 +160,11 @@ public class PublishWorker extends Worker {
                 // see doWork
             }
         }
+    }
+
+    private static boolean isWaitingCaptions(String state) {
+        return PublishJob.AI_EXTRACTING.equals(state) || PublishJob.AI_UPLOADING.equals(state)
+                || PublishJob.AI_PENDING.equals(state);
     }
 
     @NonNull
@@ -155,7 +184,8 @@ public class PublishWorker extends Worker {
         }
         Notification n = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(ctx.getString(R.string.publish_notif_title))
+                .setContentTitle(ctx.getString(writingCaptions
+                        ? R.string.publish_notif_captions : R.string.publish_notif_title))
                 .setContentText(fileName)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

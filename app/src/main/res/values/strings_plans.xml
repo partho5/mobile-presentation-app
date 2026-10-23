@@ -18,6 +18,8 @@
     <string name="feature_slide_ink_benefit">Underline and circle things right on your slides.</string>
     <string name="feature_auto_publish_name">Auto upload</string>
     <string name="feature_auto_publish_benefit">Post your recording to your social channels automatically.</string>
+    <string name="feature_ai_captions_name">AI captions and text posts</string>
+    <string name="feature_ai_captions_benefit">AI writes a caption, title and hashtags for each platform from what you say in the video.</string>
     <string name="feature_bg_replace_name">Face cam background replacement</string>
     <string name="feature_bg_replace_benefit">Swap your room for a clean background. No green screen needed.</string>
     <string name="feature_bg_custom_name">Your own backgrounds</string>

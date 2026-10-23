@@ -122,6 +122,36 @@ public class PublishJob {
     @ColumnInfo(name = "remote_url")
     public String remoteUrl;
 
+    /**
+     * AI captions: the server's caption id, or the literal {@link #AI_CAPTION_NONE} once the job
+     * decided to publish without one. Fixed before the first publish call so a retry under the same
+     * Idempotency-Key sends the same body.
+     */
+    public String aiCaptionId;
+
+    /** One of the {@code AI_*} states below; null on jobs made before AI captions. */
+    public String aiCaptionState;
+
+    /** Stable Idempotency-Key of the caption create (never the rotating publish key). */
+    public String aiCaptionKey;
+
+    /** The "date" a manual "now" post sends, fixed on the first attempt and reused by every retry. */
+    public String publishDate;
+
+    /** {@link #aiCaptionId} when no caption goes with the publish. */
+    public static final String AI_CAPTION_NONE = "none";
+
+    public static final String AI_OFF = "off";
+    public static final String AI_EXTRACTING = "extracting";
+    public static final String AI_UPLOADING = "uploading";
+    public static final String AI_PENDING = "pending";
+    public static final String AI_READY = "ready";
+    public static final String AI_SKIPPED_CREDITS = "skipped_credits";
+    public static final String AI_NO_SPEECH = "no_speech";
+    public static final String AI_UNAVAILABLE = "unavailable";
+    public static final String AI_TIMEOUT = "timeout";
+    public static final String AI_NO_AUDIO = "no_audio";
+
     @ColumnInfo(name = "created_at")
     public long createdAt;
 
@@ -144,6 +174,7 @@ public class PublishJob {
      */
     public void resetForNewPublish(String newIdempotencyKey) {
         idempotencyKey = newIdempotencyKey;
+        publishDate = null; // a new key may carry a new body: the "now" date is made again
         postIds = null;
         postIntegrations = null;
         remoteState = null;

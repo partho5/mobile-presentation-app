@@ -57,7 +57,8 @@ public class FeatureTest {
         assertEquals("starter", Feature.DEFAULT_LOWEST.get(Feature.CROP_1_1));
         assertEquals("pro", Feature.DEFAULT_LOWEST.get(Feature.BG_REPLACE));
         assertEquals("pro", Feature.DEFAULT_LOWEST.get(Feature.BG_CUSTOM));
-        assertEquals(9, Feature.DEFAULT_LOWEST.size());
+        assertEquals("starter", Feature.DEFAULT_LOWEST.get(Feature.AI_CAPTIONS));
+        assertEquals(10, Feature.DEFAULT_LOWEST.size());
         // 9:16 comes first wherever aspect ratios are listed.
         ArrayList<String> order = new ArrayList<>(Feature.DEFAULT_LOWEST.keySet());
         assertTrue(order.indexOf(Feature.CROP_9_16) < order.indexOf(Feature.CROP_4_5));

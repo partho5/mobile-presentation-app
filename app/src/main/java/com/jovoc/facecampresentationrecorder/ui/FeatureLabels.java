@@ -23,6 +23,7 @@ final class FeatureLabels {
         TEXT.put(Feature.DRAWING_BOARD, new int[]{R.string.feature_drawing_board_name, R.string.feature_drawing_board_benefit});
         TEXT.put(Feature.SLIDE_INK, new int[]{R.string.feature_slide_ink_name, R.string.feature_slide_ink_benefit});
         TEXT.put(Feature.AUTO_PUBLISH, new int[]{R.string.feature_auto_publish_name, R.string.feature_auto_publish_benefit});
+        TEXT.put(Feature.AI_CAPTIONS, new int[]{R.string.feature_ai_captions_name, R.string.feature_ai_captions_benefit});
         TEXT.put(Feature.BG_REPLACE, new int[]{R.string.feature_bg_replace_name, R.string.feature_bg_replace_benefit});
         TEXT.put(Feature.BG_CUSTOM, new int[]{R.string.feature_bg_custom_name, R.string.feature_bg_custom_benefit});
     }

@@ -73,4 +73,28 @@ public class PlatformsTest {
             // mapped to a SERVER failure by PublishApi
         }
     }
+
+    @Test
+    public void parsesTextPostAndRowTypePerPlatform() throws Exception {
+        Platforms p = Platforms.parse("{\"platforms\":["
+                + "{\"identifier\":\"youtube\",\"group\":\"video\",\"status\":\"connected\","
+                + "\"autoPublishSupported\":true,\"channels\":[{\"id\":\"y1\"}]},"
+                + "{\"identifier\":\"gmb\",\"group\":\"other\",\"status\":\"connected\","
+                + "\"autoPublishSupported\":false,\"textPost\":true,"
+                + "\"channels\":[{\"id\":\"g1\",\"textPostOn\":true},{\"id\":\"g2\"}]},"
+                + "{\"identifier\":\"discord\",\"group\":\"other\",\"status\":\"connected\","
+                + "\"channels\":[{\"id\":\"d1\",\"textPostOn\":true}]}]}");
+        Platforms.Platform yt = p.find("youtube");
+        Platforms.Platform gmb = p.find("gmb");
+        Platforms.Platform discord = p.find("discord");
+        assertFalse(yt.textPost);
+        assertEquals(Platforms.ChannelRow.AUTO_PUBLISH, yt.channelRow());
+        assertFalse(yt.channels.get(0).textPostOn);
+        assertTrue(gmb.textPost);
+        assertEquals(Platforms.ChannelRow.TEXT_POST, gmb.channelRow());
+        assertTrue(gmb.channels.get(0).textPostOn);
+        assertFalse(gmb.channels.get(1).textPostOn);
+        assertFalse(discord.textPost);
+        assertEquals(Platforms.ChannelRow.MANUAL_ONLY, discord.channelRow());
+    }
 }

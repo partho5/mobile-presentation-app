@@ -20,6 +20,8 @@ import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
@@ -33,7 +35,10 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
+import com.jovoc.facecampresentationrecorder.publish.PublishApi;
+import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
+import com.jovoc.facecampresentationrecorder.ui.WebLinks;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PurgedMedia;
@@ -300,6 +305,10 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         menu.findItem(R.id.action_publish_retry).setVisible(failed);
         menu.findItem(R.id.action_publish_cancel).setVisible(running);
         menu.findItem(R.id.action_publish_set_up).setVisible(PublishLabels.needsSetup(job));
+        PublishLabels.CaptionAction captions = PublishLabels.captionAction(job);
+        menu.findItem(R.id.action_captions).setVisible(captions != PublishLabels.CaptionAction.NONE);
+        menu.findItem(R.id.action_captions).setTitle(captions == PublishLabels.CaptionAction.EDIT
+                ? R.string.captions_edit : R.string.captions_see);
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
@@ -319,6 +328,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             } else if (id == R.id.action_publish_cancel) {
                 if (job != null) confirmCancelPublish(job);
                 return true;
+            } else if (id == R.id.action_captions) {
+                if (job != null) openCaptions(job.aiCaptionId);
+                return true;
             } else if (id == R.id.action_rename) {
                 renameVideo(item);
                 return true;
@@ -337,6 +349,29 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         });
 
         popup.show();
+    }
+
+    /** Opens the web caption page signed in; any failure toasts where to find it by hand. */
+    private void openCaptions(String captionId) {
+        Context app = context.getApplicationContext();
+        Handler main = new Handler(Looper.getMainLooper());
+        new Thread(() -> {
+            String url = null;
+            try {
+                url = new PublishApi(SessionManager.get(app).repository())
+                        .webLink(PublishApi.LINK_AI_CAPTION, captionId);
+            } catch (PublishException e) {
+                // Falls through to the toast.
+            }
+            final String link = url;
+            main.post(() -> {
+                if (link != null) {
+                    WebLinks.open(context, link);
+                } else {
+                    Toast.makeText(context, R.string.captions_link_failed, Toast.LENGTH_LONG).show();
+                }
+            });
+        }, "captions-link").start();
     }
 
     /** Tints every icon so the menu reads as one set, with Delete called out in red. Publish keeps its full-colour icon. */
@@ -374,6 +409,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         if (id == R.id.action_publish_retry) return "publish_retry";
         if (id == R.id.action_publish_set_up) return "publish_set_up";
         if (id == R.id.action_publish_cancel) return "publish_cancel";
+        if (id == R.id.action_captions) return "captions";
         if (id == R.id.action_rename) return "rename";
         if (id == R.id.action_share) return "share";
         if (id == R.id.action_select) return "select";

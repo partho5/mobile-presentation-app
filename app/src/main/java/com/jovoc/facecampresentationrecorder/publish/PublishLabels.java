@@ -37,7 +37,7 @@ public final class PublishLabels {
                 return c.getString(R.string.status_publishing);
             case PublishJob.DONE:
                 if (PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) {
-                    return c.getString(R.string.status_live);
+                    return withAi(c, c.getString(R.string.status_live), job);
                 }
                 if (PublishJob.REMOTE_DELETED.equals(job.remoteState)) {
                     return c.getString(R.string.status_deleted_web);
@@ -46,14 +46,14 @@ public final class PublishLabels {
                     return remoteFailure(c, job.remoteChannel, job.remoteError);
                 }
                 if (PublishJob.MODE_AUTO_SLOT.equals(job.mode)) {
-                    return c.getString(R.string.status_scheduled_slot);
+                    return withAi(c, c.getString(R.string.status_scheduled_slot), job);
                 }
                 if (PublishJob.MODE_SCHEDULE.equals(job.mode)) {
                     String when = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                             .format(new Date(job.scheduleAt));
-                    return c.getString(R.string.status_scheduled, when);
+                    return withAi(c, c.getString(R.string.status_scheduled, when), job);
                 }
-                return c.getString(R.string.status_published);
+                return withAi(c, c.getString(R.string.status_published), job);
             case PublishJob.FAILED:
                 if (PurgedMedia.is(job)) {
                     return c.getString(PurgedMedia.fileExists(job)
@@ -63,6 +63,36 @@ public final class PublishLabels {
             default:
                 return null;
         }
+    }
+
+    /**
+     * The quiet AI captions line for an accepted post, or null when there is nothing to say:
+     * {@code ready} reads "AI captions" (joined to the status with " · "), the others explain
+     * why the post went out with the user's own text. Never an error.
+     */
+    public static String aiLine(Context c, PublishJob job) {
+        if (job == null || job.aiCaptionState == null) return null;
+        switch (job.aiCaptionState) {
+            case PublishJob.AI_READY:
+                return c.getString(R.string.status_ai_ready);
+            case PublishJob.AI_SKIPPED_CREDITS:
+                return c.getString(R.string.status_ai_skipped_credits);
+            case PublishJob.AI_NO_SPEECH:
+                return c.getString(R.string.status_ai_no_speech);
+            case PublishJob.AI_UNAVAILABLE:
+            case PublishJob.AI_TIMEOUT:
+                return c.getString(R.string.status_ai_unavailable);
+            default:
+                return null; // off, no_audio, or still working
+        }
+    }
+
+    /** "Live on 5 · AI captions", or the status with the reason on a second line. */
+    static String withAi(Context c, String status, PublishJob job) {
+        String line = aiLine(c, job);
+        if (line == null) return status;
+        return PublishJob.AI_READY.equals(job.aiCaptionState)
+                ? status + " \u00B7 " + line : status + "\n" + line;
     }
 
     /** Same colours; a job blocked only by Wi-Fi-only uses the amber of "Waiting for connection". */
@@ -108,6 +138,23 @@ public final class PublishLabels {
     public static boolean needsPlan(PublishJob job) {
         return job != null && PublishJob.FAILED.equals(job.status)
                 && "NEEDS_PLAN".equals(job.errorKind);
+    }
+
+    /** Card-menu caption action for a job. */
+    public enum CaptionAction { NONE, EDIT, SEE }
+
+    /**
+     * "Edit captions" for a scheduled post that is not live yet, "See captions" once it is posted,
+     * NONE when the job has no caption (no id, or the literal "none").
+     */
+    public static CaptionAction captionAction(PublishJob job) {
+        if (job == null || !PublishJob.DONE.equals(job.status)) return CaptionAction.NONE;
+        String id = job.aiCaptionId;
+        if (id == null || id.isEmpty() || PublishJob.AI_CAPTION_NONE.equals(id)) return CaptionAction.NONE;
+        if (PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) return CaptionAction.SEE;
+        if (job.remoteState == null && (PublishJob.MODE_SCHEDULE.equals(job.mode)
+                || PublishJob.MODE_AUTO_SLOT.equals(job.mode))) return CaptionAction.EDIT;
+        return CaptionAction.NONE;
     }
 
     /** The link of a post that is live, or null. */

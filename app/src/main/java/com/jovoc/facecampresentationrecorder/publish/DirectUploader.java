@@ -2,7 +2,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 
 import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.db.UploadSession;
-import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
+import com.jovoc.facecampresentationrecorder.db.UploadSessionStore;
 
 import java.io.File;
 import java.io.IOException;
@@ -92,8 +92,8 @@ public class DirectUploader {
                 .build();
     }
 
-    /** {@link #upload(long, File, String, UploadSessionDao, ApiClient.ProgressListener, BooleanSupplier, String)} without a poster. */
-    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
+    /** {@link #upload(long, File, String, UploadSessionStore, ApiClient.ProgressListener, BooleanSupplier, String)} without a poster. */
+    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionStore sessions,
                                   ApiClient.ProgressListener progress, BooleanSupplier cancelled)
             throws PublishException {
         return upload(jobId, file, workspaceId, sessions, progress, cancelled, (String) null);
@@ -112,7 +112,7 @@ public class DirectUploader {
      * @return the media ({@code id}, {@code path}) to give to the post
      * @throws PublishException the mapped failure; the session row stays, so a retry resumes
      */
-    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
+    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionStore sessions,
                                   ApiClient.ProgressListener progress, BooleanSupplier cancelled,
                                   String posterBase64) throws PublishException {
         return upload(jobId, file, workspaceId, sessions, progress, cancelled, () -> posterBase64);
@@ -123,9 +123,37 @@ public class DirectUploader {
      * sent (once), so a frame grab never delays the first byte and a resume that needs no
      * complete never makes one. The supplier may return null; if it throws, no poster is sent.
      */
-    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionDao sessions,
+    public CompletedUpload upload(long jobId, File file, String workspaceId, UploadSessionStore sessions,
                                   ApiClient.ProgressListener progress, BooleanSupplier cancelled,
                                   java.util.function.Supplier<String> posterSource)
+            throws PublishException {
+        return run(UploadKind.VIDEO, jobId, file, workspaceId, sessions, progress, cancelled,
+                posterSource);
+    }
+
+    /**
+     * Uploads the speech WAV of a job (purpose {@code transcript_audio}, only ".wav"), resuming its
+     * stored session like the video. {@code sessions} is the audio store
+     * ({@code audio_upload_sessions}), never the video's. Returns the upload id to give to
+     * POST /ai-captions. The row is kept like the video's; the caller calls {@link #finish} after the
+     * caption was created.
+     */
+    public CompletedAudio uploadAudio(long jobId, File wav, String workspaceId,
+                                      UploadSessionStore sessions, ApiClient.ProgressListener progress,
+                                      BooleanSupplier cancelled) throws PublishException {
+        CompletedUpload done = run(UploadKind.AUDIO, jobId, wav, workspaceId, sessions, progress,
+                cancelled, null);
+        return new CompletedAudio(done.id);
+    }
+
+    /**
+     * The shared upload / resume loop. For {@link UploadKind#AUDIO} the returned
+     * {@link CompletedUpload} only carries {@code id} (the audio answer has no path).
+     */
+    private CompletedUpload run(UploadKind kind, long jobId, File file, String workspaceId,
+                                UploadSessionStore sessions, ApiClient.ProgressListener progress,
+                                BooleanSupplier cancelled,
+                                java.util.function.Supplier<String> posterSource)
             throws PublishException {
         if (file == null || !file.isFile() || file.length() == 0) {
             throw new PublishException(PublishException.Kind.FILE);
@@ -148,7 +176,7 @@ public class DirectUploader {
             checkStopped(stop);
 
             if (row == null) {
-                row = create(jobId, file, size, workspaceId, sessions);
+                row = create(kind, jobId, file, size, workspaceId, sessions);
                 finished = new TreeMap<>();
                 needStatus = false;
             } else if (needStatus) {
@@ -210,7 +238,13 @@ public class DirectUploader {
                         poster = null; // a bonus only: never fails the upload
                     }
                 }
-                CompletedUpload done = api.complete(row.uploadId, parts, poster, workspaceId);
+                CompletedUpload done;
+                if (kind == UploadKind.AUDIO) {
+                    CompletedAudio audio = api.completeAudio(row.uploadId, parts, workspaceId);
+                    done = new CompletedUpload(audio.id, null, null);
+                } else {
+                    done = api.complete(row.uploadId, parts, poster, workspaceId);
+                }
                 sessions.setStatus(jobId, UploadSession.COMPLETED);
                 if (progress != null) progress.onProgress(size, size);
                 return done;
@@ -242,7 +276,7 @@ public class DirectUploader {
      * The job is finished (its media id is saved) or no longer needs the upload: forget the
      * session. Does not talk to the server.
      */
-    public void finish(long jobId, UploadSessionDao sessions) {
+    public void finish(long jobId, UploadSessionStore sessions) {
         sessions.delete(jobId);
     }
 
@@ -250,17 +284,33 @@ public class DirectUploader {
      * The job was cancelled: abort the server-side upload (best-effort; a failure only leaves it
      * to expire) and delete the row. Safe when the job has no session.
      */
-    public void cancel(long jobId, String workspaceId, UploadSessionDao sessions) {
+    public void cancel(long jobId, String workspaceId, UploadSessionStore sessions) {
         UploadSession row = sessions.get(jobId);
         if (row == null) return;
         drop(jobId, row.uploadId, workspaceId, sessions, true);
     }
 
+    /**
+     * The job was cancelled: aborts both its uploads, the video's and the audio's, each from its own
+     * store. A failure on one never skips the other.
+     */
+    public void cancel(long jobId, String workspaceId, UploadSessionStore video,
+                       UploadSessionStore audio) {
+        try {
+            cancel(jobId, workspaceId, video);
+        } finally {
+            cancel(jobId, workspaceId, audio);
+        }
+    }
+
     // ---- internals ----
 
-    private UploadSession create(long jobId, File file, long size, String workspaceId,
-                                 UploadSessionDao sessions) throws PublishException {
-        UploadSessionInfo info = api.create(file.getName(), size, workspaceId);
+    private UploadSession create(UploadKind kind, long jobId, File file, long size, String workspaceId,
+                                 UploadSessionStore sessions) throws PublishException {
+        if (!kind.allows(file.getName())) throw new PublishException(PublishException.Kind.FILE);
+        UploadSessionInfo info = kind == UploadKind.VIDEO
+                ? api.create(file.getName(), size, workspaceId)
+                : api.create(file.getName(), size, workspaceId, kind);
         if (UploadPlan.partCountFor(size, info.partSize) != info.partCount) {
             // The server's own numbers do not fit the file: nothing to send against.
             abortQuietly(info.id, workspaceId);
@@ -278,7 +328,7 @@ public class DirectUploader {
         return row;
     }
 
-    private void drop(long jobId, String uploadId, String workspaceId, UploadSessionDao sessions,
+    private void drop(long jobId, String uploadId, String workspaceId, UploadSessionStore sessions,
                       boolean abortFirst) {
         if (abortFirst) abortQuietly(uploadId, workspaceId);
         sessions.delete(jobId);
@@ -348,7 +398,7 @@ public class DirectUploader {
         private final String uploadId;
         private final long partSize;
         private final String workspaceId;
-        private final UploadSessionDao sessions;
+        private final UploadSessionStore sessions;
         private final ApiClient.ProgressListener progress;
         private final BooleanSupplier cancelled;
 
@@ -365,7 +415,7 @@ public class DirectUploader {
         private PublishException failure;
 
         Transfer(long jobId, File file, long size, UploadSession row, Map<Integer, String> finished,
-                 String workspaceId, UploadSessionDao sessions, ApiClient.ProgressListener progress,
+                 String workspaceId, UploadSessionStore sessions, ApiClient.ProgressListener progress,
                  BooleanSupplier cancelled) {
             this.jobId = jobId;
             this.file = file;

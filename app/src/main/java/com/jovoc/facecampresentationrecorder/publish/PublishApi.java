@@ -33,12 +33,16 @@ public class PublishApi {
     public static final String PATH_POSTS_STATUS = "/public/v1/posts/status";
     public static final String PATH_PLATFORMS = "/public/v1/platforms";
     public static final String PATH_AUTO_PUBLISH_CHANNELS = "/public/v1/auto-publish/channels/";
+    public static final String PATH_AUTO_PUBLISH_TEXT_CHANNELS = "/public/v1/auto-publish/text-channels/";
+    public static final String PATH_AI_CAPTIONS = "/public/v1/ai-captions";
     public static final String PATH_WEB_LINK = "/public/v1/web-link";
     /** web-link targets: the app-keys page of a provider, or its connect flow. */
     public static final String LINK_CREDENTIALS = "credentials";
     public static final String LINK_CONNECT = "connect";
     /** web-link target: the billing page, with the plan to highlight as the identifier. */
     public static final String LINK_BILLING = "billing";
+    /** web-link target: the web caption page; the identifier is the AI caption id. */
+    public static final String LINK_AI_CAPTION = "ai-caption";
     /** The backend answers at most this many ids per GET /posts/status. */
     public static final int MAX_STATUS_IDS = 50;
     public static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
@@ -103,6 +107,22 @@ public class PublishApi {
         }
     }
 
+    /**
+     * As {@link #chargePreview(List)}, also asking for the AI captions price of
+     * {@code aiCaptionsSeconds} of speech audio (negative: not asked).
+     */
+    public ChargePreview chargePreview(List<String> integrationIds, long aiCaptionsSeconds)
+            throws PublishException {
+        ApiResponse r = authed(() -> repo.execute("POST", PATH_CHARGE_PREVIEW,
+                PublishRequestBuilder.chargePreviewBody(integrationIds, aiCaptionsSeconds), null));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return ChargePreview.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
     /** GET /public/v1/auto-publish for the device's current workspace. */
     public AutoPublishInfo autoPublishInfo() throws PublishException {
         return autoPublishInfo(null);
@@ -137,6 +157,22 @@ public class PublishApi {
     /** PUT /public/v1/auto-publish/channels/:id {enabled}: include the channel in auto-publish or not. */
     public void setChannelAutoPublish(String integrationId, boolean enabled) throws PublishException {
         String path = PATH_AUTO_PUBLISH_CHANNELS + pathSegment(integrationId);
+        String body;
+        try {
+            body = new JSONObject().put("enabled", enabled).toString();
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+        ApiResponse r = authed(() -> repo.execute("PUT", path, body, null));
+        if (!r.isSuccess()) throw PublishException.from(r);
+    }
+
+    /**
+     * PUT /public/v1/auto-publish/text-channels/:id {enabled}: post a text version of recordings to
+     * this (non-video) channel or not. 404 channel gone, 400 TEXT_POST_NOT_SUPPORTED, 403 plan.
+     */
+    public void setChannelTextPost(String integrationId, boolean enabled) throws PublishException {
+        String path = PATH_AUTO_PUBLISH_TEXT_CHANNELS + pathSegment(integrationId);
         String body;
         try {
             body = new JSONObject().put("enabled", enabled).toString();
@@ -220,6 +256,37 @@ public class PublishApi {
         ApiResponse r = authed(() -> repo.execute("POST", PATH_AUTO_PUBLISH, body, headers));
         if (!r.isSuccess()) throw PublishException.from(r);
         return postedIds(r);
+    }
+
+    /**
+     * POST /public/v1/ai-captions for the speech audio already uploaded as {@code audioUploadId},
+     * under the job's own {@code aiCaptionKey} (never the publish key, which rotates). Send it only
+     * after the audio {@code complete}: a 409 would be replayed for 24 h.
+     */
+    public AiCaptionCreated createCaption(PublishJob job, String audioUploadId) throws PublishException {
+        Map<String, String> headers = workspaceHeaders(job.workspaceId, null);
+        headers.put(HEADER_IDEMPOTENCY, job.aiCaptionKey);
+        String body = PublishRequestBuilder.aiCaptionBody(job, audioUploadId);
+        ApiResponse r = authed(() -> repo.execute("POST", PATH_AI_CAPTIONS, body, headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return AiCaptionCreated.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
+    }
+
+    /** GET /public/v1/ai-captions/:id: where the caption stands. */
+    public AiCaptionStatus captionStatus(String captionId, String workspaceId) throws PublishException {
+        String path = PATH_AI_CAPTIONS + "/" + pathSegment(captionId);
+        Map<String, String> headers = workspaceHeaders(workspaceId, null);
+        ApiResponse r = authed(() -> repo.execute("GET", path, null, headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+        try {
+            return AiCaptionStatus.parse(r.body);
+        } catch (JSONException e) {
+            throw new PublishException(PublishException.Kind.SERVER);
+        }
     }
 
     /**

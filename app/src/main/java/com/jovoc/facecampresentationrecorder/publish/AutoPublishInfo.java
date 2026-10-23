@@ -35,9 +35,21 @@ public final class AutoPublishInfo {
      * used: the app's Auto upload screen is where auto-publish is set up.
      */
     public final String setupUrl;
+    /**
+     * Credits per whole minute of speech for AI captions (aiCaptions.costPerMinute); 0 means free,
+     * {@link #COST_UNKNOWN} when an older server did not send it.
+     */
+    public final long aiCaptionsCostPerMinute;
+
+    public static final long COST_UNKNOWN = -1L;
 
     public AutoPublishInfo(boolean configured, String setName, String timing, List<Channel> channels,
                            long cost, long available, String setupUrl) {
+        this(configured, setName, timing, channels, cost, available, setupUrl, COST_UNKNOWN);
+    }
+
+    public AutoPublishInfo(boolean configured, String setName, String timing, List<Channel> channels,
+                           long cost, long available, String setupUrl, long aiCaptionsCostPerMinute) {
         this.configured = configured;
         this.setName = setName;
         this.timing = timing;
@@ -45,6 +57,7 @@ public final class AutoPublishInfo {
         this.cost = cost;
         this.available = available;
         this.setupUrl = setupUrl == null ? "" : setupUrl;
+        this.aiCaptionsCostPerMinute = aiCaptionsCostPerMinute < 0 ? COST_UNKNOWN : aiCaptionsCostPerMinute;
     }
 
     /** Parses the GET answer. {@code configured} must be present; the rest is read leniently. */
@@ -55,6 +68,7 @@ public final class AutoPublishInfo {
         List<Channel> channels = new ArrayList<>();
         JSONArray arr = o.optJSONArray("channels");
         if (arr != null) channels = Channel.parseList(arr.toString());
+        JSONObject ai = o.optJSONObject("aiCaptions");
         return new AutoPublishInfo(
                 configured,
                 o.isNull("setName") ? null : o.optString("setName", null),
@@ -62,7 +76,8 @@ public final class AutoPublishInfo {
                 channels,
                 Math.max(0L, o.optLong("cost", 0L)),
                 Math.max(0L, o.optLong("available", 0L)),
-                o.optString("setupUrl", ""));
+                o.optString("setupUrl", ""),
+                ai == null ? COST_UNKNOWN : ai.optLong("costPerMinute", COST_UNKNOWN));
     }
 
     /** The channels a recording will actually be posted to. */

@@ -32,6 +32,7 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
+import com.jovoc.facecampresentationrecorder.publish.AiCaptionsSwitch;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishInfo;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.Platforms;
@@ -105,6 +106,12 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private TextView masterTier;
     /** True while the code, not the user, sets the master switch, so that is not saved as a choice. */
     private boolean syncingMaster;
+    private SwitchCompat aiSwitch;
+    private ImageView aiCrown;
+    private TextView aiTier;
+    private TextView tvAiCost;
+    /** As {@link #syncingMaster}, for the AI captions switch. */
+    private boolean syncingAi;
     private View onBox;
     private TextView tvOff;
     private TextView tvTargets;
@@ -270,7 +277,9 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         for (Platform p : platforms.platforms) {
             for (ChannelState c : p.channels) {
                 Boolean pending = saving.get(c.id);
-                if (pending != null) c.autoPublish = pending;
+                if (pending == null) continue;
+                if (p.channelRow() == Platforms.ChannelRow.TEXT_POST) c.textPostOn = pending;
+                else c.autoPublish = pending;
             }
         }
         loaded = platforms;
@@ -321,6 +330,10 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         masterSwitch = findViewById(R.id.switch_auto_publish);
         masterCrown = findViewById(R.id.iv_premium_auto_publish);
         masterTier = findViewById(R.id.tv_tier_auto_publish);
+        aiSwitch = findViewById(R.id.switch_ai_captions);
+        aiCrown = findViewById(R.id.iv_premium_ai_captions);
+        aiTier = findViewById(R.id.tv_tier_ai_captions);
+        tvAiCost = findViewById(R.id.tv_ai_captions_cost);
         onBox = findViewById(R.id.next_on_box);
         tvOff = findViewById(R.id.tv_next_off);
         tvTargets = findViewById(R.id.tv_next_targets);
@@ -343,6 +356,20 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         });
         // The whole row is the touch target, not just the small switch.
         findViewById(R.id.row_auto_publish_master).setOnClickListener(v -> masterSwitch.toggle());
+
+        // AI captions (KEY_AI_CAPTIONS): a locked switch stays off and opens the upgrade sheet.
+        syncAiGate();
+        aiSwitch.setOnCheckedChangeListener((b, checked) -> {
+            if (syncingAi) return;
+            if (checked && !Entitlements.has(Feature.AI_CAPTIONS)) {
+                showAi(false);
+                Gate.run(this, Feature.AI_CAPTIONS, () -> aiSwitch.setChecked(true));
+                return;
+            }
+            prefs.edit().putBoolean(RecordSettings.KEY_AI_CAPTIONS, checked).apply();
+            ActivityLog.log("ai_captions_toggle", "on", checked, "where", "auto_upload");
+        });
+        findViewById(R.id.row_ai_captions).setOnClickListener(v -> aiSwitch.toggle());
 
         // "Undo before publishing": Off / 30 s / 60 s, default 30 s.
         RadioGroup undo = findViewById(R.id.rg_ap_undo);
@@ -461,6 +488,36 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         showMaster(prefs.getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false)
                 && Entitlements.has(Feature.AUTO_PUBLISH));
         PremiumMark.apply(masterCrown, masterTier, Feature.AUTO_PUBLISH);
+        syncAiGate();
+    }
+
+    /** Shows the stored AI captions choice only while the plan covers it; the choice itself is kept. */
+    private void syncAiGate() {
+        if (aiSwitch == null) return;
+        showAi(AiCaptionsSwitch.active(true, Entitlements.has(Feature.AI_CAPTIONS),
+                prefs.getBoolean(RecordSettings.KEY_AI_CAPTIONS, true)));
+        PremiumMark.apply(aiCrown, aiTier, Feature.AI_CAPTIONS);
+        // The text-post rows share the feature: locked look follows the plan.
+        if (adapter != null) adapter.refreshGate();
+    }
+
+    /** Sets the AI captions switch without saving it as a choice. */
+    private void showAi(boolean on) {
+        syncingAi = true;
+        aiSwitch.setChecked(on);
+        syncingAi = false;
+    }
+
+    /** "1 credit per minute of video, rounded down", from the server's price; hidden without one. */
+    private void showAiCost() {
+        long perMinute = info == null ? AutoPublishInfo.COST_UNKNOWN : info.aiCaptionsCostPerMinute;
+        if (!AiCaptionsSwitch.showsCostPerMinute(perMinute)) {
+            tvAiCost.setVisibility(View.GONE);
+            return;
+        }
+        tvAiCost.setVisibility(View.VISIBLE);
+        tvAiCost.setText(perMinute == 0 ? getString(R.string.ap_ai_cost_free)
+                : getResources().getQuantityString(R.plurals.ap_ai_cost, plural(perMinute), perMinute));
     }
 
     /** Opened from the "needs a plan" notification or card: say what auto upload needs. */
@@ -472,6 +529,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     /** "Posts to YouTube, TikTok", then the cost per recording and the balance (amber when short). */
     private void showStatus(List<String> targets) {
         tvTargets.setText(getString(R.string.ap_next_posts_to, String.join(", ", targets)));
+        showAiCost();
         if (info == null) {
             tvCredits.setVisibility(View.GONE);
             return;
@@ -606,6 +664,60 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                     reloadInfo();
                 }
                 // Reload so the deleted channel disappears instead of staying stale.
+                if (deleted) refresh();
+            });
+        });
+    }
+
+    /** As {@link #onChannelToggled}, for the text-post switch (PUT /auto-publish/text-channels/:id). */
+    @Override
+    public void onTextPostToggled(ChannelState channel, boolean enabled) {
+        if (saving.containsKey(channel.id)) return;
+        if (enabled && !Entitlements.has(Feature.AI_CAPTIONS)) {
+            // Locked: the switch goes back to off; it turns on only if the user upgrades.
+            adapter.notifyChannel(channel.id);
+            String id = channel.id;
+            Gate.run(this, Feature.AI_CAPTIONS, () -> {
+                ChannelState current = findChannel(id);
+                if (current != null) onTextPostToggled(current, true);
+            });
+            return;
+        }
+        if (channel.textPostOn == enabled) return;
+        channel.textPostOn = enabled;
+        ActivityLog.log("text_channel_toggle", "enabled", enabled);
+        saving.put(channel.id, enabled);
+        adapter.notifyChannel(channel.id);
+        String id = channel.id;
+        io.execute(() -> {
+            boolean ok;
+            boolean gone = false;
+            boolean noPlan = false;
+            try {
+                api.setChannelTextPost(id, enabled);
+                ok = true;
+            } catch (PublishException e) {
+                ok = false;
+                gone = e.status == 404;
+                noPlan = e.kind == PublishException.Kind.NEEDS_PLAN;
+            }
+            if (noPlan) EntitlementsRefresher.refreshNow();
+            final boolean saved = ok;
+            final boolean deleted = gone;
+            final boolean refused = noPlan;
+            main.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                saving.remove(id);
+                ChannelState current = findChannel(id);
+                if (current != null) current.textPostOn = saved ? enabled : !enabled;
+                if (!saved) {
+                    if (refused && !Entitlements.has(Feature.AI_CAPTIONS)) {
+                        PaywallSheet.show(this, Feature.AI_CAPTIONS, this::syncAiGate);
+                    } else {
+                        Toast.makeText(this, R.string.ap_save_failed, Toast.LENGTH_SHORT).show();
+                    }
+                }
+                adapter.notifyChannel(id);
                 if (deleted) refresh();
             });
         });

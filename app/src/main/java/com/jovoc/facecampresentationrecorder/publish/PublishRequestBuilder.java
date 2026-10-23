@@ -20,8 +20,18 @@ public final class PublishRequestBuilder {
 
     /** POST /posts/charge-preview */
     public static String chargePreviewBody(List<String> integrationIds) {
+        return chargePreviewBody(integrationIds, -1);
+    }
+
+    /**
+     * As above; {@code aiCaptionsSeconds} (the audio track's length) asks for the AI captions
+     * price too. Negative leaves it out.
+     */
+    public static String chargePreviewBody(List<String> integrationIds, long aiCaptionsSeconds) {
         try {
-            return new JSONObject().put("integrationIds", new JSONArray(integrationIds)).toString();
+            JSONObject o = new JSONObject().put("integrationIds", new JSONArray(integrationIds));
+            if (aiCaptionsSeconds >= 0) o.put("aiCaptionsSeconds", aiCaptionsSeconds);
+            return o.toString();
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }
@@ -48,13 +58,51 @@ public final class PublishRequestBuilder {
                         .put("value", new JSONArray().put(value))
                         .put("settings", ProviderSettings.forProvider(c.identifier, title)));
             }
-            return new JSONObject()
+            JSONObject body = new JSONObject()
                     .put("type", schedule ? "schedule" : "now")
                     .put("shortLink", false)
-                    .put("date", isoUtc(schedule ? job.scheduleAt : nowMs))
+                    .put("date", schedule ? isoUtc(job.scheduleAt) : nowDate(job, nowMs))
                     .put("tags", new JSONArray())
-                    .put("posts", posts)
-                    .toString();
+                    .put("posts", posts);
+            if (hasAiCaption(job)) body.put("aiCaptionId", job.aiCaptionId);
+            return body.toString();
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * The date of a "now" post: the one the job stored before its first publish call, so every
+     * retry under the same Idempotency-Key sends the same body (a changed body is a 422 and a
+     * duplicate post). {@code nowMs} is used only by a job that stored none.
+     */
+    static String nowDate(PublishJob job, long nowMs) {
+        return job.publishDate != null && !job.publishDate.isEmpty() ? job.publishDate : isoUtc(nowMs);
+    }
+
+    /** True when the job holds a real caption id (not unset, not the literal "none"). */
+    static boolean hasAiCaption(PublishJob job) {
+        return job.aiCaptionId != null && !job.aiCaptionId.isEmpty()
+                && !PublishJob.AI_CAPTION_NONE.equals(job.aiCaptionId);
+    }
+
+    /**
+     * POST /public/v1/ai-captions. Auto: the recording's name as {@code title}. Manual: the chosen
+     * channels and the typed caption as plain {@code userText} (kept word for word by the server).
+     */
+    public static String aiCaptionBody(PublishJob job, String audioUploadId) {
+        try {
+            JSONObject o = new JSONObject().put("audioUploadId", audioUploadId);
+            if (job.isAuto()) {
+                o.put("mode", "auto").put("title", autoTitle(job.fileName));
+            } else {
+                JSONArray ids = new JSONArray();
+                for (Channel c : Channel.fromJson(job.channelsJson)) ids.put(c.id);
+                o.put("mode", "manual").put("integrationIds", ids);
+                String text = job.caption == null ? "" : job.caption.replace("\r\n", "\n").trim();
+                if (!text.isEmpty()) o.put("userText", text);
+            }
+            return o.toString();
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }
@@ -67,7 +115,9 @@ public final class PublishRequestBuilder {
     public static String autoPublishBody(PublishJob job) {
         try {
             JSONObject media = new JSONObject().put("id", job.mediaId).put("path", job.mediaPath);
-            return new JSONObject().put("media", media).put("title", autoTitle(job.fileName)).toString();
+            JSONObject body = new JSONObject().put("media", media).put("title", autoTitle(job.fileName));
+            if (hasAiCaption(job)) body.put("aiCaptionId", job.aiCaptionId);
+            return body.toString();
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }

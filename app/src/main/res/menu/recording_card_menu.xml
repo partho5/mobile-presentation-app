@@ -21,6 +21,10 @@
         android:icon="@drawable/ic_close"
         android:title="@string/publish_menu_cancel" />
     <item
+        android:id="@+id/action_captions"
+        android:icon="@drawable/ic_edit"
+        android:title="@string/captions_see" />
+    <item
         android:id="@+id/action_rename"
         android:icon="@drawable/ic_edit"
         android:title="Rename" />
