@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text "T": the fill layer is tinted with the active text colour in code, the outline stays black. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/text_fill"
+        android:drawable="@drawable/ic_text_fill" />
+    <item android:drawable="@drawable/ic_text_outline" />
+</layer-list>

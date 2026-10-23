@@ -23,6 +23,8 @@ public final class DrawingBoardStorage {
     private static final String FILE_NAME = "drawing_board.json";
     private static final String PREFS = "drawing_board_prefs";
     private static final String KEY_PEN_COLOR = "pen_color";
+    private static final String KEY_TEXT_COLOR = "text_color";
+    private static final String KEY_TEXT_SIZE = "text_size";
     private static final String KEY_INTRO_SHOWN = "intro_shown";
 
     private DrawingBoardStorage() {}
@@ -46,7 +48,16 @@ public final class DrawingBoardStorage {
             for (DrawingBoardView.Stroke s : strokes) {
                 JSONArray pts = new JSONArray();
                 for (float v : s.points) pts.put(Math.round(v * 10000f) / 10000.0);
-                arr.put(new JSONObject().put("t", s.type).put("c", s.color).put("p", pts));
+                JSONObject o = new JSONObject().put("t", s.type).put("c", s.color).put("p", pts);
+                if (s.texts != null) {
+                    JSONArray items = new JSONArray();
+                    for (DrawingBoardView.TextItem t : s.texts) {
+                        items.put(new JSONObject().put("s", t.text).put("x", Math.round(t.x * 10000f) / 10000.0)
+                                .put("y", Math.round(t.y * 10000f) / 10000.0).put("c", t.color).put("z", t.size));
+                    }
+                    o.put("x", items);
+                }
+                arr.put(o);
             }
             byte[] data = new JSONObject().put("strokes", arr).toString().getBytes(StandardCharsets.UTF_8);
             File tmp = new File(target.getParentFile(), target.getName() + ".tmp");
@@ -72,7 +83,18 @@ public final class DrawingBoardStorage {
                 JSONArray p = o.getJSONArray("p");
                 float[] pts = new float[p.length()];
                 for (int j = 0; j < pts.length; j++) pts[j] = (float) p.getDouble(j);
-                out.add(new DrawingBoardView.Stroke(o.getInt("t"), o.getInt("c"), pts));
+                List<DrawingBoardView.TextItem> items = null;
+                JSONArray x = o.optJSONArray("x");
+                if (x != null) {
+                    items = new ArrayList<>();
+                    for (int j = 0; j < x.length(); j++) {
+                        JSONObject t = x.getJSONObject(j);
+                        items.add(new DrawingBoardView.TextItem(t.getString("s"), (float) t.getDouble("x"),
+                                (float) t.getDouble("y"), t.getInt("c"),
+                                Math.max(0, Math.min(DrawingBoardView.TEXT_SIZE_LARGE, t.optInt("z", 1)))));
+                    }
+                }
+                out.add(new DrawingBoardView.Stroke(o.getInt("t"), o.getInt("c"), pts, items));
             }
         } catch (Exception e) {
             out.clear();
@@ -86,6 +108,22 @@ public final class DrawingBoardStorage {
 
     public static void savePenColor(Context context, int color) {
         prefs(context).edit().putInt(KEY_PEN_COLOR, color).apply();
+    }
+
+    public static int loadTextColor(Context context) {
+        return prefs(context).getInt(KEY_TEXT_COLOR, Color.WHITE);
+    }
+
+    public static void saveTextColor(Context context, int color) {
+        prefs(context).edit().putInt(KEY_TEXT_COLOR, color).apply();
+    }
+
+    public static int loadTextSize(Context context) {
+        return prefs(context).getInt(KEY_TEXT_SIZE, DrawingBoardView.TEXT_SIZE_MEDIUM);
+    }
+
+    public static void saveTextSize(Context context, int level) {
+        prefs(context).edit().putInt(KEY_TEXT_SIZE, level).apply();
     }
 
     /** True exactly once: the first time the board is ever shown. */

@@ -7,7 +7,12 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -22,14 +27,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Wires the drawing board's tool bar (Pen, Eraser, Undo, Redo, Clear) and colour palette to its
+ * Wires the drawing board's tool bar (Pen, Eraser, Text, Undo, Redo, Clear) and colour palette to its
  * {@link DrawingBoardView}, and saves/restores the drawing.
  */
-public class DrawingBoardController implements DrawingBoardView.Listener {
+public class DrawingBoardController implements DrawingBoardView.Listener, DrawingBoardView.TextListener {
 
     private static final float ACTIVE_SCALE = 2f;
     private static final long SCALE_ANIM_MS = 150L;
     private static final float DISABLED_ALPHA = 0.3f;
+    private static final float SIZE_UNSELECTED_ALPHA = 0.45f;
+
+    private static final int TOOL_PEN = 0;
+    private static final int TOOL_ERASER = 1;
+    private static final int TOOL_TEXT = 2;
 
     private static final int[] PALETTE = {
             0xFFFFFFFF, // white
@@ -58,6 +68,10 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     private final DrawingBoardView board;
     private final ImageView toolPen;
     private final ImageView toolEraser;
+    private final ImageView toolText;
+    private final EditText textInput;
+    private final View textBar;
+    private final TextView[] textSizes = new TextView[3];
     private final ImageView toolUndo;
     private final ImageView toolRedo;
     private final View toolClear;
@@ -65,6 +79,9 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
     private final TextView intro;
     private final List<View> swatches = new ArrayList<>();
 
+    private int tool = TOOL_PEN;
+    private View paletteAnchor;
+    private boolean updatingInput = false;
     private boolean dirty = false;
     private final Runnable hidePalette = () -> showPalette(false);
     private final Runnable saveRunnable = this::saveInBackground;
@@ -77,21 +94,36 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         toolEraser = container.findViewById(R.id.tool_eraser);
         toolUndo = container.findViewById(R.id.tool_undo);
         toolRedo = container.findViewById(R.id.tool_redo);
+        toolText = container.findViewById(R.id.tool_text);
+        textInput = container.findViewById(R.id.drawing_board_text_input);
+        textBar = container.findViewById(R.id.drawing_board_text_bar);
+        textSizes[0] = container.findViewById(R.id.text_size_s);
+        textSizes[1] = container.findViewById(R.id.text_size_m);
+        textSizes[2] = container.findViewById(R.id.text_size_l);
+        paletteAnchor = toolPen;
         toolClear = container.findViewById(R.id.tool_clear);
         palette = container.findViewById(R.id.drawing_board_palette);
         intro = container.findViewById(R.id.drawing_board_intro);
 
         toolPen.setOnClickListener(v -> {
             ActivityLog.log("drawing_tool", "tool", "pen");
-            boolean wasEraser = board.isEraserMode();
-            setEraser(false, true);
+            boolean wasPen = tool == TOOL_PEN;
+            setTool(TOOL_PEN, true);
+            paletteAnchor = toolPen;
             // Pen already active and palette open: a second tap closes it.
-            showPalette(wasEraser || palette.getVisibility() != View.VISIBLE);
+            showPalette(!wasPen || palette.getVisibility() != View.VISIBLE);
         });
         toolEraser.setOnClickListener(v -> {
             ActivityLog.log("drawing_tool", "tool", "eraser");
-            setEraser(true, true);
+            setTool(TOOL_ERASER, true);
             showPalette(false);
+        });
+        toolText.setOnClickListener(v -> {
+            ActivityLog.log("drawing_tool", "tool", "text");
+            boolean wasText = tool == TOOL_TEXT;
+            setTool(TOOL_TEXT, true);
+            paletteAnchor = toolText;
+            showPalette(!wasText || palette.getVisibility() != View.VISIBLE);
         });
         toolUndo.setOnClickListener(v -> {
             ActivityLog.log("drawing_tool", "tool", "undo");
@@ -110,9 +142,87 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
 
         buildSwatches();
         board.setListener(this);
+        board.setTextListener(this);
         board.importStrokes(DrawingBoardStorage.load(context));
         setPenColor(DrawingBoardStorage.loadPenColor(context));
-        setEraser(false, false);
+        setTextColor(DrawingBoardStorage.loadTextColor(context));
+        board.setTextSize(DrawingBoardStorage.loadTextSize(context));
+        setTool(TOOL_PEN, false);
+        setupTextInput(container);
+    }
+
+    private void setupTextInput(View container) {
+        textInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (!updatingInput) board.setEditingText(s.toString());
+            }
+        });
+        textInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId != EditorInfo.IME_ACTION_DONE) return false;
+            board.finishEditing();
+            return true;
+        });
+        container.findViewById(R.id.text_done).setOnClickListener(v -> board.finishEditing());
+        for (int i = 0; i < textSizes.length; i++) {
+            final int level = i;
+            textSizes[i].setOnClickListener(v -> {
+                board.setTextSize(level);
+                DrawingBoardStorage.saveTextSize(context, level);
+                styleTextSizes(level);
+            });
+        }
+        styleTextSizes(board.getTextSizeLevel());
+    }
+
+    private void styleTextSizes(int selected) {
+        for (int i = 0; i < textSizes.length; i++) {
+            textSizes[i].setAlpha(i == selected ? 1f : SIZE_UNSELECTED_ALPHA);
+        }
+    }
+
+    /** Applies the colour to new texts (and the one being typed) and tints the T icon's fill. */
+    public void setTextColor(int color) {
+        board.setTextColor(color);
+        Drawable d = toolText.getDrawable();
+        if (d instanceof LayerDrawable) {
+            Drawable fill = ((LayerDrawable) d).findDrawableByLayerId(R.id.text_fill);
+            if (fill != null) fill.mutate().setTint(color);
+        }
+        toolText.invalidate();
+        refreshSwatches();
+    }
+
+    // ---- DrawingBoardView.TextListener ----
+
+    @Override
+    public void onTextEditStart(String text, int color, int sizeLevel) {
+        showPalette(false);
+        setTextColor(color);
+        styleTextSizes(sizeLevel);
+        updatingInput = true;
+        textInput.setText(text);
+        textInput.setSelection(text.length());
+        updatingInput = false;
+        textBar.setVisibility(View.VISIBLE);
+        textInput.setVisibility(View.VISIBLE);
+        textInput.requestFocus();
+        textInput.post(() -> {
+            InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(textInput, InputMethodManager.SHOW_IMPLICIT);
+        });
+    }
+
+    @Override
+    public void onTextEditEnd() {
+        textBar.setVisibility(View.GONE);
+        textInput.clearFocus();
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(textInput.getWindowToken(), 0);
+        textInput.setVisibility(View.GONE);
     }
 
     public DrawingBoardView getBoard() {
@@ -128,6 +238,12 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             if (fill != null) fill.mutate().setTint(color);
         }
         toolPen.invalidate();
+        refreshSwatches();
+    }
+
+    /** Ticks the swatch that matches the colour of the active tool (text colour for Text, else pen). */
+    private void refreshSwatches() {
+        int color = tool == TOOL_TEXT ? board.getTextColor() : board.getPenColor();
         for (int i = 0; i < swatches.size(); i++) styleSwatch(swatches.get(i), PALETTE[i] == color);
     }
 
@@ -143,6 +259,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
 
     /** Call when the board slides away: closes the palette and saves right away. */
     public void onBoardHidden() {
+        board.finishEditing();
         handler.removeCallbacks(hidePalette);
         palette.animate().cancel();
         palette.setVisibility(View.INVISIBLE);
@@ -167,8 +284,13 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
             View sw = new View(context);
             palette.addView(sw, new FrameLayout.LayoutParams(size, size));
             sw.setOnClickListener(v -> {
-                setPenColor(color);
-                DrawingBoardStorage.savePenColor(context, color);
+                if (tool == TOOL_TEXT) {
+                    setTextColor(color);
+                    DrawingBoardStorage.saveTextColor(context, color);
+                } else {
+                    setPenColor(color);
+                    DrawingBoardStorage.savePenColor(context, color);
+                }
                 // A pick mid-cascade: snap this swatch to its slot so the pop happens in place.
                 sw.animate().cancel();
                 layoutArc();
@@ -207,7 +329,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
 
     /** Swatches fly out from the Pen button to their arc slots, one after another. */
     private void flowSwatchesIn() {
-        float penX = toolPen.getLeft() + toolPen.getWidth() / 2f;
+        float penX = paletteAnchor.getLeft() + paletteAnchor.getWidth() / 2f;
         float penY = palette.getHeight();
         float half = SWATCH_DP * density / 2f;
         for (int i = 0; i < swatches.size(); i++) {
@@ -246,7 +368,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
         int h = palette.getHeight();
         if (w <= 0 || h <= 0) return;
         float half = SWATCH_DP * density / 2f;
-        float cx = toolPen.getLeft() + toolPen.getWidth() / 2f;
+        float cx = paletteAnchor.getLeft() + paletteAnchor.getWidth() / 2f;
         float cy = h;
         float r = Math.min(ARC_RADIUS_DP * density, Math.min(h - half - 4 * density, w - cx - half));
         int n = swatches.size();
@@ -260,10 +382,14 @@ public class DrawingBoardController implements DrawingBoardView.Listener {
 
     // ---- tools ----
 
-    private void setEraser(boolean eraser, boolean animate) {
-        board.setEraserMode(eraser);
-        scale(toolPen, eraser ? 1f : ACTIVE_SCALE, animate);
-        scale(toolEraser, eraser ? ACTIVE_SCALE : 1f, animate);
+    private void setTool(int newTool, boolean animate) {
+        tool = newTool;
+        board.setEraserMode(newTool == TOOL_ERASER);
+        board.setTextMode(newTool == TOOL_TEXT);
+        scale(toolPen, newTool == TOOL_PEN ? ACTIVE_SCALE : 1f, animate);
+        scale(toolEraser, newTool == TOOL_ERASER ? ACTIVE_SCALE : 1f, animate);
+        scale(toolText, newTool == TOOL_TEXT ? ACTIVE_SCALE : 1f, animate);
+        refreshSwatches();
     }
 
     private void scale(View v, float target, boolean animate) {
