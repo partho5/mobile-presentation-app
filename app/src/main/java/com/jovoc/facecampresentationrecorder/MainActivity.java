@@ -1191,11 +1191,30 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         drawingBoardContainer.setLayoutParams(lp);
     }
 
+    private void setToolGap(View wrap, int startDp) {
+        if (wrap == null || !(wrap.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) return;
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) wrap.getLayoutParams();
+        int px = Math.round(startDp * getResources().getDisplayMetrics().density);
+        if (lp.getMarginStart() == px) return;
+        lp.setMarginStart(px);
+        wrap.setLayoutParams(lp);
+    }
+
+    /** Pen off and board closed at each start and stop of a recording; the drawn marks stay. */
+    private void resetDrawingTools() {
+        if (slideInkController != null) slideInkController.setPenMode(false);
+        hideDrawingBoard(false);
+    }
+
     private void toggleDrawingBoard() {
         if (drawingBoardContainer == null || isDrawingBoardAnimating) return;
         if (!isDrawingBoardVisible && !FeatureSnapshot.allows(Feature.DRAWING_BOARD)) {
-            // Only on screen while recording: no sheet (it would end up in the video).
-            Gate.lockedWhileRecording(this, Feature.DRAWING_BOARD);
+            if (isRecording) {
+                // No sheet while recording (it would end up in the video).
+                Gate.lockedWhileRecording(this, Feature.DRAWING_BOARD);
+            } else {
+                Gate.run(this, Feature.DRAWING_BOARD, this::showDrawingBoard);
+            }
             return;
         }
         ActivityLog.log("drawing_board_toggle", "on", !isDrawingBoardVisible);
@@ -1505,6 +1524,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     /** Resets the UI to Edit Mode after a recording ends (stop button, notification, or system chip). */
     private void onRecordingStoppedUi() {
         isRecording = false;
+        resetDrawingTools();
         showCropGuideLines();
 
         incrementSuccessfulRecordingsCount();
@@ -1518,15 +1538,20 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private void updateUIState() {
         if (cameraCardContainer != null) updateResizeHandlePosition(cameraCardContainer.getWidth());
 
+        // Pen and drawing board are available before recording too (to prepare the slide).
+        if (wrapDrawingBoard != null) wrapDrawingBoard.setVisibility(View.VISIBLE);
+        if (wrapSlidePen != null) wrapSlidePen.setVisibility(View.VISIBLE);
+        // Beside the stop button while recording; without it, the pair is centred in the row.
+        setToolGap(wrapDrawingBoard, isRecording ? 50 : 0);
+        setToolGap(wrapSlidePen, isRecording ? 50 : 18);
+        applyToolMarks();
+
         if (isRecording) {
             // In Recording Mode: hide top bar, hide red start button, show ONLY floating gray stop button
             topMenuBar.setVisibility(View.GONE);
             hideSwipeHint();
             if (btnRecord != null) btnRecord.setVisibility(View.GONE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.VISIBLE);
-            if (wrapDrawingBoard != null) wrapDrawingBoard.setVisibility(View.VISIBLE);
-            if (wrapSlidePen != null) wrapSlidePen.setVisibility(View.VISIBLE);
-            applyToolMarks();
 
             SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
             int successfulRecordings = prefs.getInt(KEY_SUCCESSFUL_RECORDINGS, 0);
@@ -1547,11 +1572,6 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             topMenuBar.setVisibility(isMenuBarVisible ? View.VISIBLE : View.GONE);
             if (btnRecord != null) btnRecord.setVisibility(View.VISIBLE);
             if (btnStopRecordFloating != null) btnStopRecordFloating.setVisibility(View.GONE);
-            if (wrapDrawingBoard != null) wrapDrawingBoard.setVisibility(View.GONE);
-            if (wrapSlidePen != null) wrapSlidePen.setVisibility(View.GONE);
-            if (slideInkController != null) slideInkController.setPenMode(false);
-            hideDrawingBoard(false);
-
             if (ivStopArrowHint != null) {
                 ivStopArrowHint.clearAnimation();
                 ivStopArrowHint.setVisibility(View.GONE);
@@ -1609,6 +1629,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                                 logRecordStart(0);
                                 ContextCompat.startForegroundService(this, serviceIntent);
                                 isRecording = true;
+                                resetDrawingTools();
                                 isMenuBarVisible = false;
                                 setPresentationMode(true);
                                 updateUIState();
@@ -3463,6 +3484,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                     logRecordStart(countdownSeconds);
                     ContextCompat.startForegroundService(MainActivity.this, serviceIntent);
                     isRecording = true;
+                    resetDrawingTools();
                     isMenuBarVisible = false;
                     setPresentationMode(true);
                     updateUIState();

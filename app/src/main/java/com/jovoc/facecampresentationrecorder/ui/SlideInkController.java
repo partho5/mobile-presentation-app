@@ -86,7 +86,7 @@ public class SlideInkController implements DrawingBoardView.Listener {
 
         btnPen.setOnClickListener(v -> {
             if (!penMode && !FeatureSnapshot.allows(Feature.SLIDE_INK)) {
-                // Only on screen while recording: no sheet (it would end up in the video).
+                // No sheet (it could end up in the video); the pen is free, this only guards a plan change.
                 Gate.lockedWhileRecording(context, Feature.SLIDE_INK);
                 return;
             }
