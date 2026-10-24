@@ -21,7 +21,7 @@ android {
         // TODO(ENTITLEMENT-KEY): the server's plan-token public keys as "kid=base64SPKI" entries
         // separated by commas (SPKI = the base64 of the public key's DER, as the backend prints it).
         // While empty no token verifies, so every phone runs on the Free plan.
-        buildConfigField 'String', 'ENTITLEMENT_PUBLIC_KEYS', '""'
+        buildConfigField 'String', 'ENTITLEMENT_PUBLIC_KEYS', '"k1=MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvVXvDC5z2tbNgl/lg4IQUbGul3ZTlSj/ahSVSKbGjJRkXxwyEp2AhUm8aYaZ5eBH5VgZJVYrTO/iBXec5Wl5fw=="'
     }
 
     buildTypes {
