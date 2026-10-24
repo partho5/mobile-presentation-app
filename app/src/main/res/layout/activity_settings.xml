@@ -429,7 +429,7 @@
                 android:layout_marginTop="4dp"
                 android:lineSpacingMultiplier="1.15"
                 android:text="@string/set_bg_tip_wall"
-                android:textColor="#FBBF24"
+                android:textColor="#B0B0B0"
                 android:textSize="14sp" />
 
             <TextView
@@ -438,7 +438,7 @@
                 android:layout_marginTop="4dp"
                 android:lineSpacingMultiplier="1.15"
                 android:text="@string/set_bg_tip_light"
-                android:textColor="#FBBF24"
+                android:textColor="#B0B0B0"
                 android:textSize="14sp" />
 
             <TextView
@@ -448,7 +448,7 @@
                 android:layout_marginBottom="6dp"
                 android:lineSpacingMultiplier="1.15"
                 android:text="@string/set_bg_tip_gpu"
-                android:textColor="#FBBF24"
+                android:textColor="#B0B0B0"
                 android:textSize="14sp" />
 
             <LinearLayout
