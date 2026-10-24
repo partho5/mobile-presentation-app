@@ -99,7 +99,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             }
         } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
-            holder.slideThumbnail.setImageResource(isGoogleHome(slide.getTextContent()) ? R.drawable.ic_google : R.drawable.ic_web);
+            holder.slideThumbnail.setImageResource(isGoogleHome(slide.getTextContent()) ? R.drawable.ic_google : R.drawable.ic_chrome);
             holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "Website");
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);

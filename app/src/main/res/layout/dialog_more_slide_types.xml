@@ -52,8 +52,7 @@
                 <ImageView
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:src="@drawable/ic_web"
-                    app:tint="#7FD1D6" />
+                    android:src="@drawable/ic_chrome" />
 
                 <LinearLayout
                     android:layout_width="0dp"
