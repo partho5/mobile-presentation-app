@@ -87,6 +87,7 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -167,6 +168,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private static final int MAX_LIVE_BROWSER_VIEWS = 3;
     private SwipeRefreshLayout swipeRefreshWebSlide;
     private ImageButton btnReloadWebSlide;
+    /** Browser-style bar above a website slide: back / forward / reload. Hidden for YouTube slides. */
+    private View webNavBar;
+    private View webNavBarDivider;
+    private ImageButton btnWebBack;
+    private ImageButton btnWebForward;
+    /** Set when the shared YouTube view loads a new embed, so its history starts at that video (not at the blank page before it). */
+    private boolean clearYoutubeHistory = false;
+    /** A website slide is 1.5x as tall as wide, but never taller than this share of the screen. */
+    private static final float WEB_SLIDE_HEIGHT_FACTOR = 1.5f;
+    private static final float WEB_SLIDE_MAX_SCREEN_SHARE = 0.70f;
+    /** While recording, a first Back with nothing to go back to only arms the exit; a second one inside this window exits. */
+    private static final long BACK_EXIT_WINDOW_MS = 2000;
+    private long backExitArmedUntil = 0;
     private MediaController mediaController;
     private TextView emptyStateView;
     private LinearLayout topMenuBar;
@@ -382,9 +396,51 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             slideTransition = new SlideTransitionController(slideStage, slideScrim);
         }
 
-        if (btnReloadWebSlide != null) {
-            btnReloadWebSlide.setVisibility(View.GONE);
+        webNavBar = findViewById(R.id.web_nav_bar);
+        webNavBarDivider = findViewById(R.id.web_nav_bar_divider);
+        btnWebBack = findViewById(R.id.btn_web_back);
+        btnWebForward = findViewById(R.id.btn_web_forward);
+        if (btnWebBack != null) {
+            btnWebBack.setOnClickListener(v -> {
+                if (activeWebView != null && activeWebView.canGoBack()) activeWebView.goBack();
+            });
         }
+        if (btnWebForward != null) {
+            btnWebForward.setOnClickListener(v -> {
+                if (activeWebView != null && activeWebView.canGoForward()) activeWebView.goForward();
+            });
+        }
+        if (btnReloadWebSlide != null) {
+            btnReloadWebSlide.setOnClickListener(v -> {
+                if (activeWebView != null) activeWebView.reload();
+            });
+        }
+        updateWebNavState();
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // A browser slide's own history comes first, like Back in a browser.
+                if (activeWebView != null
+                        && webSlideContainer != null && webSlideContainer.getVisibility() == View.VISIBLE
+                        && activeWebView.canGoBack()) {
+                    activeWebView.goBack();
+                    return;
+                }
+                // Mid-recording a stray Back must not end the session: it takes two quick presses.
+                if (isRecording) {
+                    long now = SystemClock.elapsedRealtime();
+                    if (now > backExitArmedUntil) {
+                        backExitArmedUntil = now + BACK_EXIT_WINDOW_MS;
+                        Toast.makeText(MainActivity.this, "Press back again to exit", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
 
         if (swipeRefreshWebSlide != null) {
             // The scroll target is the host FrameLayout, so ask the visible WebView whether it can scroll up.
@@ -1112,8 +1168,19 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             }
 
             @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                super.doUpdateVisitedHistory(view, url, isReload);
+                if (view == activeWebView) updateWebNavState();
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                if (view == webSlideView && clearYoutubeHistory && !"about:blank".equals(url)) {
+                    clearYoutubeHistory = false;
+                    view.clearHistory();
+                }
+                if (view == activeWebView) updateWebNavState();
                 if (view == activeWebView && swipeRefreshWebSlide != null) {
                     swipeRefreshWebSlide.setRefreshing(false);
                 }
@@ -1144,9 +1211,37 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private void showWebView(WebView target) {
         if (activeWebView != null && activeWebView != target) deactivateWebView(activeWebView);
         activeWebView = target;
+        updateWebNavState();
         if (target == null) return;
         target.setVisibility(View.VISIBLE);
         target.onResume();
+    }
+
+    /** Dims back / forward when the page on screen has nowhere to go in that direction. */
+    private void updateWebNavState() {
+        boolean shown = activeWebView != null;
+        setWebNavEnabled(btnWebBack, shown && activeWebView.canGoBack());
+        setWebNavEnabled(btnWebForward, shown && activeWebView.canGoForward());
+    }
+
+    private static void setWebNavEnabled(ImageButton button, boolean enabled) {
+        if (button == null) return;
+        button.setEnabled(enabled);
+        button.setAlpha(enabled ? 1f : 0.35f);
+    }
+
+    private void setWebNavBarVisible(boolean visible) {
+        int v = visible ? View.VISIBLE : View.GONE;
+        if (webNavBar != null) webNavBar.setVisibility(v);
+        if (webNavBarDivider != null) webNavBarDivider.setVisibility(v);
+    }
+
+    /** Website slide height: 1.5x the width, capped to a share of the screen so it never swallows it. */
+    private int websiteSlideHeight(int displayWidth) {
+        int viewHeight = rootLayout != null && rootLayout.getHeight() > 0
+                ? rootLayout.getHeight() : getResources().getDisplayMetrics().heightPixels;
+        return Math.min(Math.round(displayWidth * WEB_SLIDE_HEIGHT_FACTOR),
+                Math.round(viewHeight * WEB_SLIDE_MAX_SCREEN_SHARE));
     }
 
     private void deactivateWebView(WebView view) {
@@ -2626,10 +2721,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             int displayWidth = rootLayout.getWidth() > 0 ? rootLayout.getWidth() : getResources().getDisplayMetrics().widthPixels;
             if (webSlideContainer != null) {
                 ViewGroup.LayoutParams params = webSlideContainer.getLayoutParams();
-                params.height = displayWidth;
+                params.height = websiteSlideHeight(displayWidth);
                 webSlideContainer.setLayoutParams(params);
                 webSlideContainer.setVisibility(View.VISIBLE);
             }
+            setWebNavBarVisible(true);
 
             if (swipeRefreshWebSlide != null) {
                 swipeRefreshWebSlide.setRefreshing(false);
@@ -2673,6 +2769,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 webSlideContainer.setLayoutParams(params);
                 webSlideContainer.setVisibility(View.VISIBLE);
             }
+            setWebNavBarVisible(false);
 
             if (swipeRefreshWebSlide != null) {
                 swipeRefreshWebSlide.setRefreshing(false);
@@ -2696,6 +2793,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                         + "referrerpolicy=\"strict-origin-when-cross-origin\" "
                         + "allow=\"autoplay; encrypted-media; picture-in-picture\" allowfullscreen></iframe>"
                         + "</body></html>";
+                clearYoutubeHistory = true;
                 webSlideView.loadDataWithBaseURL("https://localhost", html, "text/html", "utf-8", null);
             }
             if (!embedLoading) onReady.run();

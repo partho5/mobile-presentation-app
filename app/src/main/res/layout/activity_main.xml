@@ -66,7 +66,8 @@
                     android:layout_gravity="top|center_horizontal" />
             </FrameLayout>
 
-            <!-- Container for Web / Website & YouTube Slide (1:1 Aspect Ratio) -->
+            <!-- Container for Web / Website & YouTube Slide. Website slides get a browser-style bar
+                 (back / forward / reload) above the page; YouTube slides hide the bar. -->
             <FrameLayout
                 android:id="@+id/web_slide_container"
                 android:layout_width="match_parent"
@@ -74,40 +75,85 @@
                 android:layout_alignParentTop="true"
                 android:visibility="gone">
 
-                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-                    android:id="@+id/swipe_refresh_web_slide"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent">
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
 
-                    <!-- Holds the shared YouTube WebView plus one WebView per browser slide (added in code). -->
-                    <FrameLayout
-                        android:id="@+id/web_view_host"
+                    <LinearLayout
+                        android:id="@+id/web_nav_bar"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent">
+                        android:layout_height="36dp"
+                        android:background="#FFFFFF"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="4dp"
+                        android:visibility="gone">
 
-                        <WebView
-                            android:id="@+id/web_slide_view"
-                            android:layout_width="match_parent"
+                        <ImageButton
+                            android:id="@+id/btn_web_back"
+                            android:layout_width="40dp"
                             android:layout_height="match_parent"
-                            android:visibility="gone" />
-                    </FrameLayout>
-                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Back"
+                            android:padding="8dp"
+                            android:src="@drawable/ic_nav_arrow_back"
+                            app:tint="#202124" />
 
-                <!-- Reload Button overlay for Web slide -->
-                <ImageButton
-                    android:id="@+id/btn_reload_web_slide"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_gravity="top|end"
-                    android:layout_margin="12dp"
-                    android:alpha="0.75"
-                    android:background="@drawable/bg_circle_nav"
-                    android:contentDescription="Reload Web Page"
-                    android:elevation="10dp"
-                    android:padding="6dp"
-                    android:src="@drawable/ic_refresh"
-                    android:visibility="gone"
-                    app:tint="#FFFFFF" />
+                        <ImageButton
+                            android:id="@+id/btn_web_forward"
+                            android:layout_width="40dp"
+                            android:layout_height="match_parent"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Forward"
+                            android:padding="8dp"
+                            android:src="@drawable/ic_nav_arrow_forward"
+                            app:tint="#202124" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1" />
+
+                        <!-- Reload button for Web slide -->
+                        <ImageButton
+                            android:id="@+id/btn_reload_web_slide"
+                            android:layout_width="40dp"
+                            android:layout_height="match_parent"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Reload Web Page"
+                            android:padding="9dp"
+                            android:src="@drawable/ic_refresh"
+                            app:tint="#202124" />
+                    </LinearLayout>
+
+                    <View
+                        android:id="@+id/web_nav_bar_divider"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#DADCE0"
+                        android:visibility="gone" />
+
+                    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                        android:id="@+id/swipe_refresh_web_slide"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <!-- Holds the shared YouTube WebView plus one WebView per browser slide (added in code). -->
+                        <FrameLayout
+                            android:id="@+id/web_view_host"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <WebView
+                                android:id="@+id/web_slide_view"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                </LinearLayout>
             </FrameLayout>
 
             <!-- Slide ink: transparent drawing layer fitted over the current slide in code (so its
