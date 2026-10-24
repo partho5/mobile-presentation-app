@@ -10,7 +10,7 @@
         android:id="@+id/dialog_website_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add Website"
+        android:text="Add Browser"
         android:textColor="#FFFFFF"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -19,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Enter website URL to display"
+        android:text="Enter the page address to display"
         android:textColor="#B2DFDB"
         android:textSize="13sp" />
 

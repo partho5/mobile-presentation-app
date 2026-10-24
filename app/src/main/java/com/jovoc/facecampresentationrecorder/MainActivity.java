@@ -158,7 +158,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     private FrameLayout videoSlideContainer;
     private VideoView videoSlideView;
     private FrameLayout webSlideContainer;
-    private WebView webSlideView;
+    private WebView webSlideView; // shared view, used only for YouTube embeds
+    private FrameLayout webViewHost;
+    /** The WebView on screen right now (the shared one or a pooled browser one); null when no web slide shows. */
+    private WebView activeWebView;
+    /** One live WebView per browser slide (slide id -> view), least recently shown first. */
+    private final java.util.LinkedHashMap<Integer, WebView> browserWebViews = new java.util.LinkedHashMap<>();
+    private static final int MAX_LIVE_BROWSER_VIEWS = 3;
     private SwipeRefreshLayout swipeRefreshWebSlide;
     private ImageButton btnReloadWebSlide;
     private MediaController mediaController;
@@ -366,6 +372,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         videoSlideView = findViewById(R.id.video_slide_view);
         webSlideContainer = findViewById(R.id.web_slide_container);
         webSlideView = findViewById(R.id.web_slide_view);
+        webViewHost = findViewById(R.id.web_view_host);
         swipeRefreshWebSlide = findViewById(R.id.swipe_refresh_web_slide);
         btnReloadWebSlide = findViewById(R.id.btn_reload_web_slide);
 
@@ -380,9 +387,12 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         if (swipeRefreshWebSlide != null) {
+            // The scroll target is the host FrameLayout, so ask the visible WebView whether it can scroll up.
+            swipeRefreshWebSlide.setOnChildScrollUpCallback((parent, child) ->
+                    activeWebView != null && activeWebView.canScrollVertically(-1));
             swipeRefreshWebSlide.setOnRefreshListener(() -> {
-                if (webSlideView != null) {
-                    webSlideView.reload();
+                if (activeWebView != null) {
+                    activeWebView.reload();
                     Toast.makeText(this, "Reloading page...", Toast.LENGTH_SHORT).show();
                 } else if (swipeRefreshWebSlide != null) {
                     swipeRefreshWebSlide.setRefreshing(false);
@@ -390,51 +400,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             });
         }
 
-        if (webSlideView != null) {
-            WebSettings settings = webSlideView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            settings.setDatabaseEnabled(true);
-            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-            settings.setMediaPlaybackRequiresUserGesture(false);
-            settings.setAllowFileAccess(true);
-            settings.setAllowContentAccess(true);
-            settings.setLoadWithOverviewMode(true);
-            settings.setUseWideViewPort(true);
-            settings.setBuiltInZoomControls(true);
-            settings.setDisplayZoomControls(false);
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-            webSlideView.setWebViewClient(new WebViewClient() {
-                @Override
-                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                    return false;
-                }
-
-                @Override
-                public void onPageFinished(WebView view, String url) {
-                    super.onPageFinished(view, url);
-                    if (swipeRefreshWebSlide != null) {
-                        swipeRefreshWebSlide.setRefreshing(false);
-                    }
-                }
-
-                @Override
-                public void onPageCommitVisible(WebView view, String url) {
-                    super.onPageCommitVisible(view, url);
-                    releaseWebSlideReady();
-                }
-
-                @Override
-                public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                    super.onReceivedError(view, errorCode, description, failingUrl);
-                    if (swipeRefreshWebSlide != null) {
-                        swipeRefreshWebSlide.setRefreshing(false);
-                    }
-                    releaseWebSlideReady();
-                }
-            });
-            webSlideView.setWebChromeClient(new WebChromeClient());
-        }
+        if (webSlideView != null) configureWebView(webSlideView);
         emptyStateView = findViewById(R.id.empty_state_view);
         topMenuBar = findViewById(R.id.top_menu_bar);
         bottomNavContainer = findViewById(R.id.bottom_nav_container);
@@ -1122,6 +1088,139 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (Slide.TYPE_IMAGE.equals(type)) return imageSlideView;
         if (Slide.TYPE_VIDEO.equals(type)) return videoSlideContainer;
         return webSlideContainer; // website + YouTube
+    }
+
+    /** Settings and clients shared by the YouTube WebView and every browser-slide WebView. */
+    private void configureWebView(WebView webView) {
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        settings.setBuiltInZoomControls(true);
+        settings.setDisplayZoomControls(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return false;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (view == activeWebView && swipeRefreshWebSlide != null) {
+                    swipeRefreshWebSlide.setRefreshing(false);
+                }
+            }
+
+            @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                super.onPageCommitVisible(view, url);
+                if (view == activeWebView) releaseWebSlideReady();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                if (view == activeWebView) {
+                    if (swipeRefreshWebSlide != null) swipeRefreshWebSlide.setRefreshing(false);
+                    releaseWebSlideReady();
+                }
+            }
+        });
+        webView.setWebChromeClient(new WebChromeClient());
+    }
+
+    /**
+     * Makes {@code target} the only visible WebView. The one that was on screen keeps its page: browser
+     * views just stop their media and rendering, and the YouTube view is blanked so the video stops.
+     */
+    private void showWebView(WebView target) {
+        if (activeWebView != null && activeWebView != target) deactivateWebView(activeWebView);
+        activeWebView = target;
+        if (target == null) return;
+        target.setVisibility(View.VISIBLE);
+        target.onResume();
+    }
+
+    private void deactivateWebView(WebView view) {
+        view.setVisibility(View.GONE);
+        if (view == webSlideView) {
+            view.loadUrl("about:blank");
+        } else {
+            view.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){m.pause();})", null);
+            view.onPause();
+        }
+    }
+
+    /** Hides the web area (the slide on screen is not a web slide) without discarding any browser page. */
+    private void hideWebSlide() {
+        if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
+        showWebView(null);
+    }
+
+    /**
+     * The live WebView for a browser slide, created (and loaded) on first use. Returns null when the
+     * slide's URL changed since it was loaded, after dropping the stale view so the caller reloads.
+     * Past MAX_LIVE_BROWSER_VIEWS the least recently shown view is destroyed and its slide starts over.
+     */
+    private WebView browserWebViewFor(Slide slide, String url, boolean[] created) {
+        pruneBrowserWebViews();
+        WebView view = browserWebViews.remove(slide.getId()); // re-inserted below: marks it most recent
+        if (view != null && !url.equals(view.getTag())) {
+            destroyBrowserWebView(view);
+            view = null;
+        }
+        if (view == null) {
+            view = new WebView(this);
+            view.setTag(url);
+            view.setVisibility(View.GONE);
+            configureWebView(view);
+            webViewHost.addView(view, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            created[0] = true;
+        }
+        browserWebViews.put(slide.getId(), view);
+        while (browserWebViews.size() > MAX_LIVE_BROWSER_VIEWS) {
+            java.util.Iterator<java.util.Map.Entry<Integer, WebView>> it = browserWebViews.entrySet().iterator();
+            WebView eldest = it.next().getValue();
+            if (eldest == view || eldest == activeWebView) break;
+            it.remove();
+            destroyBrowserWebView(eldest);
+        }
+        return view;
+    }
+
+    /** Drops WebViews of browser slides that no longer exist. */
+    private void pruneBrowserWebViews() {
+        java.util.Iterator<java.util.Map.Entry<Integer, WebView>> it = browserWebViews.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<Integer, WebView> entry = it.next();
+            boolean exists = false;
+            for (Slide s : slides) {
+                if (s.getId() == entry.getKey() && Slide.TYPE_WEBSITE.equals(s.getType())) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                it.remove();
+                destroyBrowserWebView(entry.getValue());
+            }
+        }
+    }
+
+    private void destroyBrowserWebView(WebView view) {
+        if (view == activeWebView) activeWebView = null;
+        webViewHost.removeView(view);
+        view.stopLoading();
+        view.destroy();
     }
 
     private void releaseWebSlideReady() {
@@ -2321,8 +2420,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 videoSlideContainer.setVisibility(View.GONE);
             }
             if (webSlideContainer != null) {
-                webSlideContainer.setVisibility(View.GONE);
-                if (webSlideView != null) webSlideView.loadUrl("about:blank");
+                hideWebSlide();
             }
             if (swipeRefreshWebSlide != null) {
                 swipeRefreshWebSlide.setRefreshing(false);
@@ -2351,7 +2449,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             if (imageSlideView != null && imageSlideView.getVisibility() == View.VISIBLE) {
                 imageSlideView.setVisibility(View.GONE);
             }
-            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
+            hideWebSlide();
             textSlideContainer.setVisibility(View.VISIBLE);
 
             textSlideView.setText(slide.getTextContent());
@@ -2366,7 +2464,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 videoSlideContainer.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
-            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
+            hideWebSlide();
 
             if (slide.getImagePath() != null) {
                 File imgFile = new File(slide.getImagePath());
@@ -2443,7 +2541,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
                 imageSlideView.setVisibility(View.GONE);
             }
             if (textSlideContainer != null) textSlideContainer.setVisibility(View.GONE);
-            if (webSlideContainer != null) webSlideContainer.setVisibility(View.GONE);
+            hideWebSlide();
 
             if (slide.getImagePath() != null && videoSlideView != null) {
                 File vidFile = new File(slide.getImagePath());
@@ -2540,19 +2638,22 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             boolean webLoading = false;
             String url = slide.getTextContent();
-            if (url != null && !url.trim().isEmpty()) {
+            if (url != null && !url.trim().isEmpty() && webViewHost != null) {
                 url = url.trim();
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
                     url = "https://" + url;
                 }
-                if (webSlideView != null) {
-                    webSlideView.getSettings().setUserAgentString(null);
-                    if (!url.equals(webSlideView.getUrl())) {
-                        webSlideReadyCallback = onReady;
-                        webLoading = true;
-                        webSlideView.loadUrl(url);
-                    }
+                // Each browser slide keeps its own WebView, so coming back shows the page as it was left.
+                boolean[] created = {false};
+                WebView browserView = browserWebViewFor(slide, url, created);
+                showWebView(browserView);
+                if (created[0]) {
+                    webSlideReadyCallback = onReady;
+                    webLoading = true;
+                    browserView.loadUrl(url);
                 }
+            } else {
+                showWebView(null);
             }
             if (!webLoading) onReady.run();
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
@@ -2580,6 +2681,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
 
             String videoId = extractYouTubeVideoId(slide.getTextContent());
             boolean embedLoading = videoId != null && !videoId.isEmpty() && webSlideView != null;
+            showWebView(embedLoading ? webSlideView : null);
             if (embedLoading) {
                 webSlideReadyCallback = onReady;
                 webSlideView.getSettings().setUserAgentString(
@@ -3117,6 +3219,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
 
         View cardWebsite = popupView.findViewById(R.id.card_type_website);
+        View cardGoogle = popupView.findViewById(R.id.card_type_google);
         View cardYouTube = popupView.findViewById(R.id.card_type_youtube);
         Button btnCancel = popupView.findViewById(R.id.btn_cancel_more);
 
@@ -3124,6 +3227,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             cardWebsite.setOnClickListener(v -> {
                 dialog.dismiss();
                 showAddWebsiteSlideDialog(null, -1);
+            });
+        }
+
+        if (cardGoogle != null) {
+            cardGoogle.setOnClickListener(v -> {
+                dialog.dismiss();
+                showAddWebsiteSlideDialog(null, -1, "google.com"); // same browser slide, just prefilled
             });
         }
 
@@ -3142,6 +3252,10 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
     }
 
     private void showAddWebsiteSlideDialog(Slide slideToEdit, int position) {
+        showAddWebsiteSlideDialog(slideToEdit, position, null);
+    }
+
+    private void showAddWebsiteSlideDialog(Slide slideToEdit, int position, String prefillUrl) {
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_website, null);
         TextView title = dialogView.findViewById(R.id.dialog_website_title);
         EditText editUrl = dialogView.findViewById(R.id.edit_website_url);
@@ -3149,8 +3263,11 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         Button btnSave = dialogView.findViewById(R.id.btn_save_website);
 
         if (slideToEdit != null) {
-            if (title != null) title.setText("Edit Website");
+            if (title != null) title.setText("Edit Browser");
             if (editUrl != null) editUrl.setText(slideToEdit.getTextContent());
+        } else if (prefillUrl != null && editUrl != null) {
+            editUrl.setText(prefillUrl);
+            editUrl.setSelection(prefillUrl.length());
         }
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -3939,5 +4056,8 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             countDownTimer = null;
         }
         cancelGuideLineFlashes();
+        for (WebView view : browserWebViews.values()) destroyBrowserWebView(view);
+        browserWebViews.clear();
+        if (webSlideView != null) webSlideView.destroy();
     }
 }

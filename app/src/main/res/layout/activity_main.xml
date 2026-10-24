@@ -79,10 +79,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
 
-                    <WebView
-                        android:id="@+id/web_slide_view"
+                    <!-- Holds the shared YouTube WebView plus one WebView per browser slide (added in code). -->
+                    <FrameLayout
+                        android:id="@+id/web_view_host"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
+                        android:layout_height="match_parent">
+
+                        <WebView
+                            android:id="@+id/web_slide_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:visibility="gone" />
+                    </FrameLayout>
                 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
                 <!-- Reload Button overlay for Web slide -->

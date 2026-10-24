@@ -99,7 +99,7 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
             }
         } else if (Slide.TYPE_WEBSITE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
-            holder.slideThumbnail.setImageResource(R.drawable.ic_web);
+            holder.slideThumbnail.setImageResource(isGoogleHome(slide.getTextContent()) ? R.drawable.ic_google : R.drawable.ic_web);
             holder.slidePreviewText.setText(slide.getTextContent() != null ? slide.getTextContent() : "Website");
         } else if (Slide.TYPE_YOUTUBE.equals(slide.getType())) {
             holder.slideThumbnail.setVisibility(View.VISIBLE);
@@ -170,6 +170,19 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
     @Override
     public int getItemCount() {
         return slides.size();
+    }
+
+    /** A browser slide pointing at google.com (the prefilled Google card) gets the Google icon. */
+    private static boolean isGoogleHome(String url) {
+        if (url == null) return false;
+        String host = url.trim().toLowerCase(java.util.Locale.ROOT).replaceFirst("^https?://", "");
+        int end = host.length();
+        for (char c : new char[]{'/', '?', '#'}) {
+            int at = host.indexOf(c);
+            if (at >= 0 && at < end) end = at;
+        }
+        host = host.substring(0, end);
+        return host.equals("google.com") || host.equals("www.google.com");
     }
 
     static class SlideViewHolder extends RecyclerView.ViewHolder {
