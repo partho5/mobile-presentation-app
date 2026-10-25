@@ -59,6 +59,8 @@ public class VideoEditorActivity extends AppCompatActivity
     /** Playback jumps over a deleted stretch when it gets this close to the end of a kept one. */
     private static final long SKIP_MARGIN_MS = 25;
     private static final long TICK_MS = 30;
+    /** How much one tap on + / - zooms. */
+    private static final float ZOOM_STEP = 2f;
 
     public static Intent newIntent(Context context, String masterPath) {
         return new Intent(context, VideoEditorActivity.class).putExtra(EXTRA_MASTER_PATH, masterPath);
@@ -194,6 +196,9 @@ public class VideoEditorActivity extends AppCompatActivity
         btnRedo.setOnClickListener(v -> undoRedo(false));
         btnPlay.setOnClickListener(v -> togglePlay());
         btnRemove.setOnClickListener(v -> removeSection());
+        findViewById(R.id.btn_zoom_in).setOnClickListener(v -> timeline.zoomBy(ZOOM_STEP));
+        findViewById(R.id.btn_zoom_out).setOnClickListener(v -> timeline.zoomBy(1f / ZOOM_STEP));
+        findViewById(R.id.btn_zoom_fit).setOnClickListener(v -> timeline.resetZoom());
         btnSave.setOnClickListener(v -> save());
         btnPublish.setOnClickListener(v -> publish());
         findViewById(R.id.btn_cancel_save).setOnClickListener(v -> vm.cancelSave());
@@ -309,6 +314,7 @@ public class VideoEditorActivity extends AppCompatActivity
         if (!vm.getSelection().fitsIn(outDur)) vm.setSelection(SectionSelection.EMPTY);
         SectionSelection selection = vm.getSelection();
 
+        timeline.setView(vm.getTimelineZoom(), vm.getTimelineStartMs());
         timeline.setDuration(outDur);
         timeline.setThumbnails(editedThumbs(vm.getThumbs(), project, dur, outDur));
         timeline.setSeams(EditTimelineMath.seams(project, dur));
@@ -668,6 +674,12 @@ public class VideoEditorActivity extends AppCompatActivity
         long snapped = movePlayheadToOutput(ms);
         seek(snapped, MediaPlayer.SEEK_CLOSEST_SYNC);
         refresh();
+    }
+
+    /** Zoom or scroll changed: remembered so rotation keeps the same view. */
+    @Override
+    public void onViewChanged(float zoom, long startMs) {
+        vm.setTimelineView(zoom, startMs);
     }
 
     /** A tap on the timeline places (or moves) a marker and shows that frame. */

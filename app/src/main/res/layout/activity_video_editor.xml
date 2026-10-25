@@ -117,7 +117,59 @@
         <com.jovoc.facecampresentationrecorder.ui.EditTimelineView
             android:id="@+id/timeline"
             android:layout_width="match_parent"
-            android:layout_height="112dp" />
+            android:layout_height="128dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end|center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_zoom_out"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="56dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/editor_zoom_out"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="@string/editor_zoom_out_symbol"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_zoom_in"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="56dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/editor_zoom_in"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="@string/editor_zoom_in_symbol"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_zoom_fit"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="64dp"
+                android:text="@string/editor_zoom_fit"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tv_selection"

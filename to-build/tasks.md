@@ -122,4 +122,5 @@ Code audit done (no device available); fixes: unsaved-edit draft file (`edit/Edi
 - [x] Cyan join marker above the timeline at each seam (`EditTimelineMath.seams`), recomputed on undo / redo / restore
 - [x] Selection cleared after Remove and on undo / redo; survives rotation (view model)
 - [x] Split / Delete buttons and yellow trim handles removed; Undo, Redo, Play, Save, Publish and the audio lane kept
-- [ ] Owner check on device: tap markers, swap, move nearer marker, edges, Remove, second Remove on the edited timeline, seam dots, undo / redo, rotation, audio lane lines up
+- [x] Timeline zoom: pinch (anchored on the fingers) or +/- / Fit buttons, up to a ~1 s window; zoomed drag pans, at fit drag scrubs, tap still sets markers; playhead auto-follows; adaptive time ruler (0.1 s .. 1 h), thumbnails tiled by time, zoom + scroll survive rotation (`edit/TimelineZoom`, unit-tested)
+- [ ] Owner check on device: tap markers, swap, move nearer marker, edges, Remove, second Remove on the edited timeline, seam dots, undo / redo, rotation, audio lane lines up, pinch / +/- zoom to hit 2.2 s exactly, pan, follow during playback

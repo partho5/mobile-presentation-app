@@ -95,6 +95,8 @@ public class VideoEditorViewModel extends ViewModel {
     private long playheadMs;
     private boolean playing;
     private SectionSelection selection = SectionSelection.EMPTY;
+    private float timelineZoom = 1f;
+    private long timelineStartMs;
 
     // Save
     private SaveState saveState = SaveState.IDLE;
@@ -352,6 +354,14 @@ public class VideoEditorViewModel extends ViewModel {
     /** The section picked for removal, on the edited timeline; kept across rotation. */
     public SectionSelection getSelection() { return selection; }
     public void setSelection(SectionSelection s) { selection = s == null ? SectionSelection.EMPTY : s; }
+
+    /** Timeline zoom (1 = whole video) and the scroll position; kept across rotation. */
+    public float getTimelineZoom() { return timelineZoom; }
+    public long getTimelineStartMs() { return timelineStartMs; }
+    public void setTimelineView(float zoom, long startMs) {
+        timelineZoom = zoom;
+        timelineStartMs = startMs;
+    }
 
     // ---------------------------------------------------------------- draft
 
