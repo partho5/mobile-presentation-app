@@ -12,8 +12,10 @@ import java.util.regex.Pattern;
  */
 public final class EditGroupMath {
 
-    /** A crop is named {@code <master>_<w>x<h>.mp4} (see VideoCropHelper.buildOutputPath). */
-    private static final Pattern CROP_NAME = Pattern.compile("_(\\d+)x(\\d+)\\.mp4$");
+    /** A crop is named {@code <master>_<w>x<h>.mp4} (see VideoCropHelper.buildOutputPath).
+     * Only the three ratios the app produces count, so a master renamed to e.g. "talk_16x9" is not
+     * mistaken for a crop. */
+    private static final Pattern CROP_NAME = Pattern.compile("_(9x16|4x5|1x1)\\.mp4$");
 
     private EditGroupMath() {}
 
@@ -36,7 +38,7 @@ public final class EditGroupMath {
         for (String path : groupPaths) {
             Matcher m = CROP_NAME.matcher(new File(path).getName());
             if (!m.find()) continue;
-            String ratio = m.group(1) + "x" + m.group(2);
+            String ratio = m.group(1);
             if (ratio.equals("9x16")) r916 = true;
             else if (ratio.equals("4x5")) r45 = true;
             else if (ratio.equals("1x1")) r11 = true;

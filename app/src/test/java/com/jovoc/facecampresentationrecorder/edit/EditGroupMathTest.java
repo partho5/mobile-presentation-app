@@ -34,6 +34,7 @@ public class EditGroupMathTest {
         assertTrue(EditGroupMath.isCropName("clip_edit_1x1.mp4"));
         assertFalse(EditGroupMath.isCropName("clip.mp4"));
         assertFalse(EditGroupMath.isCropName("clip_edit.mp4"));
+        assertFalse(EditGroupMath.isCropName("talk_16x9.mp4"));
     }
 
     @Test
