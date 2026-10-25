@@ -676,6 +676,27 @@ public class VideoEditorActivity extends AppCompatActivity
         refresh();
     }
 
+    /** A marker is being dragged: it moves within its limits and the preview shows that frame. */
+    @Override
+    public void onMarkerDrag(boolean isStart, long ms) {
+        if (!vm.isReady() || vm.getSaveState() == VideoEditorViewModel.SaveState.RUNNING) return;
+        long outDur = vm.getProject().outputDurationMs(vm.getDurationMs());
+        SectionSelection moved = vm.getSelection().moveMarker(isStart, ms, outDur);
+        vm.setSelection(moved);
+        long at = isStart ? moved.getStartMs() : moved.getEndMs();
+        if (at < 0) return;
+        seek(movePlayheadToOutput(at), MediaPlayer.SEEK_CLOSEST_SYNC);
+        refresh();
+    }
+
+    /** The drag ended: show the exact frame at the marker. */
+    @Override
+    public void onMarkerDragEnd() {
+        if (!vm.isReady()) return;
+        seekPrecise(vm.getPlayheadMs());
+        refresh();
+    }
+
     /** Zoom or scroll changed: remembered so rotation keeps the same view. */
     @Override
     public void onViewChanged(float zoom, long startMs) {

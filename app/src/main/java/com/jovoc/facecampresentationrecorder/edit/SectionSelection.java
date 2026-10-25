@@ -73,6 +73,23 @@ public final class SectionSelection {
                 : pair(startMs, t, durationMs);
     }
 
+    /**
+     * The selection after one marker was dragged to {@code ms}. The marker stays inside the
+     * timeline and on its side of the other one, at least {@link #MIN_LENGTH_MS} away from it, so
+     * it stops at the other marker instead of swapping. Without an end marker only the start can
+     * move; asking for the end then, or on an empty selection, changes nothing.
+     */
+    public SectionSelection moveMarker(boolean start, long ms, long durationMs) {
+        if (durationMs <= 0 || !hasStart()) return this;
+        long t = Math.max(0, Math.min(durationMs, ms));
+        if (start) {
+            if (!hasRange()) return new SectionSelection(t, -1);
+            return new SectionSelection(Math.min(t, endMs - MIN_LENGTH_MS), endMs);
+        }
+        if (!hasRange()) return this;
+        return new SectionSelection(startMs, Math.max(t, startMs + MIN_LENGTH_MS));
+    }
+
     /** Puts the fixed marker and the tapped one in order, at least the minimum apart and in range. */
     private static SectionSelection pair(long fixed, long tapped, long durationMs) {
         long lo, hi;

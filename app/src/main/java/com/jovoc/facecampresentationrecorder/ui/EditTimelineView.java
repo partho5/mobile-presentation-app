@@ -8,19 +8,21 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ScaleGestureDetector;
 import android.view.ViewConfiguration;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
 import com.jovoc.facecampresentationrecorder.edit.TimelineZoom;
 
 /**
  * The editor's timeline: a strip of video thumbnails over the edited result (what is left after
  * removals), a thin playhead, small markers above it at every join, and the section the user is
  * picking to remove: a sharp Start line and End line with a tint between them.
- * A tap places a marker, dragging scrubs. Pinching (or {@link #zoomBy}) zooms in on part of the
+ * A tap places a marker, dragging scrubs, and a finger that lands on a marker drags that marker. Pinching (or {@link #zoomBy}) zooms in on part of the
  * timeline for exact points; while zoomed, dragging pans instead of scrubbing, and a time ruler
  * under the strip shows where you are. The view only draws and reports gestures; the editor
  * screen owns the state. Times are milliseconds on the edited timeline.
@@ -36,6 +38,15 @@ public class EditTimelineView extends View {
 
         /** The timeline was tapped (not dragged) at {@code ms}; the edges snap to 0 / the end. */
         void onTap(long ms);
+
+        /**
+         * A Start ({@code isStart}) or End marker was dragged to {@code ms}. The screen applies its
+         * own limits and answers through {@link #setSelection}.
+         */
+        void onMarkerDrag(boolean isStart, long ms);
+
+        /** The marker drag ended. */
+        void onMarkerDragEnd();
 
         /** The zoom level or the scroll position changed (user gesture or playhead follow). */
         void onViewChanged(float zoom, long startMs);
@@ -85,6 +96,16 @@ public class EditTimelineView extends View {
     private boolean multiTouch;
     private boolean touching;
 
+    // Marker drag: which marker the finger grabbed, and where on it (so it does not jump)
+    private static final int NO_MARKER = 0, START_MARKER = 1, END_MARKER = 2;
+    private int grabbed = NO_MARKER;
+    private boolean markerDragging;
+    private float grabOffsetPx;
+    private float edgeZonePx;
+    private float grabPx;
+    private long lastEdgeFrameNs;
+    private final Runnable edgePan = this::edgePanFrame;
+
     public EditTimelineView(Context context) {
         this(context, null);
     }
@@ -94,6 +115,8 @@ public class EditTimelineView extends View {
         density = context.getResources().getDisplayMetrics().density;
         pad = 16 * density;
         edgeSnap = 12 * density;
+        grabPx = 24 * density;
+        edgeZonePx = 40 * density;
         minTickPx = 56 * density;
         touchSlop = Math.max(ViewConfiguration.get(context).getScaledTouchSlop(), 8 * density);
         startLabel = context.getString(R.string.editor_marker_start);
@@ -353,6 +376,29 @@ public class EditTimelineView extends View {
         // Markers on top: sharp thin lines with a small tag under the strip
         if (hasStart && visible(selStartMs)) drawMarker(c, xOf(selStartMs), startPaint, startLabel, true);
         if (hasEnd && visible(selEndMs)) drawMarker(c, xOf(selEndMs), endPaint, endLabel, false);
+
+        // The marker being dragged: a thicker line and its exact time
+        if (markerDragging) {
+            boolean isStart = grabbed == START_MARKER;
+            long ms = isStart ? selStartMs : selEndMs;
+            if (ms >= 0 && visible(ms)) drawDragBubble(c, xOf(ms), isStart ? startPaint : endPaint, ms);
+        }
+    }
+
+    private void drawDragBubble(Canvas c, float x, Paint paint, long ms) {
+        float t = trackTop(), b = trackBottom();
+        float old = paint.getStrokeWidth();
+        paint.setStrokeWidth(4 * density);
+        c.drawLine(x, t - 2 * density, x, b, paint);
+        paint.setStrokeWidth(old);
+        String text = EditTimelineMath.formatPrecise(ms);
+        float w = tagTextPaint.measureText(text) + 14 * density;
+        float h = 18 * density;
+        float left = Math.max(0, Math.min(getWidth() - w, x - w / 2));
+        rect.set(left, t + 4 * density, left + w, t + 4 * density + h);
+        c.drawRoundRect(rect, 4 * density, 4 * density, paint);
+        Paint.FontMetrics fm = tagTextPaint.getFontMetrics();
+        c.drawText(text, rect.centerX(), rect.centerY() - (fm.ascent + fm.descent) / 2, tagTextPaint);
     }
 
     /** Time ruler under the strip: ticks at a spacing that suits the zoom, labelled m:ss(.s). */
@@ -400,6 +446,11 @@ public class EditTimelineView extends View {
                 panning = false;
                 multiTouch = false;
                 touching = true;
+                markerDragging = false;
+                grabbed = markerAt(x);
+                if (grabbed != NO_MARKER) {
+                    grabOffsetPx = x - xOf(grabbed == START_MARKER ? selStartMs : selEndMs);
+                }
                 if (listener != null) listener.onGestureStart();
                 return true;
             case MotionEvent.ACTION_POINTER_DOWN:
@@ -407,9 +458,24 @@ public class EditTimelineView extends View {
                 multiTouch = true;
                 scrubbing = false;
                 panning = false;
+                endMarkerDrag(false);
+                grabbed = NO_MARKER;
                 return true;
             case MotionEvent.ACTION_MOVE:
                 if (multiTouch) return true;
+                if (grabbed != NO_MARKER) {
+                    lastX = x;
+                    if (!markerDragging && Math.abs(x - downX) > touchSlop) {
+                        markerDragging = true;
+                        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                    }
+                    if (markerDragging) {
+                        reportMarker();
+                        updateEdgePan();
+                        invalidate();
+                    }
+                    return true;
+                }
                 if (!scrubbing && !panning && Math.abs(x - downX) > touchSlop) {
                     if (isZoomed()) panning = true; else scrubbing = true;
                     lastX = x;
@@ -425,7 +491,12 @@ public class EditTimelineView extends View {
                 }
                 return true;
             case MotionEvent.ACTION_UP:
-                if (!multiTouch && !scrubbing && !panning && listener != null) listener.onTap(tapMsOf(x));
+                if (markerDragging) {
+                    endMarkerDrag(true);
+                } else if (!multiTouch && !scrubbing && !panning && listener != null) {
+                    listener.onTap(tapMsOf(x));
+                }
+                grabbed = NO_MARKER;
                 scrubbing = false;
                 panning = false;
                 multiTouch = false;
@@ -433,6 +504,8 @@ public class EditTimelineView extends View {
                 performClick();
                 return true;
             case MotionEvent.ACTION_CANCEL:
+                endMarkerDrag(false);
+                grabbed = NO_MARKER;
                 scrubbing = false;
                 panning = false;
                 multiTouch = false;
@@ -441,6 +514,79 @@ public class EditTimelineView extends View {
             default:
                 return true;
         }
+    }
+
+    /** The marker within reach of a finger at {@code x} (the nearer one; the End on a tie). */
+    private int markerAt(float x) {
+        float dStart = selStartMs >= 0 && visible(selStartMs)
+                ? Math.abs(x - xOf(selStartMs)) : Float.MAX_VALUE;
+        float dEnd = selEndMs >= 0 && visible(selEndMs)
+                ? Math.abs(x - xOf(selEndMs)) : Float.MAX_VALUE;
+        if (dStart > grabPx && dEnd > grabPx) return NO_MARKER;
+        return dStart < dEnd ? START_MARKER : END_MARKER;
+    }
+
+    /** Tells the screen where the grabbed marker now is (the finger, minus where it grabbed). */
+    private void reportMarker() {
+        if (listener != null) {
+            listener.onMarkerDrag(grabbed == START_MARKER, tapMsOf(lastX - grabOffsetPx));
+        }
+    }
+
+    private void endMarkerDrag(boolean notify) {
+        removeCallbacks(edgePan);
+        lastEdgeFrameNs = 0;
+        if (!markerDragging) return;
+        markerDragging = false;
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        if (notify && listener != null) listener.onMarkerDragEnd();
+        invalidate();
+    }
+
+    /** While a zoomed-in drag sits near an edge of the strip, the timeline scrolls that way. */
+    private void updateEdgePan() {
+        if (!isZoomed() || edgePanSpeed() == 0f) {
+            removeCallbacks(edgePan);
+            lastEdgeFrameNs = 0;
+        } else if (lastEdgeFrameNs == 0) {
+            lastEdgeFrameNs = System.nanoTime();
+            postOnAnimation(edgePan);
+        }
+    }
+
+    /** -1..1: how hard the finger presses on the left (negative) or right (positive) edge zone. */
+    private float edgePanSpeed() {
+        float l = trackLeft(), r = trackRight();
+        if (lastX < l + edgeZonePx) return -Math.min(1f, (l + edgeZonePx - lastX) / edgeZonePx);
+        if (lastX > r - edgeZonePx) return Math.min(1f, (lastX - (r - edgeZonePx)) / edgeZonePx);
+        return 0f;
+    }
+
+    private void edgePanFrame() {
+        if (!markerDragging) {
+            lastEdgeFrameNs = 0;
+            return;
+        }
+        float speed = edgePanSpeed();
+        long now = System.nanoTime();
+        if (speed == 0f || !isZoomed()) {
+            lastEdgeFrameNs = 0;
+            return;
+        }
+        float seconds = Math.min(0.05f, (now - lastEdgeFrameNs) / 1e9f);
+        lastEdgeFrameNs = now;
+        // Up to one window width per 1.5 s at full pressure
+        long delta = Math.round(speed * windowMs() * seconds / 1.5f);
+        applyView(zoom, viewStartMs + delta, true);
+        reportMarker();
+        invalidate();
+        postOnAnimation(edgePan);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(edgePan);
+        super.onDetachedFromWindow();
     }
 
     @Override

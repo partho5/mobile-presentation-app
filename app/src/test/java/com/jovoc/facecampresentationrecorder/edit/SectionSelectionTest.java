@@ -93,4 +93,41 @@ public class SectionSelectionTest {
     public void emptyTimelineIgnoresTaps() {
         assertTrue(SectionSelection.EMPTY.tap(100, 0).isEmpty());
     }
+
+    @Test
+    public void draggingAMarkerMovesOnlyThatMarker() {
+        SectionSelection s = SectionSelection.EMPTY.tap(3000, DUR).tap(6000, DUR);
+        SectionSelection a = s.moveMarker(true, 1000, DUR);
+        assertEquals(1000, a.getStartMs());
+        assertEquals(6000, a.getEndMs());
+        SectionSelection b = s.moveMarker(false, 9000, DUR);
+        assertEquals(3000, b.getStartMs());
+        assertEquals(9000, b.getEndMs());
+    }
+
+    @Test
+    public void aDraggedMarkerStopsAtTheOtherOneAndNeverSwaps() {
+        SectionSelection s = SectionSelection.EMPTY.tap(3000, DUR).tap(6000, DUR);
+        SectionSelection a = s.moveMarker(true, 8000, DUR);
+        assertEquals(6000 - SectionSelection.MIN_LENGTH_MS, a.getStartMs());
+        assertEquals(6000, a.getEndMs());
+        SectionSelection b = s.moveMarker(false, 0, DUR);
+        assertEquals(3000, b.getStartMs());
+        assertEquals(3000 + SectionSelection.MIN_LENGTH_MS, b.getEndMs());
+    }
+
+    @Test
+    public void aDraggedMarkerStaysInsideTheTimeline() {
+        SectionSelection s = SectionSelection.EMPTY.tap(3000, DUR).tap(6000, DUR);
+        assertEquals(0, s.moveMarker(true, -500, DUR).getStartMs());
+        assertEquals(DUR, s.moveMarker(false, DUR + 500, DUR).getEndMs());
+    }
+
+    @Test
+    public void aLoneStartCanBeDraggedAnywhereButThereIsNoEndToDrag() {
+        SectionSelection s = SectionSelection.EMPTY.tap(3000, DUR);
+        assertEquals(9000, s.moveMarker(true, 9000, DUR).getStartMs());
+        assertEquals(s, s.moveMarker(false, 9000, DUR));
+        assertEquals(SectionSelection.EMPTY, SectionSelection.EMPTY.moveMarker(true, 1000, DUR));
+    }
 }
