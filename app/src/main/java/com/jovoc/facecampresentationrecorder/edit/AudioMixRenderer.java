@@ -38,6 +38,10 @@ final class AudioMixRenderer {
     private static final long TIMEOUT_US = 10_000;
     private static final int CHUNK_FRAMES = 2048;
     private static final int DEFAULT_RATE = 44_100;
+    /** A codec that hands back nothing for this long is stuck: fail instead of hanging. */
+    private static final long STALL_MS = 10_000;
+    /** Longest lead-in silence added when a track's audio begins after its span start. */
+    private static final long MAX_LEAD_US = 5_000_000L;
     static final int MONO_BPS = 128_000;
     static final int STEREO_BPS = 192_000;
     /** Upper bound of what the mixed track costs, for the output size estimate. */
@@ -142,10 +146,14 @@ final class AudioMixRenderer {
             long done = 0;
             boolean inputDone = false;
             boolean outputDone = false;
+            long lastProgressMs = System.currentTimeMillis();
             ByteBuffer pending = null; // PCM of the current chunk not yet handed to the encoder
             long pendingPtsUs = 0;
             while (!outputDone) {
                 throwIfCancelled();
+                if (System.currentTimeMillis() - lastProgressMs > STALL_MS) {
+                    throw new IOException("Audio encoder stalled");
+                }
 
                 // Feed
                 if (!inputDone) {
@@ -202,7 +210,9 @@ final class AudioMixRenderer {
                     muxTrack = muxer.addTrack(encoder.getOutputFormat());
                     muxer.start();
                     muxStarted = true;
+                    lastProgressMs = System.currentTimeMillis();
                 } else if (out >= 0) {
+                    lastProgressMs = System.currentTimeMillis();
                     ByteBuffer data = encoder.getOutputBuffer(out);
                     if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) info.size = 0;
                     if (info.size > 0 && muxStarted && data != null) {
@@ -287,6 +297,8 @@ final class AudioMixRenderer {
         private boolean inputDone;
         private boolean decoderDone;
         private boolean finished;
+        private boolean spanHasAudio;
+        private long lastProgressMs;
 
         private short[] queue = new short[0];
         private int queueStart;
@@ -352,7 +364,13 @@ final class AudioMixRenderer {
         /** Reads up to {@code frames} output frames into {@code out}; returns how many. */
         int read(short[] out, int outFrame, int frames) throws IOException {
             int want = frames * outChannels;
-            while (queueEnd - queueStart < want && !finished) fill();
+            lastProgressMs = System.currentTimeMillis();
+            while (queueEnd - queueStart < want && !finished) {
+                fill();
+                if (System.currentTimeMillis() - lastProgressMs > STALL_MS) {
+                    throw new IOException("Audio decoder stalled");
+                }
+            }
             int have = Math.min(want, queueEnd - queueStart);
             System.arraycopy(queue, queueStart, out, outFrame * outChannels, have);
             queueStart += have;
@@ -370,6 +388,8 @@ final class AudioMixRenderer {
             if (decoder != null && spanIndex > 0) decoder.flush();
             inputDone = false;
             decoderDone = false;
+            spanHasAudio = false;
+            lastProgressMs = System.currentTimeMillis();
             return true;
         }
 
@@ -397,6 +417,9 @@ final class AudioMixRenderer {
                 }
             }
             int out = decoder.dequeueOutputBuffer(info, TIMEOUT_US);
+            if (out == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED || out >= 0) {
+                lastProgressMs = System.currentTimeMillis();
+            }
             if (out == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 MediaFormat f = decoder.getOutputFormat();
                 int rate = f.containsKey(MediaFormat.KEY_SAMPLE_RATE)
@@ -434,6 +457,15 @@ final class AudioMixRenderer {
             if (endFrame <= 0 || skip >= frames) {
                 if (endFrame <= 0) decoderDone = true;
                 return;
+            }
+            if (!spanHasAudio) {
+                spanHasAudio = true;
+                // Audio that starts after the span start (late first sample): keep it in sync
+                long lead = Math.min(MAX_LEAD_US, ptsUs - span[0]);
+                if (lead > 0) {
+                    int gap = (int) (lead * outRate / 1_000_000L);
+                    if (gap > 0) push(new short[gap * outChannels], gap * outChannels);
+                }
             }
             int from = (int) skip;
             int to = (int) Math.min(frames, endFrame);
