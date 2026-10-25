@@ -144,6 +144,15 @@ public class VideoEditorActivity extends AppCompatActivity
 
         timeline.setListener(this);
         audioLane.setListener(this);
+        if (vm.getAudioExpanded() == null) {
+            // On a short screen the lane starts closed so the video keeps its room
+            vm.setAudioExpanded(getResources().getConfiguration().screenHeightDp >= 700);
+        }
+        findViewById(R.id.tv_audio_title).setOnClickListener(v -> {
+            vm.setAudioExpanded(!vm.getAudioExpanded());
+            lastLaneProject = null;
+            refresh();
+        });
         btnAddAudio.setOnClickListener(v -> pickAudio.launch(new String[]{"audio/*"}));
         btnAudioMute.setOnClickListener(v -> toggleOriginalMute());
         btnAudioRemove.setOnClickListener(v -> removeSelectedAudio());
@@ -317,6 +326,8 @@ public class VideoEditorActivity extends AppCompatActivity
         } catch (SecurityException | UnsupportedOperationException ignored) {
             // Not every provider offers a persistable grant; the grant for this session still works
         }
+        vm.setAudioExpanded(true);
+        lastLaneProject = null;
         vm.addAudio(this, uri);
     }
 
@@ -353,7 +364,12 @@ public class VideoEditorActivity extends AppCompatActivity
         lastLaneReady = ready;
         lastLaneSaving = saving;
 
-        audioScroll.setVisibility(showOriginal || !added.isEmpty() ? View.VISIBLE : View.GONE);
+        boolean expanded = Boolean.TRUE.equals(vm.getAudioExpanded());
+        boolean hasRows = showOriginal || !added.isEmpty();
+        ((TextView) findViewById(R.id.tv_audio_title)).setText(hasRows
+                ? getString(R.string.editor_audio) + (expanded ? "  \u25BE" : "  \u25B8")
+                : getString(R.string.editor_audio));
+        audioScroll.setVisibility(hasRows && expanded ? View.VISIBLE : View.GONE);
         long outDur = project.outputDurationMs(dur);
         int cols = AudioPeaks.BUCKETS;
 

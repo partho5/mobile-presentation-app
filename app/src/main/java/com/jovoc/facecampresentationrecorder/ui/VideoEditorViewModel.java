@@ -69,6 +69,7 @@ public class VideoEditorViewModel extends ViewModel {
     private boolean audioBusy;
     private boolean audioError;
     private int selectedTrack = NO_TRACK;
+    private Boolean audioExpanded;
 
     // UI state that outlives the activity
     private long playheadMs;
@@ -141,8 +142,9 @@ public class VideoEditorViewModel extends ViewModel {
 
     /** Computes the loudness profile of {@code location} in the background and caches it. */
     private void loadPeaks(Context context, String location, long durationMs) {
-        if (peaks.containsKey(location)) return;
-        audioLoader.execute(() -> {
+        if (cleared || peaks.containsKey(location)) return;
+        try {
+            audioLoader.execute(() -> {
             try {
                 float[] p = AudioPeaks.compute(context, location, durationMs, AudioPeaks.BUCKETS, audioCancel);
                 peaks.put(location, p);
@@ -152,6 +154,9 @@ public class VideoEditorViewModel extends ViewModel {
             }
             changed();
         });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Screen is gone for good
+        }
     }
 
     /**
@@ -218,6 +223,9 @@ public class VideoEditorViewModel extends ViewModel {
         return d == null ? 0 : d;
     }
     public String getAudioName(String uri) { return audioNames.get(uri); }
+    /** Whether the audio lane is open; null until the screen chooses a default. */
+    public Boolean getAudioExpanded() { return audioExpanded; }
+    public void setAudioExpanded(boolean e) { audioExpanded = e; }
     public int getSelectedTrack() { return selectedTrack; }
     public void setSelectedTrack(int t) { selectedTrack = t; }
 
