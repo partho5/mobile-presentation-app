@@ -141,6 +141,14 @@ public class EditTimelineMathTest {
     }
 
     @Test
+    public void sameFileSeesThroughRelativeSegments() throws Exception {
+        File master = tmp.newFile("talk.mp4");
+        File viaDots = new File(master.getParentFile(), "x/../talk.mp4");
+        assertTrue(EditTimelineMath.isSameFile(master, viaDots));
+        assertFalse(EditTimelineMath.isSameFile(master, EditTimelineMath.nextOutputFile(master)));
+    }
+
+    @Test
     public void formatTime() {
         assertEquals("0:00", EditTimelineMath.formatTime(-5));
         assertEquals("1:05", EditTimelineMath.formatTime(65_900));

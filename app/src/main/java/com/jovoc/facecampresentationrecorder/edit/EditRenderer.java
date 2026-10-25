@@ -219,8 +219,14 @@ public class EditRenderer {
             throws IOException {
         File master = new File(project.getMasterPath());
         if (!master.isFile()) throw new IOException("Master not found: " + master);
-        if (master.getAbsoluteFile().equals(output.getAbsoluteFile())) {
+        // The original is never written: not as the output, and not as an input either
+        if (EditTimelineMath.isSameFile(master, output)) {
             throw new IOException("Output would overwrite the master");
+        }
+        for (EditProject.AddedAudio a : project.getAdded()) {
+            if (a.uri != null && EditTimelineMath.isSameFile(new File(a.uri), output)) {
+                throw new IOException("Output would overwrite an input file");
+            }
         }
         this.listener = progress;
         lastPercent = -1;

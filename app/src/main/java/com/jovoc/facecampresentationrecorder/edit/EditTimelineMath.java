@@ -124,6 +124,17 @@ public final class EditTimelineMath {
         return candidate;
     }
 
+    /** True when both name the same file, also through a relative path or a symlink. */
+    public static boolean isSameFile(File a, File b) {
+        if (a == null || b == null) return false;
+        if (a.getAbsoluteFile().equals(b.getAbsoluteFile())) return true;
+        try {
+            return a.getCanonicalFile().equals(b.getCanonicalFile());
+        } catch (java.io.IOException e) {
+            return false;
+        }
+    }
+
     private static boolean isTaken(File candidate) {
         if (candidate.exists()) return true;
         String name = candidate.getName();
