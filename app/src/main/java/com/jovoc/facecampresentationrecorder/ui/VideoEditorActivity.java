@@ -64,6 +64,7 @@ public class VideoEditorActivity extends AppCompatActivity
     private MediaPlayer player;
     private boolean prepared;
     private long lastPreviewEdgeMs = -1;
+    private androidx.appcompat.app.AlertDialog discardDialog;
 
     private final Runnable ticker = new Runnable() {
         @Override
@@ -166,6 +167,7 @@ public class VideoEditorActivity extends AppCompatActivity
     @Override
     protected void onDestroy() {
         handler.removeCallbacks(ticker);
+        if (discardDialog != null) discardDialog.dismiss();
         if (vm != null) vm.setListener(null);
         super.onDestroy();
     }
@@ -437,7 +439,7 @@ public class VideoEditorActivity extends AppCompatActivity
             return; // Cancel on the overlay is the way out while saving
         }
         if (vm != null && vm.isReady() && vm.getHistory().isDirty()) {
-            new MaterialAlertDialogBuilder(this)
+            discardDialog = new MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.editor_discard_title)
                     .setMessage(R.string.editor_discard_message)
                     .setPositiveButton(R.string.editor_discard, (d, w) -> finish())

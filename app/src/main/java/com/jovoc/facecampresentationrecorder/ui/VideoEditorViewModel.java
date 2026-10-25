@@ -57,7 +57,7 @@ public class VideoEditorViewModel extends ViewModel {
 
     // Save
     private SaveState saveState = SaveState.IDLE;
-    private int percent;
+    private volatile int percent;
     private File output;
     private AtomicBoolean cancelFlag;
 
