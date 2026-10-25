@@ -15,7 +15,7 @@ Build one part at a time; tick boxes and commit per part.
 
 | Part | Scope | Status |
 |---|---|---|
-| 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ⬜ |
+| 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ✅ code done; device check pending |
 | 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ⬜ |
 | 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ⬜ |
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ⬜ |
@@ -64,12 +64,12 @@ Build one part at a time; tick boxes and commit per part.
 **Post-recording flow**: `VideoPlayerDialog` + `res/layout/dialog_video_player.xml` gain two `ImageButton`s after `btn_all_videos`. `EditorGate.shouldShowAfterRecording(context)` = auto-publish off AND setting on; `MainActivity.onRecordingReady` calls only this. Edit enabled-state follows bg-replace for that master via the existing state broadcast.
 
 ## Part 1 - Edit model + video cut renderer
-- [ ] `edit/EditProject` + range math + unit tests (merge, split, delete, time mapping, empty = whole file)
-- [ ] `edit/EditRenderer` video path: extract, decode, encode (H.264, ~1.5x source bitrate), mux
-- [ ] Audio passthrough for cuts (sample copy at frame boundaries)
-- [ ] Output verification (duration, sync); cancel + progress; `.part.mp4` then rename
-- [ ] Size check against the 4 GiB upload cap (cap bitrate if the estimate exceeds it)
-- [ ] Confirm bg-replace preserves duration/timestamps exactly (assumed); fall back if not
+- [x] `edit/EditProject` + range math + unit tests (merge, split, delete, time mapping, empty = whole file)
+- [x] `edit/EditRenderer` video path: extract, decode, encode (H.264, ~1.5x source bitrate), mux
+- [x] Audio passthrough for cuts (sample copy at frame boundaries)
+- [x] Output verification (duration, sync); cancel + progress; `.part.mp4` then rename
+- [x] Size check against the 4 GiB upload cap (cap bitrate if the estimate exceeds it)
+- [x] Confirm bg-replace preserves duration/timestamps exactly (assumed); fall back if not (done: bg-replace re-stamps frames with source pts and copies audio untouched; renderer reads the real duration/timestamps from the file anyway, documented in `EditRenderer`)
 - [ ] Owner check on device: cut at start / middle / end; compare quality vs master; FFmpeg crop works on output
 
 ## Part 2 - Audio rendering
