@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.ui;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.media.MediaPlayer;
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
 import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
+import com.jovoc.facecampresentationrecorder.edit.SectionSelection;
 import com.jovoc.facecampresentationrecorder.edit.WaveformMath;
 
 import java.io.File;
@@ -38,8 +40,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The video editor: preview with a timeline to trim, split and delete parts, undo/redo, and a
- * Save that renders the result to a new file beside the master (the master is never touched).
+ * The video editor: preview with a timeline where two taps pick a section to remove (the rest is
+ * joined and the timeline shows the edited result), undo/redo, and a Save that renders the result to a new file beside the master (the master is never touched).
  * State lives in {@link VideoEditorViewModel}, so rotation keeps the edits and a running save.
  * Playback skips the deleted parts, so the preview matches what Save will write.
  *
@@ -67,8 +69,8 @@ public class VideoEditorActivity extends AppCompatActivity
 
     private VideoView video;
     private EditTimelineView timeline;
-    private TextView tvStatus, tvTime, tvResultLength, tvSavePercent;
-    private MaterialButton btnUndo, btnRedo, btnPlay, btnSplit, btnDelete, btnSave, btnPublish;
+    private TextView tvStatus, tvTime, tvResultLength, tvSavePercent, tvHint, tvSelection;
+    private MaterialButton btnUndo, btnRedo, btnPlay, btnRemove, btnSave, btnPublish;
     private View saveOverlay;
     private ProgressBar saveProgress;
 
@@ -89,7 +91,6 @@ public class VideoEditorActivity extends AppCompatActivity
 
     private MediaPlayer player;
     private boolean prepared;
-    private long lastPreviewEdgeMs = -1;
     private androidx.appcompat.app.AlertDialog discardDialog;
 
     private final Runnable ticker = new Runnable() {
@@ -121,8 +122,9 @@ public class VideoEditorActivity extends AppCompatActivity
         btnUndo = findViewById(R.id.btn_undo);
         btnRedo = findViewById(R.id.btn_redo);
         btnPlay = findViewById(R.id.btn_play);
-        btnSplit = findViewById(R.id.btn_split);
-        btnDelete = findViewById(R.id.btn_delete);
+        btnRemove = findViewById(R.id.btn_remove);
+        tvHint = findViewById(R.id.tv_hint);
+        tvSelection = findViewById(R.id.tv_selection);
         btnSave = findViewById(R.id.btn_save);
         btnPublish = findViewById(R.id.btn_publish);
         saveOverlay = findViewById(R.id.save_overlay);
@@ -191,8 +193,7 @@ public class VideoEditorActivity extends AppCompatActivity
         btnUndo.setOnClickListener(v -> undoRedo(true));
         btnRedo.setOnClickListener(v -> undoRedo(false));
         btnPlay.setOnClickListener(v -> togglePlay());
-        btnSplit.setOnClickListener(v -> split());
-        btnDelete.setOnClickListener(v -> deleteSegment());
+        btnRemove.setOnClickListener(v -> removeSection());
         btnSave.setOnClickListener(v -> save());
         btnPublish.setOnClickListener(v -> publish());
         findViewById(R.id.btn_cancel_save).setOnClickListener(v -> vm.cancelSave());
@@ -288,8 +289,7 @@ public class VideoEditorActivity extends AppCompatActivity
             setEnabled(btnUndo, false);
             setEnabled(btnRedo, false);
             setEnabled(btnPlay, false);
-            setEnabled(btnSplit, false);
-            setEnabled(btnDelete, false);
+            setEnabled(btnRemove, false);
             setEnabled(btnSave, false);
             setEnabled(btnPublish, false);
             setEnabled(btnAddAudio, false);
@@ -302,18 +302,25 @@ public class VideoEditorActivity extends AppCompatActivity
         long playhead = EditTimelineMath.snapToKept(ranges, vm.getPlayheadMs());
         if (playhead != vm.getPlayheadMs()) vm.setPlayheadMs(playhead);
 
-        timeline.setDuration(dur);
-        timeline.setThumbnails(vm.getThumbs());
-        timeline.setRanges(ranges);
-        timeline.setPlayhead(playhead);
+        // The timeline shows the edited result, so everything below is in edited milliseconds
+        long outDur = project.outputDurationMs(dur);
+        long outPos = project.sourceToOutput(playhead, dur);
+        if (outPos < 0) outPos = outDur;
+        if (!vm.getSelection().fitsIn(outDur)) vm.setSelection(SectionSelection.EMPTY);
+        SectionSelection selection = vm.getSelection();
+
+        timeline.setDuration(outDur);
+        timeline.setThumbnails(editedThumbs(vm.getThumbs(), project, dur, outDur));
+        timeline.setSeams(EditTimelineMath.seams(project, dur));
+        timeline.setSelection(selection.getStartMs(), selection.getEndMs());
+        timeline.setPlayhead(outPos);
 
         EditHistory h = vm.getHistory();
         setEnabled(btnUndo, h.canUndo() && !saving);
         setEnabled(btnRedo, h.canRedo() && !saving);
         setEnabled(btnPlay, prepared && !saving);
-        setEnabled(btnSplit, EditTimelineMath.canSplit(ranges, playhead) && !saving);
-        setEnabled(btnDelete, EditTimelineMath.canDelete(ranges,
-                EditTimelineMath.indexAt(ranges, playhead)) && !saving);
+        setEnabled(btnRemove, EditTimelineMath.canRemove(project, selection, dur) && !saving);
+        bindSelectionTexts(project, selection, dur);
         setEnabled(btnSave, !saving);
         setEnabled(btnPublish, !saving);
 
@@ -323,13 +330,44 @@ public class VideoEditorActivity extends AppCompatActivity
         btnPlay.setText(playing ? R.string.editor_pause : R.string.editor_play);
         btnPlay.setIconResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
 
-        long outDur = project.outputDurationMs(dur);
-        long outPos = project.sourceToOutput(playhead, dur);
-        if (outPos < 0) outPos = outDur;
         tvTime.setText(getString(R.string.editor_time_fmt,
                 EditTimelineMath.formatTime(outPos), EditTimelineMath.formatTime(outDur)));
         tvResultLength.setText(getString(R.string.editor_result_length,
                 EditTimelineMath.formatTime(outDur)));
+    }
+
+    /** The hint under the title and the start / end / length line, for the current selection. */
+    private void bindSelectionTexts(EditProject project, SectionSelection selection, long dur) {
+        if (!selection.hasStart()) {
+            tvHint.setText(R.string.editor_hint_start);
+            tvSelection.setText("");
+        } else if (!selection.hasRange()) {
+            tvHint.setText(R.string.editor_hint_end);
+            tvSelection.setText(getString(R.string.editor_sel_start_only,
+                    EditTimelineMath.formatPrecise(selection.getStartMs())));
+        } else {
+            tvHint.setText(EditTimelineMath.coversAll(project, selection, dur)
+                    ? R.string.editor_hint_all : R.string.editor_hint_range);
+            tvSelection.setText(getString(R.string.editor_sel_range,
+                    EditTimelineMath.formatPrecise(selection.getStartMs()),
+                    EditTimelineMath.formatPrecise(selection.getEndMs()),
+                    EditTimelineMath.formatSeconds(selection.lengthMs())));
+        }
+    }
+
+    /**
+     * Thumbnails for the edited timeline: slot i shows the master thumbnail nearest to the footage
+     * that sits there, so only kept footage appears. Null entries stay null while they load.
+     */
+    private static Bitmap[] editedThumbs(Bitmap[] master, EditProject project, long dur, long outDur) {
+        if (master.length == 0 || outDur <= 0 || dur <= 0 || !project.hasCuts(dur)) return master;
+        Bitmap[] out = new Bitmap[master.length];
+        for (int i = 0; i < out.length; i++) {
+            long src = project.outputToSource((long) ((i + 0.5) * outDur / out.length), dur);
+            int idx = (int) Math.max(0, Math.min(master.length - 1, src * master.length / dur));
+            out[i] = master[idx];
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- audio lane
@@ -621,59 +659,51 @@ public class VideoEditorActivity extends AppCompatActivity
     @Override
     public void onGestureStart() {
         if (vm.isPlaying()) pausePlayback();
-        lastPreviewEdgeMs = -1;
     }
 
+    /** Dragging the timeline: {@code ms} is on the edited timeline. */
     @Override
     public void onScrub(long ms) {
         if (!vm.isReady()) return;
-        List<Range> ranges = vm.getProject().effectiveKeep(vm.getDurationMs());
-        long snapped = EditTimelineMath.snapToKept(ranges, ms);
-        vm.setPlayheadMs(snapped);
+        long snapped = movePlayheadToOutput(ms);
         seek(snapped, MediaPlayer.SEEK_CLOSEST_SYNC);
         refresh();
     }
 
+    /** A tap on the timeline places (or moves) a marker and shows that frame. */
     @Override
-    public void onTrimPreview(long edgeMs) {
-        lastPreviewEdgeMs = edgeMs;
-        seek(edgeMs, MediaPlayer.SEEK_CLOSEST_SYNC);
-        tvTime.setText(EditTimelineMath.formatTime(edgeMs));
+    public void onTap(long ms) {
+        if (!vm.isReady() || vm.getSaveState() == VideoEditorViewModel.SaveState.RUNNING) return;
+        long outDur = vm.getProject().outputDurationMs(vm.getDurationMs());
+        vm.setSelection(vm.getSelection().tap(ms, outDur));
+        seekPrecise(movePlayheadToOutput(ms));
+        refresh();
     }
 
-    @Override
-    public void onTrimCommit(List<Range> ranges) {
+    /** Parks the playhead on edited-timeline position {@code outMs}; returns the source position. */
+    private long movePlayheadToOutput(long outMs) {
         long dur = vm.getDurationMs();
-        vm.getHistory().push(EditTimelineMath.withRanges(vm.getProject(), ranges, dur));
-        long edge = lastPreviewEdgeMs >= 0 ? lastPreviewEdgeMs : vm.getPlayheadMs();
-        vm.setPlayheadMs(EditTimelineMath.snapToKept(vm.getProject().effectiveKeep(dur), edge));
-        seekPrecise(vm.getPlayheadMs());
-        refresh();
+        EditProject p = vm.getProject();
+        long source = EditTimelineMath.snapToKept(p.effectiveKeep(dur), p.outputToSource(outMs, dur));
+        vm.setPlayheadMs(source);
+        return source;
     }
 
     // ---------------------------------------------------------------- edits
 
-    private void split() {
+    private void removeSection() {
         if (!vm.isReady()) return;
         long dur = vm.getDurationMs();
-        List<Range> ranges = vm.getProject().effectiveKeep(dur);
-        long at = vm.getPlayheadMs();
-        if (!EditTimelineMath.canSplit(ranges, at)) return;
+        SectionSelection selection = vm.getSelection();
+        EditProject next = EditTimelineMath.removeSection(vm.getProject(), selection, dur);
+        if (next == null) return;
         if (vm.isPlaying()) pausePlayback();
-        vm.getHistory().push(vm.getProject().withSplit(at, dur));
-        refresh();
-    }
-
-    private void deleteSegment() {
-        if (!vm.isReady()) return;
-        long dur = vm.getDurationMs();
-        List<Range> ranges = vm.getProject().effectiveKeep(dur);
-        int idx = EditTimelineMath.indexAt(ranges, vm.getPlayheadMs());
-        if (!EditTimelineMath.canDelete(ranges, idx)) return;
-        if (vm.isPlaying()) pausePlayback();
-        Range gone = ranges.get(idx);
-        vm.getHistory().push(vm.getProject().withDeleted(gone.startMs, gone.endMs, dur));
-        vm.setPlayheadMs(EditTimelineMath.snapToKept(vm.getProject().effectiveKeep(dur), gone.startMs));
+        vm.getHistory().push(next);
+        vm.setSelection(SectionSelection.EMPTY);
+        // Park on the join, where the removed part used to be
+        long outPos = Math.min(selection.getStartMs(), next.outputDurationMs(dur));
+        vm.setPlayheadMs(EditTimelineMath.snapToKept(next.effectiveKeep(dur),
+                next.outputToSource(outPos, dur)));
         seekPrecise(vm.getPlayheadMs());
         refresh();
     }
@@ -683,6 +713,7 @@ public class VideoEditorActivity extends AppCompatActivity
         if (vm.isPlaying()) pausePlayback();
         EditProject p = undo ? vm.getHistory().undo() : vm.getHistory().redo();
         if (p == null) return;
+        vm.setSelection(SectionSelection.EMPTY);
         long dur = vm.getDurationMs();
         vm.setPlayheadMs(EditTimelineMath.snapToKept(p.effectiveKeep(dur), vm.getPlayheadMs()));
         seekPrecise(vm.getPlayheadMs());

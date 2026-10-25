@@ -8,16 +8,10 @@ import java.util.Locale;
 import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
 
 /**
- * The editor screen's pure helpers: segment lookup, trim-handle clamping, split/delete rules and
- * the output file name. No Android classes, so they are unit-tested.
+ * The editor screen's pure helpers: segment lookup, the remove-section rule on the edited
+ * timeline, join positions and the output file name. No Android classes, so they are unit-tested.
  */
 public final class EditTimelineMath {
-
-    /** Shortest segment a handle drag or a split may leave. */
-    public static final long MIN_SEGMENT_MS = 300;
-
-    /** Most segments a project may have: keeps the timeline drawing and the render quick. */
-    public static final int MAX_SEGMENTS = 200;
 
     private EditTimelineMath() {}
 
@@ -53,56 +47,52 @@ public final class EditTimelineMath {
         return -1;
     }
 
-    /** True when a split at {@code ms} would leave two segments of at least the minimum length (and the segment cap allows one more). */
-    public static boolean canSplit(List<Range> ranges, long ms) {
-        if (ranges.size() >= MAX_SEGMENTS) return false;
-        int i = indexAt(ranges, ms);
-        if (i < 0) return false;
-        Range r = ranges.get(i);
-        return ms - r.startMs >= MIN_SEGMENT_MS && r.endMs - ms >= MIN_SEGMENT_MS;
+    /**
+     * True when {@code selection} is a complete range inside the edited timeline that leaves
+     * something behind: selecting the whole timeline would remove everything, which is refused.
+     */
+    public static boolean canRemove(EditProject p, SectionSelection selection, long durationMs) {
+        if (!selection.hasRange()) return false;
+        long outDur = p.outputDurationMs(durationMs);
+        if (selection.getStartMs() < 0 || selection.getEndMs() > outDur) return false;
+        return !coversAll(p, selection, durationMs);
     }
 
-    /** Delete would leave something: there must be another segment besides the chosen one. */
-    public static boolean canDelete(List<Range> ranges, int index) {
-        return index >= 0 && index < ranges.size() && ranges.size() > 1;
+    /** True when the selection spans the whole edited timeline (nothing would be left). */
+    public static boolean coversAll(EditProject p, SectionSelection selection, long durationMs) {
+        return selection.hasRange() && selection.getStartMs() <= 0
+                && selection.getEndMs() >= p.outputDurationMs(durationMs);
     }
 
     /**
-     * Moves the handles of segment {@code index} to {@code newStart}/{@code newEnd}. A segment can
-     * grow back into a deleted stretch but never past its neighbours, never outside the file, and
-     * never shrinks below {@link #MIN_SEGMENT_MS}. When only one handle was dragged the other stays.
+     * The project with the selected stretch of the edited timeline cut out and the rest joined,
+     * or null when {@link #canRemove} says no. The selection is on the edited timeline, so both
+     * ends go through {@link EditProject#outputToSource} first; a selection that spans an earlier
+     * join simply removes the kept footage on either side of it.
      */
-    public static List<Range> resize(List<Range> ranges, int index, long newStart, long newEnd,
-                                     long durationMs) {
-        Range old = ranges.get(index);
-        long lo = index > 0 ? ranges.get(index - 1).endMs : 0;
-        long hi = index < ranges.size() - 1 ? ranges.get(index + 1).startMs : durationMs;
-        long min = Math.min(MIN_SEGMENT_MS, Math.max(0, hi - lo));
-        boolean startMoved = newStart != old.startMs;
+    public static EditProject removeSection(EditProject p, SectionSelection selection,
+                                            long durationMs) {
+        if (!canRemove(p, selection, durationMs)) return null;
+        long from = p.outputToSource(selection.getStartMs(), durationMs);
+        long to = p.outputToSource(selection.getEndMs(), durationMs);
+        if (to <= from) return null;
+        return p.withDeleted(from, to, durationMs);
+    }
 
-        long start = Math.max(lo, Math.min(newStart, hi));
-        long end = Math.max(lo, Math.min(newEnd, hi));
-        if (end - start < min) {
-            if (startMoved) start = end - min; else end = start + min;
-            start = Math.max(lo, start);
-            end = Math.min(hi, end);
+    /**
+     * Where the joins are on the edited timeline: the output position at which each kept stretch
+     * after the first begins. Touching ranges (a leftover split) are one stretch, so no join.
+     */
+    public static long[] seams(EditProject p, long durationMs) {
+        List<Range> ranges = p.renderRanges(durationMs);
+        if (ranges.size() < 2) return new long[0];
+        long[] out = new long[ranges.size() - 1];
+        long acc = 0;
+        for (int i = 0; i < out.length; i++) {
+            acc += ranges.get(i).lengthMs();
+            out[i] = acc;
         }
-        List<Range> out = new ArrayList<>(ranges);
-        out.set(index, new Range(start, end));
         return out;
-    }
-
-    /**
-     * The project with its kept ranges replaced; everything else is carried over. A single range
-     * covering the whole file is stored as "no cuts" (an empty list), so dragging a handle back to
-     * where it started leaves the project equal to what it was.
-     */
-    public static EditProject withRanges(EditProject p, List<Range> ranges, long durationMs) {
-        List<Range> keep = ranges;
-        if (ranges.size() == 1 && ranges.get(0).startMs == 0 && ranges.get(0).endMs == durationMs) {
-            keep = new ArrayList<>();
-        }
-        return new EditProject(p.getMasterPath(), keep, p.getOriginal(), p.getAdded());
     }
 
     /**
@@ -152,5 +142,21 @@ public final class EditTimelineMath {
             return String.format(Locale.US, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60);
         }
         return String.format(Locale.US, "%d:%02d", s / 60, s % 60);
+    }
+
+    /** m:ss.s (rounded to a tenth), or h:mm:ss.s from an hour up. */
+    public static String formatPrecise(long ms) {
+        long tenths = (Math.max(0, ms) + 50) / 100;
+        long s = tenths / 10;
+        String base = s >= 3600
+                ? String.format(Locale.US, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
+                : String.format(Locale.US, "%d:%02d", s / 60, s % 60);
+        return base + "." + (tenths % 10);
+    }
+
+    /** A length as seconds with one decimal, e.g. {@code 2.5 s}; minutes are not split out. */
+    public static String formatSeconds(long ms) {
+        long tenths = (Math.max(0, ms) + 50) / 100;
+        return String.format(Locale.US, "%d.%d s", tenths / 10, tenths % 10);
     }
 }

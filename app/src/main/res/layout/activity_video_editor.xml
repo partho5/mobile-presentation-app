@@ -103,11 +103,48 @@
                 android:textSize="14sp" />
         </RelativeLayout>
 
+        <TextView
+            android:id="@+id/tv_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="36dp"
+            android:paddingStart="16dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="16dp"
+            android:textColor="#FFD54F"
+            android:textSize="14sp" />
+
         <com.jovoc.facecampresentationrecorder.ui.EditTimelineView
             android:id="@+id/timeline"
             android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:layout_marginTop="4dp" />
+            android:layout_height="112dp" />
+
+        <TextView
+            android:id="@+id/tv_selection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="20dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_remove"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="16dp"
+            android:text="@string/editor_remove_section"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="#D32F2F"
+            app:cornerRadius="28dp"
+            app:icon="@drawable/ic_delete"
+            app:iconTint="#FFFFFF" />
 
         <!-- Audio lane: header with Add audio, then rows + controls of the selected row. -->
         <RelativeLayout
@@ -341,46 +378,6 @@
                 app:iconPadding="2dp"
                 app:iconSize="28dp"
                 app:iconTint="#FFFFFF" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_split"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="0dp"
-                android:layout_height="68dp"
-                android:layout_weight="1"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="0dp"
-                android:paddingEnd="0dp"
-                android:text="@string/editor_split"
-                android:textAllCaps="false"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:icon="@drawable/ic_split"
-                app:iconGravity="top"
-                app:iconPadding="2dp"
-                app:iconSize="28dp"
-                app:iconTint="#FFFFFF" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_delete"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="0dp"
-                android:layout_height="68dp"
-                android:layout_weight="1"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="0dp"
-                android:paddingEnd="0dp"
-                android:text="@string/editor_delete"
-                android:textAllCaps="false"
-                android:textColor="#FF8A80"
-                android:textSize="12sp"
-                app:icon="@drawable/ic_delete"
-                app:iconGravity="top"
-                app:iconPadding="2dp"
-                app:iconSize="28dp"
-                app:iconTint="#FF8A80" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton

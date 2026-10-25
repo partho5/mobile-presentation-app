@@ -20,6 +20,7 @@ import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
 import com.jovoc.facecampresentationrecorder.edit.EditRenderer;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
+import com.jovoc.facecampresentationrecorder.edit.SectionSelection;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 
@@ -93,6 +94,7 @@ public class VideoEditorViewModel extends ViewModel {
     // UI state that outlives the activity
     private long playheadMs;
     private boolean playing;
+    private SectionSelection selection = SectionSelection.EMPTY;
 
     // Save
     private SaveState saveState = SaveState.IDLE;
@@ -347,6 +349,9 @@ public class VideoEditorViewModel extends ViewModel {
     public void setPlayheadMs(long ms) { playheadMs = ms; }
     public boolean isPlaying() { return playing; }
     public void setPlaying(boolean p) { playing = p; }
+    /** The section picked for removal, on the edited timeline; kept across rotation. */
+    public SectionSelection getSelection() { return selection; }
+    public void setSelection(SectionSelection s) { selection = s == null ? SectionSelection.EMPTY : s; }
 
     // ---------------------------------------------------------------- draft
 

@@ -4,72 +4,67 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
-import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
-import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import com.jovoc.facecampresentationrecorder.R;
 
 /**
- * The editor's timeline: a strip of video thumbnails over the master's whole length, with deleted
- * stretches dimmed, a playhead, and two big trim handles on the segment under the playhead.
- * Dragging anywhere else scrubs. The view only draws and reports gestures; the editor screen
- * owns the {@code EditProject} and feeds the ranges back in. Times are master milliseconds.
+ * The editor's timeline: a strip of video thumbnails over the edited result (what is left after
+ * removals), a thin playhead, small markers above it at every join, and the section the user is
+ * picking to remove: a sharp Start line and End line with a tint between them.
+ * A tap places a marker, dragging scrubs. The view only draws and reports gestures; the editor
+ * screen owns the state. Times are milliseconds on the edited timeline.
  */
 public class EditTimelineView extends View {
 
     public interface Listener {
-        /** A finger went down to scrub or trim: pause playback. */
+        /** A finger went down: pause playback. */
         void onGestureStart();
 
-        /** The playhead was dragged to {@code ms} (not yet snapped to a kept stretch). */
+        /** The playhead was dragged to {@code ms}. */
         void onScrub(long ms);
 
-        /** A trim handle is being dragged; {@code edgeMs} is the edge to preview. */
-        void onTrimPreview(long edgeMs);
-
-        /** A trim handle was let go; {@code ranges} is the full new list of kept ranges. */
-        void onTrimCommit(List<Range> ranges);
+        /** The timeline was tapped (not dragged) at {@code ms}; the edges snap to 0 / the end. */
+        void onTap(long ms);
     }
-
-    private static final int HANDLE_NONE = 0;
-    private static final int HANDLE_START = 1;
-    private static final int HANDLE_END = 2;
 
     private final Paint stripPaint = new Paint();
     private final Paint thumbPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final Paint dimPaint = new Paint();
-    private final Paint framePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint gripPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint splitPaint = new Paint();
+    private final Paint tintPaint = new Paint();
+    private final Paint startPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint endPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tagTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint seamPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
     private final Rect src = new Rect();
     private final Rect dst = new Rect();
+    private final Path path = new Path();
 
     private final float density;
-    private final float handleW;
-    private final float handleTouch;
+    private final float pad;
+    private final float edgeSnap;
+    private final float touchSlop;
+    private final String startLabel;
+    private final String endLabel;
 
     private long durationMs;
-    private List<Range> ranges = Collections.emptyList();
+    private long[] seams = new long[0];
     private Bitmap[] thumbs = new Bitmap[0];
     private long playheadMs;
+    private long selStartMs = -1;
+    private long selEndMs = -1;
     private Listener listener;
 
-    // Trim drag
-    private int dragHandle = HANDLE_NONE;
-    private int dragIndex = -1;
+    // Gesture
+    private float downX;
     private boolean scrubbing;
-    private List<Range> dragRanges;
 
     public EditTimelineView(Context context) {
         this(context, null);
@@ -78,40 +73,41 @@ public class EditTimelineView extends View {
     public EditTimelineView(Context context, AttributeSet attrs) {
         super(context, attrs);
         density = context.getResources().getDisplayMetrics().density;
-        handleW = 22 * density;
-        handleTouch = 36 * density;
+        pad = 16 * density;
+        edgeSnap = 12 * density;
+        touchSlop = Math.max(ViewConfiguration.get(context).getScaledTouchSlop(), 8 * density);
+        startLabel = context.getString(R.string.editor_marker_start);
+        endLabel = context.getString(R.string.editor_marker_end);
 
         stripPaint.setColor(0xFF2C2C2C);
-        dimPaint.setColor(0xCC000000);
-        framePaint.setColor(0xFFFFC107);
-        framePaint.setStyle(Paint.Style.STROKE);
-        framePaint.setStrokeWidth(3 * density);
-        handlePaint.setColor(0xFFFFC107);
-        gripPaint.setColor(0xFF3A2E00);
-        splitPaint.setColor(0xFFFFFFFF);
-        splitPaint.setStrokeWidth(2 * density);
+        tintPaint.setColor(0x55FF5252);
+        startPaint.setColor(0xFF00E676);
+        startPaint.setStrokeWidth(2 * density);
+        endPaint.setColor(0xFFFF5252);
+        endPaint.setStrokeWidth(2 * density);
+        tagTextPaint.setColor(0xFF101010);
+        tagTextPaint.setTextSize(11 * context.getResources().getDisplayMetrics().scaledDensity);
+        tagTextPaint.setFakeBoldText(true);
+        tagTextPaint.setTextAlign(Paint.Align.CENTER);
+        seamPaint.setColor(0xFF40C4FF);
         playheadPaint.setColor(0xFFFFFFFF);
-        playheadPaint.setStrokeWidth(3 * density);
-        setContentDescription(context.getString(
-                com.jovoc.facecampresentationrecorder.R.string.editor_timeline_desc));
+        playheadPaint.setStrokeWidth(2 * density);
+        setContentDescription(context.getString(R.string.editor_timeline_desc));
     }
 
     public void setListener(Listener l) {
         this.listener = l;
     }
 
+    /** Length of the edited timeline. */
     public void setDuration(long ms) {
-        this.durationMs = Math.max(0, ms);
+        long d = Math.max(0, ms);
+        if (d == durationMs) return;
+        durationMs = d;
         invalidate();
     }
 
-    /** The kept ranges to show (sorted, non-overlapping). Ignored while a handle is being dragged. */
-    public void setRanges(List<Range> kept) {
-        if (dragRanges != null) return;
-        this.ranges = new ArrayList<>(kept);
-        invalidate();
-    }
-
+    /** Thumbnails spread evenly over the edited timeline. */
     public void setThumbnails(Bitmap[] frames) {
         this.thumbs = frames == null ? new Bitmap[0] : frames;
         invalidate();
@@ -123,22 +119,38 @@ public class EditTimelineView extends View {
         invalidate();
     }
 
+    /** The picked section; -1 for a marker that is not set. */
+    public void setSelection(long startMs, long endMs) {
+        if (startMs == selStartMs && endMs == selEndMs) return;
+        selStartMs = startMs;
+        selEndMs = endMs;
+        invalidate();
+    }
+
+    /** Positions of the joins left by earlier removals. */
+    public void setSeams(long[] positionsMs) {
+        this.seams = positionsMs == null ? new long[0] : positionsMs;
+        invalidate();
+    }
+
     // ---------------------------------------------------------------- geometry
 
     private float trackLeft() {
-        return handleW;
+        return pad;
     }
 
     private float trackRight() {
-        return getWidth() - handleW;
+        return getWidth() - pad;
     }
 
+    /** Room above the strip for the join markers and the playhead knob. */
     private float trackTop() {
-        return 12 * density;
+        return 20 * density;
     }
 
+    /** Room below the strip for the Start / End tags. */
     private float trackBottom() {
-        return getHeight() - 12 * density;
+        return getHeight() - 24 * density;
     }
 
     private float xOf(long ms) {
@@ -153,12 +165,11 @@ public class EditTimelineView extends View {
         return (long) (Math.max(0f, Math.min(1f, f)) * durationMs);
     }
 
-    private List<Range> shown() {
-        return dragRanges != null ? dragRanges : ranges;
-    }
-
-    private int selectedIndex() {
-        return dragRanges != null ? dragIndex : EditTimelineMath.indexAt(ranges, playheadMs);
+    /** Like {@link #msOf} but the last stretch at either end of the strip counts as exactly 0 / the end. */
+    private long tapMsOf(float x) {
+        if (x <= trackLeft() + edgeSnap) return 0;
+        if (x >= trackRight() - edgeSnap) return durationMs;
+        return msOf(x);
     }
 
     // ---------------------------------------------------------------- drawing
@@ -169,7 +180,7 @@ public class EditTimelineView extends View {
         float l = trackLeft(), r = trackRight(), t = trackTop(), b = trackBottom();
         c.drawRect(l, t, r, b, stripPaint);
 
-        // Thumbnails, evenly spread over the whole master
+        // Thumbnails, evenly spread over the edited timeline
         int n = thumbs.length;
         for (int i = 0; i < n; i++) {
             Bitmap bmp = thumbs[i];
@@ -190,46 +201,46 @@ public class EditTimelineView extends View {
             c.drawBitmap(bmp, src, dst, thumbPaint);
         }
 
-        // Deleted stretches: dimmed
-        List<Range> kept = shown();
-        long cursor = 0;
-        for (Range k : kept) {
-            if (k.startMs > cursor) c.drawRect(xOf(cursor), t, xOf(k.startMs), b, dimPaint);
-            cursor = Math.max(cursor, k.endMs);
-        }
-        if (cursor < durationMs) c.drawRect(xOf(cursor), t, r, b, dimPaint);
-
-        // Split points between touching segments
-        for (int i = 1; i < kept.size(); i++) {
-            if (kept.get(i).startMs == kept.get(i - 1).endMs) {
-                float x = xOf(kept.get(i).startMs);
-                c.drawLine(x, t, x, b, splitPaint);
-            }
+        // Join markers: a small triangle above the strip, not a gap in it
+        for (long s : seams) {
+            if (s <= 0 || s >= durationMs) continue;
+            float x = xOf(s);
+            path.reset();
+            path.moveTo(x - 5 * density, 3 * density);
+            path.lineTo(x + 5 * density, 3 * density);
+            path.lineTo(x, t - 3 * density);
+            path.close();
+            c.drawPath(path, seamPaint);
         }
 
-        // Selected segment: frame and handles
-        int sel = selectedIndex();
-        if (sel >= 0 && sel < kept.size()) {
-            Range s = kept.get(sel);
-            float xs = xOf(s.startMs), xe = xOf(s.endMs);
-            c.drawRect(xs, t, xe, b, framePaint);
-            rect.set(xs - handleW, t - 4 * density, xs, b + 4 * density);
-            c.drawRoundRect(rect, 6 * density, 6 * density, handlePaint);
-            drawGrip(c, xs - handleW / 2, (t + b) / 2);
-            rect.set(xe, t - 4 * density, xe + handleW, b + 4 * density);
-            c.drawRoundRect(rect, 6 * density, 6 * density, handlePaint);
-            drawGrip(c, xe + handleW / 2, (t + b) / 2);
-        }
+        // Section to remove: tint between the markers
+        boolean hasStart = selStartMs >= 0;
+        boolean hasEnd = hasStart && selEndMs >= 0;
+        if (hasEnd) c.drawRect(xOf(selStartMs), t, xOf(selEndMs), b, tintPaint);
 
-        // Playhead
+        // Playhead: thin line with a small knob
         float px = xOf(Math.max(0, Math.min(durationMs, playheadMs)));
-        c.drawLine(px, 4 * density, px, getHeight() - 4 * density, playheadPaint);
-        c.drawCircle(px, 6 * density, 6 * density, playheadPaint);
+        c.drawLine(px, t - 6 * density, px, b, playheadPaint);
+        c.drawCircle(px, t - 10 * density, 4 * density, playheadPaint);
+
+        // Markers on top: sharp thin lines with a small tag under the strip
+        if (hasStart) drawMarker(c, xOf(selStartMs), startPaint, startLabel, true);
+        if (hasEnd) drawMarker(c, xOf(selEndMs), endPaint, endLabel, false);
     }
 
-    private void drawGrip(Canvas c, float cx, float cy) {
-        rect.set(cx - 2 * density, cy - 12 * density, cx + 2 * density, cy + 12 * density);
-        c.drawRoundRect(rect, 2 * density, 2 * density, gripPaint);
+    /** A thin line from the top of the strip to its tag; the tag hangs right of Start, left of End. */
+    private void drawMarker(Canvas c, float x, Paint paint, String label, boolean tagRight) {
+        float t = trackTop(), b = trackBottom();
+        float tagTop = b + 2 * density;
+        float tagH = 16 * density;
+        float tagW = tagTextPaint.measureText(label) + 12 * density;
+        c.drawLine(x, t - 2 * density, x, tagTop + 2 * density, paint);
+        float left = tagRight ? x : x - tagW;
+        left = Math.max(0, Math.min(getWidth() - tagW, left));
+        rect.set(left, tagTop, left + tagW, tagTop + tagH);
+        c.drawRoundRect(rect, 3 * density, 3 * density, paint);
+        Paint.FontMetrics fm = tagTextPaint.getFontMetrics();
+        c.drawText(label, rect.centerX(), rect.centerY() - (fm.ascent + fm.descent) / 2, tagTextPaint);
     }
 
     // ---------------------------------------------------------------- touch
@@ -241,66 +252,25 @@ public class EditTimelineView extends View {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 getParent().requestDisallowInterceptTouchEvent(true);
+                downX = x;
+                scrubbing = false;
                 if (listener != null) listener.onGestureStart();
-                int handle = hitHandle(x);
-                if (handle != HANDLE_NONE) {
-                    dragHandle = handle;
-                    dragIndex = selectedIndex();
-                    dragRanges = new ArrayList<>(ranges);
-                } else {
-                    scrubbing = true;
-                    if (listener != null) listener.onScrub(msOf(x));
-                }
                 return true;
             case MotionEvent.ACTION_MOVE:
-                if (dragRanges != null) {
-                    Range old = dragRanges.get(dragIndex);
-                    long ms = msOf(x);
-                    List<Range> next = dragHandle == HANDLE_START
-                            ? EditTimelineMath.resize(dragRanges, dragIndex, ms, old.endMs, durationMs)
-                            : EditTimelineMath.resize(dragRanges, dragIndex, old.startMs, ms, durationMs);
-                    dragRanges = next;
-                    Range moved = next.get(dragIndex);
-                    invalidate();
-                    if (listener != null) {
-                        listener.onTrimPreview(dragHandle == HANDLE_START
-                                ? moved.startMs : Math.max(moved.startMs, moved.endMs - 1));
-                    }
-                } else if (scrubbing && listener != null) {
-                    listener.onScrub(msOf(x));
-                }
+                if (!scrubbing && Math.abs(x - downX) > touchSlop) scrubbing = true;
+                if (scrubbing && listener != null) listener.onScrub(msOf(x));
                 return true;
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                List<Range> result = dragRanges;
-                boolean commit = result != null && e.getActionMasked() == MotionEvent.ACTION_UP;
-                dragRanges = null;
-                dragHandle = HANDLE_NONE;
-                dragIndex = -1;
+                if (!scrubbing && listener != null) listener.onTap(tapMsOf(x));
                 scrubbing = false;
-                if (commit) {
-                    ranges = result;
-                    if (listener != null) listener.onTrimCommit(result);
-                }
-                invalidate();
+                performClick();
+                return true;
+            case MotionEvent.ACTION_CANCEL:
+                scrubbing = false;
                 return true;
             default:
                 return true;
         }
-    }
-
-    /** Which handle of the selected segment is under {@code x}, with a generous touch area. */
-    private int hitHandle(float x) {
-        int sel = EditTimelineMath.indexAt(ranges, playheadMs);
-        if (sel < 0) return HANDLE_NONE;
-        Range s = ranges.get(sel);
-        float xs = xOf(s.startMs), xe = xOf(s.endMs);
-        float dStart = Math.abs(x - (xs - handleW / 2));
-        float dEnd = Math.abs(x - (xe + handleW / 2));
-        float reach = handleTouch / 2;
-        if (dStart <= reach && dStart <= dEnd) return HANDLE_START;
-        if (dEnd <= reach) return HANDLE_END;
-        return HANDLE_NONE;
     }
 
     @Override

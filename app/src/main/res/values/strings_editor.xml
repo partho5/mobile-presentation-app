@@ -2,11 +2,18 @@
 <resources>
     <string name="editor_title">Edit video</string>
     <string name="editor_back_desc">Back</string>
-    <string name="editor_timeline_desc">Video timeline. Drag to move through the video, drag the yellow handles to trim.</string>
+    <string name="editor_timeline_desc">Video timeline. Tap to mark the start and end of a part to remove. Drag to move through the video.</string>
     <string name="editor_undo">Undo</string>
     <string name="editor_redo">Redo</string>
-    <string name="editor_split">Split</string>
-    <string name="editor_delete">Delete</string>
+    <string name="editor_remove_section">Remove selected section</string>
+    <string name="editor_marker_start">Start</string>
+    <string name="editor_marker_end">End</string>
+    <string name="editor_hint_start">Tap the timeline where the part you want to remove STARTS. Drag to preview.</string>
+    <string name="editor_hint_end">Now tap where it ENDS.</string>
+    <string name="editor_hint_range">Tap Remove, or tap the timeline again to move the nearer point.</string>
+    <string name="editor_hint_all">That is the whole video, and it can\'t all be removed. Move a point.</string>
+    <string name="editor_sel_start_only">Start %1$s</string>
+    <string name="editor_sel_range">Start %1$s   End %2$s   Removes %3$s</string>
     <string name="editor_play">Play</string>
     <string name="editor_pause">Pause</string>
     <string name="editor_save">Save</string>

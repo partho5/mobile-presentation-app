@@ -113,3 +113,13 @@ Code audit done (no device available); fixes: unsaved-edit draft file (`edit/Edi
 - [x] Videos with no audio track, Bluetooth-mic recordings (rate snapped to AAC-legal, zero rate/channel guards)
 - [x] Group list shows the edited group correctly (new group registered before crops, only after a successful render); publish works on edited files (path-keyed, valid MP4 from `MediaMuxer`)
 - [ ] Owner check on device: rotate during edit and during save, kill the app mid-edit and mid-save, fill the storage, cancel a save, 30+ min recording, 100+ splits, a no-audio master, a Bluetooth-mic recording, publish an edited file
+
+## Editor UX v2 - tap-to-select remove-section
+- [x] Tap the timeline to set Start, tap again for End (thin green/red lines with small Start/End tags, tinted area between); drag still scrubs
+- [x] Later taps move the nearer marker; an early End swaps; 100 ms minimum, clamped to 0..end, edge tap snaps to 0 / end (`edit/SectionSelection`, unit-tested)
+- [x] Hint text for each step, Start / End / length readout (m:ss.s), large "Remove selected section" button (off for an empty or whole-video selection, with a message)
+- [x] Remove joins the rest with no gap; the timeline then shows the edited result (kept thumbnails only), later selections work on it (`EditTimelineMath.removeSection`, maps through `EditProject.outputToSource`)
+- [x] Cyan join marker above the timeline at each seam (`EditTimelineMath.seams`), recomputed on undo / redo / restore
+- [x] Selection cleared after Remove and on undo / redo; survives rotation (view model)
+- [x] Split / Delete buttons and yellow trim handles removed; Undo, Redo, Play, Save, Publish and the audio lane kept
+- [ ] Owner check on device: tap markers, swap, move nearer marker, edges, Remove, second Remove on the edited timeline, seam dots, undo / redo, rotation, audio lane lines up
