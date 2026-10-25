@@ -337,9 +337,9 @@ public class VideoEditorActivity extends AppCompatActivity
         btnPlay.setIconResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
 
         tvTime.setText(getString(R.string.editor_time_fmt,
-                EditTimelineMath.formatTime(outPos), EditTimelineMath.formatTime(outDur)));
+                EditTimelineMath.formatPrecise(outPos), EditTimelineMath.formatPrecise(outDur)));
         tvResultLength.setText(getString(R.string.editor_result_length,
-                EditTimelineMath.formatTime(outDur)));
+                EditTimelineMath.formatPrecise(outDur)));
     }
 
     /** The hint under the title and the start / end / length line, for the current selection. */
@@ -510,8 +510,8 @@ public class VideoEditorActivity extends AppCompatActivity
         List<Float> sorted = new ArrayList<>(v);
         Collections.sort(sorted);
         tvTrim.setText(getString(R.string.editor_audio_trim_fmt,
-                EditTimelineMath.formatTime(Math.round(sorted.get(0) * 1000)),
-                EditTimelineMath.formatTime(Math.round(sorted.get(1) * 1000))));
+                EditTimelineMath.formatPrecise(Math.round(sorted.get(0) * 1000)),
+                EditTimelineMath.formatPrecise(Math.round(sorted.get(1) * 1000))));
     }
 
     /** One undo step for an audio edit. */
