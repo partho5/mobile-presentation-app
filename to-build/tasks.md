@@ -5,79 +5,105 @@ RULE: this PC hangs under load, so do not run gradle, unit tests or the emulator
 
 ------------------
 
-# AI captions from the video's speech — app side (decided 2026-10-21)
+# Video Editor
 
-Goal: a paid user (any plan above Free) never writes captions. When a video is published (auto or manual), the app extracts the speech audio as a small WAV in parallel with the video upload and uploads it; the server transcribes it (Meta Muse) and writes a caption, title and hashtags fitted to each platform (GPT-5 Nano); non-video channels get a text post. 1 credit per whole minute of speech audio, rounded down (a 2 min 50 s video costs 2; under 1 minute costs 0); the server computes it from the uploaded WAV. Backend side, decisions and the full contract: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (contract copied below). RULE above applies. Code paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/`.
+Simple editor: cut bad parts, tidy the sound, save. Few features, done best. Priorities: frictionless UX, highest quality.
+Code paths relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/`. Full design rationale: `VIDEO_EDITOR_PLAN.md`.
+Build one part at a time; tick boxes and commit per part.
 
-## What people see
-- **Auto publish (paid):** record → stop → undo window as today → one notification "Uploading…" (it reads "Writing captions…" only if the video finished first) → posts go live, each with its own caption; switched-on text channels get a text post. Card: "Live on 5 · AI captions"; scheduled: "Scheduled 6:00 PM · Edit captions". No extra taps; normally no extra wait.
-- **Manual publish (paid):** Publish screen gets one switch "AI captions · +N credits" (on by default, remembered; N from the server for this video's length, "free" when 0). With it on, the caption field is optional; hint: "Optional: a line to keep word for word (link, offer). AI writes the rest." The cost line shows the server's numbers.
-- **Never an error because of AI.** The post always goes out; the card adds one quiet line: "Posted with your text: not enough credits for AI captions" (tap → top up), "Posted with your text: no speech found" (no charge), "Posted with your text: AI captions unavailable". "Now" posts wait for the captions as long as the server works on them (its own limit is 3 h), however slow the phone or network is; only the user's Cancel ends it sooner.
-- **Free:** the switches show locked with the crown and open the existing upgrade sheet; no audio work at all.
-- **Text-post channels:** on the Auto upload screen, non-video platforms the server marks `textPost` get a switch "Text post from your video" (off by default; owner call). Others stay "Manual posting only".
-- **See/edit:** card action "Edit captions" (scheduled, not yet live) or "See captions" (posted) opens the web caption page signed in; editing happens in the existing web editor. No in-app editor.
+## Progress
 
-## How to change things later
-- Plan that unlocks it: server `PRICING.features.ai_captions`; mirror in `entitlements/Feature.DEFAULT_LOWEST` at the next release.
-- Price: server only (`GET /public/v1/auto-publish` `aiCaptions.costPerMinute`, charge-preview `aiCaptions` for a given length); the app never hardcodes the price or the rounding rule.
-- Wait limit after the video upload: `CaptionFlow.CAPTION_WAIT_MS` (190 min = the server's 3 h stale rule plus a margin; never the app's own cut-off). A slow phone or network never ends it: a lost connection is retried without limit (pause 2 s doubling to 30 s), a passing server error 6 times. A scheduled post stops waiting 1 min before its time (`deadlineFor`). Polls: every 3 s for 2 min, then every 10 s.
-- Prompts: web (Settings → AI prompts, owner `/admin/prompts`); nothing in the app.
+| Part | Scope | Status |
+|---|---|---|
+| 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ⬜ |
+| 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ⬜ |
+| 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ⬜ |
+| 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ⬜ |
+| 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ⬜ |
+| 6 | Edit an old recording from the 3-dots menu (new group) | ⬜ |
+| 7 | QA + hardening | ⬜ |
 
-## Decisions
-- **Who decides "paid"**: `Entitlements.has(Feature.AI_CAPTIONS)`; for auto publish the `FeatureSnapshot` taken at recording start (same as `auto_publish`, `bg_replace`); for manual publish the value when Publish is tapped. Plus the pref `KEY_AI_CAPTIONS` (default true) and a signed-in session.
-- **Audio**: FFmpegKit (already in `app/build.gradle`, `ffmpeg-kit-full:8.1.7`; sync call pattern in `util/VideoCropHelper`): `-vn -ac 1 -ar 16000 -c:a pcm_s16le -t 3600 out.wav` from the exact file that will be uploaded (`AutoPublishFiles.pick` result for auto, the chosen file for manual), into the app cache dir. Skip when the file has no audio track (`MediaExtractor` + `findTrack(…, "audio/")` like `bgreplace/OfflineBgProcessor`; recordings made with `key_record_audio` off have none). ≈1.9 MB per minute; capped at 60 min. Settled: Muse takes WAV only (no AAC/M4A/MP3), so the app always sends this WAV; the server accepts mono 16-bit PCM at 16 or 24 kHz, up to 3600 s + 10 s.
-- **Order inside the worker** (`service/PublishWorker` → `publish/PublishPipeline.run`): only after the undo window has passed (nothing is charged for an undone recording). Thread A: extract → upload audio (`purpose: transcript_audio`) → `POST /public/v1/ai-captions`. Thread B: video upload exactly as today. After B: if a caption id exists and its status is not final, poll `GET /public/v1/ai-captions/:id` every 3 s until READY / NO_SPEECH / FAILED or `CaptionFlow.waitMs`; then the publish call. Wi-Fi-only and the network constraint apply to both uploads (same worker).
-- **AI never fails the job**: every caption step runs in its own try block that only writes `aiCaptionState` on the job; a 402/403/404/409/5xx/timeout from a caption call never reaches `PublishPipeline.fail()` and never maps to NEEDS_PLAN. A 403 `FEATURE_NOT_IN_PLAN` only triggers `EntitlementsRefresher.refreshNow()` (no upgrade sheet mid-publish).
-- **Idempotency (G-018 trap found in review)**: the server hashes the raw body per `Idempotency-Key`; a changed body under the same key is 422 `IDEMPOTENCY_KEY_REUSED`, which the app treats as final and rotates the key → duplicate post. So before the first publish call the job stores `aiCaptionId` (or the literal "none") and, for a manual "now" post, the `date` it sends; every retry under that key sends the same values. This also fixes today's bug where a manual "now" retry rebuilt its body with a new timestamp (`PublishRequestBuilder.java` ~L54, L129). The caption create uses its own stable key `aiCaptionKey` (UUID stored on the job), never the rotating publish key (`spendsKey` in `PublishPipeline`). Caption create is sent only after the audio `complete` (a 409 would be replayed for 24 h).
-- **Database** (`db/AppDatabase`, version 7 → 8, `MIGRATION_7_8` in the existing array, like `MIGRATION_5_6`): new table `audio_upload_sessions` (same columns as `upload_sessions`, primary key `job_id`) so the live resumable video sessions are untouched; `ALTER TABLE publish_jobs ADD COLUMN` `aiCaptionId TEXT`, `aiCaptionState TEXT`, `aiCaptionKey TEXT`, `publishDate TEXT`. `aiCaptionState`: `off` | `extracting` | `uploading` | `pending` | `ready` | `skipped_credits` | `no_speech` | `unavailable` | `timeout` | `no_audio`.
-- **Logging**: never log transcript or caption text (`ACTIVITY_LOG_PRIVACY.md` already promises that).
+## Decisions (settled)
 
-## API contract (from the backend plan — keep exact)
-Public API (`/public/v1`, device Bearer token, `x-workspace-id`).
-```
-POST /upload/multipart  { filename, size, contentType?, purpose?: 'media' | 'transcript_audio' }   // default 'media'
-  transcript_audio: '.wav' only, size ≤ 120 MiB; own pending cap and throttle bucket (does not block video uploads).
-  parts / status / abort exactly as for video.
-POST /upload/multipart/:id/complete { parts } → transcript_audio: 200 { id }   // upload id; NO path, NO poster
-  A repeated complete answers the same { id }.
+1. **Scope v1**: trim, split at playhead, delete any segment; audio volume / mute / remove original / add audio file. No text, filters, speed, transitions, reordering, or voice-over.
+2. **Non-destructive**: editor builds an edit list only; the master is never modified.
+3. **One re-encode, only when needed**: no cuts and no audio change = existing lossless FFmpeg crop flow. Cuts = one hardware H.264 `MediaCodec` re-encode (decode, encode, like `bgreplace/OfflineBgProcessor`) at ~1.5x recording bitrate (~12 Mbps), no perceivable quality loss. Output must stay under `MOBILE_UPLOAD_MAX_BYTES` (4 GiB): lower bitrate or refuse.
+4. **FFmpeg untouched** (lossless crop only, `util/VideoCropHelper`). Editor uses `MediaExtractor` / `MediaCodec` / `MediaMuxer`. This FFmpeg build has no x264.
+5. **Order with bg-replace**: bg-replace runs first on the full master; cuts apply after as plain timestamps, so the `BubbleTrack` timeline is never remapped. Editor opens only on the final master.
+6. **Setting "Show video editor after recording"**, default OFF. OFF: today's flow unchanged, user taps **Edit** in the preview panel. ON: after bg-replace finishes, the editor opens automatically on the final master (shows "Preparing..." until then); crops run immediately as today; Save makes a **new group** (same as Decision 10). **No deferred-crop flow, one editor flow only.** Auto-publish ON always skips the auto-open. One gate method `EditorGate` decides.
+7. **Preview-panel action row** (left to right): delete, share, all videos, **Edit**, **Publish**. Edit: opens the editor on the group master; disabled "Preparing..." while bg-replace runs; crops in flight do not block it. Publish: existing publish flow for the centre version, no edit; hidden when auto-publish is ON (9:16 already queued). Dialog is also opened from My Videos, so both buttons show there.
+8. **Publish when signed out**: no upload. Show a message: "Couldn't upload because you are signed out". (Owner decision.)
+9. Existing cropped-versions / preview screen kept as is, only extended with the two buttons.
+10. **Editing an old recording** (3-dots, Edit): always opens the group's **master** (even from a crop card). Save creates a **new group**: `name_edit.mp4` + its own crops (`name_edit_9x16.mp4`, ...), same ratios the old group had. Old group untouched. Master missing = hide Edit.
+11. **After a successful Save**: keep both groups; show a non-blocking one-tap "Delete original?" offer, default is keep. Never delete automatically.
+12. Editor has a vivid **Save** (primary) and **Publish** (= Save, then the existing publish flow; if signed out, see Decision 8). Back with unsaved edits asks "Discard edits?".
+13. Aspect-ratio order wherever listed: **9:16 first**, then 4:5, 1:1.
+14. **Voice-over inside the editor: out of v1.**
 
-POST /ai-captions  { audioUploadId, mode: 'auto' | 'manual', integrationIds?: string[] /*manual only*/,
-                     title?: string /*recording name*/, userText?: string /*manual typed caption, plain text*/ }
-  + Idempotency-Key (aiCaptionKey)
-  202 { id, status: 'PENDING', cost, minutes }      // cost = credits reserved (0 under 1 min)
-  200 { status: 'SKIPPED', reason: 'CREDITS' }        → aiCaptionState skipped_credits, publish without aiCaptionId
-  403 FEATURE_NOT_IN_PLAN · 404 AUDIO_NOT_FOUND · 409 AUDIO_NOT_COMPLETE · 503 AI_CAPTIONS_NOT_CONFIGURED → unavailable
-  Same audioUploadId again → the same caption.
-GET  /ai-captions/:id → 200 { id, status: 'PENDING'|'TRANSCRIBING'|'GENERATING'|'READY'|'NO_SPEECH'|'FAILED',
-                               error?, language?, outputs: [{ integrationId, provider, kind: 'video'|'text', title?, text }] }
+## Facts a fresh session needs
 
-POST /auto-publish { media, title, aiCaptionId? }       // response unchanged
-POST /posts        { ...today's body, aiCaptionId? }     // response unchanged
-  Not READY / unknown → the server uses today's text. Body fixed per Idempotency-Key (see Decisions).
-  With aiCaptionId on /posts the server writes each channel's text and title itself; the app keeps sending
-  its usual body (the typed caption as content) and passes the typed caption as userText at caption create.
-GET  /auto-publish → adds aiCaptions: { costPerMinute }
-GET  /platforms    → adds per platform textPost: boolean, per channel textPostOn: boolean
-PUT  /auto-publish/text-channels/:integrationId { enabled } → 200 { textIntegrations: string[] } · 404 · 400 TEXT_POST_NOT_SUPPORTED
-POST /web-link { target: 'ai-caption', identifier: <captionId> } → { url }
-```
-Web route the app already reads: `POST /posts/charge-preview { integrationIds, group?, aiCaptionsSeconds?: number }` → adds `aiCaptions: <credits>` = whole minutes of that length, rounded down, × price (amount stays the publish cost). The real charge uses the uploaded WAV's length, so the app sends the audio track's duration (`MediaFormat.KEY_DURATION` of the audio track), not the video's. Feature key `ai_captions` (STARTER); an unknown key from an older server is ignored as today.
+- Pipeline (`service/BgReplaceService.java`): recording stops, optional bg replace rewrites the file in place, then `VideoCropHelper.cropAsync` writes `<name>_<w>x<h>.mp4` crops (stream copy + H.264 SPS crop flag + `Mp4VideoSize` container patch).
+- A recording's versions are a **group** (`util/VideoGroupStore`: path to group id; rename moves the entry). Assign the group id to every new file before the list is scanned (see `cropAsync` registration lock).
+- Crops in flight are `PendingCrop` entries + `ACTION_CROP_STATE_CHANGED` broadcast. `.part.mp4` temp files must end in `.mp4` (MediaProvider derives MIME from extension).
+- Auto-publish picks `<name>_9x16.mp4` by name from the master path (`publish/AutoPublishFiles`). `PublishJob` rows are keyed by file path.
+- Recording audio is AAC 44.1 kHz 128 kbps and only exists if `key_record_audio` is on: the master may have **no audio track**; adding audio must work then.
+- Card 3-dots menu: `res/menu/recording_card_menu.xml`, shown by `adapter/RecordingsAdapter.showCardMenu`. `ui/VideoPlayerDialog` has its own rename / delete / share buttons.
 
-## Parts
-- [x] **M1** Feature and switches. `entitlements/Feature`: `AI_CAPTIONS = "ai_captions"`, `DEFAULT_LOWEST` → `PLAN_STARTER`; `ui/FeatureLabels` label "AI captions and text posts". Pref `KEY_AI_CAPTIONS` (default true) beside `KEY_AUTO_PUBLISH` in `util/RecordSettings`. `ui/AutoPublishActivity`: an "AI captions" switch row under the master switch (locked + crown via `ui/Gate` / `ui/PremiumMark` → `PaywallSheet` for Free) with the cost from `GET /auto-publish` `aiCaptions.costPerMinute` ("1 credit per minute of video, rounded down"). `ui/PublishActivity`: same switch above the caption field; caption becomes optional when on (hint text above); charge-preview called with `aiCaptionsSeconds` = the audio track duration of the chosen file and the line shows "N credits + M for AI captions" (M from the server; "AI captions free" when 0); Publish stays disabled until the cost loads (as today). Strings in `res/values/strings_publish.xml`. Spec (JVM): default lowest plan, switch hidden/locked logic.
-- [x] **M2** Audio extraction and upload. New `publish/AudioExtractor` (has-audio check, FFmpegKit command, output in cache, delete after the upload or on cancel; returns null when no audio). `publish/DirectUploader` + `DirectUploadApi`: a kind-aware session store (video → `upload_sessions`, audio → `audio_upload_sessions`), `purpose` in the create body, `.wav` allowed for audio only, its own parser for the audio `complete` answer `{ id }` (`publish/CompletedUpload.parse` requires `path`, keep it for video), cancel aborts both uploads. `db/`: `AudioUploadSession` entity/DAO, `MIGRATION_7_8`, new `PublishJob` fields. Spec: migration SQL, parser, session store keyed by kind.
-- [x] **M3** Caption job and publish. In `publish/PublishPipeline` / `service/PublishWorker`: thread A (extract → upload → create with `aiCaptionKey`) in parallel with the video upload; wait/poll rule and `CAPTION_WAIT_MS`; write `aiCaptionId` (or "none") and the manual `publishDate` on the job before the first publish call and reuse them on every retry; `PublishRequestBuilder` reads the stored date and adds `aiCaptionId` to both bodies (`autoPublishBody`, `createPostBody`); manual mode sends `integrationIds` and `userText` (plain typed caption) at caption create, auto mode sends `title`. Separate try block for every caption call (Decisions). Notification text "Writing captions…" only while waiting after the video. `publish/PublishLabels`: the card lines for `ready` ("AI captions"), `skipped_credits`, `no_speech`, `unavailable`, `timeout`. Spec (JVM, fake API): body identical across retries, "now" date reused, caption failure never fails the job, SKIPPED → no aiCaptionId, timeout → publish without waiting longer.
-- [x] **M4** Text-post channels. `publish/Platforms` parses `textPost` / `textPostOn`; `ui/PlatformListAdapter` (build on the uncommitted `TYPE_ADD` row change already in the working tree): for a platform with `textPost`, each channel row gets a switch "Text post from your video" instead of "Manual posting only" (paid; Free sees it locked with the crown → upgrade sheet), calling `PUT /auto-publish/text-channels/:id` with the same optimistic-then-confirm handling as `onChannelToggled`. `ui/PublishActivity`: when AI captions are on, non-video channels in the checklist show "Text post (AI)" under their name. Spec: parsing, row type per platform.
-- [x] **M5** See and edit captions. `adapter/RecordingsAdapter` card menu: "Edit captions" when the newest job has `aiCaptionId`, was scheduled and is not yet live (per `PostStatusSync` state); "See captions" once posted. Both call `POST /public/v1/web-link { target:'ai-caption', identifier }` and open the browser with the same fallback handling as the existing web-link calls in `publish/PublishApi` (on any non-200, a toast "Open the web dashboard → AI captions"). Hidden when the job has no caption.
-- [x] **M6** Activity log and privacy list. Events at their call sites via `activitylog/ActivityLog.log`: `ai_captions_toggle {on, where}`, `ai_captions_result {state, wait_ms, mode}`, `text_channel_toggle {enabled}`; never any text. Add them to the user-facing list in `ACTIVITY_LOG_PRIVACY.md`.
+## Design
 
-- [x] **N1** Retry inside the wait. `publish/CaptionFlow.Run.retrying`: the audio upload and the caption create are tried again on NETWORK / SERVER / RATE_LIMITED / IN_PROGRESS (limits: see N5), stopping at once when the run is given up or cancelled; same `aiCaptionKey` on every try. Spec: `CaptionFlowTest`.
-- [x] **N2** Tell the user. `publish/AutoPublishNotifier`: the auto-publish result notification gets the caption line ("· AI captions" or "Posted with your text: …", expanded with BigTextStyle) and, when captions were skipped for credits, a "Top up credits" action to `AccountActivity`. Spec: `AutoPublishNotifierTest`.
-- [x] **N3** Race tests. `CaptionFlowTest`: a real thread A that is late, ignores the interrupt, is abandoned or cancelled writes no state or id after the wait; the WAV is always discarded.
-- [x] **N4** Use the undo window. `publish/AudioExtractor.prepare` (called from `PublishManager.release` on a low-priority `audioPrep` thread when the job is queued behind the undo window): the WAV is made under `.part.wav`, renamed when whole, one extraction at a time, reused by the worker's `extract`, deleted if the job was undone, leftovers over 24 h purged. Spec: `AudioExtractorTest`.
+**Edit model** (pure Java, unit-testable): `EditProject { masterPath; List<Range> keep (sorted, non-overlapping ms; empty = whole file); AudioSettings original (volume 0..2, muted, removed); List<AddedAudio> added (uri, sourceIn/Out, startOnTimeline, volume) }`. All time math (output to source mapping, merge/split, duration) in one tested class. Undo/redo = stack of immutable snapshots.
 
-- [x] **N5** Never give up because it is slow. `CaptionFlow`: the wait after the video is the server's own limit (`CAPTION_WAIT_MS` 190 min), not an app cut-off; thread A is waited for as long as it works (a slow audio upload is not a failure); a lost connection is retried without limit (pause 2 s doubling to 30 s), a passing 5xx / rate limit 6 times (a 503 `AI_CAPTIONS_NOT_CONFIGURED` must not hold a post for hours); polls every 3 s, then every 10 s after 2 min; a scheduled post stops waiting 1 min before its time. Spec: `CaptionFlowTest`.
+**Renderer** (`edit/EditRenderer`, background thread, cancellable, progress callback):
+- Video: seek each kept range to the preceding sync frame, decode, drop frames before range start, encode H.264 (surface in/out), re-stamp timestamps contiguously.
+- Audio, cuts only: copy AAC samples for kept ranges at frame boundaries (~23 ms), no quality loss.
+- Audio changed: decode to PCM, apply gain, sum with clipping guard, encode AAC 128-192 kbps.
+- Mux to `.part.mp4` then rename. Verify output (duration tolerance, A/V sync at start and end).
 
-## Progress (runner-maintained)
-- OWNER, on a higher-RAM PC, after M1–M6: gradle build + unit tests; then on a device against the deployed backend: Starter account, auto publish a 2-min talk to YouTube + Instagram + X with GMB text switch on → each channel has its own caption and GMB a text post; turn mobile data to slow and check the notification order; zero credits → posted with the file name and the "not enough credits" line; record with audio off → no audio upload, card unchanged; manual publish with a typed link → the link appears word for word after the AI caption; kill the app mid-upload → the worker resumes and posts once (one post group, no duplicate).
-- OWNER also checks N1–N4: toggle airplane mode for a few seconds during the audio upload (captions still arrive); a Starter account with zero credits gets the notification with "Top up credits"; with the undo window on, the WAV appears in `cache/ai_audio` before the upload starts and is gone after a tap on Undo.
+**Editor UI** (`ui/VideoEditorActivity`): player that skips deleted segments; thumbnail timeline with draggable trim handles, playhead, Split, Delete, Undo/Redo; large one-hand touch targets; audio lane under the video lane (original: volume / mute / remove; added: file picker `ACTION_OPEN_DOCUMENT audio/*`, drag offset, trim, volume, remove); bottom Save + Publish.
+
+**Post-recording flow**: `VideoPlayerDialog` + `res/layout/dialog_video_player.xml` gain two `ImageButton`s after `btn_all_videos`. `EditorGate.shouldShowAfterRecording(context)` = auto-publish off AND setting on; `MainActivity.onRecordingReady` calls only this. Edit enabled-state follows bg-replace for that master via the existing state broadcast.
+
+## Part 1 - Edit model + video cut renderer
+- [ ] `edit/EditProject` + range math + unit tests (merge, split, delete, time mapping, empty = whole file)
+- [ ] `edit/EditRenderer` video path: extract, decode, encode (H.264, ~1.5x source bitrate), mux
+- [ ] Audio passthrough for cuts (sample copy at frame boundaries)
+- [ ] Output verification (duration, sync); cancel + progress; `.part.mp4` then rename
+- [ ] Size check against the 4 GiB upload cap (cap bitrate if the estimate exceeds it)
+- [ ] Confirm bg-replace preserves duration/timestamps exactly (assumed); fall back if not
+- [ ] Owner check on device: cut at start / middle / end; compare quality vs master; FFmpeg crop works on output
+
+## Part 2 - Audio rendering
+- [ ] Gain / mute / remove original; master with no audio track works
+- [ ] Decode + mix + AAC encode for added tracks (offset, trim, volume, clipping guard)
+- [ ] Added track longer or shorter than video (clip / pad with silence)
+- [ ] Tests for mixing math
+
+## Part 3 - Editor screen (video)
+- [ ] `VideoEditorActivity` + layout; reuse the app's existing player stack (check what `VideoPlayerDialog` uses)
+- [ ] Timeline, trim handles, split, delete, undo/redo, skip-deleted playback
+- [ ] Save renders via `EditRenderer` with progress; discard-confirm on back
+
+## Part 4 - Audio lane UI
+- [ ] Original track controls (volume, mute, remove)
+- [ ] Add audio from file; offset / trim / volume / remove per added track
+- [ ] Waveform or simple bar so the user can see where sound is
+
+## Part 5 - Post-recording preview buttons
+- [ ] Two icons (Edit, Publish) in the `VideoPlayerDialog` action row after "all videos"; new vector drawables
+- [ ] Edit launches `VideoEditorActivity` on the group master; "Preparing..." while bg-replace runs; hidden if master missing
+- [ ] Publish uses the existing publish flow for the centre version; hidden when auto-publish is ON; signed out shows "Couldn't upload because you are signed out", no upload
+- [ ] `EditorGate` + settings checkbox "Show video editor after recording" (`RecordSettings` key, default off); ON = auto-open on the final master after bg-replace, new group on Save
+- [ ] Editor Save / Publish wiring (Publish = Save then existing publish flow)
+- [ ] Row fits 5 icons at 360 dp; check both entry points (post-recording and My Videos)
+
+## Part 6 - Edit old recordings
+- [ ] 3-dots menu item "Edit" (same launcher as the panel Edit; hidden if master missing)
+- [ ] Save writes `name_edit.mp4` + crops as a **new group**; old group untouched
+- [ ] Naming collisions (`name_edit`, `name_edit_2`, ...)
+- [ ] Post-save "Delete original?" one-tap offer (default keep)
+
+## Part 7 - QA + hardening
+- [ ] Rotation, process death mid-edit and mid-render, low storage, cancel mid-render
+- [ ] Long recording (30+ min), many splits, very short remaining result
+- [ ] Videos with no audio track, Bluetooth-mic recordings
+- [ ] Group list shows the edited group correctly; publish works on edited files
