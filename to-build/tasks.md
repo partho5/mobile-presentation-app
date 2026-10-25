@@ -17,7 +17,7 @@ Build one part at a time; tick boxes and commit per part.
 |---|---|---|
 | 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ✅ code done; device check pending |
 | 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ✅ code done; device check pending |
-| 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ⬜ |
+| 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ✅ code done; device check pending |
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ⬜ |
 | 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ⬜ |
 | 6 | Edit an old recording from the 3-dots menu (new group) | ⬜ |
@@ -80,9 +80,10 @@ Build one part at a time; tick boxes and commit per part.
 - [ ] Owner check on device: gain / mute / remove; add a longer and a shorter track, mono and stereo, with and without master audio
 
 ## Part 3 - Editor screen (video)
-- [ ] `VideoEditorActivity` + layout; reuse the app's existing player stack (check what `VideoPlayerDialog` uses)
-- [ ] Timeline, trim handles, split, delete, undo/redo, skip-deleted playback
-- [ ] Save renders via `EditRenderer` with progress; discard-confirm on back
+- [x] `VideoEditorActivity` + layout; reuse the app's existing player stack (check what `VideoPlayerDialog` uses)
+- [x] Timeline, trim handles, split, delete, undo/redo, skip-deleted playback
+- [x] Save renders via `EditRenderer` with progress; discard-confirm on back (output `name_edit.mp4` / `name_edit_2.mp4`; Publish button present but hidden until Part 5)
+- [ ] Owner check on device: trim handles, split/delete, undo/redo, skip-deleted playback, rotation, save + cancel
 
 ## Part 4 - Audio lane UI
 - [ ] Original track controls (volume, mute, remove)

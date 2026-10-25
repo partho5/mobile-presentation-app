@@ -87,6 +87,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.VideoEditorActivity"
+            android:exported="false"
+            android:label="@string/editor_title" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustNothing"
