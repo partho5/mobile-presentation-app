@@ -82,7 +82,11 @@ public final class EditProject {
         }
     }
 
-    /** An audio file laid over the video; rendered from Part 2 on. */
+    /**
+     * An audio file laid over the video. {@code sourceInMs..sourceOutMs} is the part of the file
+     * used (out <= in means to its end); {@code startOnTimelineMs} is where it starts on the
+     * edited result's timeline, after the cuts. It is clipped at the end of the video.
+     */
     public static final class AddedAudio {
         public final String uri;
         public final long sourceInMs;

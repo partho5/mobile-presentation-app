@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.edit;
 
+import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,9 +33,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * Video is decoded and encoded once (hardware H.264, decoder to an OES texture, drawn onto the
  * encoder's input surface, like {@code OfflineBgProcessor}) at about 1.5x the source bitrate, so
- * the generation loss is not visible. Audio is not re-encoded: the AAC samples of the kept
- * stretches are copied at their frame boundaries (~23 ms). Audio changes (gain, mute, removal,
- * added tracks) are a later step and are refused for now.
+ * the generation loss is not visible. Audio is not re-encoded: with cuts only, the AAC samples
+ * of the kept stretches are copied at their frame boundaries (~23 ms), no quality loss. When the
+ * sound is changed (gain, mute, removal, added tracks) {@link AudioMixRenderer} decodes, mixes and
+ * encodes the whole soundtrack to a temporary AAC file first and that is copied in instead. A
+ * master without an audio track works: it is just silent, or gets only the added tracks. Added
+ * tracks need {@link #withContext} when they are content URIs.
+ * Times of added tracks are on the edited (result) timeline.
  *
  * Time base: ranges are in the master's own presentation timestamps and every output timestamp is
  * {@code offset of the range in the result + (source time - range start)}, for video and audio
@@ -100,6 +106,7 @@ public class EditRenderer {
     }
 
     private AtomicBoolean cancelFlag;
+    private Context context;
     private ProgressListener listener;
 
     // GL / decoder output
@@ -138,6 +145,12 @@ public class EditRenderer {
         return this;
     }
 
+    /** Needed to open added audio given as content URIs. */
+    public EditRenderer withContext(Context context) {
+        this.context = context;
+        return this;
+    }
+
     private boolean isCancelled() {
         return cancelFlag != null && cancelFlag.get();
     }
@@ -163,9 +176,6 @@ public class EditRenderer {
      */
     public void render(EditProject project, File output, ProgressListener progress)
             throws IOException {
-        if (project.hasAudioChanges()) {
-            throw new UnsupportedOperationException("Audio changes are not rendered yet");
-        }
         File master = new File(project.getMasterPath());
         if (!master.isFile()) throw new IOException("Master not found: " + master);
         if (master.getAbsoluteFile().equals(output.getAbsoluteFile())) {
@@ -211,7 +221,13 @@ public class EditRenderer {
             // Not declared: estimate from the file, which also holds the audio
             sourceBps = Math.max(0, master.length() * 8 * 1000 / durationMs - audioBps);
         }
-        int keptAudioBps = hasAudioTrack(master) ? audioBps : 0;
+        boolean mixAudio = project.hasAudioChanges();
+        boolean masterHasAudio = hasAudioTrack(master);
+        // Removing the original with nothing added leaves no audio track; muting keeps a silent one
+        boolean audioOut = mixAudio
+                ? (masterHasAudio && !project.getOriginal().removed) || !project.getAdded().isEmpty()
+                : masterHasAudio;
+        int keptAudioBps = !audioOut ? 0 : mixAudio ? AudioMixRenderer.MAX_BPS : audioBps;
         int bitRate = BitratePlanner.videoBitrate(sourceBps, expectedMs, keptAudioBps);
         if (bitRate <= 0) {
             throw new IOException("Too long to fit the upload limit");
@@ -224,15 +240,23 @@ public class EditRenderer {
 
         File part = new File(dir, VideoCropHelper.partFileNameFor(output.getAbsolutePath()));
         part.delete();
+        File mixed = new File(dir, part.getName() + ".audio.m4a");
+        mixed.delete();
         boolean ok = false;
         try {
-            writeFile(master, part, videoFormat, ranges, durationMs, bitRate, keptAudioBps > 0);
+            if (mixAudio && audioOut) {
+                new AudioMixRenderer(context, cancelFlag).render(project, master,
+                        masterHasAudio && !project.getOriginal().removed, ranges, expectedMs, mixed);
+            }
+            writeFile(master, part, videoFormat, ranges, durationMs, bitRate, audioOut,
+                    mixAudio && audioOut ? mixed : null, expectedMs);
             if (part.length() == 0) throw new IOException("Output is empty");
-            verify(part, expectedMs, keptAudioBps > 0);
+            verify(part, expectedMs, audioOut);
             if (!part.renameTo(output)) throw new IOException("Could not move " + part + " into place");
             ok = true;
         } finally {
             if (!ok) part.delete();
+            mixed.delete();
         }
         report(100);
     }
@@ -252,7 +276,8 @@ public class EditRenderer {
 
     private void writeFile(File master, File part, MediaFormat videoFormat,
                            List<EditProject.Range> ranges, long durationMs, int bitRate,
-                           boolean copyAudio) throws IOException {
+                           boolean copyAudio, File mixedAudio, long expectedMs)
+            throws IOException {
         int srcW = videoFormat.getInteger(MediaFormat.KEY_WIDTH);
         int srcH = videoFormat.getInteger(MediaFormat.KEY_HEIGHT);
         int rotation = videoFormat.containsKey(MediaFormat.KEY_ROTATION)
@@ -299,11 +324,15 @@ public class EditRenderer {
             AudioCopier audio = null;
             if (copyAudio) {
                 audioExtractor = new MediaExtractor();
-                audioExtractor.setDataSource(master.getAbsolutePath());
+                // A mixed soundtrack is one range covering the whole result
+                audioExtractor.setDataSource((mixedAudio != null ? mixedAudio : master).getAbsolutePath());
                 int audioTrack = findTrack(audioExtractor, "audio/");
                 audioExtractor.selectTrack(audioTrack);
                 audioFormat = audioExtractor.getTrackFormat(audioTrack);
-                audio = new AudioCopier(audioExtractor, ranges, durationMs);
+                audio = mixedAudio != null
+                        ? new AudioCopier(audioExtractor, Collections.singletonList(
+                                new EditProject.Range(0, expectedMs)), expectedMs)
+                        : new AudioCopier(audioExtractor, ranges, durationMs);
             } else {
                 audioFormat = null;
             }

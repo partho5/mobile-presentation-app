@@ -16,7 +16,7 @@ Build one part at a time; tick boxes and commit per part.
 | Part | Scope | Status |
 |---|---|---|
 | 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ✅ code done; device check pending |
-| 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ⬜ |
+| 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ✅ code done; device check pending |
 | 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ⬜ |
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ⬜ |
 | 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ⬜ |
@@ -73,10 +73,11 @@ Build one part at a time; tick boxes and commit per part.
 - [ ] Owner check on device: cut at start / middle / end; compare quality vs master; FFmpeg crop works on output
 
 ## Part 2 - Audio rendering
-- [ ] Gain / mute / remove original; master with no audio track works
-- [ ] Decode + mix + AAC encode for added tracks (offset, trim, volume, clipping guard)
-- [ ] Added track longer or shorter than video (clip / pad with silence)
-- [ ] Tests for mixing math
+- [x] Gain / mute / remove original; master with no audio track works
+- [x] Decode + mix + AAC encode for added tracks (offset, trim, volume, clipping guard)
+- [x] Added track longer or shorter than video (clip / pad with silence)
+- [x] Tests for mixing math
+- [ ] Owner check on device: gain / mute / remove; add a longer and a shorter track, mono and stereo, with and without master audio
 
 ## Part 3 - Editor screen (video)
 - [ ] `VideoEditorActivity` + layout; reuse the app's existing player stack (check what `VideoPlayerDialog` uses)
