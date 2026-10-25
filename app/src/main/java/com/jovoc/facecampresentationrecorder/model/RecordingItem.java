@@ -93,6 +93,11 @@ public class RecordingItem {
     }
 
     /** Card tag describing the recording's aspect ratio, e.g. "Original" or "9:16". */
+    /** True for an edited video or one of its crops (shown with an "Edited" tag). */
+    public boolean isEdited() {
+        return com.jovoc.facecampresentationrecorder.edit.EditGroupMath.isEditedName(fileName);
+    }
+
     public String getFormatTag() {
         return formatTag;
     }

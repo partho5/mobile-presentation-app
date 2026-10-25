@@ -2301,6 +2301,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
+        com.jovoc.facecampresentationrecorder.ui.EditorLauncher.showPendingOffer(this, null);
         updateCameraPermissionHint();
         // Permission may have been granted on the Settings screen or in system settings.
         if (!cameraPreviewStarted && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)

@@ -472,6 +472,8 @@ public class VideoEditorViewModel extends ViewModel {
                 if (finalState == SaveState.DONE) {
                     history.markSaved();
                     clearDraft();
+                    // Kept until a list screen shows it, in case the editor was left before the end
+                    EditorLauncher.rememberOffer(app, project.getMasterPath(), out.getAbsolutePath());
                 }
                 if (finalState != SaveState.DONE) output = null;
                 if (!cleared && listener != null) listener.onChanged();
@@ -480,14 +482,16 @@ public class VideoEditorViewModel extends ViewModel {
     }
 
     /**
-     * Gives the edited file a group of its own, before any list scan can see it, and crops it to
-     * the ratios the old group had. Runs on the render thread; cropAsync is safe from any thread.
+     * Puts the edited file in the master's group (same strip colour, shown as "Edited"), before any
+     * list scan can see it, and crops it to the ratios the group had. Runs on the render thread;
+     * cropAsync is safe from any thread.
      */
     private static void startGroupCrops(Context app, String masterPath, File out) {
         List<String> oldGroup = VideoGroupStore.getGroupPaths(app, masterPath);
         List<int[]> ratios = EditGroupMath.cropRatiosOf(oldGroup);
         synchronized (VideoGroupStore.lockForRegistration()) {
-            VideoGroupStore.ensureGroup(app, out.getAbsolutePath());
+            VideoGroupStore.assign(app, out.getAbsolutePath(),
+                    VideoGroupStore.ensureGroup(app, masterPath));
         }
         if (!ratios.isEmpty()) {
             VideoCropHelper.cropAsync(app, out.getAbsolutePath(), ratios, null);

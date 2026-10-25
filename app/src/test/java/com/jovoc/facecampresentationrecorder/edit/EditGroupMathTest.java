@@ -69,10 +69,35 @@ public class EditGroupMathTest {
     }
 
     @Test
-    public void deletablePathsNeverIncludeTheEditedGroup() {
-        List<String> original = Arrays.asList("/a/clip.mp4", "/a/clip_9x16.mp4", "/a/clip_9x16.mp4");
-        List<String> edited = Arrays.asList("/a/clip_edit.mp4", "/a/clip_9x16.mp4");
-        assertEquals(Arrays.asList("/a/clip.mp4"), EditGroupMath.deletablePaths(original, edited));
-        assertTrue(EditGroupMath.deletablePaths(original, original).isEmpty());
+    public void deletablePathsAreOnlyTheMasterAndItsCrops() {
+        List<String> group = Arrays.asList("/a/clip.mp4", "/a/clip_9x16.mp4", "/a/clip_edit.mp4",
+                "/a/clip_edit_9x16.mp4", "/a/clip_edit_2.mp4", "/a/clip_9x16.mp4");
+        assertEquals(Arrays.asList("/a/clip.mp4", "/a/clip_9x16.mp4"),
+                EditGroupMath.deletablePaths(group, "/a/clip.mp4", "/a/clip_edit.mp4"));
+        // Editing an edit offers that edit and its crops, not the unedited video
+        assertEquals(Arrays.asList("/a/clip_edit.mp4", "/a/clip_edit_9x16.mp4"),
+                EditGroupMath.deletablePaths(group, "/a/clip_edit.mp4", "/a/clip_edit_2.mp4"));
+        assertFalse(EditGroupMath.deletablePaths(group, "/a/clip.mp4", "/a/clip.mp4")
+                .contains("/a/clip.mp4"));
+    }
+
+    @Test
+    public void editedNamesAreRecognised() {
+        assertTrue(EditGroupMath.isEditedName("clip_edit.mp4"));
+        assertTrue(EditGroupMath.isEditedName("clip_edit_2.mp4"));
+        assertTrue(EditGroupMath.isEditedName("clip_edit_9x16.mp4"));
+        assertTrue(EditGroupMath.isEditedName("clip_edit_2_1x1.mp4"));
+        assertFalse(EditGroupMath.isEditedName("clip.mp4"));
+        assertFalse(EditGroupMath.isEditedName("clip_9x16.mp4"));
+        assertFalse(EditGroupMath.isEditedName("credit.mp4"));
+        assertFalse(EditGroupMath.isEditedName(null));
+    }
+
+    @Test
+    public void masterIsNeverAnEditWhileTheUneditedVideoExists() throws IOException {
+        String edit = file("clip_edit.mp4", true);
+        String master = file("clip.mp4", true);
+        assertEquals(master, EditGroupMath.masterOf(Arrays.asList(edit, master)));
+        assertEquals(edit, EditGroupMath.masterOf(Collections.singletonList(edit)));
     }
 }

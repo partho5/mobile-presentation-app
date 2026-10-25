@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.view.View;
 import android.widget.Toast;
 
@@ -36,6 +37,9 @@ public final class EditorLauncher {
     }
 
     private static final int OFFER_MS = 10_000;
+    private static final String OFFER_PREFS = "editor_pending_offer";
+    private static final String KEY_ORIGINAL = "original";
+    private static final String KEY_OUTPUT = "output";
 
     private EditorLauncher() {}
 
@@ -63,7 +67,41 @@ public final class EditorLauncher {
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) return;
         String output = result.getData().getStringExtra(VideoEditorActivity.EXTRA_OUTPUT_PATH);
         String original = result.getData().getStringExtra(VideoEditorActivity.EXTRA_MASTER_PATH);
+        // This screen shows it now, so it must not be shown again from the stored copy
+        forgetOffer(host);
+        showOffer(host, original, output, onOriginalDeleted);
+    }
+
+    /** Remembers a finished Save so a screen shows the offer even if the editor was left early. */
+    static void rememberOffer(Context context, String original, String output) {
+        prefs(context).edit().putString(KEY_ORIGINAL, original).putString(KEY_OUTPUT, output).apply();
+    }
+
+    private static void forgetOffer(Context context) {
+        prefs(context).edit().clear().apply();
+    }
+
+    private static SharedPreferences prefs(Context context) {
+        return context.getApplicationContext().getSharedPreferences(OFFER_PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * Call from a host's onResume: shows the offer of a Save that finished without the editor
+     * handing its result back (it was left, backgrounded or killed first). Shown once.
+     */
+    public static void showPendingOffer(Activity host, Runnable onOriginalDeleted) {
+        SharedPreferences p = prefs(host);
+        String original = p.getString(KEY_ORIGINAL, null);
+        String output = p.getString(KEY_OUTPUT, null);
+        if (original == null || output == null) return;
+        forgetOffer(host);
+        showOffer(host, original, output, onOriginalDeleted);
+    }
+
+    private static void showOffer(Activity host, String original, String output,
+                                  Runnable onOriginalDeleted) {
         if (output == null || original == null || output.equals(original)) return;
+        if (!new File(output).isFile() || !new File(original).exists()) return;
         if (host.isFinishing() || host.isDestroyed()) return;
         View root = host.findViewById(android.R.id.content);
         if (root == null) return;
@@ -75,13 +113,12 @@ public final class EditorLauncher {
                 .show();
     }
 
-    /** Deletes every file of the original group through the app's normal delete path. */
+    /** Deletes the original and its own crops (not the edits) through the app's normal delete path. */
     private static void deleteOriginal(Context context, String original, String output,
                                        Runnable onDone) {
         Context app = context.getApplicationContext();
         List<String> doomed = EditGroupMath.deletablePaths(
-                VideoGroupStore.getGroupPaths(app, original),
-                VideoGroupStore.getGroupPaths(app, output));
+                VideoGroupStore.getGroupPaths(app, original), original, output);
         int failed = 0;
         for (String path : doomed) {
             if (!RecordingDeleter.deleteFile(app, new File(path))) failed++;

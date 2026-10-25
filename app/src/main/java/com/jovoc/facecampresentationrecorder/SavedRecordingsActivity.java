@@ -233,6 +233,7 @@ public class SavedRecordingsActivity extends AppCompatActivity
         PublishManager.get(this).refreshStatuses();
         // Files may have arrived while the user was recording or in the gallery.
         loadRecordings(false);
+        EditorLauncher.showPendingOffer(this, () -> loadRecordings(false));
         mainHandler.removeCallbacks(undoTicker);
         mainHandler.postDelayed(undoTicker, 1000L);
     }
