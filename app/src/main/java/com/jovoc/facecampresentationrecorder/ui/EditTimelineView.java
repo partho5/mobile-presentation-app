@@ -287,8 +287,8 @@ public class EditTimelineView extends View {
         float h = Math.max(1f, b - t);
         if (n > 0) {
             float stripW = r - l;
-            float totalW = stripW * zoom;
-            float scrollPx = totalW * viewStartMs / (float) durationMs;
+            double totalW = (double) stripW * zoom;
+            double scrollPx = totalW * viewStartMs / durationMs;
             Bitmap first = null;
             for (Bitmap bmp : thumbs) {
                 if (bmp != null && !bmp.isRecycled()) { first = bmp; break; }
@@ -297,10 +297,10 @@ public class EditTimelineView extends View {
             if (tileW > 0) {
                 c.save();
                 c.clipRect(l, t, r, b);
-                for (int k = (int) (scrollPx / tileW); l + k * tileW - scrollPx < r; k++) {
-                    float x0 = l + k * tileW - scrollPx;
-                    float centreMs = (k + 0.5f) * tileW / totalW * durationMs;
-                    int idx = Math.max(0, Math.min(n - 1, (int) (centreMs * n / durationMs)));
+                for (long k = (long) (scrollPx / tileW); l + k * (double) tileW - scrollPx < r; k++) {
+                    float x0 = (float) (l + k * (double) tileW - scrollPx);
+                    double centreMs = (k + 0.5) * tileW / totalW * durationMs;
+                    int idx = (int) Math.max(0, Math.min(n - 1, (long) (centreMs * n / durationMs)));
                     Bitmap bmp = thumbs[idx];
                     if (bmp == null || bmp.isRecycled()) continue;
                     // centre-crop the frame into its tile
