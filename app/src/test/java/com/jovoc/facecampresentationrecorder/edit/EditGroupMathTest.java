@@ -67,4 +67,12 @@ public class EditGroupMathTest {
     public void noCropsMeansNoRatios() {
         assertTrue(EditGroupMath.cropRatiosOf(Collections.singletonList("/a/clip.mp4")).isEmpty());
     }
+
+    @Test
+    public void deletablePathsNeverIncludeTheEditedGroup() {
+        List<String> original = Arrays.asList("/a/clip.mp4", "/a/clip_9x16.mp4", "/a/clip_9x16.mp4");
+        List<String> edited = Arrays.asList("/a/clip_edit.mp4", "/a/clip_9x16.mp4");
+        assertEquals(Arrays.asList("/a/clip.mp4"), EditGroupMath.deletablePaths(original, edited));
+        assertTrue(EditGroupMath.deletablePaths(original, original).isEmpty());
+    }
 }

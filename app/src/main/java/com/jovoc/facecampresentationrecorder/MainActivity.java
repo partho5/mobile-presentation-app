@@ -133,7 +133,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity implements SlideAdapter.SlideActionListener {
+public class MainActivity extends AppCompatActivity
+        implements SlideAdapter.SlideActionListener,
+                   com.jovoc.facecampresentationrecorder.ui.EditorLauncher.Host {
+
+    /** Editor started from here; a successful Save shows the "Delete original?" offer. */
+    private final ActivityResultLauncher<Intent> editorLauncher =
+            com.jovoc.facecampresentationrecorder.ui.EditorLauncher.register(this, null);
 
     private static final String TAG = "MainActivity";
 
@@ -3921,6 +3927,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         }
     }
 
+    /** Opens the editor for a result, so a successful Save can offer to delete the original. */
+    @Override
+    public void launchEditor(String masterPath) {
+        editorLauncher.launch(com.jovoc.facecampresentationrecorder.ui.VideoEditorActivity
+                .newIntent(this, masterPath));
+    }
+
     /** Shows the recording; auto-crops, if any, finish in the background (BgReplaceService). */
     private void onRecordingReady(String path) {
         if (isFinishing() || isDestroyed()) return;
@@ -3929,8 +3942,7 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
             // "Show video editor after recording": the final master (bg-replace is done by now)
             // opens in the editor instead of the preview; crops are already running as usual.
             if (com.jovoc.facecampresentationrecorder.edit.EditorGate.shouldShowAfterRecording(this)) {
-                startActivity(com.jovoc.facecampresentationrecorder.ui.VideoEditorActivity
-                        .newIntent(this, path));
+                launchEditor(path);
                 return;
             }
             Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);

@@ -49,4 +49,16 @@ public final class EditGroupMath {
         if (r11) out.add(new int[]{1, 1});
         return out;
     }
+
+    /**
+     * The files "Delete original?" may remove: the original group's paths minus anything that is
+     * also in the edited group, so the new video can never be deleted by that offer.
+     */
+    public static List<String> deletablePaths(List<String> originalGroup, List<String> editedGroup) {
+        List<String> out = new ArrayList<>();
+        for (String path : originalGroup) {
+            if (!editedGroup.contains(path) && !out.contains(path)) out.add(path);
+        }
+        return out;
+    }
 }

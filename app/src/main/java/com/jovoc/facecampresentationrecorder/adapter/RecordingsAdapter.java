@@ -1,13 +1,10 @@
 package com.jovoc.facecampresentationrecorder.adapter;
 
 import android.app.AlertDialog;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.graphics.drawable.Drawable;
-import android.provider.MediaStore;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -44,7 +41,11 @@ import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PurgedMedia;
 import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 import com.jovoc.facecampresentationrecorder.ui.PublishActivity;
+import com.jovoc.facecampresentationrecorder.ui.EditorLauncher;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
+import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
+import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
+import com.jovoc.facecampresentationrecorder.util.RecordingDeleter;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 import com.jovoc.facecampresentationrecorder.util.VideoRenameHelper;
 
@@ -302,6 +303,10 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         menu.findItem(R.id.action_publish).setVisible(!running);
         menu.findItem(R.id.action_publish).setTitle(
                 job != null && !running ? R.string.publish_menu_again : R.string.publish_menu);
+        // Edit always opens the group's master, even from a crop card; hidden when it is gone.
+        final String master = item.getFile() == null ? null : EditGroupMath.masterOf(
+                VideoGroupStore.getGroupPaths(context, item.getFile().getAbsolutePath()));
+        menu.findItem(R.id.action_edit).setVisible(master != null);
         menu.findItem(R.id.action_publish_retry).setVisible(failed);
         menu.findItem(R.id.action_publish_cancel).setVisible(running);
         menu.findItem(R.id.action_publish_set_up).setVisible(PublishLabels.needsSetup(job));
@@ -315,6 +320,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             ActivityLog.log("video_menu", "item", menuItemName(id));
             if (id == R.id.action_play) {
                 openVideo(item);
+                return true;
+            } else if (id == R.id.action_edit) {
+                editVideo(master);
                 return true;
             } else if (id == R.id.action_publish) {
                 startPublish(item);
@@ -349,6 +357,15 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         });
 
         popup.show();
+    }
+
+    private void editVideo(String master) {
+        if (master == null) return;
+        if (BgReplaceService.isReplacePending(master)) {
+            Toast.makeText(context, R.string.editor_preparing, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        EditorLauncher.launch(context, master);
     }
 
     /** Opens the web caption page signed in; any failure toasts where to find it by hand. */
@@ -405,6 +422,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     /** Short name of a card-menu action, for the activity log. */
     private static String menuItemName(int id) {
         if (id == R.id.action_play) return "play";
+        if (id == R.id.action_edit) return "edit";
         if (id == R.id.action_publish) return "publish";
         if (id == R.id.action_publish_retry) return "publish_retry";
         if (id == R.id.action_publish_set_up) return "publish_set_up";
@@ -558,22 +576,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
     /** Removes the file from disk and from MediaStore. */
     private boolean deleteFile(RecordingItem item) {
-        File file = item.getFile();
-        if (file == null) return false;
-
-        boolean removed = !file.exists() || file.delete();
-        if (!removed) return false;
-        VideoGroupStore.remove(context, file.getAbsolutePath());
-
-        try {
-            ContentResolver resolver = context.getContentResolver();
-            resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    MediaStore.Video.Media.DATA + "=?",
-                    new String[]{file.getAbsolutePath()});
-        } catch (Exception ignored) {}
-
-        MediaScannerConnection.scanFile(context, new String[]{file.getAbsolutePath()}, null, null);
-        return true;
+        return RecordingDeleter.deleteFile(context, item.getFile());
     }
 
     private void openVideo(RecordingItem item) {

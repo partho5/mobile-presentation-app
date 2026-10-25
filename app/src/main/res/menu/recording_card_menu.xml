@@ -5,6 +5,10 @@
         android:icon="@drawable/ic_play"
         android:title="Play" />
     <item
+        android:id="@+id/action_edit"
+        android:icon="@drawable/ic_edit"
+        android:title="@string/editor_menu_edit" />
+    <item
         android:id="@+id/action_publish"
         android:icon="@drawable/ic_publish_social"
         android:title="@string/publish_menu" />

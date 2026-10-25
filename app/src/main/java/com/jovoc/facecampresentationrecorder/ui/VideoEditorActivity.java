@@ -723,7 +723,10 @@ public class VideoEditorActivity extends AppCompatActivity
             if (out != null) {
                 Toast.makeText(this, getString(R.string.editor_saved, out.getName()),
                         Toast.LENGTH_LONG).show();
-                setResult(RESULT_OK, new Intent().putExtra(EXTRA_OUTPUT_PATH, out.getAbsolutePath()));
+                // The original master travels back too, so the host can offer "Delete original?"
+                setResult(RESULT_OK, new Intent()
+                        .putExtra(EXTRA_OUTPUT_PATH, out.getAbsolutePath())
+                        .putExtra(EXTRA_MASTER_PATH, getIntent().getStringExtra(EXTRA_MASTER_PATH)));
                 if (publishAfter) PublishLauncher.publish(this, out);
             }
             finish();

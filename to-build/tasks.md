@@ -20,7 +20,7 @@ Build one part at a time; tick boxes and commit per part.
 | 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ✅ code done; device check pending |
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ✅ code done; device check pending |
 | 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ✅ code done; device check pending |
-| 6 | Edit an old recording from the 3-dots menu (new group) | ⬜ |
+| 6 | Edit an old recording from the 3-dots menu (new group) | ✅ code done; device check pending |
 | 7 | QA + hardening | ⬜ |
 
 ## Decisions (settled)
@@ -101,10 +101,10 @@ Build one part at a time; tick boxes and commit per part.
 - [ ] Owner check on device: both entry points (post-recording and My Videos), Edit while bg-replace runs, Publish signed out / auto-publish on, editor auto-open setting, editor Save/Publish makes a new group with crops
 
 ## Part 6 - Edit old recordings
-- [ ] 3-dots menu item "Edit" (same launcher as the panel Edit; hidden if master missing)
-- [ ] Save writes `name_edit.mp4` + crops as a **new group**; old group untouched
-- [ ] Naming collisions (`name_edit`, `name_edit_2`, ...)
-- [ ] Post-save "Delete original?" one-tap offer (default keep)
+- [x] 3-dots menu item "Edit" (same launcher as the panel Edit; hidden if master missing)
+- [x] Save writes `name_edit.mp4` + crops as a **new group**; old group untouched
+- [x] Naming collisions (`name_edit`, `name_edit_2`, ...)
+- [x] Post-save "Delete original?" one-tap offer (default keep)
 
 ## Part 7 - QA + hardening
 - [ ] Rotation, process death mid-edit and mid-render, low storage, cancel mid-render

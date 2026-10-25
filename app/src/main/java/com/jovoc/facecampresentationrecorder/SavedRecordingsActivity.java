@@ -20,6 +20,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -33,6 +34,8 @@ import com.jovoc.facecampresentationrecorder.model.RecordingItem;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishUndo;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishNetwork;
+import com.jovoc.facecampresentationrecorder.ui.EditorLauncher;
+import com.jovoc.facecampresentationrecorder.ui.VideoEditorActivity;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
@@ -49,7 +52,12 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class SavedRecordingsActivity extends AppCompatActivity {
+public class SavedRecordingsActivity extends AppCompatActivity
+        implements EditorLauncher.Host {
+
+    /** Editor started from here; a successful Save shows the "Delete original?" offer. */
+    private final ActivityResultLauncher<Intent> editorLauncher =
+            EditorLauncher.register(this, () -> loadRecordings(false));
 
     private RecyclerView recyclerView;
     private SwipeRefreshLayout swipeRefresh;
@@ -208,6 +216,11 @@ public class SavedRecordingsActivity extends AppCompatActivity {
         } catch (RuntimeException ignored) {
             // The card then updates on the next state broadcast or resume.
         }
+    }
+
+    @Override
+    public void launchEditor(String masterPath) {
+        editorLauncher.launch(VideoEditorActivity.newIntent(this, masterPath));
     }
 
     @Override

@@ -101,7 +101,11 @@ public final class EditTimelineMath {
         return new EditProject(p.getMasterPath(), keep, p.getOriginal(), p.getAdded());
     }
 
-    /** First free {@code name_edit.mp4}, then {@code name_edit_2.mp4}, ... beside the master. */
+    /**
+     * First free {@code name_edit.mp4}, then {@code name_edit_2.mp4}, ... beside the master. A name
+     * also counts as taken when one of its crops ({@code name_edit_9x16.mp4}, ...) is left over, so
+     * the new crops never overwrite another group's file.
+     */
     public static File nextOutputFile(File master) {
         String name = master.getName();
         int dot = name.lastIndexOf('.');
@@ -109,11 +113,21 @@ public final class EditTimelineMath {
         File dir = master.getAbsoluteFile().getParentFile();
         File candidate = new File(dir, base + "_edit.mp4");
         int n = 2;
-        while (candidate.exists()) {
+        while (isTaken(candidate)) {
             candidate = new File(dir, base + "_edit_" + n + ".mp4");
             n++;
         }
         return candidate;
+    }
+
+    private static boolean isTaken(File candidate) {
+        if (candidate.exists()) return true;
+        String name = candidate.getName();
+        String base = name.substring(0, name.length() - ".mp4".length());
+        for (String ratio : new String[]{"9x16", "4x5", "1x1"}) {
+            if (new File(candidate.getParentFile(), base + "_" + ratio + ".mp4").exists()) return true;
+        }
+        return false;
     }
 
     /** m:ss, or h:mm:ss from an hour up. */

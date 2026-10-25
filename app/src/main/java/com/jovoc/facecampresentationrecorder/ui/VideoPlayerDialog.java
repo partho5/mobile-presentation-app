@@ -443,7 +443,7 @@ public class VideoPlayerDialog {
                 return;
             }
             dialog.dismiss();
-            context.startActivity(VideoEditorActivity.newIntent(context, master));
+            EditorLauncher.launch(context, master);
         });
         updateEditButtons(findMaster(initialFile.getAbsolutePath()));
 

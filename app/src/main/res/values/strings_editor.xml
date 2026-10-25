@@ -23,6 +23,11 @@
     <string name="editor_saving">Saving your video...</string>
     <string name="editor_saving_percent">%1$d%%</string>
     <string name="editor_cancel">Cancel</string>
+    <string name="editor_menu_edit">Edit</string>
+    <string name="editor_saved_offer">Saved as %1$s. Delete original?</string>
+    <string name="editor_delete_original">Delete original</string>
+    <string name="editor_original_deleted">Original deleted</string>
+    <string name="editor_original_delete_failed">Couldn\'t delete the original.</string>
     <string name="editor_saved">Saved as %1$s</string>
     <string name="editor_save_failed">Couldn\'t save the video. Check free storage and try again.</string>
     <string name="editor_discard_title">Discard edits?</string>

@@ -128,6 +128,19 @@ public class EditTimelineMathTest {
     }
 
     @Test
+    public void leftoverCropOfAnEditNameCountsAsTaken() throws Exception {
+        File master = tmp.newFile("talk.mp4");
+        assertTrue(new File(master.getParentFile(), "talk_edit_9x16.mp4").createNewFile());
+        assertEquals("talk_edit_2.mp4", EditTimelineMath.nextOutputFile(master).getName());
+    }
+
+    @Test
+    public void editingAnEditedFileKeepsCountingFromItsOwnName() throws Exception {
+        File edited = tmp.newFile("talk_edit.mp4");
+        assertEquals("talk_edit_edit.mp4", EditTimelineMath.nextOutputFile(edited).getName());
+    }
+
+    @Test
     public void formatTime() {
         assertEquals("0:00", EditTimelineMath.formatTime(-5));
         assertEquals("1:05", EditTimelineMath.formatTime(65_900));
