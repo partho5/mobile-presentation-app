@@ -35,6 +35,9 @@ public final class RecordSettings {
     /** "Upload on Wi-Fi only" (Settings): publish uploads wait for an unmetered network; default off. */
     public static final String KEY_PUBLISH_WIFI_ONLY = "key_publish_wifi_only";
 
+    /** "Show video editor after recording" (Settings); off by default, per device. */
+    public static final String KEY_SHOW_EDITOR_AFTER_RECORDING = "key_show_editor_after_recording";
+
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
     public static final String BG_PREF_NAME = "facecam_prefs";
     public static final String KEY_BG_REPLACE_ENABLED = "bg_replace_enabled";
@@ -74,6 +77,10 @@ public final class RecordSettings {
     public static boolean bgReplaceEnabled(Context context, FeatureSnapshot features) {
         return context.getSharedPreferences(BG_PREF_NAME, Context.MODE_PRIVATE)
                 .getBoolean(KEY_BG_REPLACE_ENABLED, true) && allows(features, Feature.BG_REPLACE);
+    }
+
+    public static boolean showEditorAfterRecording(Context context) {
+        return appPrefs(context).getBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, false);
     }
 
     /** The ratios to crop to, 9:16 first (the order of the Settings list). */

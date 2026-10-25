@@ -11,6 +11,10 @@
     <string name="editor_pause">Pause</string>
     <string name="editor_save">Save</string>
     <string name="editor_publish">Publish</string>
+    <string name="editor_preparing">Preparing...</string>
+    <string name="editor_publish_signed_out">Couldn\'t upload because you are signed out</string>
+    <string name="editor_edit_desc">Edit video</string>
+    <string name="editor_publish_desc">Publish video</string>
     <string name="editor_loading">Loading video...</string>
     <string name="editor_load_failed">Couldn\'t open this video.</string>
     <string name="editor_time_fmt">%1$s / %2$s</string>

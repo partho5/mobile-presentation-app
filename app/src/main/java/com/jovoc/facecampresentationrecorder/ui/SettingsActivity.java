@@ -13,6 +13,7 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_A
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_REPLACE_ENABLED;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_COUNTDOWN_SECONDS;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_RECORD_AUDIO;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SHOW_EDITOR_AFTER_RECORDING;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.PREF_NAME;
 
 import android.Manifest;
@@ -413,6 +414,17 @@ public class SettingsActivity extends AppCompatActivity {
         autoUploadState = findViewById(R.id.tv_auto_upload_state);
         findViewById(R.id.row_auto_upload).setOnClickListener(v -> AutoPublishActivity.open(this));
         setupWifiOnly();
+        setupShowEditor();
+    }
+
+    /** "Show video editor after recording": the editor opens on the finished recording (not with auto-publish). */
+    private void setupShowEditor() {
+        CheckBox box = findViewById(R.id.cb_show_editor);
+        box.setChecked(prefs.getBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, false));
+        box.setOnCheckedChangeListener((b, checked) -> {
+            prefs.edit().putBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, checked).apply();
+            ActivityLog.log("setting_change", "key", "show_editor_after_recording", "value", checked);
+        });
     }
 
     /** "Upload on Wi-Fi only": applies to new uploads and re-queues the waiting ones. */

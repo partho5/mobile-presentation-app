@@ -41,7 +41,7 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <!-- Publish (= Save, then the publish flow) is wired in Part 5; hidden until then. -->
+            <!-- Publish = Save, then the existing publish flow. -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_publish"
                 android:layout_width="wrap_content"
@@ -51,7 +51,6 @@
                 android:text="@string/editor_publish"
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
-                android:visibility="gone"
                 app:backgroundTint="#2C2C2C"
                 app:cornerRadius="24dp" />
         </RelativeLayout>

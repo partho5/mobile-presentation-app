@@ -44,7 +44,8 @@ import java.util.List;
  * Playback skips the deleted parts, so the preview matches what Save will write.
  *
  * Launch with {@link #newIntent}. On a successful save the activity finishes with RESULT_OK and
- * {@link #EXTRA_OUTPUT_PATH}. The Publish button is wired in a later part and stays hidden.
+ * {@link #EXTRA_OUTPUT_PATH}. Publish is Save, then the existing publish flow (see
+ * {@link PublishLauncher}); with no edits it publishes the master as it is.
  */
 public class VideoEditorActivity extends AppCompatActivity
         implements VideoEditorViewModel.Listener, EditTimelineView.Listener,
@@ -67,7 +68,7 @@ public class VideoEditorActivity extends AppCompatActivity
     private VideoView video;
     private EditTimelineView timeline;
     private TextView tvStatus, tvTime, tvResultLength, tvSavePercent;
-    private MaterialButton btnUndo, btnRedo, btnPlay, btnSplit, btnDelete, btnSave;
+    private MaterialButton btnUndo, btnRedo, btnPlay, btnSplit, btnDelete, btnSave, btnPublish;
     private View saveOverlay;
     private ProgressBar saveProgress;
 
@@ -123,6 +124,7 @@ public class VideoEditorActivity extends AppCompatActivity
         btnSplit = findViewById(R.id.btn_split);
         btnDelete = findViewById(R.id.btn_delete);
         btnSave = findViewById(R.id.btn_save);
+        btnPublish = findViewById(R.id.btn_publish);
         saveOverlay = findViewById(R.id.save_overlay);
         saveProgress = findViewById(R.id.save_progress);
         audioLane = findViewById(R.id.audio_lane);
@@ -189,6 +191,7 @@ public class VideoEditorActivity extends AppCompatActivity
         btnSplit.setOnClickListener(v -> split());
         btnDelete.setOnClickListener(v -> deleteSegment());
         btnSave.setOnClickListener(v -> save());
+        btnPublish.setOnClickListener(v -> publish());
         findViewById(R.id.btn_cancel_save).setOnClickListener(v -> vm.cancelSave());
         video.setOnClickListener(v -> togglePlay());
 
@@ -278,6 +281,7 @@ public class VideoEditorActivity extends AppCompatActivity
             setEnabled(btnSplit, false);
             setEnabled(btnDelete, false);
             setEnabled(btnSave, false);
+            setEnabled(btnPublish, false);
             setEnabled(btnAddAudio, false);
             return;
         }
@@ -301,6 +305,7 @@ public class VideoEditorActivity extends AppCompatActivity
         setEnabled(btnDelete, EditTimelineMath.canDelete(ranges,
                 EditTimelineMath.indexAt(ranges, playhead)) && !saving);
         setEnabled(btnSave, !saving);
+        setEnabled(btnPublish, !saving);
 
         refreshAudio(project, dur, saving);
 
@@ -686,6 +691,17 @@ public class VideoEditorActivity extends AppCompatActivity
         vm.startSave(this);
     }
 
+    /** Save, then the publish flow on the result. Nothing edited: publishes the master as it is. */
+    private void publish() {
+        if (!vm.isReady()) return;
+        if (!vm.getHistory().isDirty()) {
+            PublishLauncher.publish(this, new File(vm.getProject().getMasterPath()));
+            return;
+        }
+        if (vm.isPlaying()) pausePlayback();
+        vm.startSave(this, true);
+    }
+
     private void updateSaveOverlay(boolean saving) {
         saveOverlay.setVisibility(saving ? View.VISIBLE : View.GONE);
         if (saving) {
@@ -702,11 +718,13 @@ public class VideoEditorActivity extends AppCompatActivity
         VideoEditorViewModel.SaveState state = vm.getSaveState();
         if (state == VideoEditorViewModel.SaveState.DONE) {
             File out = vm.getOutput();
+            boolean publishAfter = vm.isPublishAfterSave();
             vm.clearSaveResult();
             if (out != null) {
                 Toast.makeText(this, getString(R.string.editor_saved, out.getName()),
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK, new Intent().putExtra(EXTRA_OUTPUT_PATH, out.getAbsolutePath()));
+                if (publishAfter) PublishLauncher.publish(this, out);
             }
             finish();
         } else if (state == VideoEditorViewModel.SaveState.FAILED) {

@@ -19,7 +19,7 @@ Build one part at a time; tick boxes and commit per part.
 | 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ✅ code done; device check pending |
 | 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ✅ code done; device check pending |
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ✅ code done; device check pending |
-| 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ⬜ |
+| 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ✅ code done; device check pending |
 | 6 | Edit an old recording from the 3-dots menu (new group) | ⬜ |
 | 7 | QA + hardening | ⬜ |
 
@@ -92,12 +92,13 @@ Build one part at a time; tick boxes and commit per part.
 - [ ] Owner check on device: volume/mute/remove original, add a track, drag, trim, undo/redo, rotation, save and listen
 
 ## Part 5 - Post-recording preview buttons
-- [ ] Two icons (Edit, Publish) in the `VideoPlayerDialog` action row after "all videos"; new vector drawables
-- [ ] Edit launches `VideoEditorActivity` on the group master; "Preparing..." while bg-replace runs; hidden if master missing
-- [ ] Publish uses the existing publish flow for the centre version; hidden when auto-publish is ON; signed out shows "Couldn't upload because you are signed out", no upload
-- [ ] `EditorGate` + settings checkbox "Show video editor after recording" (`RecordSettings` key, default off); ON = auto-open on the final master after bg-replace, new group on Save
-- [ ] Editor Save / Publish wiring (Publish = Save then existing publish flow)
-- [ ] Row fits 5 icons at 360 dp; check both entry points (post-recording and My Videos)
+- [x] Two icons (Edit, Publish) in the `VideoPlayerDialog` action row after "all videos"; new vector drawables
+- [x] Edit launches `VideoEditorActivity` on the group master; "Preparing..." while bg-replace runs; hidden if master missing
+- [x] Publish uses the existing publish flow for the centre version; hidden when auto-publish is ON; signed out shows "Couldn't upload because you are signed out", no upload
+- [x] `EditorGate` + settings checkbox "Show video editor after recording" (`RecordSettings` key, default off); ON = auto-open on the final master after bg-replace, new group on Save
+- [x] Editor Save / Publish wiring (Publish = Save then existing publish flow)
+- [x] Row: 5 equal-weight 42dp icons (fits 360 dp)
+- [ ] Owner check on device: both entry points (post-recording and My Videos), Edit while bg-replace runs, Publish signed out / auto-publish on, editor auto-open setting, editor Save/Publish makes a new group with crops
 
 ## Part 6 - Edit old recordings
 - [ ] 3-dots menu item "Edit" (same launcher as the panel Edit; hidden if master missing)

@@ -44,6 +44,9 @@ import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
+import com.jovoc.facecampresentationrecorder.edit.EditorGate;
+import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -199,6 +202,11 @@ public class VideoPlayerDialog {
 
     private BroadcastReceiver cropReceiver;
 
+    private final ImageButton btnEdit;
+    private final ImageButton btnPublish;
+    /** The group's master video, or null when it is gone (Edit hidden). Main thread only. */
+    private String masterPath;
+
     private final Runnable progressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -265,6 +273,8 @@ public class VideoPlayerDialog {
         ImageButton btnDelete = dialog.findViewById(R.id.btn_delete_video);
         ImageButton btnShare = dialog.findViewById(R.id.btn_share_video);
         ImageButton btnAllVideos = dialog.findViewById(R.id.btn_all_videos);
+        btnEdit = dialog.findViewById(R.id.btn_edit_video);
+        btnPublish = dialog.findViewById(R.id.btn_publish_video);
 
         // The opened file alone first, sized before the dialog is shown, so a recording
         // without versions looks and behaves exactly like a plain player
@@ -422,6 +432,30 @@ public class VideoPlayerDialog {
                 context.startActivity(new Intent(context, SavedRecordingsActivity.class));
             });
         }
+
+        // Edit: the editor always works on the group's master and saves a new group
+        btnEdit.setOnClickListener(v -> {
+            ActivityLog.log("player_action", "item", "edit");
+            String master = masterPath;
+            if (master == null) return;
+            if (BgReplaceService.isReplacePending(master)) {
+                Toast.makeText(context, R.string.editor_preparing, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            context.startActivity(VideoEditorActivity.newIntent(context, master));
+        });
+        updateEditButtons(findMaster(initialFile.getAbsolutePath()));
+
+        // Publish: the existing flow for the version in the centre, no edit. Not offered while
+        // auto-publish is on (the 9:16 is already queued).
+        btnPublish.setVisibility(EditorGate.showPublishButton(context) ? View.VISIBLE : View.GONE);
+        btnPublish.setOnClickListener(v -> {
+            ActivityLog.log("player_action", "item", "publish");
+            Version current = findVersion(playingPath);
+            if (current == null) return;
+            PublishLauncher.publish(context, current.file);
+        });
 
         // Versions arrive while the dialog is open. The receiver is registered before the
         // first load so a crop finishing in between is not missed.
@@ -655,11 +689,32 @@ public class VideoPlayerDialog {
         try {
             executor.execute(() -> {
                 List<Candidate> list = loadCandidates(anchor);
-                handler.post(() -> applyVersions(list));
+                String master = findMaster(anchor);
+                handler.post(() -> {
+                    if (dismissed) return;
+                    updateEditButtons(master);
+                    applyVersions(list);
+                });
             });
         } catch (RejectedExecutionException ignored) {
             // dialog already closed
         }
+    }
+
+    /** The group's master video for the group that {@code anchorPath} belongs to, or null. */
+    private String findMaster(String anchorPath) {
+        return EditGroupMath.masterOf(VideoGroupStore.getGroupPaths(appContext, anchorPath));
+    }
+
+    /**
+     * Main thread. Edit is hidden without a master; while the background replace of that master
+     * still runs it looks disabled and says "Preparing..." when tapped.
+     */
+    private void updateEditButtons(String master) {
+        masterPath = master;
+        btnEdit.setVisibility(master == null ? View.GONE : View.VISIBLE);
+        boolean preparing = master != null && BgReplaceService.isReplacePending(master);
+        btnEdit.setAlpha(preparing ? 0.35f : 1f);
     }
 
     /** Executor thread. Complete, playable files of the group, in display order. */

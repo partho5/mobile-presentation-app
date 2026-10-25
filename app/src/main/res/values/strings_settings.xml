@@ -41,6 +41,8 @@
     <string name="set_ap_row_not_set_up">Not set up</string>
     <string name="set_wifi_only_checkbox">Upload on Wi-Fi only</string>
     <string name="set_wifi_only_hint">Videos can reach several GB. Uploads wait for Wi-Fi instead of using mobile data.</string>
+    <string name="set_show_editor_checkbox">Show video editor after recording</string>
+    <string name="set_show_editor_hint">Opens the editor on each finished recording. Not used while auto-publish is on.</string>
     <string name="set_perm_camera">Camera (your face cam)</string>
     <string name="set_perm_mic">Microphone (your voice)</string>
     <string name="set_perm_notifications">Notifications (stop recording from the shade)</string>

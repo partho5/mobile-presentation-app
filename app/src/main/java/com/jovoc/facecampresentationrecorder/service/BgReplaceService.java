@@ -101,6 +101,8 @@ public class BgReplaceService extends Service {
     private static volatile long replaceStartedAtMs;
     private static Listener listener;
     private static CropListener cropListener;
+    /** Recordings whose replace step has ended (done, failed or cancelled); guarded by LOCK. */
+    private static final java.util.Set<String> replaceDone = new java.util.HashSet<>();
     private static final java.util.Set<String> CROP_PENDING = new java.util.HashSet<>();
     private static String currentStage = "";
     private static int currentPercent = -1;
@@ -159,6 +161,22 @@ public class BgReplaceService extends Service {
             if (running != null && running.video.getAbsolutePath().equals(path)) return true;
             for (Job j : QUEUE) {
                 if (j.video.getAbsolutePath().equals(path)) return true;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * True while the background replace of the recording at {@code path} is queued or running,
+     * i.e. until its file is final. Crops do not count: the editor makes its own new group.
+     */
+    public static boolean isReplacePending(String path) {
+        synchronized (LOCK) {
+            if (replacing != null && replacing.video.getAbsolutePath().equals(path)) return true;
+            if (running != null && running.replace && !replaceDone.contains(path)
+                    && running.video.getAbsolutePath().equals(path)) return true;
+            for (Job j : QUEUE) {
+                if (j.replace && j.video.getAbsolutePath().equals(path)) return true;
             }
             return false;
         }
@@ -278,6 +296,7 @@ public class BgReplaceService extends Service {
                 } finally {
                     synchronized (LOCK) {
                         running = null;
+                        replaceDone.remove(job.video.getAbsolutePath());
                         CROP_PENDING.remove(job.video.getAbsolutePath());
                     }
                     // Processing is over (done, failed or crashed): start its auto-publish, if
@@ -348,6 +367,11 @@ public class BgReplaceService extends Service {
             currentStage = "";
             currentPercent = -1;
             lastNotifiedPercent = -2;
+            synchronized (LOCK) {
+                replaceDone.add(video.getAbsolutePath());
+            }
+            // Open previews enable their Edit button now that the master is final
+            VideoCropHelper.notifyStateChanged(getApplicationContext());
             MAIN.post(() -> {
                 if (listener != null) {
                     listener.onReady(video.getAbsolutePath());

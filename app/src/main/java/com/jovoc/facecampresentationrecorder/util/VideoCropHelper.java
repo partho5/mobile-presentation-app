@@ -78,7 +78,7 @@ public class VideoCropHelper {
         return !PENDING.isEmpty();
     }
 
-    private static void notifyStateChanged(Context context) {
+    public static void notifyStateChanged(Context context) {
         Intent intent = new Intent(ACTION_CROP_STATE_CHANGED);
         intent.setPackage(context.getPackageName());
         context.sendBroadcast(intent);

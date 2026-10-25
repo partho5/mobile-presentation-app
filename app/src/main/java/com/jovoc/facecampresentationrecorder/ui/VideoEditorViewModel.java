@@ -13,13 +13,17 @@ import android.util.Log;
 import androidx.lifecycle.ViewModel;
 
 import com.jovoc.facecampresentationrecorder.edit.AudioPeaks;
+import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
 import com.jovoc.facecampresentationrecorder.edit.EditRenderer;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
+import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
+import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CancellationException;
@@ -79,6 +83,7 @@ public class VideoEditorViewModel extends ViewModel {
     private SaveState saveState = SaveState.IDLE;
     private volatile int percent;
     private File output;
+    private boolean publishAfterSave;
     private AtomicBoolean cancelFlag;
 
     public void setListener(Listener l) {
@@ -264,6 +269,9 @@ public class VideoEditorViewModel extends ViewModel {
     public int getPercent() { return percent; }
     public File getOutput() { return output; }
 
+    /** True when the running or finished save was started by Publish (publish the result after). */
+    public boolean isPublishAfterSave() { return publishAfterSave; }
+
     /** Back to idle once the screen has shown a finished or failed save. */
     public void clearSaveResult() {
         if (saveState == SaveState.DONE || saveState == SaveState.FAILED) {
@@ -274,7 +282,16 @@ public class VideoEditorViewModel extends ViewModel {
 
     /** Renders the current edit to a new file beside the master, on a background thread. */
     public void startSave(Context context) {
+        startSave(context, false);
+    }
+
+    /**
+     * Same as {@link #startSave(Context)}; the result is a new group: the edited file plus its own
+     * crops in the ratios the master's group had (9:16 first), the old group untouched.
+     */
+    public void startSave(Context context, boolean publishAfter) {
         if (saveState == SaveState.RUNNING || !isReady()) return;
+        publishAfterSave = publishAfter;
         final Context app = context.getApplicationContext();
         final EditProject project = history.current();
         final File out = EditTimelineMath.nextOutputFile(new File(project.getMasterPath()));
@@ -293,6 +310,7 @@ public class VideoEditorViewModel extends ViewModel {
                             percent = p;
                             changed();
                         });
+                startGroupCrops(app, project.getMasterPath(), out);
                 result = SaveState.DONE;
             } catch (CancellationException e) {
                 result = SaveState.IDLE;
@@ -308,6 +326,21 @@ public class VideoEditorViewModel extends ViewModel {
                 if (!cleared && listener != null) listener.onChanged();
             });
         });
+    }
+
+    /**
+     * Gives the edited file a group of its own, before any list scan can see it, and crops it to
+     * the ratios the old group had. Runs on the render thread; cropAsync is safe from any thread.
+     */
+    private static void startGroupCrops(Context app, String masterPath, File out) {
+        List<String> oldGroup = VideoGroupStore.getGroupPaths(app, masterPath);
+        List<int[]> ratios = EditGroupMath.cropRatiosOf(oldGroup);
+        synchronized (VideoGroupStore.lockForRegistration()) {
+            VideoGroupStore.ensureGroup(app, out.getAbsolutePath());
+        }
+        if (!ratios.isEmpty()) {
+            VideoCropHelper.cropAsync(app, out.getAbsolutePath(), ratios, null);
+        }
     }
 
     public void cancelSave() {

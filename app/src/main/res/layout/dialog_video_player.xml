@@ -271,6 +271,28 @@
                 android:padding="10dp"
                 android:src="@drawable/ic_video_stack"
                 app:tint="#B8C4D0" />
+
+            <ImageButton
+                android:id="@+id/btn_edit_video"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/editor_edit_desc"
+                android:padding="10dp"
+                android:src="@drawable/ic_video_edit"
+                app:tint="#FACC15" />
+
+            <ImageButton
+                android:id="@+id/btn_publish_video"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/editor_publish_desc"
+                android:padding="10dp"
+                android:src="@drawable/ic_publish"
+                app:tint="#34D399" />
         </LinearLayout>
     </LinearLayout>
 

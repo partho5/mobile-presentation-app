@@ -3926,6 +3926,13 @@ public class MainActivity extends AppCompatActivity implements SlideAdapter.Slid
         if (isFinishing() || isDestroyed()) return;
         File file = new File(path);
         if (file.exists() && file.length() > 0) {
+            // "Show video editor after recording": the final master (bg-replace is done by now)
+            // opens in the editor instead of the preview; crops are already running as usual.
+            if (com.jovoc.facecampresentationrecorder.edit.EditorGate.shouldShowAfterRecording(this)) {
+                startActivity(com.jovoc.facecampresentationrecorder.ui.VideoEditorActivity
+                        .newIntent(this, path));
+                return;
+            }
             Dialog dialog = VideoPlayerDialog.show(MainActivity.this, file, null);
             bindCropStatus(dialog, path);
         }
