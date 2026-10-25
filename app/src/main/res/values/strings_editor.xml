@@ -26,4 +26,20 @@
     <string name="editor_discard">Discard</string>
     <string name="editor_keep_editing">Keep editing</string>
     <string name="editor_missing_file">This video can\'t be found.</string>
+    <string name="editor_audio">Audio</string>
+    <string name="editor_add_audio">Add audio</string>
+    <string name="editor_audio_original">Recording sound</string>
+    <string name="editor_audio_track_fmt">Track: %1$s</string>
+    <string name="editor_audio_track_unnamed">Added audio</string>
+    <string name="editor_audio_volume">Volume</string>
+    <string name="editor_audio_percent">%1$d%%</string>
+    <string name="editor_audio_mute">Mute</string>
+    <string name="editor_audio_unmute">Unmute</string>
+    <string name="editor_audio_remove">Remove</string>
+    <string name="editor_audio_restore">Restore</string>
+    <string name="editor_audio_removed">Removed</string>
+    <string name="editor_audio_muted">Muted</string>
+    <string name="editor_audio_trim_fmt">Use from %1$s to %2$s</string>
+    <string name="editor_audio_pick_failed">Couldn\'t use that file. Pick an audio file.</string>
+    <string name="editor_audio_lane_desc">Audio lane. Tap a sound to edit it, drag an added track sideways to move it.</string>
 </resources>

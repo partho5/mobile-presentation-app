@@ -172,4 +172,50 @@ public class EditProjectTest {
                 new EditProject.AddedAudio("content://a", 0, 1000, 0, 1f)));
         assertTrue(added.hasAudioChanges());
     }
+
+    private static EditProject.AddedAudio track(String uri) {
+        return new EditProject.AddedAudio(uri, 0, 0, 0, 1f);
+    }
+
+    @Test
+    public void addAndRemoveTracks() {
+        EditProject p = whole().withAddedTrack(track("a")).withAddedTrack(track("b"));
+        assertEquals(2, p.getAdded().size());
+        EditProject q = p.withoutTrack(0);
+        assertEquals("b", q.getAdded().get(0).uri);
+        assertSame(q, q.withoutTrack(5));
+        assertEquals(2, p.getAdded().size());
+    }
+
+    @Test
+    public void moveTrackIsClamped() {
+        EditProject p = whole().withAddedTrack(track("a"));
+        assertEquals(1500, p.withTrackMoved(0, 1500, DUR).getAdded().get(0).startOnTimelineMs);
+        assertEquals(0, p.withTrackMoved(0, -50, DUR).getAdded().get(0).startOnTimelineMs);
+        assertEquals(DUR, p.withTrackMoved(0, DUR * 2, DUR).getAdded().get(0).startOnTimelineMs);
+    }
+
+    @Test
+    public void trimTrackKeepsMinimumAndStoresEndAsZero() {
+        EditProject p = whole().withAddedTrack(track("a"));
+        EditProject.AddedAudio t = p.withTrackTrim(0, 1000, 4000, 8000).getAdded().get(0);
+        assertEquals(1000, t.sourceInMs);
+        assertEquals(4000, t.sourceOutMs);
+        assertEquals(3000, t.usedLengthMs(8000));
+        // Out at the file's end means "to the end"
+        t = p.withTrackTrim(0, 1000, 9000, 8000).getAdded().get(0);
+        assertEquals(0, t.sourceOutMs);
+        assertEquals(7000, t.usedLengthMs(8000));
+        // Crossed handles still leave the minimum
+        t = p.withTrackTrim(0, 5000, 5000, 8000).getAdded().get(0);
+        assertEquals(EditProject.MIN_TRACK_MS, t.usedLengthMs(8000));
+    }
+
+    @Test
+    public void trackVolumeIsClampedAndCountsAsAudioChange() {
+        EditProject p = whole().withAddedTrack(track("a")).withTrackVolume(0, 3f);
+        assertEquals(2f, p.getAdded().get(0).volume, 0f);
+        assertTrue(p.hasAudioChanges());
+        assertSame(p, p.withTrackVolume(4, 1f));
+    }
 }

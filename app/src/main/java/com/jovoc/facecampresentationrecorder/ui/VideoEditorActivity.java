@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.ui;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,18 +15,26 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.slider.RangeSlider;
+import com.google.android.material.slider.Slider;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.edit.AudioPeaks;
 import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
 import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
+import com.jovoc.facecampresentationrecorder.edit.WaveformMath;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,7 +47,8 @@ import java.util.List;
  * {@link #EXTRA_OUTPUT_PATH}. The Publish button is wired in a later part and stays hidden.
  */
 public class VideoEditorActivity extends AppCompatActivity
-        implements VideoEditorViewModel.Listener, EditTimelineView.Listener {
+        implements VideoEditorViewModel.Listener, EditTimelineView.Listener,
+                   AudioLaneView.Listener {
 
     public static final String EXTRA_MASTER_PATH = "master_path";
     public static final String EXTRA_OUTPUT_PATH = "output_path";
@@ -60,6 +70,21 @@ public class VideoEditorActivity extends AppCompatActivity
     private MaterialButton btnUndo, btnRedo, btnPlay, btnSplit, btnDelete, btnSave;
     private View saveOverlay;
     private ProgressBar saveProgress;
+
+    // Audio lane
+    private AudioLaneView audioLane;
+    private View audioScroll, audioControls, trimGroup;
+    private TextView tvAudioName, tvVolume, tvTrim;
+    private MaterialButton btnAddAudio, btnAudioMute, btnAudioRemove;
+    private Slider sliderVolume;
+    private RangeSlider sliderTrim;
+    private EditProject lastLaneProject;
+    private int lastLaneSelected = Integer.MIN_VALUE;
+    private int lastLaneReady = -1;
+    private boolean lastLaneSaving;
+
+    private final ActivityResultLauncher<String[]> pickAudio = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(), this::onAudioPicked);
 
     private MediaPlayer player;
     private boolean prepared;
@@ -100,12 +125,54 @@ public class VideoEditorActivity extends AppCompatActivity
         btnSave = findViewById(R.id.btn_save);
         saveOverlay = findViewById(R.id.save_overlay);
         saveProgress = findViewById(R.id.save_progress);
+        audioLane = findViewById(R.id.audio_lane);
+        audioScroll = findViewById(R.id.audio_scroll);
+        audioControls = findViewById(R.id.audio_controls);
+        trimGroup = findViewById(R.id.trim_group);
+        tvAudioName = findViewById(R.id.tv_audio_name);
+        tvVolume = findViewById(R.id.tv_volume);
+        tvTrim = findViewById(R.id.tv_trim);
+        btnAddAudio = findViewById(R.id.btn_add_audio);
+        btnAudioMute = findViewById(R.id.btn_audio_mute);
+        btnAudioRemove = findViewById(R.id.btn_audio_remove);
+        sliderVolume = findViewById(R.id.slider_volume);
+        sliderTrim = findViewById(R.id.slider_trim);
 
         vm = new ViewModelProvider(this).get(VideoEditorViewModel.class);
         vm.load(path);
         vm.setListener(this);
 
         timeline.setListener(this);
+        audioLane.setListener(this);
+        btnAddAudio.setOnClickListener(v -> pickAudio.launch(new String[]{"audio/*"}));
+        btnAudioMute.setOnClickListener(v -> toggleOriginalMute());
+        btnAudioRemove.setOnClickListener(v -> removeSelectedAudio());
+        sliderVolume.addOnChangeListener((s, value, fromUser) -> {
+            if (fromUser) tvVolume.setText(getString(R.string.editor_audio_percent, Math.round(value * 100)));
+        });
+        sliderVolume.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+            @Override
+            public void onStartTrackingTouch(Slider slider) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(Slider slider) {
+                commitVolume(slider.getValue());
+            }
+        });
+        sliderTrim.addOnChangeListener((s, value, fromUser) -> {
+            if (fromUser) showTrimText(s.getValues());
+        });
+        sliderTrim.addOnSliderTouchListener(new RangeSlider.OnSliderTouchListener() {
+            @Override
+            public void onStartTrackingTouch(RangeSlider slider) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(RangeSlider slider) {
+                commitTrim(slider.getValues());
+            }
+        });
         findViewById(R.id.btn_back).setOnClickListener(v -> onBackRequested());
         btnUndo.setOnClickListener(v -> undoRedo(true));
         btnRedo.setOnClickListener(v -> undoRedo(false));
@@ -202,6 +269,7 @@ public class VideoEditorActivity extends AppCompatActivity
             setEnabled(btnSplit, false);
             setEnabled(btnDelete, false);
             setEnabled(btnSave, false);
+            setEnabled(btnAddAudio, false);
             return;
         }
 
@@ -225,6 +293,8 @@ public class VideoEditorActivity extends AppCompatActivity
                 EditTimelineMath.indexAt(ranges, playhead)) && !saving);
         setEnabled(btnSave, !saving);
 
+        refreshAudio(project, dur, saving);
+
         boolean playing = vm.isPlaying();
         btnPlay.setText(playing ? R.string.editor_pause : R.string.editor_play);
         btnPlay.setIconResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
@@ -236,6 +306,203 @@ public class VideoEditorActivity extends AppCompatActivity
                 EditTimelineMath.formatTime(outPos), EditTimelineMath.formatTime(outDur)));
         tvResultLength.setText(getString(R.string.editor_result_length,
                 EditTimelineMath.formatTime(outDur)));
+    }
+
+    // ---------------------------------------------------------------- audio lane
+
+    private void onAudioPicked(Uri uri) {
+        if (uri == null || vm == null) return;
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException | UnsupportedOperationException ignored) {
+            // Not every provider offers a persistable grant; the grant for this session still works
+        }
+        vm.addAudio(this, uri);
+    }
+
+    /** Rebuilds the lane and the selected row's controls; skipped when nothing relevant changed. */
+    private void refreshAudio(EditProject project, long dur, boolean saving) {
+        if (vm.takeAudioError()) {
+            Toast.makeText(this, R.string.editor_audio_pick_failed, Toast.LENGTH_LONG).show();
+        }
+        boolean showOriginal = vm.hasMasterAudio();
+        List<EditProject.AddedAudio> added = project.getAdded();
+
+        int selected = vm.getSelectedTrack();
+        if (selected >= added.size() || (selected == VideoEditorViewModel.ORIGINAL_TRACK && !showOriginal)) {
+            selected = VideoEditorViewModel.NO_TRACK;
+            vm.setSelectedTrack(selected);
+        }
+
+        int ready = vm.getPeaks(project.getMasterPath()) != null ? 1 : 0;
+        for (EditProject.AddedAudio a : added) {
+            if (vm.getPeaks(a.uri) != null) ready++;
+            if (vm.getAudioDurationMs(a.uri) > 0) ready += 100;
+        }
+        setEnabled(btnAddAudio, !saving && !vm.isAudioBusy());
+        setEnabled(btnAudioMute, !saving);
+        setEnabled(btnAudioRemove, !saving);
+        sliderVolume.setEnabled(!saving);
+        sliderTrim.setEnabled(!saving);
+        if (lastLaneProject == project && lastLaneSelected == selected && lastLaneReady == ready
+                && lastLaneSaving == saving) {
+            return;
+        }
+        lastLaneProject = project;
+        lastLaneSelected = selected;
+        lastLaneReady = ready;
+        lastLaneSaving = saving;
+
+        audioScroll.setVisibility(showOriginal || !added.isEmpty() ? View.VISIBLE : View.GONE);
+        long outDur = project.outputDurationMs(dur);
+        int cols = AudioPeaks.BUCKETS;
+
+        List<AudioLaneView.Row> rows = new ArrayList<>();
+        EditProject.AudioSettings o = project.getOriginal();
+        if (showOriginal) {
+            String label = getString(R.string.editor_audio_original);
+            if (o.removed) label += " - " + getString(R.string.editor_audio_removed);
+            else if (o.muted) label += " - " + getString(R.string.editor_audio_muted);
+            rows.add(new AudioLaneView.Row(VideoEditorViewModel.ORIGINAL_TRACK, label,
+                    vm.getPeaks(project.getMasterPath()) == null ? null
+                            : WaveformMath.remapToOutput(vm.getPeaks(project.getMasterPath()),
+                            project, dur, cols),
+                    0, outDur, o.muted || o.removed || o.volume == 0f));
+        }
+        for (int i = 0; i < added.size(); i++) {
+            EditProject.AddedAudio a = added.get(i);
+            long srcDur = vm.getAudioDurationMs(a.uri);
+            long used = srcDur > 0 ? a.usedLengthMs(srcDur) : outDur;
+            float[] p = vm.getPeaks(a.uri);
+            rows.add(new AudioLaneView.Row(i, trackName(a), p == null || srcDur <= 0 ? null
+                    : WaveformMath.slice(p, srcDur, a.sourceInMs, used, cols),
+                    a.startOnTimelineMs, used, a.volume == 0f));
+        }
+        audioLane.setRows(rows, outDur, selected);
+        bindAudioControls(project, selected, saving);
+    }
+
+    private String trackName(EditProject.AddedAudio a) {
+        String n = vm.getAudioName(a.uri);
+        return n == null || n.isEmpty() ? getString(R.string.editor_audio_track_unnamed) : n;
+    }
+
+    private void bindAudioControls(EditProject project, int selected, boolean saving) {
+        if (selected == VideoEditorViewModel.NO_TRACK) {
+            audioControls.setVisibility(View.GONE);
+            return;
+        }
+        audioControls.setVisibility(View.VISIBLE);
+        float volume;
+        if (selected == VideoEditorViewModel.ORIGINAL_TRACK) {
+            EditProject.AudioSettings o = project.getOriginal();
+            volume = o.volume;
+            tvAudioName.setText(R.string.editor_audio_original);
+            btnAudioMute.setVisibility(View.VISIBLE);
+            btnAudioMute.setText(o.muted ? R.string.editor_audio_unmute : R.string.editor_audio_mute);
+            btnAudioMute.setEnabled(!o.removed && !saving);
+            btnAudioRemove.setText(o.removed ? R.string.editor_audio_restore : R.string.editor_audio_remove);
+            trimGroup.setVisibility(View.GONE);
+        } else {
+            EditProject.AddedAudio a = project.getAdded().get(selected);
+            volume = a.volume;
+            tvAudioName.setText(getString(R.string.editor_audio_track_fmt, trackName(a)));
+            btnAudioMute.setVisibility(View.GONE);
+            btnAudioRemove.setText(R.string.editor_audio_remove);
+            long srcDur = vm.getAudioDurationMs(a.uri);
+            if (srcDur >= 2 * EditProject.MIN_TRACK_MS) {
+                trimGroup.setVisibility(View.VISIBLE);
+                if (!sliderTrim.isPressed()) {
+                    long out = a.sourceOutMs <= a.sourceInMs ? srcDur : Math.min(a.sourceOutMs, srcDur);
+                    float to = srcDur / 1000f;
+                    sliderTrim.setValueFrom(0f);
+                    sliderTrim.setValueTo(to);
+                    sliderTrim.setValues(Math.min(a.sourceInMs / 1000f, to), Math.min(out / 1000f, to));
+                    showTrimText(sliderTrim.getValues());
+                }
+            } else {
+                trimGroup.setVisibility(View.GONE);
+            }
+        }
+        if (!sliderVolume.isPressed()) {
+            sliderVolume.setValue(Math.max(0f, Math.min(2f, volume)));
+            tvVolume.setText(getString(R.string.editor_audio_percent, Math.round(volume * 100)));
+        }
+    }
+
+    private void showTrimText(List<Float> v) {
+        if (v.size() < 2) return;
+        List<Float> sorted = new ArrayList<>(v);
+        Collections.sort(sorted);
+        tvTrim.setText(getString(R.string.editor_audio_trim_fmt,
+                EditTimelineMath.formatTime(Math.round(sorted.get(0) * 1000)),
+                EditTimelineMath.formatTime(Math.round(sorted.get(1) * 1000))));
+    }
+
+    /** One undo step for an audio edit. */
+    private void pushAudioEdit(EditProject next) {
+        if (!vm.isReady()) return;
+        if (vm.isPlaying()) pausePlayback();
+        vm.getHistory().push(next);
+        refresh();
+    }
+
+    @Override
+    public void onTrackSelected(int track) {
+        vm.setSelectedTrack(track);
+        refresh();
+    }
+
+    @Override
+    public void onTrackMoved(int track, long startMs) {
+        if (!vm.isReady()) return;
+        EditProject p = vm.getProject();
+        pushAudioEdit(p.withTrackMoved(track, startMs, p.outputDurationMs(vm.getDurationMs())));
+    }
+
+    private void commitVolume(float value) {
+        if (!vm.isReady()) return;
+        float v = Math.round(value * 100) / 100f;
+        int sel = vm.getSelectedTrack();
+        EditProject p = vm.getProject();
+        if (sel == VideoEditorViewModel.ORIGINAL_TRACK) {
+            EditProject.AudioSettings o = p.getOriginal();
+            pushAudioEdit(p.withOriginal(new EditProject.AudioSettings(v, o.muted, o.removed)));
+        } else if (sel >= 0) {
+            pushAudioEdit(p.withTrackVolume(sel, v));
+        }
+    }
+
+    private void commitTrim(List<Float> values) {
+        int sel = vm.getSelectedTrack();
+        if (!vm.isReady() || sel < 0 || values.size() < 2) return;
+        EditProject p = vm.getProject();
+        if (sel >= p.getAdded().size()) return;
+        List<Float> sorted = new ArrayList<>(values);
+        Collections.sort(sorted);
+        long srcDur = vm.getAudioDurationMs(p.getAdded().get(sel).uri);
+        pushAudioEdit(p.withTrackTrim(sel, Math.round(sorted.get(0) * 1000L),
+                Math.round(sorted.get(1) * 1000L), srcDur));
+    }
+
+    private void toggleOriginalMute() {
+        if (!vm.isReady()) return;
+        EditProject p = vm.getProject();
+        EditProject.AudioSettings o = p.getOriginal();
+        pushAudioEdit(p.withOriginal(new EditProject.AudioSettings(o.volume, !o.muted, o.removed)));
+    }
+
+    private void removeSelectedAudio() {
+        if (!vm.isReady()) return;
+        int sel = vm.getSelectedTrack();
+        EditProject p = vm.getProject();
+        if (sel == VideoEditorViewModel.ORIGINAL_TRACK) {
+            EditProject.AudioSettings o = p.getOriginal();
+            pushAudioEdit(p.withOriginal(new EditProject.AudioSettings(o.volume, o.muted, !o.removed)));
+        } else if (sel >= 0) {
+            vm.setSelectedTrack(VideoEditorViewModel.NO_TRACK);
+            pushAudioEdit(p.withoutTrack(sel));
+        }
     }
 
     private static void setEnabled(View v, boolean enabled) {

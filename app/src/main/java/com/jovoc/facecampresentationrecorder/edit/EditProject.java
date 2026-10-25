@@ -103,6 +103,12 @@ public final class EditProject {
             this.volume = Math.max(0f, Math.min(2f, volume));
         }
 
+        /** Length of the used part of a file that is {@code sourceDurationMs} long. */
+        public long usedLengthMs(long sourceDurationMs) {
+            long end = sourceOutMs <= sourceInMs ? sourceDurationMs : Math.min(sourceOutMs, sourceDurationMs);
+            return Math.max(0, end - sourceInMs);
+        }
+
         @Override
         public boolean equals(Object o) {
             if (!(o instanceof AddedAudio)) return false;
@@ -117,6 +123,9 @@ public final class EditProject {
             return Objects.hash(uri, sourceInMs, sourceOutMs, startOnTimelineMs, volume);
         }
     }
+
+    /** Shortest stretch of an added track that trimming leaves. */
+    public static final long MIN_TRACK_MS = 200;
 
     private final String masterPath;
     private final List<Range> keep;
@@ -281,6 +290,57 @@ public final class EditProject {
 
     public EditProject withAdded(List<AddedAudio> tracks) {
         return new EditProject(masterPath, keep, original, tracks);
+    }
+
+    /** Adds a track after the existing ones. */
+    public EditProject withAddedTrack(AddedAudio track) {
+        List<AddedAudio> out = new ArrayList<>(added);
+        out.add(track);
+        return withAdded(out);
+    }
+
+    /** Drops track {@code index}; an index out of range changes nothing. */
+    public EditProject withoutTrack(int index) {
+        if (index < 0 || index >= added.size()) return this;
+        List<AddedAudio> out = new ArrayList<>(added);
+        out.remove(index);
+        return withAdded(out);
+    }
+
+    /** Moves a track to start at {@code startMs} of the result, kept within {@code [0, maxStartMs]}. */
+    public EditProject withTrackMoved(int index, long startMs, long maxStartMs) {
+        if (index < 0 || index >= added.size()) return this;
+        AddedAudio a = added.get(index);
+        long start = Math.max(0, Math.min(Math.max(0, maxStartMs), startMs));
+        return withTrack(index, new AddedAudio(a.uri, a.sourceInMs, a.sourceOutMs, start, a.volume));
+    }
+
+    /**
+     * Uses only {@code [inMs, outMs)} of a track's file, which is {@code sourceDurationMs} long.
+     * At least {@link #MIN_TRACK_MS} is always kept. An out point at the file's end is stored as 0
+     * ("to the end").
+     */
+    public EditProject withTrackTrim(int index, long inMs, long outMs, long sourceDurationMs) {
+        if (index < 0 || index >= added.size() || sourceDurationMs <= 0) return this;
+        AddedAudio a = added.get(index);
+        long min = Math.min(MIN_TRACK_MS, sourceDurationMs);
+        long in = Math.max(0, Math.min(inMs, sourceDurationMs - min));
+        long out = Math.max(in + min, Math.min(outMs, sourceDurationMs));
+        if (out >= sourceDurationMs) out = 0;
+        return withTrack(index, new AddedAudio(a.uri, in, out, a.startOnTimelineMs, a.volume));
+    }
+
+    public EditProject withTrackVolume(int index, float volume) {
+        if (index < 0 || index >= added.size()) return this;
+        AddedAudio a = added.get(index);
+        return withTrack(index, new AddedAudio(a.uri, a.sourceInMs, a.sourceOutMs,
+                a.startOnTimelineMs, volume));
+    }
+
+    private EditProject withTrack(int index, AddedAudio track) {
+        List<AddedAudio> out = new ArrayList<>(added);
+        out.set(index, track);
+        return withAdded(out);
     }
 
     private EditProject withKeep(List<Range> ranges) {

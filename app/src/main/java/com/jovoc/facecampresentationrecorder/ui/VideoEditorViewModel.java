@@ -1,14 +1,18 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 import android.os.Handler;
+import android.net.Uri;
 import android.os.Looper;
+import android.provider.OpenableColumns;
 import android.util.Log;
 
 import androidx.lifecycle.ViewModel;
 
+import com.jovoc.facecampresentationrecorder.edit.AudioPeaks;
 import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
 import com.jovoc.facecampresentationrecorder.edit.EditRenderer;
@@ -16,6 +20,8 @@ import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +48,7 @@ public class VideoEditorViewModel extends ViewModel {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService loader = Executors.newSingleThreadExecutor();
     private final ExecutorService renderer = Executors.newSingleThreadExecutor();
+    private final ExecutorService audioLoader = Executors.newSingleThreadExecutor();
 
     private Listener listener;
     private EditHistory history;
@@ -50,6 +57,18 @@ public class VideoEditorViewModel extends ViewModel {
     private long durationMs;
     private Bitmap[] thumbs = new Bitmap[0];
     private volatile boolean cleared;
+
+    // Audio lane: what the lane needs to draw, keyed by master path or track uri
+    public static final int NO_TRACK = -2;
+    public static final int ORIGINAL_TRACK = -1;
+    private final Map<String, float[]> peaks = new ConcurrentHashMap<>();
+    private final Map<String, Long> audioDurations = new ConcurrentHashMap<>();
+    private final Map<String, String> audioNames = new ConcurrentHashMap<>();
+    private final AtomicBoolean audioCancel = new AtomicBoolean(false);
+    private volatile boolean masterHasAudio;
+    private boolean audioBusy;
+    private boolean audioError;
+    private int selectedTrack = NO_TRACK;
 
     // UI state that outlives the activity
     private long playheadMs;
@@ -85,7 +104,9 @@ public class VideoEditorViewModel extends ViewModel {
                 long dur = parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
                 if (dur <= 0) throw new IOException("No duration");
                 durationMs = dur;
+                masterHasAudio = "yes".equals(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
                 changed();
+                if (masterHasAudio) loadPeaks(null, masterPath, dur);
 
                 int w = parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
                 int h = parseInt(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
@@ -114,6 +135,97 @@ public class VideoEditorViewModel extends ViewModel {
                 try { mmr.release(); } catch (Exception ignored) {}
             }
         });
+    }
+
+    // ---------------------------------------------------------------- audio lane
+
+    /** Computes the loudness profile of {@code location} in the background and caches it. */
+    private void loadPeaks(Context context, String location, long durationMs) {
+        if (peaks.containsKey(location)) return;
+        audioLoader.execute(() -> {
+            try {
+                float[] p = AudioPeaks.compute(context, location, durationMs, AudioPeaks.BUCKETS, audioCancel);
+                peaks.put(location, p);
+            } catch (IOException | RuntimeException e) {
+                // No picture for this track; the lane shows a plain bar
+                Log.w(TAG, "No waveform for " + location, e);
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Reads the length and name of a picked audio file, then adds it as a track starting at the
+     * playhead. Fails quietly into {@link #takeAudioError}.
+     */
+    public void addAudio(Context context, Uri uri) {
+        final Context app = context.getApplicationContext();
+        audioBusy = true;
+        changed();
+        audioLoader.execute(() -> {
+            long dur = 0;
+            boolean hasAudio = false;
+            MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+            try {
+                mmr.setDataSource(app, uri);
+                dur = parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+                hasAudio = "yes".equals(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Cannot read " + uri, e);
+            } finally {
+                try { mmr.release(); } catch (Exception ignored) {}
+            }
+            final String key = uri.toString();
+            final long finalDur = dur;
+            final boolean ok = hasAudio && dur > 0;
+            String name = null;
+            if (ok) {
+                try (Cursor c = app.getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME},
+                        null, null, null)) {
+                    if (c != null && c.moveToFirst()) name = c.getString(0);
+                } catch (RuntimeException ignored) {
+                }
+                audioDurations.put(key, dur);
+                audioNames.put(key, name == null ? "" : name);
+            }
+            main.post(() -> {
+                audioBusy = false;
+                if (!cleared && history != null) {
+                    if (ok) {
+                        EditProject p = history.current();
+                        long at = p.sourceToOutput(playheadMs, durationMs);
+                        long outDur = p.outputDurationMs(durationMs);
+                        history.push(p.withAddedTrack(new EditProject.AddedAudio(key, 0, 0,
+                                Math.max(0, Math.min(at < 0 ? 0 : at, outDur)), 1f)));
+                        selectedTrack = history.current().getAdded().size() - 1;
+                    } else {
+                        audioError = true;
+                    }
+                }
+                if (!cleared && listener != null) listener.onChanged();
+            });
+            if (ok) loadPeaks(app, key, finalDur);
+        });
+    }
+
+    public boolean hasMasterAudio() { return masterHasAudio; }
+    public boolean isAudioBusy() { return audioBusy; }
+    /** The waveform for the master path or a track uri, or null while it is still being computed. */
+    public float[] getPeaks(String key) { return peaks.get(key); }
+    /** Length of an added file, or 0 when unknown. */
+    public long getAudioDurationMs(String uri) {
+        Long d = audioDurations.get(uri);
+        return d == null ? 0 : d;
+    }
+    public String getAudioName(String uri) { return audioNames.get(uri); }
+    public int getSelectedTrack() { return selectedTrack; }
+    public void setSelectedTrack(int t) { selectedTrack = t; }
+
+    /** True once after a picked file turned out not to be usable audio. */
+    public boolean takeAudioError() {
+        boolean e = audioError;
+        audioError = false;
+        return e;
     }
 
     private static long parseLong(String s) {
@@ -199,8 +311,10 @@ public class VideoEditorViewModel extends ViewModel {
     protected void onCleared() {
         cleared = true;
         cancelSave();
+        audioCancel.set(true);
         listener = null;
         loader.shutdownNow();
+        audioLoader.shutdownNow();
         renderer.shutdown();
     }
 }

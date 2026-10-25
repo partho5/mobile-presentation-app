@@ -18,7 +18,7 @@ Build one part at a time; tick boxes and commit per part.
 | 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ✅ code done; device check pending |
 | 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ✅ code done; device check pending |
 | 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ✅ code done; device check pending |
-| 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ⬜ |
+| 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ✅ code done; device check pending |
 | 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ⬜ |
 | 6 | Edit an old recording from the 3-dots menu (new group) | ⬜ |
 | 7 | QA + hardening | ⬜ |
@@ -86,9 +86,10 @@ Build one part at a time; tick boxes and commit per part.
 - [ ] Owner check on device: trim handles, split/delete, undo/redo, skip-deleted playback, rotation, save + cancel
 
 ## Part 4 - Audio lane UI
-- [ ] Original track controls (volume, mute, remove)
-- [ ] Add audio from file; offset / trim / volume / remove per added track
-- [ ] Waveform or simple bar so the user can see where sound is
+- [x] Original track controls (volume, mute, remove); row hidden when the master has no audio
+- [x] Add audio from file (ACTION_OPEN_DOCUMENT, persisted read grant); offset (drag) / trim / volume / remove per added track; all through `EditHistory`
+- [x] Waveform so the user can see where sound is (`edit/AudioPeaks` decodes off the main thread, cached in the view model; `edit/WaveformMath` maps it onto the edited timeline); Save enabled for audio-only edits (dirty check)
+- [ ] Owner check on device: volume/mute/remove original, add a track, drag, trim, undo/redo, rotation, save and listen
 
 ## Part 5 - Post-recording preview buttons
 - [ ] Two icons (Edit, Publish) in the `VideoPlayerDialog` action row after "all videos"; new vector drawables

@@ -109,6 +109,170 @@
             android:layout_height="96dp"
             android:layout_marginTop="4dp" />
 
+        <!-- Audio lane: header with Add audio, then rows + controls of the selected row. -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="@string/editor_audio"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_add_audio"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/editor_add_audio"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                app:icon="@drawable/ic_add"
+                app:iconTint="#FFFFFF" />
+        </RelativeLayout>
+
+        <ScrollView
+            android:id="@+id/audio_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="140dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.jovoc.facecampresentationrecorder.ui.AudioLaneView
+                    android:id="@+id/audio_lane"
+                    android:contentDescription="@string/editor_audio_lane_desc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:id="@+id/audio_controls"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="8dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tv_audio_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_audio_mute"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="48dp"
+                            android:minWidth="64dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="@string/editor_audio_mute"
+                            android:textAllCaps="false"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_audio_remove"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="48dp"
+                            android:minWidth="64dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="@string/editor_audio_remove"
+                            android:textAllCaps="false"
+                            android:textColor="#FF8A80"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/editor_audio_volume"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp" />
+
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/slider_volume"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:valueFrom="0"
+                            android:valueTo="2"
+                            app:labelBehavior="gone"
+                            app:thumbColor="#FFC107"
+                            app:trackColorActive="#FFC107"
+                            app:trackColorInactive="#555555" />
+
+                        <TextView
+                            android:id="@+id/tv_volume"
+                            android:layout_width="48dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="end"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/trim_group"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_trim"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp" />
+
+                        <com.google.android.material.slider.RangeSlider
+                            android:id="@+id/slider_trim"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:valueFrom="0"
+                            android:valueTo="1"
+                            app:labelBehavior="gone"
+                            app:thumbColor="#FFC107"
+                            app:trackColorActive="#FFC107"
+                            app:trackColorInactive="#555555" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
