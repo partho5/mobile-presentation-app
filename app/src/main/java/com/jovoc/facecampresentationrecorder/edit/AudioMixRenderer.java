@@ -108,7 +108,9 @@ final class AudioMixRenderer {
                 channels = Math.max(channels, s.sourceChannels);
             }
             if (rate <= 0) rate = DEFAULT_RATE;
-            channels = Math.min(2, channels);
+            // Bluetooth and phone-call recordings can be 8/16 kHz or oddly rated: stay on a rate AAC accepts
+            rate = AudioMixer.aacRateFor(rate);
+            channels = Math.max(1, Math.min(2, channels));
             for (PcmSource s : sources) s.start(rate, channels);
 
             gains = new float[addedSources.size()];
@@ -333,10 +335,12 @@ final class AudioMixRenderer {
             track = found;
             trackFormat = extractor.getTrackFormat(found);
             extractor.selectTrack(found);
-            sourceRate = trackFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)
+            int r = trackFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)
                     ? trackFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE) : DEFAULT_RATE;
-            sourceChannels = trackFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)
+            int c = trackFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)
                     ? trackFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 1;
+            sourceRate = r > 0 ? r : DEFAULT_RATE;
+            sourceChannels = c > 0 ? c : 1;
         }
 
         void start(int rate, int channels) throws IOException {
@@ -426,6 +430,8 @@ final class AudioMixRenderer {
                         ? f.getInteger(MediaFormat.KEY_SAMPLE_RATE) : decRate;
                 int ch = f.containsKey(MediaFormat.KEY_CHANNEL_COUNT)
                         ? f.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : decChannels;
+                if (rate <= 0) rate = decRate;
+                if (ch <= 0) ch = decChannels;
                 if (rate != decRate || ch != decChannels) {
                     decRate = rate;
                     decChannels = ch;

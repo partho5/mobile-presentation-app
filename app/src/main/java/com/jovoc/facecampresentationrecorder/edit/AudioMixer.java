@@ -25,6 +25,21 @@ public final class AudioMixer {
         return Math.max(0f, Math.min(2f, volume));
     }
 
+    private static final int[] AAC_RATES = {8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000};
+
+    /**
+     * A sample rate the AAC encoder accepts, closest to {@code rate}: phone and Bluetooth-headset
+     * recordings can be 8 or 16 kHz, odd files anything else. 44.1 kHz when the rate is unknown.
+     */
+    public static int aacRateFor(int rate) {
+        if (rate <= 0) return 44_100;
+        int best = AAC_RATES[0];
+        for (int r : AAC_RATES) {
+            if (Math.abs(r - rate) < Math.abs(best - rate)) best = r;
+        }
+        return best;
+    }
+
     /** Frames covering {@code ms} at {@code sampleRate}, rounded down. */
     public static long framesForMs(long ms, int sampleRate) {
         return ms * sampleRate / 1000;

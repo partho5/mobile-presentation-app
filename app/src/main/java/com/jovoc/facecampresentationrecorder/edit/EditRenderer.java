@@ -25,7 +25,9 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -63,7 +65,39 @@ public class EditRenderer {
         void onProgress(int percent);
     }
 
+    /** The result would not fit in the free storage. */
+    public static final class NotEnoughSpaceException extends IOException {
+        public NotEnoughSpaceException(String message) {
+            super(message);
+        }
+    }
+
+    /** Even the lowest video quality would pass the upload size limit. */
+    public static final class TooLongException extends IOException {
+        public TooLongException(String message) {
+            super(message);
+        }
+    }
+
     private static final String TAG = "EditRenderer";
+    /** Suffix of the temporary mixed soundtrack that sits beside the ".part.mp4" file. */
+    public static final String MIX_TEMP_SUFFIX = ".audio.m4a";
+    /** Shortest result worth writing; the editor itself never goes below its segment minimum. */
+    static final long MIN_RESULT_MS = 100;
+    /** Names of the temp files of renders running right now, so a list scan does not sweep them. */
+    private static final Set<String> LIVE_TEMPS = ConcurrentHashMap.newKeySet();
+
+    /** True for the hidden temp files of a render that is running in this process. */
+    public static boolean isLiveTemp(String fileName) {
+        return fileName != null && LIVE_TEMPS.contains(fileName);
+    }
+
+    /** True for the mixed-soundtrack temp a crashed render may have left behind. */
+    public static boolean isMixTemp(String fileName) {
+        return fileName != null && fileName.startsWith(".")
+                && fileName.endsWith(VideoCropHelper.PART_SUFFIX + MIX_TEMP_SUFFIX);
+    }
+
     private static final long TIMEOUT_US = 10_000;
     private static final int DEFAULT_FRAME_RATE = 30;
     /** Decode this far past a range end: with B-frames, later samples can still be earlier in time. */
@@ -108,6 +142,7 @@ public class EditRenderer {
     private AtomicBoolean cancelFlag;
     private Context context;
     private ProgressListener listener;
+    private int cropCopies;
 
     // GL / decoder output
     private EGLCore eglCore;
@@ -148,6 +183,12 @@ public class EditRenderer {
     /** Needed to open added audio given as content URIs. */
     public EditRenderer withContext(Context context) {
         this.context = context;
+        return this;
+    }
+
+    /** How many stream-copied crops will follow this render; their space is checked up front too. */
+    public EditRenderer withCropCopies(int count) {
+        this.cropCopies = Math.max(0, count);
         return this;
     }
 
@@ -213,6 +254,7 @@ public class EditRenderer {
         if (ranges.isEmpty()) throw new IOException("Nothing to keep");
         long expectedMs = 0;
         for (EditProject.Range r : ranges) expectedMs += r.lengthMs();
+        if (expectedMs < MIN_RESULT_MS) throw new IOException("Result too short");
         totalOutUs = expectedMs * 1000;
 
         // Bitrate: 1.5x the source, lowered so the result stays under the upload cap
@@ -230,17 +272,20 @@ public class EditRenderer {
         int keptAudioBps = !audioOut ? 0 : mixAudio ? AudioMixRenderer.MAX_BPS : audioBps;
         int bitRate = BitratePlanner.videoBitrate(sourceBps, expectedMs, keptAudioBps);
         if (bitRate <= 0) {
-            throw new IOException("Too long to fit the upload limit");
+            throw new TooLongException("Too long to fit the upload limit");
         }
-        long estimatedBytes = (bitRate + keptAudioBps) / 8 * (expectedMs / 1000 + 1);
+        long neededBytes = BitratePlanner.requiredFreeBytes(bitRate, keptAudioBps, expectedMs,
+                mixAudio && audioOut, cropCopies);
         File dir = output.getAbsoluteFile().getParentFile();
-        if (dir == null || dir.getUsableSpace() < estimatedBytes + estimatedBytes / 10) {
-            throw new IOException("Not enough free space");
+        if (dir == null || dir.getUsableSpace() < neededBytes) {
+            throw new NotEnoughSpaceException("Not enough free space: need " + neededBytes + " bytes");
         }
 
         File part = new File(dir, VideoCropHelper.partFileNameFor(output.getAbsolutePath()));
+        File mixed = new File(dir, part.getName() + MIX_TEMP_SUFFIX);
+        LIVE_TEMPS.add(part.getName());
+        LIVE_TEMPS.add(mixed.getName());
         part.delete();
-        File mixed = new File(dir, part.getName() + ".audio.m4a");
         mixed.delete();
         boolean ok = false;
         try {
@@ -257,6 +302,8 @@ public class EditRenderer {
         } finally {
             if (!ok) part.delete();
             mixed.delete();
+            LIVE_TEMPS.remove(part.getName());
+            LIVE_TEMPS.remove(mixed.getName());
         }
         report(100);
     }

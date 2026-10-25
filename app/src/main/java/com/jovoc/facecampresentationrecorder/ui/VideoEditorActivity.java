@@ -141,8 +141,11 @@ public class VideoEditorActivity extends AppCompatActivity
         sliderTrim = findViewById(R.id.slider_trim);
 
         vm = new ViewModelProvider(this).get(VideoEditorViewModel.class);
-        vm.load(path);
+        vm.load(this, path);
         vm.setListener(this);
+        if (vm.takeDraftRestored()) {
+            Toast.makeText(this, R.string.editor_draft_restored, Toast.LENGTH_LONG).show();
+        }
 
         timeline.setListener(this);
         audioLane.setListener(this);
@@ -241,6 +244,13 @@ public class VideoEditorActivity extends AppCompatActivity
             } catch (IllegalStateException ignored) {
             }
         }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // The system may kill a stopped app at any time: keep the unsaved edit where it can find it
+        if (vm != null && !isFinishing()) vm.persistDraft();
     }
 
     @Override
@@ -731,8 +741,13 @@ public class VideoEditorActivity extends AppCompatActivity
             }
             finish();
         } else if (state == VideoEditorViewModel.SaveState.FAILED) {
+            VideoEditorViewModel.SaveError error = vm.getSaveError();
             vm.clearSaveResult();
-            Toast.makeText(this, R.string.editor_save_failed, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, error == VideoEditorViewModel.SaveError.NO_SPACE
+                    ? R.string.editor_save_no_space
+                    : error == VideoEditorViewModel.SaveError.TOO_LONG
+                    ? R.string.editor_save_too_long : R.string.editor_save_failed,
+                    Toast.LENGTH_LONG).show();
         }
     }
 
@@ -746,7 +761,10 @@ public class VideoEditorActivity extends AppCompatActivity
             discardDialog = new MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.editor_discard_title)
                     .setMessage(R.string.editor_discard_message)
-                    .setPositiveButton(R.string.editor_discard, (d, w) -> finish())
+                    .setPositiveButton(R.string.editor_discard, (d, w) -> {
+                        vm.clearDraft();
+                        finish();
+                    })
                     .setNegativeButton(R.string.editor_keep_editing, null)
                     .show();
         } else {

@@ -150,4 +150,15 @@ public class AudioMixerTest {
         int n = r.process(in, 100, out);
         assertTrue("got " + n, n >= 48 && n <= 51);
     }
+
+    @Test
+    public void aacRateKeepsSupportedRatesAndSnapsOddOnes() {
+        assertEquals(44100, AudioMixer.aacRateFor(44100));
+        assertEquals(8000, AudioMixer.aacRateFor(8000));
+        assertEquals(16000, AudioMixer.aacRateFor(16000));
+        assertEquals(48000, AudioMixer.aacRateFor(96000));
+        assertEquals(22050, AudioMixer.aacRateFor(22000));
+        assertEquals(8000, AudioMixer.aacRateFor(4000));
+        assertEquals(44100, AudioMixer.aacRateFor(0));
+    }
 }

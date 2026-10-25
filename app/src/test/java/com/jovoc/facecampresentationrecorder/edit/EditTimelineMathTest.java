@@ -146,4 +146,13 @@ public class EditTimelineMathTest {
         assertEquals("1:05", EditTimelineMath.formatTime(65_900));
         assertEquals("1:01:01", EditTimelineMath.formatTime(3_661_000));
     }
+
+    @Test
+    public void splitIsRefusedAtTheSegmentCap() {
+        List<Range> many = new java.util.ArrayList<>();
+        for (int i = 0; i < EditTimelineMath.MAX_SEGMENTS; i++) many.add(r(i * 2000L, i * 2000L + 1500));
+        assertFalse(EditTimelineMath.canSplit(many, 750));
+        many.remove(many.size() - 1);
+        assertTrue(EditTimelineMath.canSplit(many, 750));
+    }
 }

@@ -21,7 +21,7 @@ Build one part at a time; tick boxes and commit per part.
 | 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ✅ code done; device check pending |
 | 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ✅ code done; device check pending |
 | 6 | Edit an old recording from the 3-dots menu (new group) | ✅ code done; device check pending |
-| 7 | QA + hardening | ⬜ |
+| 7 | QA + hardening | ✅ code audit done; device QA pending |
 
 ## Decisions (settled)
 
@@ -107,7 +107,9 @@ Build one part at a time; tick boxes and commit per part.
 - [x] Post-save "Delete original?" one-tap offer (default keep)
 
 ## Part 7 - QA + hardening
-- [ ] Rotation, process death mid-edit and mid-render, low storage, cancel mid-render
-- [ ] Long recording (30+ min), many splits, very short remaining result
-- [ ] Videos with no audio track, Bluetooth-mic recordings
-- [ ] Group list shows the edited group correctly; publish works on edited files
+Code audit done (no device available); fixes: unsaved-edit draft file (`edit/EditDraftStore`, `EditProjectJson`) restored after process death with added-track re-probe, My Videos sweep no longer deletes a running render's `.part.mp4` and now removes a crashed render's `.audio.m4a` temp, up-front free-space check (file + mix temp + crops) with distinct "no space" / "too long" messages, cancel after the file landed deletes it, output scanned into MediaStore, waveform on its own thread, segment cap (200), AAC-legal sample rate and channel guards for Bluetooth / odd audio, minimum-result guard. Faststart not needed: upload is a plain `video/mp4` file upload and masters from the same `MediaMuxer` already publish.
+- [x] Rotation (view model keeps edits, playhead and running save), process death mid-edit (draft restored; lost-permission tracks dropped with a message) and mid-render (orphaned `.part.mp4` / `.audio.m4a` swept on next list scan, nothing registered before success), low storage, cancel mid-render
+- [x] Long recording (30+ min: streaming render, 14 thumbnails, 240-bucket peaks off the main thread), many splits (history cap 200, segment cap 200), very short remaining result (300 ms segment minimum, last segment cannot be deleted, renderer guard)
+- [x] Videos with no audio track, Bluetooth-mic recordings (rate snapped to AAC-legal, zero rate/channel guards)
+- [x] Group list shows the edited group correctly (new group registered before crops, only after a successful render); publish works on edited files (path-keyed, valid MP4 from `MediaMuxer`)
+- [ ] Owner check on device: rotate during edit and during save, kill the app mid-edit and mid-save, fill the storage, cancel a save, 30+ min recording, 100+ splits, a no-audio master, a Bluetooth-mic recording, publish an edited file

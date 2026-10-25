@@ -34,4 +34,17 @@ public final class BitratePlanner {
         if (videoBudget < MIN_VIDEO_BPS) return 0;
         return (int) Math.min(target, videoBudget);
     }
+
+    /**
+     * Free space an edit needs before it starts: the file (with a tenth spare), the temporary
+     * mixed soundtrack when the sound is rebuilt, and one stream-copied file per crop that follows.
+     */
+    public static long requiredFreeBytes(int videoBps, int audioBps, long durationMs,
+                                         boolean mixesAudio, int cropCopies) {
+        long seconds = durationMs / 1000 + 1;
+        long file = (videoBps + (long) audioBps) / 8 * seconds;
+        long needed = file + file / 10;
+        if (mixesAudio) needed += (long) audioBps / 8 * seconds;
+        return needed + Math.max(0, cropCopies) * file;
+    }
 }

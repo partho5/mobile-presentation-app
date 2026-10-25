@@ -38,4 +38,16 @@ public class BitratePlannerTest {
     public void bitrateIsCapped() {
         assertEquals(40_000_000, BitratePlanner.videoBitrate(100_000_000, MIN, 0));
     }
+
+    @Test
+    public void requiredFreeBytesCountsTheFileTheMixTempAndEachCrop() {
+        // 8 Mbps video + 128 kbps audio over 100 s = 8_128_000 / 8 * 101 bytes
+        long file = 8_128_000L / 8 * 101;
+        assertEquals(file + file / 10, BitratePlanner.requiredFreeBytes(8_000_000, 128_000, 100_000, false, 0));
+        long mix = 128_000L / 8 * 101;
+        assertEquals(file + file / 10 + mix,
+                BitratePlanner.requiredFreeBytes(8_000_000, 128_000, 100_000, true, 0));
+        assertEquals(file + file / 10 + 3 * file,
+                BitratePlanner.requiredFreeBytes(8_000_000, 128_000, 100_000, false, 3));
+    }
 }

@@ -37,6 +37,7 @@ import com.jovoc.facecampresentationrecorder.publish.PublishNetwork;
 import com.jovoc.facecampresentationrecorder.ui.EditorLauncher;
 import com.jovoc.facecampresentationrecorder.ui.VideoEditorActivity;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
+import com.jovoc.facecampresentationrecorder.edit.EditRenderer;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -570,11 +571,13 @@ public class SavedRecordingsActivity extends AppCompatActivity
 
     /** Clears ".part" files abandoned by a crash, leaving live encodes alone. */
     private void deleteOrphanedPartFiles(File appDir, List<VideoCropHelper.PendingCrop> pending) {
-        File[] parts = appDir.listFiles((dir, name) -> VideoCropHelper.isPartialFile(name));
+        File[] parts = appDir.listFiles((dir, name) -> VideoCropHelper.isPartialFile(name)
+                || EditRenderer.isMixTemp(name));
         if (parts == null) return;
 
         for (File part : parts) {
-            boolean live = false;
+            // A video-editor render running right now owns its temp files
+            boolean live = EditRenderer.isLiveTemp(part.getName());
             for (VideoCropHelper.PendingCrop crop : pending) {
                 if (VideoCropHelper.partFileNameFor(crop.outputPath).equals(part.getName())) {
                     live = true;

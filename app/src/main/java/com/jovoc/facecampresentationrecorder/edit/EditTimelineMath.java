@@ -16,6 +16,9 @@ public final class EditTimelineMath {
     /** Shortest segment a handle drag or a split may leave. */
     public static final long MIN_SEGMENT_MS = 300;
 
+    /** Most segments a project may have: keeps the timeline drawing and the render quick. */
+    public static final int MAX_SEGMENTS = 200;
+
     private EditTimelineMath() {}
 
     /**
@@ -50,8 +53,9 @@ public final class EditTimelineMath {
         return -1;
     }
 
-    /** True when a split at {@code ms} would leave two segments of at least the minimum length. */
+    /** True when a split at {@code ms} would leave two segments of at least the minimum length (and the segment cap allows one more). */
     public static boolean canSplit(List<Range> ranges, long ms) {
+        if (ranges.size() >= MAX_SEGMENTS) return false;
         int i = indexAt(ranges, ms);
         if (i < 0) return false;
         Range r = ranges.get(i);

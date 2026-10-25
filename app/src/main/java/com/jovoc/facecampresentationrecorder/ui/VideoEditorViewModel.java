@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaScannerConnection;
 import android.os.Handler;
 import android.net.Uri;
 import android.os.Looper;
@@ -13,6 +14,7 @@ import android.util.Log;
 import androidx.lifecycle.ViewModel;
 
 import com.jovoc.facecampresentationrecorder.edit.AudioPeaks;
+import com.jovoc.facecampresentationrecorder.edit.EditDraftStore;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.edit.EditHistory;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
@@ -23,6 +25,7 @@ import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +47,13 @@ public class VideoEditorViewModel extends ViewModel {
 
     public enum SaveState { IDLE, RUNNING, DONE, FAILED }
 
+    /** Why the last save failed, so the screen can say something useful. */
+    public enum SaveError { GENERIC, NO_SPACE, TOO_LONG }
+
+    private static final String DRAFT_DIR = "editor_drafts";
+    /** Storage left below this after a failed save counts as "ran out of space". */
+    private static final long LOW_SPACE_BYTES = 32L * 1024 * 1024;
+
     public interface Listener {
         /** Something in the view model changed; re-read it. Always on the main thread. */
         void onChanged();
@@ -53,13 +63,18 @@ public class VideoEditorViewModel extends ViewModel {
     private final ExecutorService loader = Executors.newSingleThreadExecutor();
     private final ExecutorService renderer = Executors.newSingleThreadExecutor();
     private final ExecutorService audioLoader = Executors.newSingleThreadExecutor();
+    /** Waveforms get their own thread: a long recording's takes a while and must not delay adding a track. */
+    private final ExecutorService peakLoader = Executors.newSingleThreadExecutor();
 
     private Listener listener;
     private EditHistory history;
     private boolean loadStarted;
-    private boolean loadFailed;
-    private long durationMs;
-    private Bitmap[] thumbs = new Bitmap[0];
+    private volatile boolean loadFailed;
+    private volatile long durationMs;
+    private volatile Bitmap[] thumbs = new Bitmap[0];
+    private File draftDir;
+    private String masterPath;
+    private boolean draftRestored;
     private volatile boolean cleared;
 
     // Audio lane: what the lane needs to draw, keyed by master path or track uri
@@ -83,6 +98,7 @@ public class VideoEditorViewModel extends ViewModel {
     private SaveState saveState = SaveState.IDLE;
     private volatile int percent;
     private File output;
+    private SaveError saveError = SaveError.GENERIC;
     private boolean publishAfterSave;
     private AtomicBoolean cancelFlag;
 
@@ -98,12 +114,28 @@ public class VideoEditorViewModel extends ViewModel {
 
     // ---------------------------------------------------------------- loading
 
-    /** Reads the length and thumbnails of {@code masterPath} once; later calls do nothing. */
-    public void load(String masterPath) {
+    /**
+     * Reads the length and thumbnails of {@code masterPath} once; later calls do nothing. When the
+     * app was killed with unsaved edits, they come back from the draft (see {@link #persistDraft}).
+     */
+    public void load(Context context, String masterPath) {
         if (loadStarted) return;
         loadStarted = true;
+        this.masterPath = masterPath;
+        final Context app = context.getApplicationContext();
+        draftDir = new File(app.getFilesDir(), DRAFT_DIR);
         history = new EditHistory(EditProject.wholeFile(masterPath));
+        EditDraftStore.Draft draft = EditDraftStore.load(draftDir, masterPath, System.currentTimeMillis());
+        if (draft != null) {
+            history.push(draft.project);
+            playheadMs = draft.playheadMs;
+            draftRestored = true;
+        }
+        if (draft != null && !draft.project.getAdded().isEmpty()) {
+            restoreTracks(app, new ArrayList<>(draft.project.getAdded()));
+        }
         loader.execute(() -> {
+            EditDraftStore.prune(draftDir, System.currentTimeMillis());
             MediaMetadataRetriever mmr = new MediaMetadataRetriever();
             try {
                 mmr.setDataSource(masterPath);
@@ -149,7 +181,7 @@ public class VideoEditorViewModel extends ViewModel {
     private void loadPeaks(Context context, String location, long durationMs) {
         if (cleared || peaks.containsKey(location)) return;
         try {
-            audioLoader.execute(() -> {
+            peakLoader.execute(() -> {
             try {
                 float[] p = AudioPeaks.compute(context, location, durationMs, AudioPeaks.BUCKETS, audioCancel);
                 peaks.put(location, p);
@@ -173,30 +205,12 @@ public class VideoEditorViewModel extends ViewModel {
         audioBusy = true;
         changed();
         audioLoader.execute(() -> {
-            long dur = 0;
-            boolean hasAudio = false;
-            MediaMetadataRetriever mmr = new MediaMetadataRetriever();
-            try {
-                mmr.setDataSource(app, uri);
-                dur = parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
-                hasAudio = "yes".equals(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
-            } catch (RuntimeException e) {
-                Log.w(TAG, "Cannot read " + uri, e);
-            } finally {
-                try { mmr.release(); } catch (Exception ignored) {}
-            }
             final String key = uri.toString();
-            final long finalDur = dur;
-            final boolean ok = hasAudio && dur > 0;
-            String name = null;
+            final AudioInfo info = probeAudio(app, uri);
+            final boolean ok = info != null;
             if (ok) {
-                try (Cursor c = app.getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME},
-                        null, null, null)) {
-                    if (c != null && c.moveToFirst()) name = c.getString(0);
-                } catch (RuntimeException ignored) {
-                }
-                audioDurations.put(key, dur);
-                audioNames.put(key, name == null ? "" : name);
+                audioDurations.put(key, info.durationMs);
+                audioNames.put(key, info.name);
             }
             main.post(() -> {
                 audioBusy = false;
@@ -214,7 +228,78 @@ public class VideoEditorViewModel extends ViewModel {
                 }
                 if (!cleared && listener != null) listener.onChanged();
             });
-            if (ok) loadPeaks(app, key, finalDur);
+            if (ok) loadPeaks(app, key, info.durationMs);
+        });
+    }
+
+    /** Length and display name of a usable audio file. */
+    private static final class AudioInfo {
+        final long durationMs;
+        final String name;
+
+        AudioInfo(long durationMs, String name) {
+            this.durationMs = durationMs;
+            this.name = name;
+        }
+    }
+
+    /** Reads an audio file's length and name; null when it cannot be opened or has no audio. */
+    private static AudioInfo probeAudio(Context app, Uri uri) {
+        long dur = 0;
+        boolean hasAudio = false;
+        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+        try {
+            mmr.setDataSource(app, uri);
+            dur = parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+            hasAudio = "yes".equals(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Cannot read " + uri, e);
+        } finally {
+            try { mmr.release(); } catch (Exception ignored) {}
+        }
+        if (!hasAudio || dur <= 0) return null;
+        String name = null;
+        try (Cursor c = app.getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME},
+                null, null, null)) {
+            if (c != null && c.moveToFirst()) name = c.getString(0);
+        } catch (RuntimeException ignored) {
+        }
+        return new AudioInfo(dur, name == null ? "" : name);
+    }
+
+    /**
+     * After a restore from a draft the added files are looked up again (their length, name and
+     * waveform are not in the draft). A file that is gone or no longer readable (grant lost) is
+     * dropped from the project, with the usual "couldn't use that file" message.
+     */
+    private void restoreTracks(Context app, List<EditProject.AddedAudio> tracks) {
+        audioLoader.execute(() -> {
+            List<String> missing = new ArrayList<>();
+            for (EditProject.AddedAudio t : tracks) {
+                if (cleared) return;
+                AudioInfo info = probeAudio(app, Uri.parse(t.uri));
+                if (info == null) {
+                    missing.add(t.uri);
+                } else {
+                    audioDurations.put(t.uri, info.durationMs);
+                    audioNames.put(t.uri, info.name);
+                    loadPeaks(app, t.uri, info.durationMs);
+                }
+            }
+            main.post(() -> {
+                if (cleared || history == null) return;
+                if (!missing.isEmpty()) {
+                    EditProject p = history.current();
+                    List<EditProject.AddedAudio> keep = new ArrayList<>();
+                    for (EditProject.AddedAudio a : p.getAdded()) {
+                        if (!missing.contains(a.uri)) keep.add(a);
+                    }
+                    history.push(p.withAdded(keep));
+                    selectedTrack = NO_TRACK;
+                    audioError = true;
+                }
+                if (listener != null) listener.onChanged();
+            });
         });
     }
 
@@ -263,11 +348,36 @@ public class VideoEditorViewModel extends ViewModel {
     public boolean isPlaying() { return playing; }
     public void setPlaying(boolean p) { playing = p; }
 
+    // ---------------------------------------------------------------- draft
+
+    /** True once, when this session started from edits that survived the app being killed. */
+    public boolean takeDraftRestored() {
+        boolean r = draftRestored;
+        draftRestored = false;
+        return r;
+    }
+
+    /** Writes the unsaved edit to a small file, so it can come back if the app is killed. */
+    public void persistDraft() {
+        if (draftDir == null || history == null || !isReady()) return;
+        if (!history.isDirty()) {
+            clearDraft(); // everything undone: an older draft must not come back
+            return;
+        }
+        EditDraftStore.save(draftDir, history.current(), playheadMs, System.currentTimeMillis());
+    }
+
+    /** Forgets the draft: after a save, or when the user chose to discard. */
+    public void clearDraft() {
+        if (draftDir != null && masterPath != null) EditDraftStore.clear(draftDir, masterPath);
+    }
+
     // ---------------------------------------------------------------- save
 
     public SaveState getSaveState() { return saveState; }
     public int getPercent() { return percent; }
     public File getOutput() { return output; }
+    public SaveError getSaveError() { return saveError; }
 
     /** True when the running or finished save was started by Publish (publish the result after). */
     public boolean isPublishAfterSave() { return publishAfterSave; }
@@ -295,6 +405,8 @@ public class VideoEditorViewModel extends ViewModel {
         final Context app = context.getApplicationContext();
         final EditProject project = history.current();
         final File out = EditTimelineMath.nextOutputFile(new File(project.getMasterPath()));
+        final int cropCount = EditGroupMath.cropRatiosOf(
+                VideoGroupStore.getGroupPaths(app, project.getMasterPath())).size();
         final AtomicBoolean cancel = new AtomicBoolean(false);
         cancelFlag = cancel;
         output = out;
@@ -304,24 +416,48 @@ public class VideoEditorViewModel extends ViewModel {
 
         renderer.execute(() -> {
             SaveState result;
+            SaveError error = SaveError.GENERIC;
             try {
-                new EditRenderer().withCancelFlag(cancel).withContext(app)
+                new EditRenderer().withCancelFlag(cancel).withContext(app).withCropCopies(cropCount)
                         .render(project, out, p -> {
                             percent = p;
                             changed();
                         });
+                if (cancel.get()) {
+                    // Cancelled after the file landed: do not leave an unregistered, uncropped video
+                    //noinspection ResultOfMethodCallIgnored
+                    out.delete();
+                    throw new CancellationException("Edit cancelled");
+                }
                 startGroupCrops(app, project.getMasterPath(), out);
+                MediaScannerConnection.scanFile(app, new String[]{out.getAbsolutePath()}, null, null);
                 result = SaveState.DONE;
             } catch (CancellationException e) {
                 result = SaveState.IDLE;
+            } catch (EditRenderer.NotEnoughSpaceException e) {
+                Log.w(TAG, "Save failed: " + e.getMessage());
+                result = SaveState.FAILED;
+                error = SaveError.NO_SPACE;
+            } catch (EditRenderer.TooLongException e) {
+                Log.w(TAG, "Save failed: " + e.getMessage());
+                result = SaveState.FAILED;
+                error = SaveError.TOO_LONG;
             } catch (IOException | RuntimeException e) {
                 Log.e(TAG, "Save failed", e);
                 result = SaveState.FAILED;
+                // A write that dies on a full disk looks like any other error: ask the disk
+                File dir = out.getAbsoluteFile().getParentFile();
+                if (dir != null && dir.getUsableSpace() < LOW_SPACE_BYTES) error = SaveError.NO_SPACE;
             }
             final SaveState finalState = result;
+            final SaveError finalError = error;
             main.post(() -> {
                 saveState = finalState;
-                if (finalState == SaveState.DONE) history.markSaved();
+                saveError = finalError;
+                if (finalState == SaveState.DONE) {
+                    history.markSaved();
+                    clearDraft();
+                }
                 if (finalState != SaveState.DONE) output = null;
                 if (!cleared && listener != null) listener.onChanged();
             });
@@ -356,6 +492,7 @@ public class VideoEditorViewModel extends ViewModel {
         listener = null;
         loader.shutdownNow();
         audioLoader.shutdownNow();
+        peakLoader.shutdownNow();
         renderer.shutdown();
     }
 }

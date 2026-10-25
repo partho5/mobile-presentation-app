@@ -38,7 +38,7 @@ public class VideoCropHelper {
      * create anything but video/* under DCIM, so a ".part" name fails with EPERM.
      * Recording lists skip it by its leading dot instead.
      */
-    private static final String PART_SUFFIX = ".part.mp4";
+    public static final String PART_SUFFIX = ".part.mp4";
 
     /**
      * Crops still being written. The Saved Recordings screen reads this to show a

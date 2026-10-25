@@ -49,6 +49,9 @@
     <string name="editor_audio_removed">Removed</string>
     <string name="editor_audio_muted">Muted</string>
     <string name="editor_audio_trim_fmt">Use from %1$s to %2$s</string>
+    <string name="editor_save_no_space">Not enough free storage to save this video. Free up some space and try again.</string>
+    <string name="editor_save_too_long">This video is too long to save at a size that can be uploaded. Cut it shorter and try again.</string>
+    <string name="editor_draft_restored">Your unsaved edits were restored.</string>
     <string name="editor_audio_pick_failed">Couldn\'t use that file. Pick an audio file.</string>
     <string name="editor_audio_lane_desc">Audio lane. Tap a sound to edit it, drag an added track sideways to move it.</string>
 </resources>
