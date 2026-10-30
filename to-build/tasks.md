@@ -5,122 +5,192 @@ RULE: this PC hangs under load, so do not run gradle, unit tests or the emulator
 
 ------------------
 
-# Video Editor
+# Post-Recording Subtitle Transcription & Embedding — Build Plan
 
-Simple editor: cut bad parts, tidy the sound, save. Few features, done best. Priorities: frictionless UX, highest quality.
-Code paths relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/`. Full design rationale: `VIDEO_EDITOR_PLAN.md`.
-Build one part at a time; tick boxes and commit per part.
+## Background: What the Existing Code Does (Verified)
+
+The AI transcription pipeline is already built and works end-to-end for publishing. The transcript JSON arrives from the server correctly. The subtitle embedding (burn-in) inside `PublishWorker.createSubtitleBurner()` also works. The bug is purely a **timing race**:
+
+1. `PublishPipeline.run()` launches Thread A (audio extract → upload → POST /ai-captions → poll) on line 163.
+2. On line 164 it **immediately** calls `upload(job)`, which calls `burnSubtitles()` before Thread A is anywhere near finished.
+3. Inside `PublishWorker.createSubtitleBurner()`, `SubtitleCache.load(cacheDir, job.id)` returns `null` because Thread A has barely started.
+4. The original un-burned video is uploaded.
+5. After upload, Thread A eventually finishes polling and `CaptionFlow.discard()` deletes the subtitle JSON it just wrote.
+
+**Secondary requirement:** The user wants transcription to begin **immediately after recording ends** (during post-recording, before the user taps Publish), so that when Publish is tapped the subtitle JSON is already cached on disk, and the burn-in in `PublishWorker` succeeds on the first call.
+
+---
+
+## Core Invariants (Non-Negotiable)
+
+1. **NEVER touch the master video.** The original recorded MP4 must never be overwritten or modified.
+2. **Subtitle burn-in uses a temp file.** `PublishWorker.createSubtitleBurner()` already writes to `cacheDir/subtitled_<jobId>.mp4`. Keep this. Do not invent a new derivative file.
+3. **Subtitles disabled = do nothing.** Check `RecordSettings.subtitlesEnabled(context)` first. If false, skip all post-recording subtitle work.
+4. **`CaptionFlow` requires a `PublishJob`.** Do NOT try to reuse `CaptionFlow` directly from `ScreenRecordService`. A `PublishJob` row is needed. Use `AudioExtractor` and `PublishApi` directly instead (see Part 1).
+5. **Auto-crops are NOT affected.** They run on the raw video geometry. Subtitle burn-in happens only at publish time inside `PublishWorker`. Crops are never touched by subtitle code.
+
+---
 
 ## Progress
 
-| Part | Scope | Status |
+| Part | Description | Status |
 |---|---|---|
-| 1 | Edit model + video cut renderer (MediaCodec H.264), no UI | ✅ code done; device check pending |
-| 2 | Audio: volume / mute / remove original / add audio, mixed in the renderer | ✅ code done; device check pending |
-| 3 | Editor screen: player, timeline, trim / split / delete, undo-redo | ✅ code done; device check pending |
-| 4 | Audio lane UI: original + added tracks, volume / offset / trim / remove | ✅ code done; device check pending |
-| 5 | Post-recording preview: Edit + Publish buttons, editor gate + setting | ✅ code done; device check pending |
-| 6 | Edit an old recording from the 3-dots menu (new group) | ✅ code done; device check pending |
-| 7 | QA + hardening | ✅ code audit done; device QA pending |
+| Part 1 | Post-recording audio extraction + transcription dispatch | ⏳ |
+| Part 2 | Wait on transcription + fix premature burn-in race in PublishPipeline | ⏳ |
+| Part 3 | Fix CaptionFlow.discard() deleting subtitle JSON too early | ⏳ |
+| Part 4 | Show processing dialog message during post-recording transcription | ⏳ |
 
-## Decisions (settled)
+---
 
-1. **Scope v1**: trim, split at playhead, delete any segment; audio volume / mute / remove original / add audio file. No text, filters, speed, transitions, reordering, or voice-over.
-2. **Non-destructive**: editor builds an edit list only; the master is never modified.
-3. **One re-encode, only when needed**: no cuts and no audio change = existing lossless FFmpeg crop flow. Cuts = one hardware H.264 `MediaCodec` re-encode (decode, encode, like `bgreplace/OfflineBgProcessor`) at ~1.5x recording bitrate (~12 Mbps), no perceivable quality loss. Output must stay under `MOBILE_UPLOAD_MAX_BYTES` (4 GiB): lower bitrate or refuse.
-4. **FFmpeg untouched** (lossless crop only, `util/VideoCropHelper`). Editor uses `MediaExtractor` / `MediaCodec` / `MediaMuxer`. This FFmpeg build has no x264.
-5. **Order with bg-replace**: bg-replace runs first on the full master; cuts apply after as plain timestamps, so the `BubbleTrack` timeline is never remapped. Editor opens only on the final master.
-6. **Setting "Show video editor after recording"**, default OFF. OFF: today's flow unchanged, user taps **Edit** in the preview panel. ON: after bg-replace finishes, the editor opens automatically on the final master (shows "Preparing..." until then); crops run immediately as today; Save makes a **new group** (same as Decision 10). **No deferred-crop flow, one editor flow only.** Auto-publish ON always skips the auto-open. One gate method `EditorGate` decides.
-7. **Preview-panel action row** (left to right): delete, share, all videos, **Edit**, **Publish**. Edit: opens the editor on the group master; disabled "Preparing..." while bg-replace runs; crops in flight do not block it. Publish: existing publish flow for the centre version, no edit; hidden when auto-publish is ON (9:16 already queued). Dialog is also opened from My Videos, so both buttons show there.
-8. **Publish when signed out**: no upload. Show a message: "Couldn't upload because you are signed out". (Owner decision.)
-9. Existing cropped-versions / preview screen kept as is, only extended with the two buttons.
-10. **Editing an old recording** (3-dots, Edit): always opens the group's **master** (even from a crop card). Save creates a **new group**: `name_edit.mp4` + its own crops (`name_edit_9x16.mp4`, ...), same ratios the old group had. Old group untouched. Master missing = hide Edit.
-11. **After a successful Save**: keep both groups; show a non-blocking one-tap "Delete original?" offer, default is keep. Never delete automatically.
-12. Editor has a vivid **Save** (primary) and **Publish** (= Save, then the existing publish flow; if signed out, see Decision 8). Back with unsaved edits asks "Discard edits?".
-13. Aspect-ratio order wherever listed: **9:16 first**, then 4:5, 1:1.
-14. **Voice-over inside the editor: out of v1.**
+## Part 1 — Post-Recording: Extract Audio, Upload, POST /ai-captions, Cache Subtitle JSON
 
-## Facts a fresh session needs
+**Goal:** Immediately after recording stops, kick off transcription in the background so `SubtitleCache` is populated by the time the user taps Publish.
 
-- Pipeline (`service/BgReplaceService.java`): recording stops, optional bg replace rewrites the file in place, then `VideoCropHelper.cropAsync` writes `<name>_<w>x<h>.mp4` crops (stream copy + H.264 SPS crop flag + `Mp4VideoSize` container patch).
-- A recording's versions are a **group** (`util/VideoGroupStore`: path to group id; rename moves the entry). Assign the group id to every new file before the list is scanned (see `cropAsync` registration lock).
-- Crops in flight are `PendingCrop` entries + `ACTION_CROP_STATE_CHANGED` broadcast. `.part.mp4` temp files must end in `.mp4` (MediaProvider derives MIME from extension).
-- Auto-publish picks `<name>_9x16.mp4` by name from the master path (`publish/AutoPublishFiles`). `PublishJob` rows are keyed by file path.
-- Recording audio is AAC 44.1 kHz 128 kbps and only exists if `key_record_audio` is on: the master may have **no audio track**; adding audio must work then.
-- Card 3-dots menu: `res/menu/recording_card_menu.xml`, shown by `adapter/RecordingsAdapter.showCardMenu`. `ui/VideoPlayerDialog` has its own rename / delete / share buttons.
+**File to modify:** `service/ScreenRecordService.java`
 
-## Design
+**Exact location:** The inline block starting around line 430 that calls `PublishManager.get(this).beginAuto(file)`. Add the new call **after** `beginAuto` and `enqueue` but **before** `sendBroadcast(finishIntent)`.
 
-**Edit model** (pure Java, unit-testable): `EditProject { masterPath; List<Range> keep (sorted, non-overlapping ms; empty = whole file); AudioSettings original (volume 0..2, muted, removed); List<AddedAudio> added (uri, sourceIn/Out, startOnTimeline, volume) }`. All time math (output to source mapping, merge/split, duration) in one tested class. Undo/redo = stack of immutable snapshots.
+**What to add:** A new class: `publish/PostRecordTranscriber.java`
 
-**Renderer** (`edit/EditRenderer`, background thread, cancellable, progress callback):
-- Video: seek each kept range to the preceding sync frame, decode, drop frames before range start, encode H.264 (surface in/out), re-stamp timestamps contiguously.
-- Audio, cuts only: copy AAC samples for kept ranges at frame boundaries (~23 ms), no quality loss.
-- Audio changed: decode to PCM, apply gain, sum with clipping guard, encode AAC 128-192 kbps.
-- Mux to `.part.mp4` then rename. Verify output (duration tolerance, A/V sync at start and end).
+**`PostRecordTranscriber` spec:**
+- Static method: `public static void start(Context context, File video)`
+- Guards:
+  - `RecordSettings.subtitlesEnabled(context)` — if false, return immediately.
+  - `SessionManager.get(context).hasSession()` — if false, return immediately.
+  - `FeatureSnapshot.allows(Feature.AI_CAPTIONS)` — if false, return immediately.
+- Runs on a new background thread (not the main thread, not WorkManager).
+- Steps on the background thread:
+  1. Call `AudioExtractor.extract(context.getCacheDir(), VIDEO_ONLY_JOB_ID, video)` where `VIDEO_ONLY_JOB_ID` is a stable long derived from `video.getAbsolutePath().hashCode()` cast to long (so it is deterministic and doesn't need a DB row).
+  2. If WAV is null (no audio track, extraction failed): return silently.
+  3. Create a `PublishApi` instance using the existing `ApiClient` + `SessionManager` repository (same pattern as `PublishWorker`).
+  4. Upload the WAV to the direct upload endpoint. The `DirectUploader` and `UploadSessionStore` require a `PublishJob` — **do not use them here**. Instead use `PublishApi`'s legacy transcript_audio upload (check the existing audio upload path already used by `CaptionFlow`'s `AudioUpload` interface in the production wiring in `CaptionFlow.create()`). The simplest correct approach: open `CaptionFlow`'s public `Audio` and `AudioUpload` interfaces and reuse the lambdas from `CaptionFlow.create()` — they don't need a `PublishJob`, only a `jobId` long and a `workspaceId` string. Get `workspaceId` from `SessionManager.get(context).repository().store().workspaceId()`.
+  5. Call `PublishApi.createCaption()` — this requires a `PublishJob` for the body builder. Create a minimal synthetic `PublishJob`: set `filePath`, `workspaceId`, `mode = PublishJob.MODE_NOW`, `channelsJson = "[]"` (empty), `caption = ""`. Generate `aiCaptionKey = UUID.randomUUID().toString()`.
+  6. Poll `PublishApi.captionStatus()` every 3 seconds until status is READY, NO_SPEECH, FAILED, or 3 minutes elapsed.
+  7. If READY: call `SubtitleCache.saveForVideo(context.getCacheDir(), video, status.subtitlesJson)`. This writes `<cacheDir>/subtitles/<videoFileName>.json` which `SubtitleCache.loadForVideo()` will find at publish time.
+  8. If anything throws (network, auth): catch silently, delete the temp WAV if it exists, and return. The user is not blocked.
+- The background thread must not prevent the app from exiting. Use a daemon thread.
 
-**Editor UI** (`ui/VideoEditorActivity`): player that skips deleted segments; thumbnail timeline with draggable trim handles, playhead, Split, Delete, Undo/Redo; large one-hand touch targets; audio lane under the video lane (original: volume / mute / remove; added: file picker `ACTION_OPEN_DOCUMENT audio/*`, drag offset, trim, volume, remove); bottom Save + Publish.
+**Call site in `ScreenRecordService.java`:**
+```java
+// After PublishManager.get(this).onRecordingStopped(file);
+// Before sendBroadcast(finishIntent);
+PostRecordTranscriber.start(this, file);
+```
 
-**Post-recording flow**: `VideoPlayerDialog` + `res/layout/dialog_video_player.xml` gain two `ImageButton`s after `btn_all_videos`. `EditorGate.shouldShowAfterRecording(context)` = auto-publish off AND setting on; `MainActivity.onRecordingReady` calls only this. Edit enabled-state follows bg-replace for that master via the existing state broadcast.
+---
 
-## Part 1 - Edit model + video cut renderer
-- [x] `edit/EditProject` + range math + unit tests (merge, split, delete, time mapping, empty = whole file)
-- [x] `edit/EditRenderer` video path: extract, decode, encode (H.264, ~1.5x source bitrate), mux
-- [x] Audio passthrough for cuts (sample copy at frame boundaries)
-- [x] Output verification (duration, sync); cancel + progress; `.part.mp4` then rename
-- [x] Size check against the 4 GiB upload cap (cap bitrate if the estimate exceeds it)
-- [x] Confirm bg-replace preserves duration/timestamps exactly (assumed); fall back if not (done: bg-replace re-stamps frames with source pts and copies audio untouched; renderer reads the real duration/timestamps from the file anyway, documented in `EditRenderer`)
-- [ ] Owner check on device: cut at start / middle / end; compare quality vs master; FFmpeg crop works on output
+## Part 2 — Fix PublishPipeline Race: Wait for Caption Before Burning
 
-## Part 2 - Audio rendering
-- [x] Gain / mute / remove original; master with no audio track works
-- [x] Decode + mix + AAC encode for added tracks (offset, trim, volume, clipping guard)
-- [x] Added track longer or shorter than video (clip / pad with silence)
-- [x] Tests for mixing math
-- [ ] Owner check on device: gain / mute / remove; add a longer and a shorter track, mono and stereo, with and without master audio
+**Goal:** When the user taps Publish, `burnSubtitles()` inside `PublishPipeline.upload()` is called while Thread A (the caption thread) is still running. Fix this so burn happens after caption is settled.
 
-## Part 3 - Editor screen (video)
-- [x] `VideoEditorActivity` + layout; reuse the app's existing player stack (check what `VideoPlayerDialog` uses)
-- [x] Timeline, trim handles, split, delete, undo/redo, skip-deleted playback
-- [x] Save renders via `EditRenderer` with progress; discard-confirm on back (output `name_edit.mp4` / `name_edit_2.mp4`; Publish button present but hidden until Part 5)
-- [ ] Owner check on device: trim handles, split/delete, undo/redo, skip-deleted playback, rotation, save + cancel
+**File to modify:** `publish/PublishPipeline.java`
 
-## Part 4 - Audio lane UI
-- [x] Original track controls (volume, mute, remove); row hidden when the master has no audio
-- [x] Add audio from file (ACTION_OPEN_DOCUMENT, persisted read grant); offset (drag) / trim / volume / remove per added track; all through `EditHistory`
-- [x] Waveform so the user can see where sound is (`edit/AudioPeaks` decodes off the main thread, cached in the view model; `edit/WaveformMath` maps it onto the edited timeline); Save enabled for audio-only edits (dirty check)
-- [ ] Owner check on device: volume/mute/remove original, add a track, drag, trim, undo/redo, rotation, save and listen
+**The fix:** Move `subtitleBurner.burnSubtitles(job, file)` from inside `upload(job)` to **after** `settleCaption(job, caption)` and **before** `createPost(job)`.
 
-## Part 5 - Post-recording preview buttons
-- [x] Two icons (Edit, Publish) in the `VideoPlayerDialog` action row after "all videos"; new vector drawables
-- [x] Edit launches `VideoEditorActivity` on the group master; "Preparing..." while bg-replace runs; hidden if master missing
-- [x] Publish uses the existing publish flow for the centre version; hidden when auto-publish is ON; signed out shows "Couldn't upload because you are signed out", no upload
-- [x] `EditorGate` + settings checkbox "Show video editor after recording" (`RecordSettings` key, default off); ON = auto-open on the final master after bg-replace, new group on Save
-- [x] Editor Save / Publish wiring (Publish = Save then existing publish flow)
-- [x] Row: 5 equal-weight 42dp icons (fits 360 dp)
-- [ ] Owner check on device: both entry points (post-recording and My Videos), Edit while bg-replace runs, Publish signed out / auto-publish on, editor auto-open setting, editor Save/Publish makes a new group with crops
+**Current code flow (lines 159–173):**
+```
+caption = startCaption(job);   // Thread A starts
+upload(job);                   // <-- burnSubtitles() called HERE (too early, cache empty)
+settleCaption(job, caption);   // Thread A finishes, subtitle JSON written to cache
+createPost(job);
+```
 
-## Part 6 - Edit old recordings
-- [x] 3-dots menu item "Edit" (same launcher as the panel Edit; hidden if master missing)
-- [x] Save writes `name_edit.mp4` + crops as a **new group**; old group untouched
-- [x] Naming collisions (`name_edit`, `name_edit_2`, ...)
-- [x] Post-save "Delete original?" one-tap offer (default keep)
+**Fixed code flow:**
+```
+caption = startCaption(job);
+upload(job);                   // <-- do NOT burn here; upload the original file
+settleCaption(job, caption);   // Thread A finishes, subtitle JSON is now in cache
+// NOW burn subtitles: cache is populated, race is gone
+file = burnSubtitlesIfNeeded(job, new File(job.filePath));
+// Update the upload with the burned file if needed (re-upload the subtitled temp)
+// OR: re-examine whether the design needs a second upload
+```
 
-## Part 7 - QA + hardening
-Code audit done (no device available); fixes: unsaved-edit draft file (`edit/EditDraftStore`, `EditProjectJson`) restored after process death with added-track re-probe, My Videos sweep no longer deletes a running render's `.part.mp4` and now removes a crashed render's `.audio.m4a` temp, up-front free-space check (file + mix temp + crops) with distinct "no space" / "too long" messages, cancel after the file landed deletes it, output scanned into MediaStore, waveform on its own thread, segment cap (200), AAC-legal sample rate and channel guards for Bluetooth / odd audio, minimum-result guard. Faststart not needed: upload is a plain `video/mp4` file upload and masters from the same `MediaMuxer` already publish.
-- [x] Rotation (view model keeps edits, playhead and running save), process death mid-edit (draft restored; lost-permission tracks dropped with a message) and mid-render (orphaned `.part.mp4` / `.audio.m4a` swept on next list scan, nothing registered before success), low storage, cancel mid-render
-- [x] Long recording (30+ min: streaming render, 14 thumbnails, 240-bucket peaks off the main thread), many splits (history cap 200, segment cap 200), very short remaining result (300 ms segment minimum, last segment cannot be deleted, renderer guard)
-- [x] Videos with no audio track, Bluetooth-mic recordings (rate snapped to AAC-legal, zero rate/channel guards)
-- [x] Group list shows the edited group correctly (new group registered before crops, only after a successful render); publish works on edited files (path-keyed, valid MP4 from `MediaMuxer`)
-- [ ] Owner check on device: rotate during edit and during save, kill the app mid-edit and mid-save, fill the storage, cancel a save, 30+ min recording, 100+ splits, a no-audio master, a Bluetooth-mic recording, publish an edited file
+**IMPORTANT implementation note:** The current design burns subtitles and then uploads the burned file. If burn moves after upload, you can't re-upload. The correct fix is:
 
-## Editor UX v2 - tap-to-select remove-section
-- [x] Tap the timeline to set Start, tap again for End (thin green/red lines with small Start/End tags, tinted area between); drag still scrubs
-- [x] Later taps move the nearer marker; an early End swaps; 100 ms minimum, clamped to 0..end, edge tap snaps to 0 / end (`edit/SectionSelection`, unit-tested)
-- [x] Hint text for each step, Start / End / length readout (m:ss.s), large "Remove selected section" button (off for an empty or whole-video selection, with a message)
-- [x] Remove joins the rest with no gap; the timeline then shows the edited result (kept thumbnails only), later selections work on it (`EditTimelineMath.removeSection`, maps through `EditProject.outputToSource`)
-- [x] Cyan join marker above the timeline at each seam (`EditTimelineMath.seams`), recomputed on undo / redo / restore
-- [x] Selection cleared after Remove and on undo / redo; survives rotation (view model)
-- [x] Split / Delete buttons and yellow trim handles removed; Undo, Redo, Play, Save, Publish and the audio lane kept
-- [x] Timeline zoom: pinch (anchored on the fingers) or +/- / Fit buttons, up to a ~1 s window; zoomed drag pans, at fit drag scrubs, tap still sets markers; playhead auto-follows; adaptive time ruler (0.1 s .. 1 h), thumbnails tiled by time, zoom + scroll survive rotation (`edit/TimelineZoom`, unit-tested)
-- [ ] Owner check on device: tap markers, swap, move nearer marker, edges, Remove, second Remove on the edited timeline, seam dots, undo / redo, rotation, audio lane lines up, pinch / +/- zoom to hit 2.2 s exactly, pan, follow during playback
+- If `SubtitleCache.loadForVideo(cacheDir, videoFile)` returns non-null (populated by Part 1's post-recording transcription): burn is immediate and succeeds before upload. No race.
+- If cache is empty (user recorded offline, Part 1 didn't run yet): `settleCaption` waits for Thread A to finish. Move `burnSubtitles` call to inside `upload(job)` but **after** a new call `waitForCaption(caption)` that blocks until Thread A finishes or times out.
+
+**The simplest correct fix:** Inside `upload(job)` in `PublishPipeline.java`, before calling `subtitleBurner.burnSubtitles(job, file)`, call `caption.finish()` (which already exists — it blocks until Thread A completes). Then remove the `settleCaption(job, caption)` call from `run()` since it's already been called.
+
+Concrete changes to `publish/PublishPipeline.java`:
+
+1. Pass the `caption` reference into `upload()` so it can call `caption.finish()` before burn.
+2. Or: extract audio + POST /ai-captions in a separate pre-upload step that blocks until done, then upload. This is the cleanest split.
+
+**Actually, the cleanest zero-risk fix:**
+
+Change `run()` to:
+```java
+caption = startCaption(job);
+if (!uploaded) upload(job, caption);  // caption passed in
+settleCaption(job, caption);          // keeps state-writing logic
+caption = null;
+createPost(job);
+```
+
+Change `upload()` signature to accept `CaptionFlow.Run caption`. At the point where `subtitleBurner.burnSubtitles()` is called, first call `caption.finish()` (this blocks until Thread A and server polling are done, subtitle JSON is in SubtitleCache). Then `burnSubtitles` reads from the now-populated cache.
+
+Remove the redundant second `caption.finish()` call from `settleCaption` by checking if `caption` is already done.
+
+---
+
+## Part 3 — Fix CaptionFlow.discard() Deleting Subtitle JSON
+
+**File to modify:** `publish/CaptionFlow.java`
+
+**Problem:** `discard(long jobId)` at line 161 calls `SubtitleCache.delete(cacheDir, jobId)`. This deletes `subtitles/sub_<jobId>.json`. This is the job-id-keyed file.
+
+**Key distinction:**
+- `SubtitleCache.save(cacheDir, jobId, json)` writes `subtitles/sub_<jobId>.json` — job-id keyed.
+- `SubtitleCache.saveForVideo(cacheDir, videoFile, json)` writes `subtitles/<videoFileName>.json` — video-name keyed.
+- `SubtitleCache.loadForVideo()` reads the **video-name keyed** file.
+
+**Fix in `CaptionFlow`:** After saving the subtitle JSON in the `poll()` method (line 391: `SubtitleCache.save(cacheDir, job.id, status.subtitlesJson)`), also save it video-name keyed:
+```java
+SubtitleCache.save(cacheDir, job.id, status.subtitlesJson);
+// Also save by video filename so loadForVideo() finds it even after discard():
+File videoFile = new File(job.filePath);
+SubtitleCache.saveForVideo(cacheDir, videoFile, status.subtitlesJson);
+```
+
+**Fix in `discard()`:** Keep `SubtitleCache.delete(cacheDir, jobId)` (deletes the job-id keyed temp file, which is fine). Do NOT delete the video-name keyed file — it's a different file and should persist.
+
+**Result:** After `discard()`, `loadForVideo()` still finds `subtitles/<videoFileName>.json` and burn-in works.
+
+---
+
+## Part 4 — Processing Dialog: Show "Generating AI subtitles…" to User
+
+**Goal:** While Part 1's `PostRecordTranscriber` is running, show a status message in the post-recording processing dialog in `MainActivity`.
+
+**Files to modify:**
+- `MainActivity.java` — `showProcessingDialog()` and `processingListener`
+- `service/BgReplaceService.java` — `Listener` interface
+
+**Current flow:**
+- `BgReplaceService.Listener.onProgress(String stage, int percent)` drives the dialog.
+- Dialog shows as long as `BgReplaceService` is running (background replace active).
+- If background replace is OFF, the dialog never shows. `PostRecordTranscriber` would run silently.
+
+**Design decision (simple, no new service needed):**
+- The transcription dialog does NOT need to block the user. The user can preview their video immediately.
+- Instead, show a **non-blocking Toast or a small inline status** in the post-recording `VideoPlayerDialog`:
+  - When `VideoPlayerDialog` opens for a freshly recorded video (detected via `SubtitleCache.loadForVideo()` returning null AND subtitles are enabled), show a small chip: *"⏳ Generating subtitles…"*
+  - When `PostRecordTranscriber` finishes (saved to cache), it posts a local broadcast. `VideoPlayerDialog` listens and refreshes `KaraokeSubtitleView.setTrack()`.
+
+**If BgReplaceService IS running** (dialog is already showing), add "Generating AI subtitles…" as a secondary line in the existing dialog. Use `BgReplaceService.Listener.onProgress()` stage string — just pass the subtitle stage through the existing channel.
+
+**Broadcast for completion:**
+- Define a new broadcast action constant in `PostRecordTranscriber`: `public static final String ACTION_SUBTITLES_READY = "com.jovoc.facecampresentationrecorder.SUBTITLES_READY"`
+- Extra: `EXTRA_VIDEO_PATH` (String, absolute path of the video)
+- `VideoPlayerDialog` and `VideoEditorActivity` register for this broadcast on `onResume()` / unregister on `onPause()`. On receive: reload `SubtitleCache.loadForVideo()` and call `setTrack()`.
+
+---
+
+## What This Plan Does NOT Do (Scope Boundaries)
+
+- Does NOT create any new `_sub.mp4` derivative files. Subtitles continue to be burned at publish time into a temp file in `cacheDir`.
+- Does NOT modify auto-crop logic. Crops run on raw video, are unaffected.
+- Does NOT block video preview. The player opens immediately after post-processing.
+- Does NOT modify `SubtitleCache`'s storage keys or file format. Existing `saveForVideo` / `loadForVideo` contract is preserved.
