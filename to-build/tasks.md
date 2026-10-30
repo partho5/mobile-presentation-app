@@ -35,10 +35,10 @@ The AI transcription pipeline is already built and works end-to-end for publishi
 
 | Part | Description | Status |
 |---|---|---|
-| Part 1 | Post-recording audio extraction + transcription dispatch | ⏳ |
-| Part 2 | Wait on transcription + fix premature burn-in race in PublishPipeline | ⏳ |
-| Part 3 | Fix CaptionFlow.discard() deleting subtitle JSON too early | ⏳ |
-| Part 4 | Show processing dialog message during post-recording transcription | ⏳ |
+| Part 1 | Post-recording audio extraction + transcription dispatch | ✅ |
+| Part 2 | Wait on transcription + fix premature burn-in race in PublishPipeline | ✅ |
+| Part 3 | Fix CaptionFlow.discard() deleting subtitle JSON too early | ✅ |
+| Part 4 | Show processing dialog message during post-recording transcription | ✅ |
 
 ---
 

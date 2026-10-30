@@ -161,7 +161,7 @@ public final class PublishPipeline {
             if (job.isAuto() && !uploaded) preflight(job);
             // Thread A (audio -> caption) runs beside the video upload; it never throws.
             caption = startCaption(job);
-            if (!uploaded) upload(job);
+            if (!uploaded) upload(job, caption);
             // A job deleted while uploading (cancelled) must not go on to post.
             if (store.load(jobId) == null) {
                 forgetUpload(jobId);
@@ -199,7 +199,9 @@ public final class PublishPipeline {
      */
     private void settleCaption(PublishJob job, CaptionFlow.Run caption) throws PublishException {
         long waitStart = clock.getAsLong();
-        if (caption != null) caption.finish();
+        if (caption != null && !CaptionFlow.isSettled(job.aiCaptionState)) {
+            caption.finish();
+        }
         synchronized (job) {
             // Counts and states only, never caption or transcript text.
             if (caption != null) {
@@ -239,7 +241,7 @@ public final class PublishPipeline {
         save(job);
     }
 
-    private void upload(PublishJob job) throws PublishException {
+    private void upload(PublishJob job, CaptionFlow.Run caption) throws PublishException {
         File file = new File(job.filePath);
         if (!file.isFile() || file.length() == 0) throw new PublishException(PublishException.Kind.FILE);
         // No size check here: the direct upload's cap (MOBILE_UPLOAD_MAX_BYTES, 4 GiB) is the
@@ -248,6 +250,9 @@ public final class PublishPipeline {
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
 
         if (subtitleBurner != null) {
+            if (caption != null) {
+                caption.finish();
+            }
             try {
                 File subtitled = subtitleBurner.burnSubtitles(job, file);
                 if (subtitled != null && subtitled.isFile() && subtitled.length() > 0) {

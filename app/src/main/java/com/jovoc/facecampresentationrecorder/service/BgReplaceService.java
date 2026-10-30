@@ -144,7 +144,13 @@ public class BgReplaceService extends Service {
         }
     }
 
-    /** How long the current background replace has been running; 0 when none is. */
+    public static String getCurrentRecordingPath() {
+        synchronized (LOCK) {
+            if (running != null) return running.video.getAbsolutePath();
+            if (!QUEUE.isEmpty()) return QUEUE.get(0).video.getAbsolutePath();
+            return null;
+        }
+    }
     public static long getReplaceElapsedMs() {
         long startedAt = replaceStartedAtMs;
         return startedAt == 0 ? 0 : SystemClock.elapsedRealtime() - startedAt;

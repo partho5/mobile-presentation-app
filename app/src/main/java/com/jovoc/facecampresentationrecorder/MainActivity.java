@@ -3877,6 +3877,17 @@ public class MainActivity extends AppCompatActivity
             }
         }
         if (pct != null) pct.setText(percent >= 0 ? percent + "%" : "");
+        TextView hint = processingDialog.findViewById(R.id.processing_hint);
+        if (hint != null) {
+            String currentPath = BgReplaceService.getCurrentRecordingPath();
+            if (!cancelling && currentPath != null && com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber.isTranscribing(currentPath)) {
+                hint.setText("Generating AI subtitles…");
+                hint.setVisibility(View.VISIBLE);
+            } else if (!cancelling && hint.getText().toString().equals("Generating AI subtitles…")) {
+                hint.setText("");
+                hint.setVisibility(View.GONE);
+            }
+        }
     }
 
     private android.app.Dialog cancelConfirmDialog;

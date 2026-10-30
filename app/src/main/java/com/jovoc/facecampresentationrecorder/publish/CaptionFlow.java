@@ -389,6 +389,10 @@ public final class CaptionFlow {
                     if (AiCaptionStatus.READY.equals(s)) {
                         if (cacheDir != null && status.subtitlesJson != null) {
                             SubtitleCache.save(cacheDir, job.id, status.subtitlesJson);
+                            if (job.filePath != null) {
+                                File videoFile = new File(job.filePath);
+                                SubtitleCache.saveForVideo(cacheDir, videoFile, status.subtitlesJson);
+                            }
                         }
                         settle(PublishJob.AI_READY, null);
                         return;

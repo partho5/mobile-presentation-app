@@ -33,6 +33,9 @@ import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
 import com.jovoc.facecampresentationrecorder.edit.SectionSelection;
 import com.jovoc.facecampresentationrecorder.edit.WaveformMath;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 
@@ -252,17 +255,44 @@ public class VideoEditorActivity extends AppCompatActivity
         refresh();
     }
 
+    private final BroadcastReceiver subtitlesReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null && PostRecordTranscriber.ACTION_SUBTITLES_READY.equals(intent.getAction())) {
+                String path = intent.getStringExtra(PostRecordTranscriber.EXTRA_VIDEO_PATH);
+                String currentPath = getIntent().getStringExtra(EXTRA_MASTER_PATH);
+                if (path != null && path.equals(currentPath)) {
+                    if (subtitlesView != null) {
+                        subtitlesView.setTrack(SubtitleCache.loadForVideo(getCacheDir(), new File(path)));
+                        if (video != null && prepared) {
+                            subtitlesView.setPlayheadMs(video.getCurrentPosition());
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     @Override
     protected void onResume() {
         super.onResume();
         if (subtitlesView != null) {
             subtitlesView.setStyle(SubtitleStyle.fromSettings(this));
         }
+        IntentFilter filter = new IntentFilter(PostRecordTranscriber.ACTION_SUBTITLES_READY);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(subtitlesReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(subtitlesReceiver, filter);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        try {
+            unregisterReceiver(subtitlesReceiver);
+        } catch (Exception ignored) {}
         handler.removeCallbacks(ticker);
         if (video != null && prepared) {
             try {

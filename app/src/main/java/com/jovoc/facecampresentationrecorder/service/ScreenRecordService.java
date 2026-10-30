@@ -39,6 +39,7 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
+import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
@@ -447,6 +448,12 @@ public class ScreenRecordService extends Service {
                     PublishManager.get(this).onRecordingStopped(file);
                 } catch (Exception e) {
                     Log.e(TAG, "Could not queue auto-publish", e);
+                }
+
+                try {
+                    PostRecordTranscriber.start(this, file);
+                } catch (Exception e) {
+                    Log.e(TAG, "Could not start post-record transcriber", e);
                 }
 
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);

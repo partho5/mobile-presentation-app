@@ -24,7 +24,7 @@ For small tasks, execute the entire workflow in one step without further decompo
 
 **Runner Agent Responsibilities**
 
-You, the runner AI agent, must not write or modify code yourself. Your job is to invoke Claude in the background using the -p flag, monitor its status, and determine whether it has finished, paused, or become stuck. Every five minutes, check what Claude is actually doing and take appropriate action based on its status.
+You, the runner AI agent, must not write or modify code yourself. Your job is to invoke sub-agent in the background, monitor its status, and determine whether it has finished, paused, or become stuck. Every five minutes, check what sub-agent is actually doing and take appropriate action based on its status.
 
 After every task completed, run a verifying agent separately which has the proper context.
 

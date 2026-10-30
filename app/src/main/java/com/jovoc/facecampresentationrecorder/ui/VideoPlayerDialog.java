@@ -47,6 +47,8 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.edit.EditorGate;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
+import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
@@ -205,6 +207,7 @@ public class VideoPlayerDialog {
     private boolean pendingPlay = true;
 
     private BroadcastReceiver cropReceiver;
+    private BroadcastReceiver subtitlesReceiver;
 
     private final ImageButton btnEdit;
     private final ImageButton btnPublish;
@@ -479,6 +482,44 @@ public class VideoPlayerDialog {
                 new IntentFilter(VideoCropHelper.ACTION_CROP_STATE_CHANGED),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
 
+        subtitlesReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent intent) {
+                if (intent != null && PostRecordTranscriber.ACTION_SUBTITLES_READY.equals(intent.getAction())) {
+                    String path = intent.getStringExtra(PostRecordTranscriber.EXTRA_VIDEO_PATH);
+                    if (path != null) {
+                        for (Version v : versions) {
+                            if (v.file.getAbsolutePath().equals(path)) {
+                                int idx = versions.indexOf(v);
+                                if (idx >= 0) adapter.notifyItemChanged(idx);
+                            }
+                        }
+                        if (activeHolder != null && activeHolder.version != null && activeHolder.version.file.getAbsolutePath().equals(path)) {
+                            activeHolder.subtitles.setTrack(SubtitleCache.loadForVideo(appContext.getCacheDir(), activeHolder.version.file));
+                            activeHolder.subtitles.setPlayheadMs(activeVideo != null ? activeVideo.getCurrentPosition() : 0);
+                        }
+                        if (playingPath != null && playingPath.equals(path)) {
+                            showSubtitleStatus("✓ Subtitles ready");
+                        }
+                    }
+                }
+            }
+        };
+        ContextCompat.registerReceiver(appContext, subtitlesReceiver,
+                new IntentFilter(PostRecordTranscriber.ACTION_SUBTITLES_READY),
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+
+        if (RecordSettings.subtitlesEnabled(context)) {
+            File f = initialFile;
+            if (SubtitleCache.loadForVideo(appContext.getCacheDir(), f) == null) {
+                if (PostRecordTranscriber.isTranscribing(f.getAbsolutePath())) {
+                    showSubtitleStatus("⏳ Generating AI subtitles…");
+                }
+            } else {
+                showSubtitleStatus("✓ Subtitles ready");
+            }
+        }
+
         // Cleanup on dismiss
         final long openedAt = android.os.SystemClock.elapsedRealtime();
         dialog.setOnDismissListener(d -> {
@@ -494,6 +535,9 @@ public class VideoPlayerDialog {
             activeHolder = null;
             try {
                 appContext.unregisterReceiver(cropReceiver);
+            } catch (Exception ignored) {}
+            try {
+                appContext.unregisterReceiver(subtitlesReceiver);
             } catch (Exception ignored) {}
             executor.shutdownNow();
             pager.setAdapter(null);
@@ -1068,6 +1112,23 @@ public class VideoPlayerDialog {
         } catch (Exception ignored) {}
 
         tvMetadata.setText(metadata);
+    }
+
+    private void showSubtitleStatus(String text) {
+        if (dialog == null) return;
+        View row = dialog.findViewById(R.id.crop_status_row);
+        TextView tvIcon = dialog.findViewById(R.id.tv_crop_icon);
+        TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
+        if (row == null || tvIcon == null || tvCropStatus == null) return;
+        boolean cropPending = BgReplaceService.isCropPending(playingPath);
+        if (cropPending) {
+            tvIcon.setText("⏳");
+            tvCropStatus.setText(cropProgressMessage(playingPath) + " · " + text);
+        } else {
+            tvIcon.setText(text.startsWith("✓") ? "✓" : "⏳");
+            tvCropStatus.setText(text);
+        }
+        row.setVisibility(View.VISIBLE);
     }
 
     private static String formatDuration(long durationMs) {
