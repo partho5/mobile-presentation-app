@@ -1122,8 +1122,12 @@ public class VideoPlayerDialog {
         if (row == null || tvIcon == null || tvCropStatus == null) return;
         boolean cropPending = BgReplaceService.isCropPending(playingPath);
         if (cropPending) {
-            tvIcon.setText("⏳");
-            tvCropStatus.setText(cropProgressMessage(playingPath) + " · " + text);
+            CharSequence current = tvCropStatus.getText();
+            if (current != null && current.length() > 0 && !current.toString().contains(text)) {
+                tvCropStatus.setText(current + " · " + text);
+            } else {
+                tvCropStatus.setText(text);
+            }
         } else {
             tvIcon.setText(text.startsWith("✓") ? "✓" : "⏳");
             tvCropStatus.setText(text);

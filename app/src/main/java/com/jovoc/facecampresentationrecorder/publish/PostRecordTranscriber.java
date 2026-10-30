@@ -177,7 +177,7 @@ public final class PostRecordTranscriber {
                         }
                     }
                 } catch (PublishException pe) {
-                    if (pe.kind == PublishException.Kind.UNAUTHORIZED
+                    if (pe.kind == PublishException.Kind.SIGNED_OUT
                             || pe.kind == PublishException.Kind.NEEDS_PLAN) {
                         return;
                     }
