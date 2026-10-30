@@ -33,6 +33,8 @@ import com.jovoc.facecampresentationrecorder.edit.EditProject.Range;
 import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
 import com.jovoc.facecampresentationrecorder.edit.SectionSelection;
 import com.jovoc.facecampresentationrecorder.edit.WaveformMath;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -70,6 +72,7 @@ public class VideoEditorActivity extends AppCompatActivity
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private VideoView video;
+    private KaraokeSubtitleView subtitlesView;
     private EditTimelineView timeline;
     private TextView tvStatus, tvTime, tvResultLength, tvSavePercent, tvHint, tvSelection;
     private MaterialButton btnUndo, btnRedo, btnPlay, btnRemove, btnSave, btnPublish;
@@ -116,6 +119,12 @@ public class VideoEditorActivity extends AppCompatActivity
         setContentView(R.layout.activity_video_editor);
 
         video = findViewById(R.id.editor_video);
+        subtitlesView = findViewById(R.id.editor_subtitles);
+        if (subtitlesView != null) {
+            subtitlesView.setStyle(SubtitleStyle.fromSettings(this));
+            File masterFile = new File(path);
+            subtitlesView.setTrack(SubtitleCache.loadForVideo(getCacheDir(), masterFile));
+        }
         timeline = findViewById(R.id.timeline);
         tvStatus = findViewById(R.id.tv_status);
         tvTime = findViewById(R.id.tv_time);
@@ -216,6 +225,9 @@ public class VideoEditorActivity extends AppCompatActivity
             prepared = true;
             mp.setLooping(false);
             seekPrecise(vm.getPlayheadMs());
+            if (subtitlesView != null) {
+                subtitlesView.setPlayheadMs(vm.getPlayheadMs());
+            }
             if (vm.isPlaying()) startPlayback();
             refresh();
         });
@@ -223,6 +235,9 @@ public class VideoEditorActivity extends AppCompatActivity
             // Reached the real end of the file
             vm.setPlaying(false);
             handler.removeCallbacks(ticker);
+            if (subtitlesView != null) {
+                subtitlesView.setPlayheadMs(0);
+            }
             refresh();
         });
         video.setOnErrorListener((mp, what, extra) -> {
@@ -235,6 +250,14 @@ public class VideoEditorActivity extends AppCompatActivity
         video.setVideoPath(path);
 
         refresh();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (subtitlesView != null) {
+            subtitlesView.setStyle(SubtitleStyle.fromSettings(this));
+        }
     }
 
     @Override
@@ -637,6 +660,9 @@ public class VideoEditorActivity extends AppCompatActivity
                 pausePlayback();
                 vm.setPlayheadMs(Math.max(0, ranges.get(ranges.size() - 1).endMs - 1));
                 seekPrecise(vm.getPlayheadMs());
+                if (subtitlesView != null) {
+                    subtitlesView.setPlayheadMs(vm.getPlayheadMs());
+                }
                 refresh();
                 return;
             }
@@ -644,6 +670,9 @@ public class VideoEditorActivity extends AppCompatActivity
             seekPrecise(next);
         }
         vm.setPlayheadMs(pos);
+        if (subtitlesView != null) {
+            subtitlesView.setPlayheadMs(video.getCurrentPosition());
+        }
         refresh();
     }
 
@@ -657,6 +686,9 @@ public class VideoEditorActivity extends AppCompatActivity
             if (player != null) player.seekTo((int) ms, mode);
             else video.seekTo((int) ms);
         } catch (IllegalStateException ignored) {
+        }
+        if (subtitlesView != null) {
+            subtitlesView.setPlayheadMs(ms);
         }
     }
 
@@ -673,6 +705,9 @@ public class VideoEditorActivity extends AppCompatActivity
         if (!vm.isReady()) return;
         long snapped = movePlayheadToOutput(ms);
         seek(snapped, MediaPlayer.SEEK_CLOSEST_SYNC);
+        if (subtitlesView != null) {
+            subtitlesView.setPlayheadMs(snapped);
+        }
         refresh();
     }
 

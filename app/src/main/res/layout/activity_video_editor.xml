@@ -68,6 +68,12 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="center" />
 
+            <com.jovoc.facecampresentationrecorder.ui.KaraokeSubtitleView
+                android:id="@+id/editor_subtitles"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
             <TextView
                 android:id="@+id/tv_status"
                 android:layout_width="wrap_content"

@@ -74,6 +74,15 @@ public final class PublishPipeline {
     private final PosterSource posters;
     /** AI captions next to the video upload; null: no captions. */
     private final CaptionFlow captions;
+    private final SubtitleBurner subtitleBurner;
+
+    public interface SubtitleBurner {
+        /**
+         * Returns a subtitled video file ready for upload, or original video if subtitles
+         * are disabled or unavailable. Must never overwrite the original video.
+         */
+        File burnSubtitles(PublishJob job, File videoFile);
+    }
 
     /** Base64 of the poster image of a video file, or null for none; must not throw. */
     public interface PosterSource {
@@ -83,7 +92,13 @@ public final class PublishPipeline {
     /** Legacy upload only (no direct upload). */
     public PublishPipeline(PublishApi api, Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock) {
-        this(api, null, null, store, listener, cancelled, maxAttempts, clock, null);
+        this(api, null, null, store, listener, cancelled, maxAttempts, clock, null, null, null);
+    }
+
+    /** Legacy upload with SubtitleBurner (useful for tests). */
+    public PublishPipeline(PublishApi api, Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock, SubtitleBurner subtitleBurner) {
+        this(api, null, null, store, listener, cancelled, maxAttempts, clock, null, null, subtitleBurner);
     }
 
     /**
@@ -93,14 +108,14 @@ public final class PublishPipeline {
     public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
                            Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock) {
-        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, null);
+        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, null, null, null);
     }
 
     /** @param posters makes the poster sent with the direct upload's {@code complete}; may be null */
     public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
                            Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock, PosterSource posters) {
-        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, posters, null);
+        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, posters, null, null);
     }
 
     /** @param captions runs the AI captions of jobs that want them; may be null (none) */
@@ -108,6 +123,14 @@ public final class PublishPipeline {
                            Store store, Listener listener, BooleanSupplier cancelled,
                            int maxAttempts, LongSupplier clock, PosterSource posters,
                            CaptionFlow captions) {
+        this(api, direct, sessions, store, listener, cancelled, maxAttempts, clock, posters, captions, null);
+    }
+
+    /** @param subtitleBurner burns subtitles onto the video before upload; may be null */
+    public PublishPipeline(PublishApi api, DirectUploader direct, UploadSessionDao sessions,
+                           Store store, Listener listener, BooleanSupplier cancelled,
+                           int maxAttempts, LongSupplier clock, PosterSource posters,
+                           CaptionFlow captions, SubtitleBurner subtitleBurner) {
         this.api = api;
         this.direct = direct;
         this.sessions = sessions;
@@ -118,6 +141,7 @@ public final class PublishPipeline {
         this.clock = clock;
         this.posters = posters;
         this.captions = captions;
+        this.subtitleBurner = subtitleBurner;
     }
 
     /** @param attempt zero-based run count of this job (WorkManager's run attempt count) */
@@ -223,6 +247,18 @@ public final class PublishPipeline {
         // for the legacy /upload route.
         if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
 
+        if (subtitleBurner != null) {
+            try {
+                File subtitled = subtitleBurner.burnSubtitles(job, file);
+                if (subtitled != null && subtitled.isFile() && subtitled.length() > 0) {
+                    file = subtitled;
+                }
+            } catch (Exception | OutOfMemoryError ignored) {
+                // Publishing must not fail if burn-in fails; falls back to original file.
+            }
+        }
+        if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
+
         job.progress = 0;
         move(job, PublishJob.UPLOADING);
 
@@ -238,11 +274,12 @@ public final class PublishPipeline {
         };
 
         PublishApi.Media media = null;
-        if (useDirect(job, file)) {
+        final File uploadFile = file;
+        if (useDirect(job, uploadFile)) {
             try {
                 // The poster is made lazily, just before complete, from the file uploaded here.
-                media = direct.upload(job.id, file, job.workspaceId, sessions, progress, cancelled,
-                        (java.util.function.Supplier<String>) () -> posterFor(file)).toMedia();
+                media = direct.upload(job.id, uploadFile, job.workspaceId, sessions, progress, cancelled,
+                        (java.util.function.Supplier<String>) () -> posterFor(uploadFile)).toMedia();
             } catch (PublishException e) {
                 if (!isRouteMissing(e)) throw directFailure(job, e);
                 // An older server without /upload/multipart: use the legacy upload, and remember
@@ -252,11 +289,11 @@ public final class PublishPipeline {
         }
         if (media == null) {
             // Legacy route (non-mp4, older server, or the fallback just above): its cap is 1 GiB.
-            if (file.length() > PublishApi.LEGACY_MAX_VIDEO_BYTES) {
+            if (uploadFile.length() > PublishApi.LEGACY_MAX_VIDEO_BYTES) {
                 throw new PublishException(PublishException.Kind.TOO_LARGE);
             }
             try {
-                media = api.upload(file, job.workspaceId, progress, cancelled);
+                media = api.upload(uploadFile, job.workspaceId, progress, cancelled);
             } catch (PublishException e) {
                 throw e.forUploadStep();
             }

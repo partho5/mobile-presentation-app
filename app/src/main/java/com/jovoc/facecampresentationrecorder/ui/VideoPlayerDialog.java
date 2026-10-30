@@ -47,6 +47,8 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.edit.EditorGate;
 import com.jovoc.facecampresentationrecorder.service.BgReplaceService;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoFormatHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -142,6 +144,7 @@ public class VideoPlayerDialog {
     private static final class PageHolder extends RecyclerView.ViewHolder {
         final MaterialCardView card;
         final VideoView video;
+        final KaraokeSubtitleView subtitles;
         final ImageView thumb;
         final View tap;
         Version version;
@@ -151,6 +154,7 @@ public class VideoPlayerDialog {
             super(itemView);
             card = itemView.findViewById(R.id.page_card);
             video = itemView.findViewById(R.id.page_video);
+            subtitles = itemView.findViewById(R.id.page_subtitles);
             thumb = itemView.findViewById(R.id.page_thumb);
             tap = itemView.findViewById(R.id.page_tap);
         }
@@ -215,7 +219,10 @@ public class VideoPlayerDialog {
                 int currentPosition = v.getCurrentPosition();
                 seekBar.setProgress(currentPosition);
                 tvCurrentTime.setText(formatDuration(currentPosition));
-                handler.postDelayed(this, 250);
+                if (activeHolder != null && activeHolder.subtitles != null) {
+                    activeHolder.subtitles.setPlayheadMs(currentPosition);
+                }
+                handler.postDelayed(this, 33);
             }
         }
     };
@@ -303,6 +310,9 @@ public class VideoPlayerDialog {
                 if (fromUser && activeVideo != null) {
                     activeVideo.seekTo(progress);
                     tvCurrentTime.setText(formatDuration(progress));
+                    if (activeHolder != null && activeHolder.subtitles != null) {
+                        activeHolder.subtitles.setPlayheadMs(progress);
+                    }
                 }
             }
 
@@ -604,6 +614,13 @@ public class VideoPlayerDialog {
                 h.card.setLayoutParams(lp);
             }
 
+            if (h.subtitles != null) {
+                h.subtitles.setStyle(SubtitleStyle.fromSettings(context));
+                h.subtitles.setTrack(SubtitleCache.loadForVideo(appContext.getCacheDir(), v.file));
+                int pos = (activeVideo != null && h == activeHolder) ? activeVideo.getCurrentPosition() : 0;
+                h.subtitles.setPlayheadMs(pos);
+            }
+
             if (h != activeHolder) {
                 h.video.setVisibility(View.GONE);
                 h.thumb.animate().cancel();
@@ -648,6 +665,10 @@ public class VideoPlayerDialog {
             h.card.setAlpha(1f);
             h.fadingVersionId = -1;
             h.version = null;
+            if (h.subtitles != null) {
+                h.subtitles.setTrack(null);
+                h.subtitles.setPlayheadMs(-1);
+            }
             if (!dismissed) {
                 try {
                     Glide.with(appContext).clear(h.thumb);
@@ -933,6 +954,9 @@ public class VideoPlayerDialog {
             if (target > 0 || !play) video.seekTo(target);
             seekBar.setProgress(target);
             tvCurrentTime.setText(formatDuration(target));
+            if (h.subtitles != null) {
+                h.subtitles.setPlayheadMs(target);
+            }
 
             if (play) {
                 video.start();
@@ -956,6 +980,9 @@ public class VideoPlayerDialog {
             btnBarPlayPause.setImageResource(R.drawable.ic_play);
             seekBar.setProgress(0);
             tvCurrentTime.setText("00:00");
+            if (activeHolder != null && activeHolder.subtitles != null) {
+                activeHolder.subtitles.setPlayheadMs(0);
+            }
             handler.removeCallbacks(progressRunnable);
         });
 
@@ -978,6 +1005,9 @@ public class VideoPlayerDialog {
         activeVideo = null;
         prepared = false;
         if (h == null) return;
+        if (h.subtitles != null) {
+            h.subtitles.setPlayheadMs(-1);
+        }
         try {
             h.video.setOnPreparedListener(null);
             h.video.setOnInfoListener(null);

@@ -1,6 +1,9 @@
 package com.jovoc.facecampresentationrecorder.edit;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -10,12 +13,18 @@ import android.media.MediaMuxer;
 import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES30;
+import android.opengl.GLUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.view.Surface;
 
 import com.jovoc.facecampresentationrecorder.bgreplace.EGLCore;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleDrawer;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 
 import java.io.File;
@@ -130,9 +139,30 @@ public class EditRenderer {
             "    fragColor = texture(uTexture, vTexCoord);\n" +
             "}\n";
 
+    private static final String SUB_VERTEX_SHADER =
+            "#version 300 es\n" +
+            "layout(location = 0) in vec4 aPosition;\n" +
+            "layout(location = 1) in vec2 aTexCoord;\n" +
+            "out vec2 vTexCoord;\n" +
+            "void main() {\n" +
+            "    gl_Position = aPosition;\n" +
+            "    vTexCoord = aTexCoord;\n" +
+            "}\n";
+
+    private static final String SUB_FRAG_SHADER =
+            "#version 300 es\n" +
+            "precision mediump float;\n" +
+            "in vec2 vTexCoord;\n" +
+            "uniform sampler2D uSubTexture;\n" +
+            "out vec4 fragColor;\n" +
+            "void main() {\n" +
+            "    fragColor = texture(uSubTexture, vTexCoord);\n" +
+            "}\n";
+
     // Quad vertices in triangle-strip order: bottom-left, bottom-right, top-left, top-right
     private static final float[] QUAD_POSITIONS = {-1, -1, 1, -1, -1, 1, 1, 1};
     private static final float[] TEX_FULL = {0, 0, 1, 0, 0, 1, 1, 1};
+    private static final float[] SUB_TEX_COORDS = {0f, 1f, 1f, 1f, 0f, 0f, 1f, 0f};
 
     /** A release step that may throw; see {@link #quietly}. */
     private interface Cleanup {
@@ -143,6 +173,16 @@ public class EditRenderer {
     private Context context;
     private ProgressListener listener;
     private int cropCopies;
+
+    // Subtitles
+    private SubtitleTrack subtitleTrack;
+    private SubtitleStyle subtitleStyle;
+    private int subTexture;
+    private int subProgram;
+    private FloatBuffer subTexBuffer;
+    private Bitmap subtitleBitmap;
+    private Canvas subtitleCanvas;
+    private SubtitleDrawer subtitleDrawer;
 
     // GL / decoder output
     private EGLCore eglCore;
@@ -192,6 +232,12 @@ public class EditRenderer {
         return this;
     }
 
+    public EditRenderer withSubtitles(SubtitleTrack track, SubtitleStyle style) {
+        this.subtitleTrack = track;
+        this.subtitleStyle = style;
+        return this;
+    }
+
     private boolean isCancelled() {
         return cancelFlag != null && cancelFlag.get();
     }
@@ -231,6 +277,19 @@ public class EditRenderer {
         this.listener = progress;
         lastPercent = -1;
         throwIfCancelled();
+
+        if (subtitleTrack == null && context != null && RecordSettings.subtitlesEnabled(context)) {
+            try {
+                subtitleTrack = SubtitleCache.loadForVideo(context.getCacheDir(), master);
+            } catch (Exception ignored) {
+            }
+        }
+        if (subtitleTrack != null && subtitleStyle == null && context != null) {
+            try {
+                subtitleStyle = SubtitleStyle.fromSettings(context);
+            } catch (Exception ignored) {
+            }
+        }
 
         // Probe the master
         MediaExtractor probe = new MediaExtractor();
@@ -680,6 +739,24 @@ public class EditRenderer {
         oesProgram = createProgram(VERTEX_SHADER, OES_FRAG_SHADER);
         posBuffer = floatBuffer(QUAD_POSITIONS);
         texBuffer = floatBuffer(TEX_FULL);
+
+        if (subtitleTrack != null) {
+            int[] subTex = new int[1];
+            GLES30.glGenTextures(1, subTex, 0);
+            subTexture = subTex[0];
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, subTexture);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0);
+
+            subProgram = createProgram(SUB_VERTEX_SHADER, SUB_FRAG_SHADER);
+            subTexBuffer = floatBuffer(SUB_TEX_COORDS);
+            subtitleBitmap = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
+            subtitleCanvas = new Canvas(subtitleBitmap);
+            subtitleDrawer = new SubtitleDrawer();
+        }
     }
 
     /** Draws the latched decoder frame full-size onto the encoder surface at {@code outPtsUs}. */
@@ -700,6 +777,38 @@ public class EditRenderer {
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4);
         GLES30.glDisableVertexAttribArray(0);
         GLES30.glDisableVertexAttribArray(1);
+
+        if (subtitleTrack != null && subtitleDrawer != null && subtitleBitmap != null && subtitleCanvas != null) {
+            long playheadMs = outPtsUs / 1000L;
+            subtitleBitmap.eraseColor(Color.TRANSPARENT);
+            boolean hasSub = subtitleDrawer.draw(subtitleCanvas, subtitleTrack, subtitleStyle, playheadMs, outW, outH);
+            if (hasSub) {
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, subTexture);
+                GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, subtitleBitmap, 0);
+
+                GLES30.glEnable(GLES30.GL_BLEND);
+                GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA, GLES30.GL_ONE_MINUS_SRC_ALPHA);
+
+                GLES30.glUseProgram(subProgram);
+                GLES30.glUniform1i(GLES30.glGetUniformLocation(subProgram, "uSubTexture"), 0);
+
+                subTexBuffer.position(0);
+                GLES30.glEnableVertexAttribArray(0);
+                GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 0, posBuffer);
+                GLES30.glEnableVertexAttribArray(1);
+                GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 0, subTexBuffer);
+
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4);
+
+                GLES30.glDisableVertexAttribArray(0);
+                GLES30.glDisableVertexAttribArray(1);
+
+                GLES30.glDisable(GLES30.GL_BLEND);
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0);
+            }
+        }
+
         eglCore.setPresentationTime(encoderSurface, outPtsUs * 1000L);
         eglCore.swapBuffers(encoderSurface);
     }
@@ -708,6 +817,21 @@ public class EditRenderer {
         if (decoderSurface != null) decoderSurface.release();
         if (surfaceTexture != null) surfaceTexture.release();
         if (frameThread != null) frameThread.quitSafely();
+        if (subProgram != 0) {
+            GLES30.glDeleteProgram(subProgram);
+            subProgram = 0;
+        }
+        if (subTexture != 0) {
+            GLES30.glDeleteTextures(1, new int[]{subTexture}, 0);
+            subTexture = 0;
+        }
+        if (subtitleBitmap != null) {
+            subtitleBitmap.recycle();
+            subtitleBitmap = null;
+        }
+        subtitleCanvas = null;
+        subtitleDrawer = null;
+        subTexBuffer = null;
         if (eglCore != null) {
             GLES30.glDeleteProgram(oesProgram);
             GLES30.glDeleteTextures(1, new int[]{oesTexture}, 0);

@@ -28,6 +28,12 @@
                 android:layout_gravity="center"
                 android:visibility="gone" />
 
+            <com.jovoc.facecampresentationrecorder.ui.KaraokeSubtitleView
+                android:id="@+id/page_subtitles"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
             <ImageView
                 android:id="@+id/page_thumb"
                 android:layout_width="match_parent"

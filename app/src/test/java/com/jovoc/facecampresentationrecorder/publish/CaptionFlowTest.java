@@ -1,10 +1,14 @@
 package com.jovoc.facecampresentationrecorder.publish;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
 
 import org.junit.Test;
 
@@ -314,5 +318,47 @@ public class CaptionFlowTest {
         assertEquals(PublishJob.AI_READY, j.aiCaptionState); // still waiting patiently, then READY
         assertEquals(Long.valueOf(CaptionFlow.POLL_MS), pauses.get(0));
         assertEquals(Long.valueOf(CaptionFlow.POLL_SLOW_MS), pauses.get(pauses.size() - 1));
+    }
+
+    @Test
+    public void subtitlesSavedToCacheOnReadyAndDeletedOnDiscard() throws Exception {
+        File cacheDir = new File(System.getProperty("java.io.tmpdir"), "test_cf_" + System.currentTimeMillis());
+        cacheDir.mkdirs();
+        try {
+            PublishApi subApi = new PublishApi(null) {
+                @Override
+                public AiCaptionCreated createCaption(PublishJob job, String audioUploadId) {
+                    return new AiCaptionCreated("cap1", false);
+                }
+
+                @Override
+                public AiCaptionStatus captionStatus(String captionId, String workspaceId) {
+                    String subJson = "{\"language\":\"en\",\"words\":[{\"text\":\"Hello\",\"startMs\":0,\"endMs\":500}]}";
+                    return new AiCaptionStatus(AiCaptionStatus.READY, subJson);
+                }
+            };
+
+            CaptionFlow cachingFlow = new CaptionFlow(subApi, audio, upload, cacheDir,
+                    () -> clock.addAndGet(tick.get()), ms -> { }, () -> { });
+
+            PublishJob j = job();
+            j.id = 888L;
+            cachingFlow.start(j, cancelled::get, x -> { }).finish();
+
+            assertEquals(PublishJob.AI_READY, j.aiCaptionState);
+            assertTrue(SubtitleCache.exists(cacheDir, 888L));
+            SubtitleTrack track = SubtitleCache.load(cacheDir, 888L);
+            assertNotNull(track);
+            assertEquals(1, track.rawWords.size());
+            assertEquals("Hello", track.rawWords.get(0).text);
+
+            cachingFlow.discard(888L);
+            assertFalse(SubtitleCache.exists(cacheDir, 888L));
+        } finally {
+            SubtitleCache.delete(cacheDir, 888L);
+            File subDir = new File(cacheDir, "subtitles");
+            if (subDir.exists()) subDir.delete();
+            cacheDir.delete();
+        }
     }
 }

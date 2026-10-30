@@ -3,6 +3,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionStore;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 
 import java.io.File;
 import java.util.function.BooleanSupplier;
@@ -92,15 +93,22 @@ public final class CaptionFlow {
     private final PublishApi api;
     private final Audio audio;
     private final AudioUpload upload;
+    private final File cacheDir;
     private final LongSupplier clock;
     private final Sleeper sleeper;
     private final Runnable onNeedsPlan;
 
     public CaptionFlow(PublishApi api, Audio audio, AudioUpload upload, LongSupplier clock,
                        Sleeper sleeper, Runnable onNeedsPlan) {
+        this(api, audio, upload, null, clock, sleeper, onNeedsPlan);
+    }
+
+    public CaptionFlow(PublishApi api, Audio audio, AudioUpload upload, File cacheDir, LongSupplier clock,
+                       Sleeper sleeper, Runnable onNeedsPlan) {
         this.api = api;
         this.audio = audio;
         this.upload = upload;
+        this.cacheDir = cacheDir;
         this.clock = clock;
         this.sleeper = sleeper;
         this.onNeedsPlan = onNeedsPlan;
@@ -132,7 +140,7 @@ public final class CaptionFlow {
                 direct.finish(jobId, audioSessions);
             }
         };
-        return new CaptionFlow(api, audio, up, clock, Thread::sleep, EntitlementsRefresher::refreshNow);
+        return new CaptionFlow(api, audio, up, cacheDir, clock, Thread::sleep, EntitlementsRefresher::refreshNow);
     }
 
     /** True while the job still owes caption work: wanted and no caption id fixed yet. */
@@ -149,12 +157,22 @@ public final class CaptionFlow {
                 || PublishJob.AI_PENDING.equals(state));
     }
 
-    /** Deletes the job's WAV (cancel, failure, or after the upload). Never throws. */
+    /** Deletes the job's WAV (cancel, failure, or after the upload), any cached subtitles, and any subtitled burn-in video. Never throws. */
     public void discard(long jobId) {
         try {
             audio.discard(jobId);
         } catch (RuntimeException ignored) {
             // a leftover in the cache dir is cleaned by the next run
+        }
+        try {
+            if (cacheDir != null) {
+                SubtitleCache.delete(cacheDir, jobId);
+                File subtitled = new File(cacheDir, "subtitled_" + jobId + ".mp4");
+                if (subtitled.exists()) {
+                    subtitled.delete();
+                }
+            }
+        } catch (RuntimeException ignored) {
         }
     }
 
@@ -318,7 +336,10 @@ public final class CaptionFlow {
                     aborted = true;
                 }
                 if (thread != null) thread.interrupt();
-                discard(job.id);
+                try {
+                    audio.discard(job.id);
+                } catch (RuntimeException ignored) {
+                }
                 try {
                     upload.finish(job.id);
                 } catch (RuntimeException ignored) {
@@ -362,9 +383,13 @@ public final class CaptionFlow {
             while (true) {
                 if (cancelled.getAsBoolean()) throw new PublishException(PublishException.Kind.CANCELLED);
                 try {
-                    String s = api.captionStatus(id, job.workspaceId).status;
+                    AiCaptionStatus status = api.captionStatus(id, job.workspaceId);
+                    String s = status.status;
                     serverErrors = 0;
                     if (AiCaptionStatus.READY.equals(s)) {
+                        if (cacheDir != null && status.subtitlesJson != null) {
+                            SubtitleCache.save(cacheDir, job.id, status.subtitlesJson);
+                        }
                         settle(PublishJob.AI_READY, null);
                         return;
                     }

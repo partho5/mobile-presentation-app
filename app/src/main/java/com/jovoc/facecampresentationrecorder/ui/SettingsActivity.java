@@ -14,6 +14,12 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_BG_R
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_COUNTDOWN_SECONDS;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_RECORD_AUDIO;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SHOW_EDITOR_AFTER_RECORDING;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SUBTITLES_ENABLED;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SUBTITLE_TEMPLATE;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_GREEN_PILL;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_YELLOW_PILL;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_CLEAN_WHITE;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_PREMIUM;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.PREF_NAME;
 
 import android.Manifest;
@@ -120,6 +126,22 @@ public class SettingsActivity extends AppCompatActivity {
     /** What floating_cam allowed when the permission rows were last built (the overlay row needs it). */
     private boolean floatingCamAllowed = true;
 
+    // Subtitle preferences (Part 4)
+    private CheckBox cbBurnSubtitles;
+    private View cardSubGreen;
+    private View cardSubYellow;
+    private View cardSubWhite;
+    private View cardSubPremium;
+    private View checkSubGreen;
+    private View checkSubYellow;
+    private View checkSubWhite;
+    private View checkSubPremium;
+    private ImageView crownSubPremium;
+    private TextView tierSubPremium;
+    private TextView tvSubPrevHighlight;
+    private View layoutSubtitleCards;
+    private View boxSubtitlePreview;
+
     /** A permission this app needs that the user hasn't granted yet. */
     private static final class MissingPermission {
         final int labelRes;
@@ -172,6 +194,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupAudio();
         setupAutoCrop();
         setupBackground();
+        setupSubtitles();
         setupAutoPublish();
         setupFloatingCam();
     }
@@ -187,6 +210,7 @@ public class SettingsActivity extends AppCompatActivity {
         onPlanChanged();
         Entitlements.addListener(planListener);
         forEachHelpView(findViewById(R.id.settings_content), SettingsHelpView::onHostResume);
+        refreshSubtitleUI();
     }
 
     @Override
@@ -381,6 +405,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
         syncFloatingCam();
         showAutoUploadState();
+        syncSubtitlesPlan();
     }
 
     // ---- face cam over other apps ----
@@ -405,6 +430,143 @@ public class SettingsActivity extends AppCompatActivity {
         PremiumMark.apply(floatingCamCrown, floatingCamTier, Feature.FLOATING_CAM);
         // The overlay permission is asked for only while the plan covers the face cam.
         if (allowed != floatingCamAllowed) refreshPermissionRows();
+    }
+
+    // ---- captions & subtitles (Part 4) ----
+
+    private void setupSubtitles() {
+        cbBurnSubtitles = findViewById(R.id.cb_burn_subtitles);
+        cardSubGreen = findViewById(R.id.card_sub_green);
+        cardSubYellow = findViewById(R.id.card_sub_yellow);
+        cardSubWhite = findViewById(R.id.card_sub_white);
+        cardSubPremium = findViewById(R.id.card_sub_premium);
+
+        checkSubGreen = findViewById(R.id.iv_check_sub_green);
+        checkSubYellow = findViewById(R.id.iv_check_sub_yellow);
+        checkSubWhite = findViewById(R.id.iv_check_sub_white);
+        checkSubPremium = findViewById(R.id.iv_check_sub_premium);
+
+        crownSubPremium = findViewById(R.id.iv_crown_sub_premium);
+        tierSubPremium = findViewById(R.id.tv_tier_sub_premium);
+
+        tvSubPrevHighlight = findViewById(R.id.tv_sub_prev_highlight);
+        layoutSubtitleCards = findViewById(R.id.layout_subtitle_cards);
+        boxSubtitlePreview = findViewById(R.id.box_subtitle_preview);
+
+        boolean enabled = RecordSettings.subtitlesEnabled(this);
+        cbBurnSubtitles.setChecked(enabled);
+        syncSubtitleControlsEnabled(enabled);
+
+        cbBurnSubtitles.setOnCheckedChangeListener((b, checked) -> {
+            RecordSettings.setSubtitlesEnabled(this, checked);
+            ActivityLog.log("setting_change", "key", "subtitles_enabled", "value", checked);
+            syncSubtitleControlsEnabled(checked);
+        });
+
+        cardSubGreen.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_GREEN_PILL));
+        cardSubYellow.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_YELLOW_PILL));
+        cardSubWhite.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_CLEAN_WHITE));
+        cardSubPremium.setOnClickListener(v -> {
+            Gate.run(this, Feature.BG_CUSTOM, () -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_PREMIUM));
+        });
+
+        syncSubtitlesPlan();
+        String current = RecordSettings.subtitleTemplate(this);
+        updateSubtitleSelectionUI(current);
+        updateSubtitlePreview(current, false);
+    }
+
+    private void selectSubtitleTemplate(String template) {
+        RecordSettings.setSubtitleTemplate(this, template);
+        ActivityLog.log("setting_change", "key", "subtitle_template", "value", template);
+        updateSubtitleSelectionUI(template);
+        updateSubtitlePreview(template, true);
+    }
+
+    private void updateSubtitleSelectionUI(String selected) {
+        if (selected == null) selected = SUBTITLE_TEMPLATE_GREEN_PILL;
+
+        boolean isGreen = SUBTITLE_TEMPLATE_GREEN_PILL.equals(selected);
+        boolean isYellow = SUBTITLE_TEMPLATE_YELLOW_PILL.equals(selected);
+        boolean isWhite = SUBTITLE_TEMPLATE_CLEAN_WHITE.equals(selected);
+        boolean isPremium = SUBTITLE_TEMPLATE_PREMIUM.equals(selected);
+
+        if (cardSubGreen != null) cardSubGreen.setSelected(isGreen);
+        if (checkSubGreen != null) checkSubGreen.setVisibility(isGreen ? View.VISIBLE : View.GONE);
+
+        if (cardSubYellow != null) cardSubYellow.setSelected(isYellow);
+        if (checkSubYellow != null) checkSubYellow.setVisibility(isYellow ? View.VISIBLE : View.GONE);
+
+        if (cardSubWhite != null) cardSubWhite.setSelected(isWhite);
+        if (checkSubWhite != null) checkSubWhite.setVisibility(isWhite ? View.VISIBLE : View.GONE);
+
+        if (cardSubPremium != null) cardSubPremium.setSelected(isPremium);
+        if (checkSubPremium != null) checkSubPremium.setVisibility(isPremium ? View.VISIBLE : View.GONE);
+    }
+
+    private void updateSubtitlePreview(String template, boolean animate) {
+        if (tvSubPrevHighlight == null) return;
+        if (template == null) template = SUBTITLE_TEMPLATE_GREEN_PILL;
+
+        switch (template) {
+            case SUBTITLE_TEMPLATE_YELLOW_PILL:
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_yellow);
+                tvSubPrevHighlight.setTextColor(0xFF000000);
+                break;
+            case SUBTITLE_TEMPLATE_CLEAN_WHITE:
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_white);
+                tvSubPrevHighlight.setTextColor(0xFF00E5FF);
+                break;
+            case SUBTITLE_TEMPLATE_PREMIUM:
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_premium);
+                tvSubPrevHighlight.setTextColor(0xFFFFFFFF);
+                break;
+            case SUBTITLE_TEMPLATE_GREEN_PILL:
+            default:
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_green);
+                tvSubPrevHighlight.setTextColor(0xFF000000);
+                break;
+        }
+
+        if (animate) {
+            tvSubPrevHighlight.animate().cancel();
+            tvSubPrevHighlight.setScaleX(1.15f);
+            tvSubPrevHighlight.setScaleY(1.15f);
+            tvSubPrevHighlight.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+        }
+    }
+
+    private void syncSubtitleControlsEnabled(boolean enabled) {
+        if (layoutSubtitleCards != null) {
+            layoutSubtitleCards.setAlpha(enabled ? 1.0f : 0.4f);
+        }
+        if (boxSubtitlePreview != null) {
+            boxSubtitlePreview.setAlpha(enabled ? 1.0f : 0.4f);
+        }
+    }
+
+    private void syncSubtitlesPlan() {
+        if (crownSubPremium != null && tierSubPremium != null) {
+            PremiumMark.apply(crownSubPremium, tierSubPremium, Feature.BG_CUSTOM);
+        }
+        if (cardSubPremium != null) {
+            boolean pro = Entitlements.has(Feature.BG_CUSTOM);
+            cardSubPremium.setAlpha(pro ? 1.0f : 0.85f);
+        }
+    }
+
+    private void refreshSubtitleUI() {
+        if (cbBurnSubtitles != null) {
+            boolean enabled = RecordSettings.subtitlesEnabled(this);
+            if (cbBurnSubtitles.isChecked() != enabled) {
+                cbBurnSubtitles.setChecked(enabled);
+            }
+            syncSubtitleControlsEnabled(enabled);
+        }
+        String current = RecordSettings.subtitleTemplate(this);
+        updateSubtitleSelectionUI(current);
+        updateSubtitlePreview(current, false);
+        syncSubtitlesPlan();
     }
 
     // ---- auto upload ----

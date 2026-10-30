@@ -141,6 +141,11 @@ public final class EditProject {
     }
 
     /** A project that keeps everything and changes nothing. */
+    public EditProject(String masterPath) {
+        this(masterPath, Collections.emptyList(), AudioSettings.DEFAULT, Collections.emptyList());
+    }
+
+    /** A project that keeps everything and changes nothing. */
     public static EditProject wholeFile(String masterPath) {
         return new EditProject(masterPath, Collections.<Range>emptyList(), AudioSettings.DEFAULT,
                 Collections.<AddedAudio>emptyList());

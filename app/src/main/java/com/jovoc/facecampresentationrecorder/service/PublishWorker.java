@@ -22,6 +22,8 @@ import com.jovoc.facecampresentationrecorder.db.AudioSessionStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.PublishJobDao;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
+import com.jovoc.facecampresentationrecorder.edit.EditProject;
+import com.jovoc.facecampresentationrecorder.edit.EditRenderer;
 import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.AutoPublishNotifier;
 import com.jovoc.facecampresentationrecorder.publish.BitmapImaging;
@@ -32,6 +34,13 @@ import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
 import com.jovoc.facecampresentationrecorder.publish.UndoNotifier;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
+
+import java.io.File;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Runs one {@link PublishJob} in the background (WorkManager): runs only with a connection,
@@ -50,6 +59,7 @@ public class PublishWorker extends Worker {
     private final PublishJobDao dao;
     private final UploadSessionDao sessions;
     private final AudioSessionStore audioSessions;
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
     private int lastNotifiedPercent = -10;
     /** True while the notification reads "Writing captions…" (video done first). */
     private volatile boolean writingCaptions;
@@ -62,9 +72,16 @@ public class PublishWorker extends Worker {
         audioSessions = new AudioSessionStore(db.audioUploadSessionDao());
     }
 
+    @Override
+    public void onStopped() {
+        super.onStopped();
+        stopped.set(true);
+    }
+
     @NonNull
     @Override
     public Result doWork() {
+        stopped.set(false);
         long id = getInputData().getLong(KEY_JOB_ID, -1L);
         PublishJob first = dao.get(id);
         if (first == null) return Result.success();
@@ -96,7 +113,7 @@ public class PublishWorker extends Worker {
                     }
                 },
                 this::onJobChanged, this::isStopped, MAX_ATTEMPTS, System::currentTimeMillis,
-                BitmapImaging.source(), captions);
+                BitmapImaging.source(), captions, createSubtitleBurner());
 
         PublishPipeline.Outcome outcome = pipeline.run(id, getRunAttemptCount());
 
@@ -195,5 +212,40 @@ public class PublishWorker extends Worker {
                 .build();
         return new ForegroundInfo(UndoNotifier.notificationId(jobId), n,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+    }
+
+    private PublishPipeline.SubtitleBurner createSubtitleBurner() {
+        return (job, originalFile) -> {
+            Context ctx = getApplicationContext();
+            if (!RecordSettings.subtitlesEnabled(ctx)) {
+                return originalFile;
+            }
+            File cacheDir = ctx.getCacheDir();
+            SubtitleTrack track = SubtitleCache.load(cacheDir, job.id);
+            if (track == null) {
+                track = SubtitleCache.loadForVideo(cacheDir, originalFile);
+            }
+            if (track == null || track.isEmpty()) {
+                return originalFile;
+            }
+            SubtitleStyle style = SubtitleStyle.fromSettings(ctx);
+            File subtitledFile = new File(cacheDir, "subtitled_" + job.id + ".mp4");
+            try {
+                EditProject project = new EditProject(originalFile.getAbsolutePath());
+                new EditRenderer()
+                        .withContext(ctx)
+                        .withCancelFlag(stopped)
+                        .withSubtitles(track, style)
+                        .render(project, subtitledFile, null);
+                if (subtitledFile.isFile() && subtitledFile.length() > 0) {
+                    return subtitledFile;
+                }
+            } catch (Exception e) {
+                if (subtitledFile.exists()) {
+                    subtitledFile.delete();
+                }
+            }
+            return originalFile;
+        };
     }
 }

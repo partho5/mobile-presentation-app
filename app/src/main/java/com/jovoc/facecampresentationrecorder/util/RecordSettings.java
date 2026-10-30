@@ -38,6 +38,17 @@ public final class RecordSettings {
     /** "Show video editor after recording" (Settings); off by default, per device. */
     public static final String KEY_SHOW_EDITOR_AFTER_RECORDING = "key_show_editor_after_recording";
 
+    /** Subtitle preferences (Part 4) */
+    public static final String KEY_SUBTITLES_ENABLED = "key_subtitles_enabled";
+    public static final String KEY_SUBTITLE_TEMPLATE = "key_subtitle_template";
+    public static final String KEY_SUBTITLE_POSITION_Y = "key_subtitle_position_y";
+    public static final String KEY_SUBTITLE_FONT_SIZE = "key_subtitle_font_size";
+
+    public static final String SUBTITLE_TEMPLATE_GREEN_PILL = "green_pill";
+    public static final String SUBTITLE_TEMPLATE_YELLOW_PILL = "yellow_pill";
+    public static final String SUBTITLE_TEMPLATE_CLEAN_WHITE = "clean_white";
+    public static final String SUBTITLE_TEMPLATE_PREMIUM = "pro_bounce";
+
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
     public static final String BG_PREF_NAME = "facecam_prefs";
     public static final String KEY_BG_REPLACE_ENABLED = "bg_replace_enabled";
@@ -81,6 +92,38 @@ public final class RecordSettings {
 
     public static boolean showEditorAfterRecording(Context context) {
         return appPrefs(context).getBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, false);
+    }
+
+    public static boolean subtitlesEnabled(Context context) {
+        return appPrefs(context).getBoolean(KEY_SUBTITLES_ENABLED, true);
+    }
+
+    public static void setSubtitlesEnabled(Context context, boolean enabled) {
+        appPrefs(context).edit().putBoolean(KEY_SUBTITLES_ENABLED, enabled).apply();
+    }
+
+    public static String subtitleTemplate(Context context) {
+        return appPrefs(context).getString(KEY_SUBTITLE_TEMPLATE, SUBTITLE_TEMPLATE_GREEN_PILL);
+    }
+
+    public static void setSubtitleTemplate(Context context, String template) {
+        appPrefs(context).edit().putString(KEY_SUBTITLE_TEMPLATE, template).apply();
+    }
+
+    public static float subtitlePositionY(Context context) {
+        return appPrefs(context).getFloat(KEY_SUBTITLE_POSITION_Y, 0.75f);
+    }
+
+    public static void setSubtitlePositionY(Context context, float positionY) {
+        appPrefs(context).edit().putFloat(KEY_SUBTITLE_POSITION_Y, positionY).apply();
+    }
+
+    public static String subtitleFontSize(Context context) {
+        return appPrefs(context).getString(KEY_SUBTITLE_FONT_SIZE, "medium");
+    }
+
+    public static void setSubtitleFontSize(Context context, String fontSize) {
+        appPrefs(context).edit().putString(KEY_SUBTITLE_FONT_SIZE, fontSize).apply();
     }
 
     /** The ratios to crop to, 9:16 first (the order of the Settings list). */

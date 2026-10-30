@@ -830,4 +830,49 @@ public class PublishPipelineTest {
         assertEquals("/public/v1/posts", server.takeRequest().getPath());
         assertEquals(2, server.getRequestCount());
     }
+
+    @Test
+    public void uploadsSubtitledVideoWhenBurnerProvided() throws Exception {
+        newJob();
+        File originalFile = video;
+        long originalLen = originalFile.length();
+        byte[] originalContent = java.nio.file.Files.readAllBytes(originalFile.toPath());
+
+        File subtitledVideo = tmp.newFile("subtitled_demo.mp4");
+        byte[] subtitledContent = "SUBTITLED_VIDEO_DATA".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (FileOutputStream fos = new FileOutputStream(subtitledVideo)) {
+            fos.write(subtitledContent);
+        }
+
+        PublishPipeline.SubtitleBurner burner = (job, file) -> subtitledVideo;
+
+        pipeline = new PublishPipeline(new PublishApi(repo), new PublishPipeline.Store() {
+            @Override
+            public PublishJob load(long id) {
+                return rows.get(id);
+            }
+
+            @Override
+            public void save(PublishJob job) {
+                rows.put(job.id, job);
+            }
+        }, job -> {}, cancelled::get, 3, now::get, burner);
+
+        server.enqueue(new MockResponse().setBody(UPLOAD_OK));
+        server.enqueue(new MockResponse().setBody(POST_OK));
+
+        assertEquals(PublishPipeline.Outcome.DONE, run(0));
+
+        // Original video file remains unmodified
+        assertEquals(originalLen, originalFile.length());
+        assertTrue(Arrays.equals(originalContent, java.nio.file.Files.readAllBytes(originalFile.toPath())));
+        // The master video path job.filePath remains unchanged
+        assertEquals(originalFile.getAbsolutePath(), rows.get(7L).filePath);
+
+        // Upload request received the subtitled video data
+        RecordedRequest uploadReq = server.takeRequest();
+        assertEquals("/public/v1/upload", uploadReq.getPath());
+        String body = uploadReq.getBody().readUtf8();
+        assertTrue(body.contains("SUBTITLED_VIDEO_DATA"));
+    }
 }
