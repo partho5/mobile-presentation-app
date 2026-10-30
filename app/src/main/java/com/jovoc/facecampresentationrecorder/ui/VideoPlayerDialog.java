@@ -488,17 +488,23 @@ public class VideoPlayerDialog {
                 if (intent != null && PostRecordTranscriber.ACTION_SUBTITLES_READY.equals(intent.getAction())) {
                     String path = intent.getStringExtra(PostRecordTranscriber.EXTRA_VIDEO_PATH);
                     if (path != null) {
+                        boolean matchesGroup = false;
+                        String broadcastBase = SubtitleCache.stripCropSuffix(new File(path).getName().replace(".mp4", ""));
                         for (Version v : versions) {
-                            if (v.file.getAbsolutePath().equals(path)) {
-                                int idx = versions.indexOf(v);
-                                if (idx >= 0) adapter.notifyItemChanged(idx);
+                            String vBase = SubtitleCache.stripCropSuffix(v.file.getName().replace(".mp4", ""));
+                            if (v.file.getAbsolutePath().equals(path) || vBase.equals(broadcastBase)) {
+                                matchesGroup = true;
+                                break;
                             }
                         }
-                        if (activeHolder != null && activeHolder.version != null && activeHolder.version.file.getAbsolutePath().equals(path)) {
-                            activeHolder.subtitles.setTrack(SubtitleCache.loadForVideo(appContext.getCacheDir(), activeHolder.version.file));
-                            activeHolder.subtitles.setPlayheadMs(activeVideo != null ? activeVideo.getCurrentPosition() : 0);
-                        }
-                        if (playingPath != null && playingPath.equals(path)) {
+                        if (matchesGroup) {
+                            for (int idx = 0; idx < versions.size(); idx++) {
+                                adapter.notifyItemChanged(idx);
+                            }
+                            if (activeHolder != null && activeHolder.version != null && activeHolder.subtitles != null) {
+                                activeHolder.subtitles.setTrack(SubtitleCache.loadForVideo(appContext.getCacheDir(), activeHolder.version.file));
+                                activeHolder.subtitles.setPlayheadMs(activeVideo != null ? activeVideo.getCurrentPosition() : 0);
+                            }
                             showSubtitleStatus("✓ Subtitles ready");
                         }
                     }
@@ -512,7 +518,10 @@ public class VideoPlayerDialog {
         if (RecordSettings.subtitlesEnabled(context)) {
             File f = initialFile;
             if (SubtitleCache.loadForVideo(appContext.getCacheDir(), f) == null) {
-                if (PostRecordTranscriber.isTranscribing(f.getAbsolutePath())) {
+                String master = findMaster(f.getAbsolutePath());
+                String checkPath = master != null ? master : f.getAbsolutePath();
+                if (PostRecordTranscriber.isTranscribing(f.getAbsolutePath())
+                        || PostRecordTranscriber.isTranscribing(checkPath)) {
                     showSubtitleStatus("⏳ Generating AI subtitles…");
                 }
             } else {

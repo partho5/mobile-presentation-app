@@ -50,12 +50,22 @@ public final class SubtitleCache {
     }
 
     /**
+     * Strips aspect-ratio crop and edit suffixes (e.g. "_9x16", "_4x5", "_1x1", "_16x9", "_edit")
+     * from a base file name to resolve the master video's base name.
+     */
+    public static String stripCropSuffix(String baseName) {
+        if (baseName == null) return "";
+        return baseName.replaceAll("(_edit(_\\d+)?)?_(9x16|4x5|1x1|16x9)$", "");
+    }
+
+    /**
      * Loads a subtitle track associated with a video file.
      * Checks in order:
      * 1. {@code <cacheDir>/subtitles/<videoFile.getName()>.json}
      * 2. {@code <cacheDir>/subtitles/<videoBaseName>.json}
      * 3. {@code <videoParent>/<videoBaseName>.sub.json}
      * 4. {@code <videoParent>/<videoFile.getName()>.sub.json}
+     * 5. Fallback for aspect-ratio crops (resolves master video's subtitle file)
      * Returns null if missing or invalid.
      */
     public static SubtitleTrack loadForVideo(File cacheDir, File videoFile) {
@@ -85,6 +95,26 @@ public final class SubtitleCache {
             if (p2 != null) return p2;
         }
 
+        // 3. Fallback for aspect-ratio crops (e.g. clip_9x16.mp4 -> clip.mp4)
+        String masterBase = stripCropSuffix(baseName);
+        if (!masterBase.equals(baseName)) {
+            if (cacheDir != null) {
+                File subDir = new File(cacheDir, DIR_SUBTITLES);
+                SubtitleTrack m1 = loadFromFile(new File(subDir, masterBase + ".mp4" + EXT));
+                if (m1 != null) return m1;
+
+                SubtitleTrack m2 = loadFromFile(new File(subDir, masterBase + EXT));
+                if (m2 != null) return m2;
+            }
+            if (parent != null) {
+                SubtitleTrack mp1 = loadFromFile(new File(parent, masterBase + ".sub.json"));
+                if (mp1 != null) return mp1;
+
+                SubtitleTrack mp2 = loadFromFile(new File(parent, masterBase + ".mp4.sub.json"));
+                if (mp2 != null) return mp2;
+            }
+        }
+
         return null;
     }
 
@@ -100,10 +130,11 @@ public final class SubtitleCache {
         int dot = name.lastIndexOf('.');
         String baseName = (dot > 0) ? name.substring(0, dot) : name;
 
-        // Save to cache directory: <cacheDir>/subtitles/<videoFile.getName()>.json
+        // Save to cache directory: <cacheDir>/subtitles/<videoFile.getName()>.json and <baseName>.json
         if (cacheDir != null) {
             File subDir = new File(cacheDir, DIR_SUBTITLES);
             saveToFile(new File(subDir, name + EXT), json);
+            saveToFile(new File(subDir, baseName + EXT), json);
         }
 
         // Save alongside video if directory is writable: <videoParent>/<videoBaseName>.sub.json

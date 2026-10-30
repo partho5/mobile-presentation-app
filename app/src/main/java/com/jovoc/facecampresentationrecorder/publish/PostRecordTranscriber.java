@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.PowerManager;
 import android.util.Log;
 
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
@@ -40,7 +41,13 @@ public final class PostRecordTranscriber {
 
     public static boolean isTranscribing(String videoPath) {
         if (videoPath == null) return false;
-        return activeTranscriptions.contains(videoPath);
+        if (activeTranscriptions.contains(videoPath)) return true;
+        String base = SubtitleCache.stripCropSuffix(new File(videoPath).getName().replace(".mp4", ""));
+        for (String active : activeTranscriptions) {
+            String activeBase = SubtitleCache.stripCropSuffix(new File(active).getName().replace(".mp4", ""));
+            if (base.equals(activeBase)) return true;
+        }
+        return false;
     }
 
     private PostRecordTranscriber() {}
@@ -51,25 +58,34 @@ public final class PostRecordTranscriber {
      * - User has an active session
      * - AI captions feature is allowed
      *
-     * <p>Returns immediately; transcription happens on a daemon thread.
+     * <p>Returns immediately; transcription happens on a background worker thread.
      */
     public static void start(Context context, File video) {
         try {
             if (context == null || video == null || !video.isFile()) return;
 
             // Guard 1: subtitles must be enabled
-            if (!RecordSettings.subtitlesEnabled(context)) return;
+            if (!RecordSettings.subtitlesEnabled(context)) {
+                Log.d(TAG, "Subtitles disabled in settings, skipping post-recording transcription");
+                return;
+            }
             // Guard 2: user must be signed in
-            if (!SessionManager.get(context).hasSession()) return;
+            if (!SessionManager.get(context).hasSession()) {
+                Log.d(TAG, "No active session, skipping post-recording transcription");
+                return;
+            }
             // Guard 3: AI captions feature must be allowed
-            if (!FeatureSnapshot.allows(Feature.AI_CAPTIONS)) return;
+            if (!FeatureSnapshot.allows(Feature.AI_CAPTIONS)) {
+                Log.d(TAG, "AI_CAPTIONS feature not allowed, skipping post-recording transcription");
+                return;
+            }
 
             final Context appContext = context.getApplicationContext();
             Thread t = new Thread(() -> run(appContext, video), "post-record-transcriber");
-            t.setDaemon(true);
+            t.setDaemon(false);
             t.start();
-        } catch (Exception ignored) {
-            // Silently swallow all exceptions so recording completion is never interrupted
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to start post-record transcriber thread", e);
         }
     }
 
@@ -80,12 +96,19 @@ public final class PostRecordTranscriber {
         activeTranscriptions.add(videoPath);
 
         // Deterministic job id derived from video path hash, no DB row needed
-        final long VIDEO_ONLY_JOB_ID = (long) video.getAbsolutePath().hashCode();
+        final long VIDEO_ONLY_JOB_ID = Math.abs((long) video.getAbsolutePath().hashCode());
         File wav = null;
         DirectUploader direct = null;
         AudioSessionStore audioSessions = null;
+        PowerManager.WakeLock wakeLock = null;
 
         try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FaceCam:transcribe");
+                wakeLock.acquire(180_000L);
+            }
+
             // Step 1: extract speech WAV
             wav = AudioExtractor.extract(context.getCacheDir(), VIDEO_ONLY_JOB_ID, video);
             if (wav == null || !wav.isFile()) return;
@@ -122,13 +145,13 @@ public final class PostRecordTranscriber {
             // Step 7: publish API
             PublishApi api = new PublishApi(repo);
 
-            // Step 8: synthetic publish job
+            // Step 8: synthetic publish job (MODE_AUTO builds title from filename without needing channels)
             PublishJob job = new PublishJob();
             job.id = VIDEO_ONLY_JOB_ID;
             job.filePath = video.getAbsolutePath();
             job.fileName = video.getName();
             job.workspaceId = workspaceId;
-            job.mode = PublishJob.MODE_NOW;
+            job.mode = PublishJob.MODE_AUTO;
             job.channelsJson = "[]";
             job.caption = "";
             job.aiCaptionKey = UUID.randomUUID().toString();
@@ -185,9 +208,15 @@ public final class PostRecordTranscriber {
                 } catch (Exception ignored) {
                 }
             }
-        } catch (Exception ignored) {
-            // Silently swallow all errors so user / app flow is never blocked
+        } catch (Exception e) {
+            Log.w(TAG, "Post-recording transcription failed", e);
         } finally {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                try {
+                    wakeLock.release();
+                } catch (Exception ignored) {
+                }
+            }
             activeTranscriptions.remove(videoPath);
             AudioExtractor.delete(AudioExtractor.outputFor(context.getCacheDir(), VIDEO_ONLY_JOB_ID));
             if (wav != null) {

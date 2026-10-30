@@ -30,6 +30,7 @@ import com.jovoc.facecampresentationrecorder.publish.BitmapImaging;
 import com.jovoc.facecampresentationrecorder.publish.CaptionFlow;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploadApi;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploader;
+import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
@@ -224,6 +225,23 @@ public class PublishWorker extends Worker {
             SubtitleTrack track = SubtitleCache.load(cacheDir, job.id);
             if (track == null) {
                 track = SubtitleCache.loadForVideo(cacheDir, originalFile);
+            }
+            if (track == null && PostRecordTranscriber.isTranscribing(originalFile.getAbsolutePath())) {
+                long deadline = System.currentTimeMillis() + 30_000L;
+                while (System.currentTimeMillis() < deadline
+                        && PostRecordTranscriber.isTranscribing(originalFile.getAbsolutePath())
+                        && !stopped.get()) {
+                    try {
+                        Thread.sleep(1_000L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                track = SubtitleCache.load(cacheDir, job.id);
+                if (track == null) {
+                    track = SubtitleCache.loadForVideo(cacheDir, originalFile);
+                }
             }
             if (track == null || track.isEmpty()) {
                 return originalFile;

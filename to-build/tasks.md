@@ -39,6 +39,7 @@ The AI transcription pipeline is already built and works end-to-end for publishi
 | Part 2 | Wait on transcription + fix premature burn-in race in PublishPipeline | ✅ |
 | Part 3 | Fix CaptionFlow.discard() deleting subtitle JSON too early | ✅ |
 | Part 4 | Show processing dialog message during post-recording transcription | ✅ |
+| Part 5 | Decouple subtitle transcription from auto-publish & resolve crop subtitles | ✅ |
 
 ---
 
