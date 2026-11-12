@@ -39,11 +39,13 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
+import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
+import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -424,36 +426,62 @@ public class ScreenRecordService extends Service {
                         (path, uri) -> Log.d(TAG, "MediaScanner Connection scanned " + path + " -> uri=" + uri)
                 );
 
-                // Replace the face cam background and auto-crop in a service of their own, so
-                // it does not depend on the app being open (e.g. stopped from the notification)
-                // The auto-publish row is saved first, so even a process death right after this
-                // point leaves a job the startup sweep publishes.
                 try {
                     PublishManager.get(this).beginAuto(file);
                 } catch (Exception e) {
                     Log.e(TAG, "Could not save auto-publish", e);
                 }
-                boolean processing = false;
-                try {
-                    processing = BgReplaceService.enqueue(this, file, BubbleTrack.stop(),
-                            features != null ? features : FeatureSnapshot.take());
-                } catch (Exception e) {
-                    Log.e(TAG, "Could not start post-recording processing", e);
-                }
 
-                // Auto-publish (when switched on in Settings): waits for the processing queued
-                // above, then uploads the 9:16 crop or the original. No taps needed.
-                // Runs even when queuing failed, so the saved row is never left waiting.
-                try {
-                    PublishManager.get(this).onRecordingStopped(file);
-                } catch (Exception e) {
-                    Log.e(TAG, "Could not queue auto-publish", e);
-                }
+                // Capture main-thread state before any background work.
+                final File capturedFile = file;
+                final java.util.List<BubbleTrack.Entry> bubbleTrack = BubbleTrack.stop();
+                final FeatureSnapshot featSnap = features != null ? features : FeatureSnapshot.take();
 
-                try {
-                    PostRecordTranscriber.start(this, file);
-                } catch (Exception e) {
-                    Log.e(TAG, "Could not start post-record transcriber", e);
+                // Decide whether BgReplaceService will do real work. Doing this now means the
+                // broadcast below carries the correct EXTRA_PROCESSING flag immediately, without
+                // waiting for the background thread.
+                final boolean willReplace = RecordSettings.bgReplaceEnabled(this, featSnap)
+                        && BubbleTrack.hasVisible(bubbleTrack);
+                final boolean willCrop = !RecordSettings.autoCropRatios(this, featSnap).isEmpty();
+                boolean processing = willReplace;
+
+                if (willReplace || willCrop) {
+                    // BgReplaceService renames the original file when its FFmpeg finishes.
+                    // AudioExtractor must read that file first. We do it on a background thread
+                    // so the main thread is never blocked, and only start BgReplaceService after
+                    // the WAV is safely written. PostRecordTranscriber then finds the pre-extracted
+                    // WAV and skips its own extraction step entirely.
+                    final Context appCtx = getApplicationContext();
+                    new Thread(() -> {
+                        final long jobId = Math.abs((long) capturedFile.getAbsolutePath().hashCode());
+                        AudioExtractor.extract(appCtx.getCacheDir(), jobId, capturedFile);
+                        try {
+                            BgReplaceService.enqueue(appCtx, capturedFile, bubbleTrack, featSnap);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not start post-recording processing", e);
+                        }
+                        try {
+                            PublishManager.get(appCtx).onRecordingStopped(capturedFile);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not queue auto-publish", e);
+                        }
+                        try {
+                            PostRecordTranscriber.start(appCtx, capturedFile);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not start post-record transcriber", e);
+                        }
+                    }, "post-record-preextract").start();
+                } else {
+                    try {
+                        PublishManager.get(this).onRecordingStopped(capturedFile);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Could not queue auto-publish", e);
+                    }
+                    try {
+                        PostRecordTranscriber.start(this, capturedFile);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Could not start post-record transcriber", e);
+                    }
                 }
 
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);

@@ -224,9 +224,9 @@ public final class PostRecordTranscriber {
                     return;
                 }
                 captionId = created.id;
-                // Do NOT persist captionId yet — it is only saved after the server
-                // confirms READY, so a NO_SPEECH / FAILED result can never poison
-                // future recordings at the same path or base name.
+                // Save immediately so a crash/process-death between here and READY
+                // lets the next launch resume polling this job without re-charging credits.
+                SubtitleEmbedStore.saveCaptionId(context, video, captionId);
             }
 
             // Step 5: poll up to 180 seconds (3 minutes) every 3 seconds.
