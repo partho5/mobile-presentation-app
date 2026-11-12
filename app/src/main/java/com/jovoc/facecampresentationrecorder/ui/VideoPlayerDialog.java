@@ -563,17 +563,24 @@ public class VideoPlayerDialog {
                     return;
                 }
                 String path = intent.getStringExtra(PostRecordTranscriber.EXTRA_VIDEO_PATH);
-                if (path != null && pendingEmbedPath != null && matchesGroupPath(path)) {
+                if (path == null || !matchesGroupPath(path)) return;
+
+                String reason = intent.getStringExtra(PostRecordTranscriber.EXTRA_REASON);
+                int msgRes = PostRecordTranscriber.REASON_NO_SPEECH.equals(reason)
+                        ? R.string.player_sub_no_speech
+                        : PostRecordTranscriber.REASON_SKIPPED_CREDITS.equals(reason)
+                        ? R.string.player_sub_no_credits
+                        : R.string.player_sub_failed;
+
+                if (pendingEmbedPath != null) {
+                    // User explicitly tapped "sub" and it failed.
                     pendingEmbedPath = null;
                     updateSubButton();
-                    String reason = intent.getStringExtra(PostRecordTranscriber.EXTRA_REASON);
-                    int msgRes = PostRecordTranscriber.REASON_NO_SPEECH.equals(reason)
-                            ? R.string.player_sub_no_speech
-                            : PostRecordTranscriber.REASON_SKIPPED_CREDITS.equals(reason)
-                            ? R.string.player_sub_no_credits
-                            : R.string.player_sub_failed;
                     showSubtitleStatus("✗ " + context.getString(msgRes));
                     Toast.makeText(context, msgRes, Toast.LENGTH_SHORT).show();
+                } else {
+                    // Automatic post-record transcription failed — stop showing the spinner.
+                    showSubtitleStatus("✗ " + context.getString(msgRes));
                 }
             }
         };

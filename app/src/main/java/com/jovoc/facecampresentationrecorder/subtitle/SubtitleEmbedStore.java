@@ -79,6 +79,11 @@ public final class SubtitleEmbedStore {
         return get(context).getCaptionId(video);
     }
 
+    public static void clearCaptionId(Context context, File video) {
+        if (context == null) return;
+        get(context).clearCaptionId(video);
+    }
+
     public static void onRenamed(Context context, File oldFile, File newFile) {
         if (context == null) return;
         get(context).onRenamed(oldFile, newFile);
@@ -153,10 +158,26 @@ public final class SubtitleEmbedStore {
         }
     }
 
+    public synchronized void clearCaptionId(File video) {
+        if (video == null) return;
+        store.remove(PREFIX_CAPTION_PATH + video.getAbsolutePath());
+        String baseKey = masterBaseKey(video);
+        if (baseKey != null) {
+            store.remove(PREFIX_CAPTION_BASE + baseKey);
+        }
+    }
+
     public synchronized void remove(String path) {
         if (path == null || path.isEmpty()) return;
         store.remove(PREFIX_EMBED + path);
         store.remove(PREFIX_CAPTION_PATH + path);
+        // Also clear the base-name index so a later recording at the same dir/base
+        // does not inherit a stale captionId from a deleted or failed clip.
+        File f = new File(path);
+        String baseKey = masterBaseKey(f);
+        if (baseKey != null) {
+            store.remove(PREFIX_CAPTION_BASE + baseKey);
+        }
     }
 
     private static String fingerprint(File file) {

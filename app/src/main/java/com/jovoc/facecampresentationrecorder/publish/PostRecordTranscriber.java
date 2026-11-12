@@ -224,18 +224,30 @@ public final class PostRecordTranscriber {
                     return;
                 }
                 captionId = created.id;
-                SubtitleEmbedStore.saveCaptionId(context, video, captionId);
+                // Do NOT persist captionId yet — it is only saved after the server
+                // confirms READY, so a NO_SPEECH / FAILED result can never poison
+                // future recordings at the same path or base name.
             }
 
-            // Step 5: poll up to 180 seconds (3 minutes) every 3 seconds
+            // Step 5: poll up to 180 seconds (3 minutes) every 3 seconds.
+            // Sleep first: the server needs a moment after createCaption before the
+            // job even appears in the status endpoint (restores the pre-249b153 delay).
             long pollStart = System.currentTimeMillis();
             long pollDeadlineMs = pollStart + 180_000L;
             while (System.currentTimeMillis() < pollDeadlineMs) {
+                try {
+                    Thread.sleep(3_000L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
                 try {
                     AiCaptionStatus status = api.captionStatus(captionId, workspaceId);
                     if (status != null) {
                         if (AiCaptionStatus.READY.equals(status.status)) {
                             if (status.subtitlesJson != null && !status.subtitlesJson.trim().isEmpty()) {
+                                // Persist only on success so the ID is never stale.
+                                SubtitleEmbedStore.saveCaptionId(context, video, captionId);
                                 SubtitleCache.saveForVideo(context.getCacheDir(), video, status.subtitlesJson);
                                 finishedReady = true;
                                 sendReady(context, video.getAbsolutePath());
@@ -243,10 +255,12 @@ public final class PostRecordTranscriber {
                             return;
                         }
                         if (AiCaptionStatus.NO_SPEECH.equals(status.status)) {
+                            SubtitleEmbedStore.clearCaptionId(context, video);
                             failReason = REASON_NO_SPEECH;
                             return;
                         }
                         if (AiCaptionStatus.FAILED.equals(status.status)) {
+                            SubtitleEmbedStore.clearCaptionId(context, video);
                             failReason = REASON_FAILED;
                             return;
                         }
@@ -259,13 +273,6 @@ public final class PostRecordTranscriber {
                     }
                     // Transient errors (NETWORK, SERVER, RATE_LIMITED): keep polling until deadline
                 } catch (Exception ignored) {
-                }
-
-                try {
-                    Thread.sleep(3_000L);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
                 }
             }
         } catch (PublishException pe) {

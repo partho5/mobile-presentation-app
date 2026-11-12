@@ -257,7 +257,7 @@ public class ScreenRecordService extends Service {
                 }
             }
 
-            String timeStamp = new SimpleDateFormat("hh-mm-a-yyyy-MM-dd", Locale.US).format(new Date()).toUpperCase(Locale.US);
+            String timeStamp = new SimpleDateFormat("hh-mm-ss-a-yyyy-MM-dd", Locale.US).format(new Date()).toUpperCase(Locale.US);
             String firstWord = (appName != null && !appName.trim().isEmpty()) ? appName.trim().split("\\s+")[0] : appName;
             File outputFile = new File(appDir, timeStamp + "-" + firstWord + ".mp4");
             currentVideoPath = outputFile.getAbsolutePath();
