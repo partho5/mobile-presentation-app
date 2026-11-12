@@ -299,4 +299,28 @@ public class PublishPipelineCaptionTest {
         assertEquals(PublishPipeline.Outcome.GONE, pipeline.run(7, 0));
         assertTrue(discards.get() > before);
     }
+
+    @Test
+    public void reusedCaptionIdDoesNotCreateOrChargeAgain() throws Exception {
+        PublishJob j = job(PublishJob.MODE_NOW, PublishJob.AI_READY);
+        j.aiCaptionId = "cap_precreated";
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+        assertTrue("createCaption must not be called when aiCaptionId is already saved",
+                api.captionBodies.isEmpty());
+        assertEquals(0, api.statusCalls.get());
+        assertEquals("cap_precreated", new JSONObject(api.postBodies.get(0)).getString("aiCaptionId"));
+    }
+
+    @Test
+    public void reusedPendingCaptionIdPollsWithoutCallingCreateAgain() throws Exception {
+        api.statuses = new String[]{AiCaptionStatus.READY};
+        PublishJob j = job(PublishJob.MODE_NOW, PublishJob.AI_PENDING);
+        j.aiCaptionId = "cap_inflight";
+        assertEquals(PublishPipeline.Outcome.DONE, pipeline.run(7, 0));
+        assertTrue("createCaption must not be called for already-created pending id",
+                api.captionBodies.isEmpty());
+        assertEquals(1, api.statusCalls.get());
+        assertEquals(PublishJob.AI_READY, j.aiCaptionState);
+        assertEquals("cap_inflight", new JSONObject(api.postBodies.get(0)).getString("aiCaptionId"));
+    }
 }

@@ -12,6 +12,8 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
+
 import java.io.File;
 
 /**
@@ -94,6 +96,7 @@ public final class VideoRenameHelper {
 
             updateMediaStore(context, currentFile, newFile);
             VideoGroupStore.onRenamed(context, currentFile, newFile);
+            SubtitleEmbedStore.onRenamed(context, currentFile, newFile);
 
             if (callback != null) {
                 callback.onRenamed(currentFile, newFile);

@@ -272,6 +272,21 @@
                 android:src="@drawable/ic_video_stack"
                 app:tint="#B8C4D0" />
 
+            <TextView
+                android:id="@+id/btn_embed_subtitles"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/player_sub_desc"
+                android:gravity="center"
+                android:singleLine="true"
+                android:text="@string/player_sub_label"
+                android:textAllCaps="false"
+                android:textColor="#22D3EE"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
             <ImageButton
                 android:id="@+id/btn_edit_video"
                 android:layout_width="0dp"

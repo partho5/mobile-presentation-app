@@ -36,6 +36,7 @@ import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishPipeline;
 import com.jovoc.facecampresentationrecorder.publish.UndoNotifier;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
@@ -115,6 +116,8 @@ public class PublishWorker extends Worker {
                 },
                 this::onJobChanged, this::isStopped, MAX_ATTEMPTS, System::currentTimeMillis,
                 BitmapImaging.source(), captions, createSubtitleBurner());
+
+        reuseExistingCaptionIdIfPresent(first);
 
         PublishPipeline.Outcome outcome = pipeline.run(id, getRunAttemptCount());
 
@@ -215,9 +218,52 @@ public class PublishWorker extends Worker {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     }
 
+    /**
+     * Reuses an {@code aiCaptionId} created by {@link PostRecordTranscriber} (or waits briefly for
+     * an in-flight transcription) so {@link CaptionFlow} never calls {@code POST /ai-captions} a
+     * second time and never charges the user's credits twice.
+     */
+    private void reuseExistingCaptionIdIfPresent(PublishJob job) {
+        if (job == null || job.aiCaptionId != null || !PublishJob.AI_EXTRACTING.equals(job.aiCaptionState)) {
+            return;
+        }
+        Context ctx = getApplicationContext();
+        File videoFile = job.filePath != null ? new File(job.filePath) : null;
+        if (videoFile == null) return;
+
+        String existingId = SubtitleEmbedStore.getCaptionId(ctx, videoFile);
+        if (existingId == null && PostRecordTranscriber.isTranscribing(job.filePath)) {
+            long deadline = System.currentTimeMillis() + 20_000L;
+            while (System.currentTimeMillis() < deadline
+                    && PostRecordTranscriber.isTranscribing(job.filePath)
+                    && !stopped.get()) {
+                existingId = SubtitleEmbedStore.getCaptionId(ctx, videoFile);
+                if (existingId != null) break;
+                try {
+                    Thread.sleep(500L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            if (existingId == null) {
+                existingId = SubtitleEmbedStore.getCaptionId(ctx, videoFile);
+            }
+        }
+        if (existingId != null && !existingId.isEmpty()) {
+            job.aiCaptionId = existingId;
+            job.aiCaptionState = SubtitleCache.loadForVideo(ctx.getCacheDir(), videoFile) != null
+                    ? PublishJob.AI_READY : PublishJob.AI_PENDING;
+            dao.update(job);
+        }
+    }
+
     private PublishPipeline.SubtitleBurner createSubtitleBurner() {
         return (job, originalFile) -> {
             Context ctx = getApplicationContext();
+            if (SubtitleEmbedStore.isEmbedded(ctx, originalFile)) {
+                return originalFile;
+            }
             if (!RecordSettings.subtitlesEnabled(ctx)) {
                 return originalFile;
             }

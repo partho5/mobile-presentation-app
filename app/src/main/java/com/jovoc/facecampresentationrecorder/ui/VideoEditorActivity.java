@@ -37,6 +37,7 @@ import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 
 import java.io.File;
@@ -126,7 +127,8 @@ public class VideoEditorActivity extends AppCompatActivity
         if (subtitlesView != null) {
             subtitlesView.setStyle(SubtitleStyle.fromSettings(this));
             File masterFile = new File(path);
-            subtitlesView.setTrack(SubtitleCache.loadForVideo(getCacheDir(), masterFile));
+            subtitlesView.setTrack(SubtitleEmbedStore.isEmbedded(this, masterFile)
+                    ? null : SubtitleCache.loadForVideo(getCacheDir(), masterFile));
         }
         timeline = findViewById(R.id.timeline);
         tvStatus = findViewById(R.id.tv_status);
@@ -263,7 +265,9 @@ public class VideoEditorActivity extends AppCompatActivity
                 String currentPath = getIntent().getStringExtra(EXTRA_MASTER_PATH);
                 if (path != null && path.equals(currentPath)) {
                     if (subtitlesView != null) {
-                        subtitlesView.setTrack(SubtitleCache.loadForVideo(getCacheDir(), new File(path)));
+                        File f = new File(path);
+                        subtitlesView.setTrack(SubtitleEmbedStore.isEmbedded(VideoEditorActivity.this, f)
+                                ? null : SubtitleCache.loadForVideo(getCacheDir(), f));
                         if (video != null && prepared) {
                             subtitlesView.setPlayheadMs(video.getCurrentPosition());
                         }

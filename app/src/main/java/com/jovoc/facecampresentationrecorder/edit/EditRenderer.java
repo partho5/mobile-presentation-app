@@ -22,6 +22,7 @@ import android.view.Surface;
 import com.jovoc.facecampresentationrecorder.bgreplace.EGLCore;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleDrawer;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
@@ -278,7 +279,8 @@ public class EditRenderer {
         lastPercent = -1;
         throwIfCancelled();
 
-        if (subtitleTrack == null && context != null && RecordSettings.subtitlesEnabled(context)) {
+        if (subtitleTrack == null && context != null && RecordSettings.subtitlesEnabled(context)
+                && !SubtitleEmbedStore.isEmbedded(context, master)) {
             try {
                 subtitleTrack = SubtitleCache.loadForVideo(context.getCacheDir(), master);
             } catch (Exception ignored) {

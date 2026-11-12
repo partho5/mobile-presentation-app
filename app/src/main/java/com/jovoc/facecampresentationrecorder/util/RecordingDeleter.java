@@ -5,6 +5,8 @@ import android.content.Context;
 import android.media.MediaScannerConnection;
 import android.provider.MediaStore;
 
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
+
 import java.io.File;
 
 /** The app's one way to delete a recording file: disk, group store, MediaStore, media scan. */
@@ -18,6 +20,7 @@ public final class RecordingDeleter {
         boolean removed = !file.exists() || file.delete();
         if (!removed) return false;
         VideoGroupStore.remove(context, file.getAbsolutePath());
+        SubtitleEmbedStore.remove(context, file.getAbsolutePath());
 
         try {
             ContentResolver resolver = context.getContentResolver();

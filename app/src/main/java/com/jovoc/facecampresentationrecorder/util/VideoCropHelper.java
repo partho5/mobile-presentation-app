@@ -13,6 +13,7 @@ import android.util.Log;
 import com.arthenica.ffmpegkit.FFmpegKit;
 import com.arthenica.ffmpegkit.FFmpegSession;
 import com.arthenica.ffmpegkit.ReturnCode;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -255,6 +256,9 @@ public class VideoCropHelper {
                     }
 
                     Log.d(TAG, "Crop " + ratioLabel + " succeeded: " + outputPath);
+                    if (SubtitleEmbedStore.isEmbedded(context, inputFile)) {
+                        SubtitleEmbedStore.markEmbedded(context, outFile);
+                    }
                     successCount++;
 
                     // Register with MediaStore so it appears in gallery. Only now

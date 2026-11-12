@@ -48,6 +48,8 @@ import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.publish.PublishLabels;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
@@ -430,20 +432,22 @@ public class PublishActivity extends AppCompatActivity {
         final int request = costRequest;
         final List<String> ids = new ArrayList<>(selected);
         final boolean ai = aiActive();
+        final String existingCaptionId = SubtitleEmbedStore.getCaptionId(this, file);
         io.execute(() -> {
             int amount = 0;
             int aiAmount = 0;
             boolean ok = true;
             try {
                 long seconds = -1;
-                if (ai) {
+                if (ai && existingCaptionId == null) {
                     // The audio track's length, not the video's: that is what the server charges on.
+                    // Already-transcribed videos reuse existingCaptionId at 0 extra credit cost.
                     if (audioSeconds == null) audioSeconds = AudioDuration.seconds(file);
                     seconds = audioSeconds;
                 }
                 ChargePreview preview = api.chargePreview(ids, seconds);
                 amount = preview.amount;
-                aiAmount = preview.aiCaptions;
+                aiAmount = (ai && existingCaptionId != null) ? 0 : preview.aiCaptions;
             } catch (PublishException e) {
                 ok = false;
             }
@@ -568,7 +572,18 @@ public class PublishActivity extends AppCompatActivity {
         job.mode = isScheduled() ? PublishJob.MODE_SCHEDULE : PublishJob.MODE_NOW;
         job.scheduleAt = isScheduled() ? scheduleAt.getTimeInMillis() : 0L;
         // The switch as it is when Publish is tapped: on only for a plan that includes it.
-        job.aiCaptionState = aiActive() ? PublishJob.AI_EXTRACTING : PublishJob.AI_OFF;
+        if (aiActive()) {
+            String existingCaptionId = SubtitleEmbedStore.getCaptionId(this, file);
+            if (existingCaptionId != null) {
+                job.aiCaptionId = existingCaptionId;
+                job.aiCaptionState = SubtitleCache.loadForVideo(getCacheDir(), file) != null
+                        ? PublishJob.AI_READY : PublishJob.AI_PENDING;
+            } else {
+                job.aiCaptionState = PublishJob.AI_EXTRACTING;
+            }
+        } else {
+            job.aiCaptionState = PublishJob.AI_OFF;
+        }
 
         PublishManager.get(this).enqueue(job, () -> main.post(() -> {
             Toast.makeText(getApplicationContext(), R.string.publish_started, Toast.LENGTH_LONG).show();
