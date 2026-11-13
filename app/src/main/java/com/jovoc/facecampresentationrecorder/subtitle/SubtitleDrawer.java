@@ -367,22 +367,25 @@ public class SubtitleDrawer {
         float fontSizePx = measureScaledFontSize(style.fontSizeSp, viewWidth);
         float spaceWidth = textMeasurer.measureText(" ", fontSizePx);
 
-        float totalPhraseWidth = 0f;
+        float totalWordsWidth = 0f;
         for (int i = 0; i < wordCount; i++) {
             SubtitleWord word = phrase.words.get(i);
             float w = textMeasurer.measureText(word.text, fontSizePx);
             wordWidths[i] = w;
-            totalPhraseWidth += w;
-            if (i > 0) {
-                totalPhraseWidth += spaceWidth;
-            }
+            totalWordsWidth += w;
         }
+
+        float padX = measureScaledDimension(style.paddingHorizontalDp, viewWidth);
+        float popBuffer = measureScaledDimension(2.0f, viewWidth);
+        float wordGap = computeWordGap(spaceWidth, padX, popBuffer, totalWordsWidth, wordCount, viewWidth);
+
+        float totalPhraseWidth = totalWordsWidth + (wordCount > 1 ? (wordCount - 1) * wordGap : 0f);
 
         float startX = (viewWidth - totalPhraseWidth) / 2.0f;
         float currentX = startX;
         for (int i = 0; i < wordCount; i++) {
             wordStartXs[i] = currentX;
-            currentX += wordWidths[i] + spaceWidth;
+            currentX += wordWidths[i] + wordGap;
         }
 
         float centerY = viewHeight * style.positionY;
@@ -401,7 +404,6 @@ public class SubtitleDrawer {
             float activeWordRight = activeWordLeft + wordWidths[activeIndex];
             tempWordBounds.set(activeWordLeft, textTop, activeWordRight, textBottom);
 
-            float padX = measureScaledDimension(style.paddingHorizontalDp, viewWidth);
             float padY = measureScaledDimension(style.paddingVerticalDp, viewWidth);
             computePillBounds(tempWordBounds, padX, padY, tempPillBounds);
 
@@ -595,6 +597,35 @@ public class SubtitleDrawer {
         return wordBounds != null ? (wordBounds.top + wordBounds.bottom) / 2.0f : 0f;
     }
 
+    /**
+     * Computes the uniform inter-word gap ensuring active word highlight pills never overlap neighboring words.
+     */
+    public static float computeWordGap(float spaceWidth, float padX, float popBuffer) {
+        return Math.max(spaceWidth, spaceWidth + padX + popBuffer);
+    }
+
+    /**
+     * Computes the uniform inter-word gap with screen boundary safety constraint.
+     */
+    public static float computeWordGap(float spaceWidth, float padX, float popBuffer, float totalWordsWidth, int wordCount, int viewWidth) {
+        float desiredGap = computeWordGap(spaceWidth, padX, popBuffer);
+        if (wordCount <= 1 || viewWidth <= 0) {
+            return desiredGap;
+        }
+        float maxUsableWidth = viewWidth * 0.90f;
+        float desiredTotalWidth = totalWordsWidth + (wordCount - 1) * desiredGap;
+        if (desiredTotalWidth > maxUsableWidth) {
+            float availableForGaps = maxUsableWidth - totalWordsWidth;
+            if (availableForGaps > 0) {
+                float compressedGap = availableForGaps / (wordCount - 1);
+                return Math.max(spaceWidth, Math.min(desiredGap, compressedGap));
+            } else {
+                return spaceWidth;
+            }
+        }
+        return desiredGap;
+    }
+
     public boolean computePhraseBounds(SubtitlePhrase phrase, SubtitleStyle style, int viewWidth, int viewHeight, Bounds outBounds) {
         if (phrase == null || phrase.words.isEmpty() || style == null || outBounds == null || viewWidth <= 0 || viewHeight <= 0) {
             return false;
@@ -604,13 +635,16 @@ public class SubtitleDrawer {
         float fontSizePx = measureScaledFontSize(style.fontSizeSp, viewWidth);
         float spaceWidth = textMeasurer.measureText(" ", fontSizePx);
 
-        float totalPhraseWidth = 0f;
+        float totalWordsWidth = 0f;
         for (int i = 0; i < wordCount; i++) {
-            totalPhraseWidth += textMeasurer.measureText(phrase.words.get(i).text, fontSizePx);
-            if (i > 0) {
-                totalPhraseWidth += spaceWidth;
-            }
+            totalWordsWidth += textMeasurer.measureText(phrase.words.get(i).text, fontSizePx);
         }
+
+        float padX = measureScaledDimension(style.paddingHorizontalDp, viewWidth);
+        float popBuffer = measureScaledDimension(2.0f, viewWidth);
+        float wordGap = computeWordGap(spaceWidth, padX, popBuffer, totalWordsWidth, wordCount, viewWidth);
+
+        float totalPhraseWidth = totalWordsWidth + (wordCount > 1 ? (wordCount - 1) * wordGap : 0f);
 
         float startX = (viewWidth - totalPhraseWidth) / 2.0f;
         float centerY = viewHeight * style.positionY;
@@ -649,20 +683,23 @@ public class SubtitleDrawer {
         float fontSizePx = measureScaledFontSize(style.fontSizeSp, viewWidth);
         float spaceWidth = textMeasurer.measureText(" ", fontSizePx);
 
-        float totalPhraseWidth = 0f;
+        float totalWordsWidth = 0f;
         for (int i = 0; i < wordCount; i++) {
             float w = textMeasurer.measureText(phrase.words.get(i).text, fontSizePx);
             wordWidths[i] = w;
-            totalPhraseWidth += w;
-            if (i > 0) {
-                totalPhraseWidth += spaceWidth;
-            }
+            totalWordsWidth += w;
         }
+
+        float padX = measureScaledDimension(style.paddingHorizontalDp, viewWidth);
+        float popBuffer = measureScaledDimension(2.0f, viewWidth);
+        float wordGap = computeWordGap(spaceWidth, padX, popBuffer, totalWordsWidth, wordCount, viewWidth);
+
+        float totalPhraseWidth = totalWordsWidth + (wordCount > 1 ? (wordCount - 1) * wordGap : 0f);
 
         float startX = (viewWidth - totalPhraseWidth) / 2.0f;
         float currentX = startX;
         for (int i = 0; i < wordIndex; i++) {
-            currentX += wordWidths[i] + spaceWidth;
+            currentX += wordWidths[i] + wordGap;
         }
 
         float wordLeft = currentX;

@@ -320,4 +320,55 @@ public class SubtitleDrawerTest {
         assertNull(drawer.computeWordBounds(phrase, 5, style, 1080, 1920));
         assertNull(drawer.computePhraseBounds(null, style, 1080, 1920));
     }
+
+    @Test
+    public void testActiveWordPillDoesNotOverlapNeighboringWords() {
+        SubtitleWord w1 = new SubtitleWord("UI", 0, 300);
+        SubtitleWord w2 = new SubtitleWord("design", 350, 700);
+        SubtitleWord w3 = new SubtitleWord("থেকে", 750, 1100);
+        SubtitleWord w4 = new SubtitleWord("শুরু", 1150, 1500);
+        SubtitleWord w5 = new SubtitleWord("করে", 1550, 1900);
+        SubtitlePhrase phrase = new SubtitlePhrase(Arrays.asList(w1, w2, w3, w4, w5));
+        SubtitleStyle style = SubtitleStyle.yellowPill();
+
+        int viewWidth = 1080;
+        int viewHeight = 1920;
+
+        // Word 2 ("থেকে") is the highlighted active word
+        SubtitleDrawer.Bounds wordPrev = drawer.computeWordBounds(phrase, 1, style, viewWidth, viewHeight);
+        SubtitleDrawer.Bounds wordActive = drawer.computeWordBounds(phrase, 2, style, viewWidth, viewHeight);
+        SubtitleDrawer.Bounds wordNext = drawer.computeWordBounds(phrase, 3, style, viewWidth, viewHeight);
+
+        assertNotNull(wordPrev);
+        assertNotNull(wordActive);
+        assertNotNull(wordNext);
+
+        SubtitleDrawer.Bounds pillBounds = new SubtitleDrawer.Bounds();
+        SubtitleDrawer.computePillBounds(wordActive, style, viewWidth, pillBounds);
+
+        // Crucial bug prevention test: the pill MUST NOT overlap adjacent words
+        assertTrue("Pill left (" + pillBounds.left + ") must be greater than previous word right (" + wordPrev.right + ")",
+                pillBounds.left > wordPrev.right);
+        assertTrue("Pill right (" + pillBounds.right + ") must be less than next word left (" + wordNext.left + ")",
+                pillBounds.right < wordNext.left);
+    }
+
+    @Test
+    public void testComputeWordGapClearance() {
+        float spaceWidth = 20.0f;
+        float padX = 24.0f;
+        float popBuffer = 6.0f;
+
+        float gap = SubtitleDrawer.computeWordGap(spaceWidth, padX, popBuffer);
+        // Required gap must comfortably accommodate padX and leave breathing room
+        assertEquals(50.0f, gap, 0.001f);
+        assertTrue(gap - padX >= spaceWidth);
+
+        // Screen boundary safety: compresses gap when phrase is wider than 90% screen width
+        float totalWordsWidth = 900.0f;
+        int wordCount = 4;
+        int viewWidth = 1000; // 90% limit is 900px
+        float compressedGap = SubtitleDrawer.computeWordGap(spaceWidth, padX, popBuffer, totalWordsWidth, wordCount, viewWidth);
+        assertEquals(spaceWidth, compressedGap, 0.001f);
+    }
 }
