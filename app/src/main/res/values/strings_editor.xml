@@ -32,6 +32,8 @@
     <string name="player_sub_busy_label">sub…</string>
     <string name="player_sub_desc">Embed subtitles into video</string>
     <string name="player_sub_already_embedded">Subtitles are already embedded in this video</string>
+    <string name="player_sub_all_embedded">Subtitles are already embedded for all variants</string>
+    <string name="player_sub_no_variants">No crop variants to embed (original kept clean)</string>
     <string name="player_sub_embedded">Subtitles embedded into video</string>
     <string name="player_sub_failed">Could not embed subtitles into video</string>
     <string name="player_sub_busy">Wait for subtitle embedding to finish</string>

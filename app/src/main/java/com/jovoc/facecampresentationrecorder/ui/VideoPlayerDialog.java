@@ -530,19 +530,22 @@ public class VideoPlayerDialog {
                             activeHolder.subtitles.setPlayheadMs(activeVideo != null ? activeVideo.getCurrentPosition() : 0);
                         }
                         if (pendingEmbedPath != null) {
-                            Version target = findVersion(pendingEmbedPath);
                             pendingEmbedPath = null;
-                            if (target != null && !SubtitleEmbedStore.isEmbedded(appContext, target.file)) {
-                                SubtitleTrack track = SubtitleCache.loadForVideo(appContext.getCacheDir(), target.file);
+                            List<File> variants = getCropVariantFiles();
+                            if (!variants.isEmpty() && !areAllVariantsEmbedded(variants)) {
+                                SubtitleTrack track = SubtitleCache.loadForVideo(appContext.getCacheDir(), variants.get(0));
+                                if (track == null && masterPath != null) {
+                                    track = SubtitleCache.loadForVideo(appContext.getCacheDir(), new File(masterPath));
+                                }
                                 if (track != null && !track.isEmpty()) {
-                                    startBurnSubtitles(target.file, track);
+                                    startBurnSubtitles(variants, track);
                                     return;
                                 }
                             }
                             updateSubButton();
                         }
-                        Version playing = findVersion(playingPath);
-                        if (playing != null && SubtitleEmbedStore.isEmbedded(appContext, playing.file)) {
+                        List<File> currentVariants = getCropVariantFiles();
+                        if (!currentVariants.isEmpty() && areAllVariantsEmbedded(currentVariants)) {
                             showSubtitleStatus("✓ Subtitles embedded");
                         } else {
                             showSubtitleStatus("✓ Subtitles ready");
@@ -588,7 +591,8 @@ public class VideoPlayerDialog {
                 new IntentFilter(PostRecordTranscriber.ACTION_SUBTITLES_FAILED),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
 
-        if (SubtitleEmbedStore.isEmbedded(appContext, initialFile)) {
+        List<File> initialVariants = getCropVariantFiles();
+        if (!initialVariants.isEmpty() && areAllVariantsEmbedded(initialVariants)) {
             showSubtitleStatus("✓ Subtitles embedded");
         } else if (RecordSettings.subtitlesEnabled(context)) {
             File f = initialFile;
@@ -1218,23 +1222,35 @@ public class VideoPlayerDialog {
         tvMetadata.setText(metadata);
     }
 
+    static String cleanSubtitleStatusText(String text) {
+        if (text == null) return "";
+        return text.replaceFirst("^[⏳✓✗]\\s*", "");
+    }
+
+    static String extractSubtitleStatusIcon(String text) {
+        if (text == null) return "⏳";
+        return text.startsWith("✓") ? "✓" : (text.startsWith("✗") ? "✗" : "⏳");
+    }
+
     private void showSubtitleStatus(String text) {
-        if (dialog == null) return;
+        if (dialog == null || text == null) return;
         View row = dialog.findViewById(R.id.crop_status_row);
         TextView tvIcon = dialog.findViewById(R.id.tv_crop_icon);
         TextView tvCropStatus = dialog.findViewById(R.id.tv_crop_status);
         if (row == null || tvIcon == null || tvCropStatus == null) return;
         boolean cropPending = BgReplaceService.isCropPending(playingPath);
+        String icon = extractSubtitleStatusIcon(text);
+        String cleanText = cleanSubtitleStatusText(text);
+        tvIcon.setText(icon);
         if (cropPending) {
             CharSequence current = tvCropStatus.getText();
-            if (current != null && current.length() > 0 && !current.toString().contains(text)) {
-                tvCropStatus.setText(current + " · " + text);
+            if (current != null && current.length() > 0 && !current.toString().contains(cleanText)) {
+                tvCropStatus.setText(current + " · " + cleanText);
             } else {
-                tvCropStatus.setText(text);
+                tvCropStatus.setText(cleanText);
             }
         } else {
-            tvIcon.setText(text.startsWith("✓") ? "✓" : (text.startsWith("✗") ? "✗" : "⏳"));
-            tvCropStatus.setText(text);
+            tvCropStatus.setText(cleanText);
         }
         row.setVisibility(View.VISIBLE);
     }
@@ -1253,15 +1269,76 @@ public class VideoPlayerDialog {
         return false;
     }
 
+    static String ratioLabelOf(File file) {
+        if (file == null) return "variant";
+        String name = file.getName();
+        if (name.contains("_9x16")) return "9:16";
+        if (name.contains("_4x5")) return "4:5";
+        if (name.contains("_1x1")) return "1:1";
+        if (name.contains("_16x9")) return "16:9";
+        return "variant";
+    }
+
+    public static List<String> filterCropVariantPaths(List<String> groupPaths, String masterPath) {
+        List<String> variants = new ArrayList<>();
+        if (groupPaths == null) return variants;
+        for (String p : groupPaths) {
+            if (p == null || p.equals(masterPath)) continue;
+            String name = new File(p).getName();
+            if (EditGroupMath.isCropName(name)) {
+                if (!variants.contains(p)) {
+                    variants.add(p);
+                }
+            }
+        }
+        return variants;
+    }
+
+    List<File> getCropVariantFiles() {
+        String master = masterPath != null ? masterPath : findMaster(playingPath);
+        List<String> paths = VideoGroupStore.getGroupPaths(appContext, playingPath);
+        List<String> variantPaths = filterCropVariantPaths(paths, master);
+        List<File> variants = new ArrayList<>();
+        for (String p : variantPaths) {
+            File f = new File(p);
+            if (f.isFile() && f.length() > 0 && !variants.contains(f)) {
+                variants.add(f);
+            }
+        }
+        if (variants.isEmpty()) {
+            List<String> versionPaths = new ArrayList<>();
+            for (Version v : versions) {
+                if (v.file != null) versionPaths.add(v.file.getAbsolutePath());
+            }
+            for (String p : filterCropVariantPaths(versionPaths, master)) {
+                File f = new File(p);
+                if (f.isFile() && f.length() > 0 && !variants.contains(f)) {
+                    variants.add(f);
+                }
+            }
+        }
+        return variants;
+    }
+
+    private boolean areAllVariantsEmbedded(List<File> variants) {
+        if (variants == null || variants.isEmpty()) return false;
+        for (File f : variants) {
+            if (!SubtitleEmbedStore.isEmbedded(appContext, f)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void updateSubButton() {
         if (btnSub == null) return;
-        Version current = findVersion(playingPath);
-        boolean embedded = current != null && SubtitleEmbedStore.isEmbedded(appContext, current.file);
+        List<File> variants = getCropVariantFiles();
+        boolean allEmbedded = !variants.isEmpty() && areAllVariantsEmbedded(variants);
         if (isEmbedding || pendingEmbedPath != null) {
             btnSub.setText(R.string.player_sub_busy_label);
             btnSub.setTextColor(Color.parseColor("#8FA0B0"));
             btnSub.setAlpha(0.7f);
-        } else if (embedded) {
+        } else if (allEmbedded) {
             btnSub.setText(R.string.player_sub_done_label);
             btnSub.setTextColor(Color.parseColor("#34D399"));
             btnSub.setAlpha(1f);
@@ -1280,24 +1357,38 @@ public class VideoPlayerDialog {
             Toast.makeText(context, R.string.player_sub_busy, Toast.LENGTH_SHORT).show();
             return;
         }
-        if (SubtitleEmbedStore.isEmbedded(appContext, current.file)) {
+
+        List<File> variants = getCropVariantFiles();
+        if (variants.isEmpty()) {
+            Toast.makeText(context, R.string.player_sub_no_variants, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (areAllVariantsEmbedded(variants)) {
             updateSubButton();
-            Toast.makeText(context, R.string.player_sub_already_embedded, Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, R.string.player_sub_all_embedded, Toast.LENGTH_SHORT).show();
             return;
         }
 
         ActivityLog.log("player_action", "item", "sub_embed");
 
-        // 1. Reuse already-cached subtitle track (0 credits, 0 network calls)
+        // 1. Reuse already-cached subtitle track (from current file, variant, or master)
         SubtitleTrack track = SubtitleCache.loadForVideo(appContext.getCacheDir(), current.file);
+        if (track == null && !variants.isEmpty()) {
+            track = SubtitleCache.loadForVideo(appContext.getCacheDir(), variants.get(0));
+        }
+        if (track == null && masterPath != null) {
+            track = SubtitleCache.loadForVideo(appContext.getCacheDir(), new File(masterPath));
+        }
         if (track != null && !track.isEmpty()) {
-            startBurnSubtitles(current.file, track);
+            startBurnSubtitles(variants, track);
             return;
         }
 
         // 2. Attach to an already-running transcription (0 extra credits)
+        String master = masterPath != null ? masterPath : findMaster(current.file.getAbsolutePath());
         if (PostRecordTranscriber.isTranscribing(current.file.getAbsolutePath())
-                || (masterPath != null && PostRecordTranscriber.isTranscribing(masterPath))) {
+                || (master != null && PostRecordTranscriber.isTranscribing(master))) {
             pendingEmbedPath = current.path();
             updateSubButton();
             showSubtitleStatus("⏳ Generating AI subtitles…");
@@ -1321,21 +1412,35 @@ public class VideoPlayerDialog {
         pendingEmbedPath = current.path();
         updateSubButton();
         showSubtitleStatus("⏳ Generating AI subtitles…");
-        PostRecordTranscriber.startOnDemand(appContext, current.file);
+        PostRecordTranscriber.startOnDemand(appContext, master != null ? new File(master) : current.file);
     }
 
     private void startBurnSubtitles(File targetFile, SubtitleTrack track) {
-        if (dismissed || isEmbedding || targetFile == null || !targetFile.isFile()) return;
-        if (SubtitleEmbedStore.isEmbedded(appContext, targetFile)) {
+        if (targetFile == null) return;
+        List<File> single = new ArrayList<>();
+        single.add(targetFile);
+        startBurnSubtitles(single, track);
+    }
+
+    private void startBurnSubtitles(List<File> targetVariants, SubtitleTrack track) {
+        if (dismissed || isEmbedding || targetVariants == null || targetVariants.isEmpty() || track == null) return;
+
+        List<File> toBurn = new ArrayList<>();
+        for (File f : targetVariants) {
+            if (f != null && f.isFile() && !SubtitleEmbedStore.isEmbedded(appContext, f)) {
+                toBurn.add(f);
+            }
+        }
+
+        if (toBurn.isEmpty()) {
             updateSubButton();
-            Toast.makeText(context, R.string.player_sub_already_embedded, Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, R.string.player_sub_all_embedded, Toast.LENGTH_SHORT).show();
             return;
         }
 
         isEmbedding = true;
         pendingEmbedPath = null;
         updateSubButton();
-        showSubtitleStatus("⏳ Embedding subtitles…");
 
         if (burnExecutor == null) {
             burnExecutor = Executors.newSingleThreadExecutor();
@@ -1346,86 +1451,114 @@ public class VideoPlayerDialog {
 
         try {
             burnExecutor.execute(() -> {
-                File parent = targetFile.getAbsoluteFile().getParentFile();
-                File tempOut = new File(parent, ".subburn_" + targetFile.getName());
-                File backup = new File(parent, ".subbak_" + targetFile.getName());
-                //noinspection ResultOfMethodCallIgnored
-                tempOut.delete();
-                //noinspection ResultOfMethodCallIgnored
-                backup.delete();
+                int totalCount = toBurn.size();
+                int successCount = 0;
+                List<String> burnedRatios = new ArrayList<>();
 
-                boolean swapped = false;
-                try {
-                    EditProject project = new EditProject(targetFile.getAbsolutePath());
-                    new EditRenderer()
-                            .withContext(appContext)
-                            .withCancelFlag(cancel)
-                            .withSubtitles(track, style)
-                            .render(project, tempOut, pct -> handler.post(() -> {
-                                if (!dismissed && isEmbedding) {
-                                    showSubtitleStatus("⏳ Embedding subtitles… " + pct + "%");
-                                }
-                            }));
+                for (int i = 0; i < totalCount; i++) {
+                    if (dismissed || cancel.get()) break;
+                    File targetFile = toBurn.get(i);
+                    String ratio = ratioLabelOf(targetFile);
+                    int currentIdx = i + 1;
 
-                    if (!dismissed && !cancel.get() && tempOut.isFile() && tempOut.length() > 0) {
-                        // Release active VideoView handle on main thread before swapping the file
-                        CountDownLatch latch = new CountDownLatch(1);
-                        handler.post(() -> {
-                            try {
-                                if (!dismissed && targetFile.getAbsolutePath().equals(playingPath)) {
-                                    captureState();
-                                    deactivateActive();
-                                }
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-                        latch.await();
-
-                        if (!dismissed && !cancel.get()) {
-                            swapped = swapEmbeddedFile(targetFile, tempOut, backup);
-                            if (swapped) {
-                                SubtitleEmbedStore.markEmbedded(appContext, targetFile);
-                                MediaScannerConnection.scanFile(
-                                        appContext,
-                                        new String[]{targetFile.getAbsolutePath()},
-                                        new String[]{"video/mp4"},
-                                        null);
-                            }
+                    handler.post(() -> {
+                        if (!dismissed && isEmbedding) {
+                            showSubtitleStatus("⏳ Embedding " + ratio + " (" + currentIdx + "/" + totalCount + ")…");
                         }
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "Subtitle burn-in failed", e);
-                } finally {
+                    });
+
+                    File parent = targetFile.getAbsoluteFile().getParentFile();
+                    File tempOut = new File(parent, ".subburn_" + targetFile.getName());
+                    File backup = new File(parent, ".subbak_" + targetFile.getName());
                     //noinspection ResultOfMethodCallIgnored
                     tempOut.delete();
                     //noinspection ResultOfMethodCallIgnored
                     backup.delete();
+
+                    boolean swapped = false;
+                    try {
+                        EditProject project = new EditProject(targetFile.getAbsolutePath());
+                        new EditRenderer()
+                                .withContext(appContext)
+                                .withCancelFlag(cancel)
+                                .withSubtitles(track, style)
+                                .render(project, tempOut, pct -> handler.post(() -> {
+                                    if (!dismissed && isEmbedding) {
+                                        showSubtitleStatus("⏳ Embedding " + ratio + " (" + currentIdx + "/" + totalCount + ") · " + pct + "%");
+                                    }
+                                }));
+
+                        if (!dismissed && !cancel.get() && tempOut.isFile() && tempOut.length() > 0) {
+                            // Release active VideoView handle on main thread before swapping the file
+                            CountDownLatch latch = new CountDownLatch(1);
+                            handler.post(() -> {
+                                try {
+                                    if (!dismissed && targetFile.getAbsolutePath().equals(playingPath)) {
+                                        captureState();
+                                        deactivateActive();
+                                    }
+                                } finally {
+                                    latch.countDown();
+                                }
+                            });
+                            latch.await();
+
+                            if (!dismissed && !cancel.get()) {
+                                swapped = swapEmbeddedFile(targetFile, tempOut, backup);
+                                if (swapped) {
+                                    SubtitleEmbedStore.markEmbedded(appContext, targetFile);
+                                    MediaScannerConnection.scanFile(
+                                            appContext,
+                                            new String[]{targetFile.getAbsolutePath()},
+                                            new String[]{"video/mp4"},
+                                            null);
+                                    successCount++;
+                                    burnedRatios.add(ratio);
+
+                                    handler.post(() -> {
+                                        if (dismissed) return;
+                                        int idx = indexOfPath(targetFile.getAbsolutePath());
+                                        if (idx >= 0) adapter.notifyItemChanged(idx);
+                                        if (targetFile.getAbsolutePath().equals(playingPath)) {
+                                            updateMetadataUI(targetFile, tvFileName, tvMetadata);
+                                        }
+                                        if (activeHolder != null && activeHolder.version != null
+                                                && activeHolder.version.file.equals(targetFile)
+                                                && activeHolder.subtitles != null) {
+                                            activeHolder.subtitles.setTrack(null);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Subtitle burn-in failed for " + targetFile.getName(), e);
+                    } finally {
+                        //noinspection ResultOfMethodCallIgnored
+                        tempOut.delete();
+                        //noinspection ResultOfMethodCallIgnored
+                        backup.delete();
+                    }
                 }
 
-                final boolean ok = swapped;
+                final int finalSuccessCount = successCount;
+                final List<String> finalRatios = new ArrayList<>(burnedRatios);
+
                 handler.post(() -> {
                     isEmbedding = false;
                     burnCancelFlag = null;
                     if (dismissed) return;
                     updateSubButton();
-                    if (ok) {
-                        int idx = indexOfPath(targetFile.getAbsolutePath());
-                        if (idx >= 0) adapter.notifyItemChanged(idx);
-                        if (targetFile.getAbsolutePath().equals(playingPath)) {
-                            updateMetadataUI(targetFile, tvFileName, tvMetadata);
-                        }
-                        if (activeHolder != null && activeHolder.version != null
-                                && activeHolder.version.file.equals(targetFile)
-                                && activeHolder.subtitles != null) {
-                            activeHolder.subtitles.setTrack(null);
-                        }
-                        showSubtitleStatus("✓ Subtitles embedded");
-                        syncActive();
-                        Toast.makeText(context, R.string.player_sub_embedded, Toast.LENGTH_SHORT).show();
+                    syncActive();
+
+                    if (finalSuccessCount > 0) {
+                        String ratioList = String.join(", ", finalRatios);
+                        showSubtitleStatus("✓ Subtitles embedded (" + ratioList + ")");
+                        Toast.makeText(context, "Subtitles embedded (" + ratioList + ")", Toast.LENGTH_SHORT).show();
+                    } else if (cancel.get()) {
+                        showSubtitleStatus("✗ Subtitle embedding cancelled");
                     } else {
                         showSubtitleStatus("✗ Subtitle embed failed");
-                        syncActive();
                         Toast.makeText(context, R.string.player_sub_failed, Toast.LENGTH_SHORT).show();
                     }
                 });
