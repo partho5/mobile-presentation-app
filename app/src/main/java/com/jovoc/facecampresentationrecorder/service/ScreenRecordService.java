@@ -36,6 +36,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
@@ -341,6 +342,7 @@ public class ScreenRecordService extends Service {
                     features = FeatureSnapshot.beginRecording();
                     isRecording = true;
                     recordStartedAt = SystemClock.elapsedRealtime();
+                    EventLog.begin(recordStartedAt, width, height);
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
                 }
             }
@@ -397,6 +399,7 @@ public class ScreenRecordService extends Service {
         }
 
         isRecording = false;
+        EventLog.end(this, currentVideoPath);
         if (wasRecording) ActivityLog.log("record_stop", "duration_ms", durationMs, "source", source);
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);

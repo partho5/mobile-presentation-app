@@ -3,6 +3,8 @@ package com.jovoc.facecampresentationrecorder.bgreplace;
 import android.os.SystemClock;
 import android.view.View;
 
+import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,6 +93,7 @@ public final class BubbleTrack {
                     visible, left, top, size, ringPx);
             Entry last = entries.isEmpty() ? null : entries.get(entries.size() - 1);
             if (!e.sameGeometry(last)) entries.add(e);
+            EventLog.facecamBox(visible, left, top, size);
         }
     }
 

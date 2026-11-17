@@ -18,6 +18,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
+import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -321,6 +323,7 @@ public class DrawingBoardView extends View {
     public void undo() {
         finishEditing();
         if (!canUndo()) return;
+        EventLog.pulse(this);
         cursor--;
         recomputeTexts();
         replay();
@@ -330,6 +333,7 @@ public class DrawingBoardView extends View {
     public void redo() {
         finishEditing();
         if (!canRedo()) return;
+        EventLog.pulse(this);
         Action a = actions.get(cursor);
         cursor++;
         drawAction(a);
@@ -342,6 +346,7 @@ public class DrawingBoardView extends View {
     public void clearBoard() {
         finishEditing();
         if (!hasInk()) return;
+        EventLog.pulse(this);
         commit(new Action(TYPE_CLEAR, 0));
         recomputeTexts();
         if (bitmap != null) bitmap.eraseColor(Color.TRANSPARENT);
@@ -499,6 +504,7 @@ public class DrawingBoardView extends View {
 
     /** Starts typing: an existing text (moved out of the list while it is edited) or a new one at x,y. */
     private void beginEditing(TextItem existing, float x, float y) {
+        EventLog.pulse(this);
         if (existing != null) {
             editingOrig = existing;
             editingIndex = texts.indexOf(existing);
@@ -539,6 +545,7 @@ public class DrawingBoardView extends View {
     }
 
     private void commitTexts() {
+        EventLog.pulse(this);
         Action a = new Action(TYPE_TEXTS, 0);
         a.items = copyTexts(texts);
         commit(a);
@@ -571,6 +578,7 @@ public class DrawingBoardView extends View {
     }
 
     private void beginAction(float x, float y) {
+        EventLog.strokeStart(this, x, y);
         current = new Action(eraserMode ? TYPE_ERASE : TYPE_STROKE, penColor);
         current.add(norm(x, getWidth()), norm(y, getHeight()));
         // A single tap leaves a dot / erased spot.
@@ -581,6 +589,7 @@ public class DrawingBoardView extends View {
     private void addPoint(float x, float y) {
         x = Math.max(0f, Math.min(x, getWidth()));
         y = Math.max(0f, Math.min(y, getHeight()));
+        EventLog.strokeMove(this, x, y);
         int last = current.n - 1;
         float dx = x - current.pts[last * 2] * getWidth();
         float dy = y - current.pts[last * 2 + 1] * getHeight();
@@ -590,6 +599,7 @@ public class DrawingBoardView extends View {
     }
 
     private void endAction() {
+        EventLog.strokeEnd();
         Action a = current;
         current = null;
         activePointerId = -1;

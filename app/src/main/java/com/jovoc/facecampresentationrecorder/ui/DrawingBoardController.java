@@ -19,6 +19,7 @@ import android.widget.TextView;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 
 import java.util.ArrayList;
@@ -249,6 +250,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
 
     /** Call when the board starts to slide in: the very first time, label it "Drawing Board". */
     public void onBoardShown() {
+        EventLog.boardShown(true);
         if (!DrawingBoardStorage.consumeIntro(context)) return;
         intro.animate().cancel();
         intro.setAlpha(1f);
@@ -259,6 +261,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
 
     /** Call when the board slides away: closes the palette and saves right away. */
     public void onBoardHidden() {
+        EventLog.boardShown(false);
         board.finishEditing();
         handler.removeCallbacks(hidePalette);
         palette.animate().cancel();

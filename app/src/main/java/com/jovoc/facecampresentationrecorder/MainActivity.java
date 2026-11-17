@@ -4,6 +4,7 @@ import android.Manifest;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
+import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardController;
 import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
@@ -2860,6 +2861,7 @@ public class MainActivity extends AppCompatActivity
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
                 ActivityLog.log("topic_prev", "recording", isRecording);
+                EventLog.slideChanged();
                 SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
                 pendingNavDirection = -1;
                 renderCurrentSlide();
@@ -2873,6 +2875,7 @@ public class MainActivity extends AppCompatActivity
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
                 ActivityLog.log("topic_next", "recording", isRecording);
+                EventLog.slideChanged();
                 SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
                 pendingNavDirection = 1;
                 renderCurrentSlide();
