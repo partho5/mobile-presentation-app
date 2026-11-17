@@ -371,4 +371,59 @@ public class SubtitleDrawerTest {
         float compressedGap = SubtitleDrawer.computeWordGap(spaceWidth, padX, popBuffer, totalWordsWidth, wordCount, viewWidth);
         assertEquals(spaceWidth, compressedGap, 0.001f);
     }
+
+    @Test
+    public void testResolveAdaptivePositionY() {
+        // Tall vertical videos (>= 9:16) use 0.95f (cleanly below FaceCam)
+        assertEquals(0.95f, SubtitleDrawer.resolveAdaptivePositionY(1080, 1920), 0.001f); // 9:16
+        assertEquals(0.95f, SubtitleDrawer.resolveAdaptivePositionY(1080, 2400), 0.001f); // 9:20
+
+        // Square video (1:1) uses 0.885f
+        assertEquals(0.885f, SubtitleDrawer.resolveAdaptivePositionY(1080, 1080), 0.001f);
+
+        // Portrait video (4:5) is between 1:1 and 9:16 (~0.908f)
+        float pos45 = SubtitleDrawer.resolveAdaptivePositionY(1080, 1350);
+        assertTrue(pos45 > 0.885f && pos45 < 0.95f);
+        assertEquals(0.908f, pos45, 0.005f);
+
+        // Landscape video (<= 16:9) uses 0.810f
+        assertEquals(0.81f, SubtitleDrawer.resolveAdaptivePositionY(1080, 608), 0.001f); // 16:9 crop
+        assertEquals(0.81f, SubtitleDrawer.resolveAdaptivePositionY(1920, 1080), 0.001f); // 16:9 landscape
+    }
+
+    @Test
+    public void testAdaptiveCenterYGuaranteesBottomSafetyMargin() {
+        SubtitleStyle style = SubtitleStyle.greenPill();
+        SubtitleWord word = new SubtitleWord("SafetyCheck", 0, 1000);
+        SubtitlePhrase phrase = new SubtitlePhrase(Collections.singletonList(word));
+
+        // Test across all aspect ratio variants
+        int[][] dimensions = {
+                {1080, 1920}, // 9:16
+                {1080, 1350}, // 4:5
+                {1080, 1080}, // 1:1
+                {1080, 608},  // 16:9 cropped
+                {1080, 2400}  // 9:20 original
+        };
+
+        for (int[] dim : dimensions) {
+            int w = dim[0];
+            int h = dim[1];
+
+            SubtitleDrawer.Bounds wordBounds = drawer.computeWordBounds(phrase, 0, style, w, h);
+            assertNotNull(wordBounds);
+
+            SubtitleDrawer.Bounds pillBounds = new SubtitleDrawer.Bounds();
+            SubtitleDrawer.computePillBounds(wordBounds, style, w, pillBounds);
+
+            // Pill bottom MUST NEVER exceed the bottom of the video frame
+            assertTrue("Pill bottom (" + pillBounds.bottom + ") exceeded frame height (" + h + ")",
+                    pillBounds.bottom < h);
+
+            // Minimum safety gap must be strictly preserved
+            float minGap = SubtitleDrawer.measureScaledDimension(12.0f, w);
+            assertTrue("Pill bottom is too close to edge: gap is " + (h - pillBounds.bottom),
+                    h - pillBounds.bottom >= minGap - 0.01f);
+        }
+    }
 }

@@ -388,7 +388,7 @@ public class SubtitleDrawer {
             currentX += wordWidths[i] + wordGap;
         }
 
-        float centerY = viewHeight * style.positionY;
+        float centerY = computeCenterY(viewWidth, viewHeight, style, fontSizePx, textMeasurer);
         float ascent = textMeasurer.getAscent(fontSizePx);
         float descent = textMeasurer.getDescent(fontSizePx);
         float baselineY = computeBaselineY(centerY, ascent, descent);
@@ -547,6 +547,83 @@ public class SubtitleDrawer {
         return centerY - (ascent + descent) / 2.0f;
     }
 
+    /**
+     * Maps the video aspect ratio (viewHeight / viewWidth) to an optimal vertical position:
+     * - Tall vertical videos (>= 9:16, i.e. aspect >= 1.70): 0.95f (cleanly below FaceCam bubble)
+     * - Square videos (1:1, aspect = 1.00): 0.885f
+     * - Portrait videos (4:5, aspect = 1.25): ~0.908f
+     * - Landscape videos (<= 16:9, aspect <= 0.60): 0.810f
+     */
+    public static float resolveAdaptivePositionY(int viewWidth, int viewHeight) {
+        if (viewWidth <= 0 || viewHeight <= 0) return SubtitleStyle.DEFAULT_POSITION_Y;
+        float aspect = (float) viewHeight / (float) viewWidth;
+        if (aspect >= 1.70f) {
+            return 0.95f;
+        } else if (aspect <= 0.60f) {
+            return 0.81f;
+        } else if (aspect <= 1.00f) {
+            float t = (aspect - 0.60f) / (1.00f - 0.60f);
+            return 0.81f + t * (0.885f - 0.81f);
+        } else {
+            float t = (aspect - 1.00f) / (1.70f - 1.00f);
+            return 0.885f + t * (0.95f - 0.885f);
+        }
+    }
+
+    /**
+     * Resolves the visual vertical center Y coordinate for subtitles.
+     * <p>
+     * When using the default position, this dynamically adapts the position according to the aspect ratio height
+     * (viewHeight / viewWidth) so subtitles stay below the FaceCam area without obscuring the face, while also
+     * enforcing a minimum safe bottom clearance so that descenders, large fonts, and pills never clip at the bottom.
+     *
+     * @param viewWidth Width of the video/preview drawing area in pixels
+     * @param viewHeight Height of the video/preview drawing area in pixels
+     * @param style Subtitle style containing positionY and font sizing
+     * @param fontSizePx Scaled font size in pixels
+     * @param measurer Text metrics measurer
+     * @return Center Y coordinate in pixels
+     */
+    public static float computeCenterY(int viewWidth, int viewHeight, SubtitleStyle style,
+                                        float fontSizePx, TextMeasurer measurer) {
+        if (viewHeight <= 0) return 0f;
+
+        float pos;
+        if (style != null && style.positionY > 0f
+                && Float.compare(style.positionY, SubtitleStyle.DEFAULT_POSITION_Y) != 0) {
+            pos = style.positionY;
+        } else {
+            pos = resolveAdaptivePositionY(viewWidth, viewHeight);
+        }
+
+        float rawCenterY = viewHeight * pos;
+
+        if (measurer != null && viewWidth > 0) {
+            float ascent = measurer.getAscent(fontSizePx);
+            float descent = measurer.getDescent(fontSizePx);
+            float textHalfHeight = (descent - ascent) / 2.0f;
+            float padY = measureScaledDimension(
+                    style != null ? style.paddingVerticalDp : SubtitleStyle.DEFAULT_PADDING_VERTICAL_DP,
+                    viewWidth);
+            float scale = (style != null && style.scaleActiveWord > 0) ? style.scaleActiveWord : 1.0f;
+            float outlineW = Math.max(1.0f, measureScaledDimension(BASE_OUTLINE_WIDTH_DP, viewWidth));
+            float halfHeightBottom = (textHalfHeight + padY) * scale + outlineW;
+            float minBottomGapPx = measureScaledDimension(12.0f, viewWidth);
+
+            float maxCenterY = viewHeight - halfHeightBottom - minBottomGapPx;
+            return Math.min(rawCenterY, maxCenterY);
+        }
+
+        return rawCenterY;
+    }
+
+    public static float computeCenterY(int viewWidth, int viewHeight, SubtitleStyle style) {
+        if (style == null || viewWidth <= 0 || viewHeight <= 0) return viewHeight * SubtitleStyle.DEFAULT_POSITION_Y;
+        float fontSizePx = measureScaledFontSize(style.fontSizeSp, viewWidth);
+        TextMeasurer measurer = new SimpleTextMeasurer();
+        return computeCenterY(viewWidth, viewHeight, style, fontSizePx, measurer);
+    }
+
     public static void computePillBounds(Bounds wordBounds, float padX, float padY, Bounds outPillBounds) {
         if (wordBounds == null || outPillBounds == null) return;
         outPillBounds.set(
@@ -647,7 +724,7 @@ public class SubtitleDrawer {
         float totalPhraseWidth = totalWordsWidth + (wordCount > 1 ? (wordCount - 1) * wordGap : 0f);
 
         float startX = (viewWidth - totalPhraseWidth) / 2.0f;
-        float centerY = viewHeight * style.positionY;
+        float centerY = computeCenterY(viewWidth, viewHeight, style, fontSizePx, textMeasurer);
         float ascent = textMeasurer.getAscent(fontSizePx);
         float descent = textMeasurer.getDescent(fontSizePx);
         float baselineY = computeBaselineY(centerY, ascent, descent);
@@ -705,7 +782,7 @@ public class SubtitleDrawer {
         float wordLeft = currentX;
         float wordRight = wordLeft + wordWidths[wordIndex];
 
-        float centerY = viewHeight * style.positionY;
+        float centerY = computeCenterY(viewWidth, viewHeight, style, fontSizePx, textMeasurer);
         float ascent = textMeasurer.getAscent(fontSizePx);
         float descent = textMeasurer.getDescent(fontSizePx);
         float baselineY = computeBaselineY(centerY, ascent, descent);

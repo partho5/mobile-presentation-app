@@ -16,7 +16,7 @@ public final class SubtitleStyle {
     public static final String TEMPLATE_CLEAN_WHITE = "clean_white";
     public static final String TEMPLATE_PREMIUM = "pro_bounce";
 
-    public static final float DEFAULT_POSITION_Y = 0.75f;
+    public static final float DEFAULT_POSITION_Y = 0.95f;
     public static final float DEFAULT_SCALE_ACTIVE_WORD = 1.05f;
     public static final float PREMIUM_SCALE_ACTIVE_WORD = 1.10f;
     public static final float DEFAULT_FONT_SIZE_SP = 20.0f;

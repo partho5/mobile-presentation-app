@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat;
 
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
+import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,7 +112,7 @@ public final class RecordSettings {
     }
 
     public static float subtitlePositionY(Context context) {
-        return appPrefs(context).getFloat(KEY_SUBTITLE_POSITION_Y, 0.75f);
+        return appPrefs(context).getFloat(KEY_SUBTITLE_POSITION_Y, SubtitleStyle.DEFAULT_POSITION_Y);
     }
 
     public static void setSubtitlePositionY(Context context, float positionY) {
