@@ -151,7 +151,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T1.1 | backend | Core: words, protected spans, free windows, silence cuts, remap | T0.1 | ✅ |
 | T1.2 | backend | Core: slots, assembler, validator, golden plans | T1.1 | ✅ |
 | T1.3 | app | Event log capture while recording + remap | T0.2 | ✅ |
-| T2.1 | backend | Data model, credits, `edit_proxy` upload purpose | T1.2 | ⬜ |
+| T2.1 | backend | Data model, credits, `edit_proxy` upload purpose | T1.2 | ✅ |
 | T2.2 | backend | Routes + Basic workflow (transcript → plan → validate → commit) | T2.1 | ⬜ |
 | T2.3 | app | Renderer core: decode → GL → encode, crops, cuts, audio, `renderProxy` | T0.2 | ⬜ |
 | T2.4 | app | Captions painter, text looks, palette, `v_punch_in` | T2.3 | ⬜ |
