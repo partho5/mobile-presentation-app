@@ -46,8 +46,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The video editor: preview with a timeline where two taps pick a section to remove (the rest is
- * joined and the timeline shows the edited result), undo/redo, and a Save that renders the result to a new file beside the master (the master is never touched).
+ * The video editor: preview with a timeline; the playhead is moved (drag, tap, nudge) and Set start /
+ * Set end mark a section to remove (the rest is joined and the timeline shows the edited result), undo/redo, and a Save that renders the result to a new file beside the master (the master is never touched).
  * State lives in {@link VideoEditorViewModel}, so rotation keeps the edits and a running save.
  * Playback skips the deleted parts, so the preview matches what Save will write.
  *
@@ -65,8 +65,11 @@ public class VideoEditorActivity extends AppCompatActivity
     /** Playback jumps over a deleted stretch when it gets this close to the end of a kept one. */
     private static final long SKIP_MARGIN_MS = 25;
     private static final long TICK_MS = 30;
-    /** How much one tap on + / - zooms. */
-    private static final float ZOOM_STEP = 2f;
+    /** One nudge moves the playhead this far; holding repeats, and speeds up after a while. */
+    private static final long NUDGE_MS = 100;
+    private static final long NUDGE_FAST_MS = 500;
+    private static final long NUDGE_REPEAT_MS = 100;
+    private static final int NUDGE_FAST_AFTER = 10;
 
     public static Intent newIntent(Context context, String masterPath) {
         return new Intent(context, VideoEditorActivity.class).putExtra(EXTRA_MASTER_PATH, masterPath);
@@ -78,14 +81,16 @@ public class VideoEditorActivity extends AppCompatActivity
     private VideoView video;
     private KaraokeSubtitleView subtitlesView;
     private EditTimelineView timeline;
-    private TextView tvStatus, tvTime, tvResultLength, tvSavePercent, tvHint, tvSelection;
+    private TextView tvStatus, tvTime, tvSavePercent, tvHint;
     private MaterialButton btnUndo, btnRedo, btnPlay, btnRemove, btnSave, btnPublish;
+    private MaterialButton btnSetStart, btnSetEnd, btnNudgeBack, btnNudgeFwd, btnZoomFit;
     private View saveOverlay;
     private ProgressBar saveProgress;
 
     // Audio lane
     private AudioLaneView audioLane;
-    private View audioScroll, audioControls, trimGroup;
+    private View audioSection, audioScroll, audioControls, trimGroup;
+    private MaterialButton btnAudioToggle;
     private TextView tvAudioName, tvVolume, tvTrim;
     private MaterialButton btnAddAudio, btnAudioMute, btnAudioRemove;
     private Slider sliderVolume;
@@ -133,19 +138,24 @@ public class VideoEditorActivity extends AppCompatActivity
         timeline = findViewById(R.id.timeline);
         tvStatus = findViewById(R.id.tv_status);
         tvTime = findViewById(R.id.tv_time);
-        tvResultLength = findViewById(R.id.tv_result_length);
         tvSavePercent = findViewById(R.id.tv_save_percent);
         btnUndo = findViewById(R.id.btn_undo);
         btnRedo = findViewById(R.id.btn_redo);
         btnPlay = findViewById(R.id.btn_play);
         btnRemove = findViewById(R.id.btn_remove);
+        btnSetStart = findViewById(R.id.btn_set_start);
+        btnSetEnd = findViewById(R.id.btn_set_end);
+        btnNudgeBack = findViewById(R.id.btn_nudge_back);
+        btnNudgeFwd = findViewById(R.id.btn_nudge_fwd);
+        btnZoomFit = findViewById(R.id.btn_zoom_fit);
         tvHint = findViewById(R.id.tv_hint);
-        tvSelection = findViewById(R.id.tv_selection);
         btnSave = findViewById(R.id.btn_save);
         btnPublish = findViewById(R.id.btn_publish);
         saveOverlay = findViewById(R.id.save_overlay);
         saveProgress = findViewById(R.id.save_progress);
         audioLane = findViewById(R.id.audio_lane);
+        audioSection = findViewById(R.id.audio_section);
+        btnAudioToggle = findViewById(R.id.btn_audio_toggle);
         audioScroll = findViewById(R.id.audio_scroll);
         audioControls = findViewById(R.id.audio_controls);
         trimGroup = findViewById(R.id.trim_group);
@@ -168,14 +178,16 @@ public class VideoEditorActivity extends AppCompatActivity
         timeline.setListener(this);
         audioLane.setListener(this);
         if (vm.getAudioExpanded() == null) {
-            // On a short screen the lane starts closed so the video keeps its room
-            vm.setAudioExpanded(getResources().getConfiguration().screenHeightDp >= 700);
+            // The lane starts closed so the video keeps its room; it opens when audio is added
+            vm.setAudioExpanded(false);
         }
-        findViewById(R.id.tv_audio_title).setOnClickListener(v -> {
-            vm.setAudioExpanded(!vm.getAudioExpanded());
+        View.OnClickListener toggleAudio = v -> {
+            vm.setAudioExpanded(!Boolean.TRUE.equals(vm.getAudioExpanded()));
             lastLaneProject = null;
             refresh();
-        });
+        };
+        findViewById(R.id.tv_audio_title).setOnClickListener(toggleAudio);
+        btnAudioToggle.setOnClickListener(toggleAudio);
         btnAddAudio.setOnClickListener(v -> pickAudio.launch(new String[]{"audio/*"}));
         btnAudioMute.setOnClickListener(v -> toggleOriginalMute());
         btnAudioRemove.setOnClickListener(v -> removeSelectedAudio());
@@ -210,9 +222,11 @@ public class VideoEditorActivity extends AppCompatActivity
         btnRedo.setOnClickListener(v -> undoRedo(false));
         btnPlay.setOnClickListener(v -> togglePlay());
         btnRemove.setOnClickListener(v -> removeSection());
-        findViewById(R.id.btn_zoom_in).setOnClickListener(v -> timeline.zoomBy(ZOOM_STEP));
-        findViewById(R.id.btn_zoom_out).setOnClickListener(v -> timeline.zoomBy(1f / ZOOM_STEP));
-        findViewById(R.id.btn_zoom_fit).setOnClickListener(v -> timeline.resetZoom());
+        btnZoomFit.setOnClickListener(v -> timeline.resetZoom());
+        btnSetStart.setOnClickListener(v -> setMarker(true));
+        btnSetEnd.setOnClickListener(v -> setMarker(false));
+        bindNudge(btnNudgeBack, -1);
+        bindNudge(btnNudgeFwd, 1);
         btnSave.setOnClickListener(v -> save());
         btnPublish.setOnClickListener(v -> publish());
         findViewById(R.id.btn_cancel_save).setOnClickListener(v -> vm.cancelSave());
@@ -298,6 +312,7 @@ public class VideoEditorActivity extends AppCompatActivity
             unregisterReceiver(subtitlesReceiver);
         } catch (Exception ignored) {}
         handler.removeCallbacks(ticker);
+        stopNudgeRepeat();
         if (video != null && prepared) {
             try {
                 vm.setPlayheadMs(video.getCurrentPosition());
@@ -352,9 +367,14 @@ public class VideoEditorActivity extends AppCompatActivity
             setEnabled(btnRedo, false);
             setEnabled(btnPlay, false);
             setEnabled(btnRemove, false);
+            setEnabled(btnSetStart, false);
+            setEnabled(btnSetEnd, false);
+            setEnabled(btnNudgeBack, false);
+            setEnabled(btnNudgeFwd, false);
             setEnabled(btnSave, false);
             setEnabled(btnPublish, false);
             setEnabled(btnAddAudio, false);
+            setEnabled(btnAudioToggle, false);
             return;
         }
 
@@ -383,6 +403,12 @@ public class VideoEditorActivity extends AppCompatActivity
         setEnabled(btnRedo, h.canRedo() && !saving);
         setEnabled(btnPlay, prepared && !saving);
         setEnabled(btnRemove, EditTimelineMath.canRemove(project, selection, dur) && !saving);
+        setEnabled(btnSetStart, !saving);
+        setEnabled(btnSetEnd, selection.hasStart() && !saving);
+        setEnabled(btnNudgeBack, !saving);
+        setEnabled(btnNudgeFwd, !saving);
+        setEnabled(btnAudioToggle, !saving);
+        btnZoomFit.setVisibility(vm.getTimelineZoom() > 1.01f ? View.VISIBLE : View.GONE);
         bindSelectionTexts(project, selection, dur);
         setEnabled(btnSave, !saving);
         setEnabled(btnPublish, !saving);
@@ -395,23 +421,19 @@ public class VideoEditorActivity extends AppCompatActivity
 
         tvTime.setText(getString(R.string.editor_time_fmt,
                 EditTimelineMath.formatPrecise(outPos), EditTimelineMath.formatPrecise(outDur)));
-        tvResultLength.setText(getString(R.string.editor_result_length,
-                EditTimelineMath.formatPrecise(outDur)));
     }
 
-    /** The hint under the title and the start / end / length line, for the current selection. */
+    /** The one line under the controls: what to do next, and what is selected. */
     private void bindSelectionTexts(EditProject project, SectionSelection selection, long dur) {
         if (!selection.hasStart()) {
             tvHint.setText(R.string.editor_hint_start);
-            tvSelection.setText("");
         } else if (!selection.hasRange()) {
-            tvHint.setText(R.string.editor_hint_end);
-            tvSelection.setText(getString(R.string.editor_sel_start_only,
+            tvHint.setText(getString(R.string.editor_hint_end,
                     EditTimelineMath.formatPrecise(selection.getStartMs())));
+        } else if (EditTimelineMath.coversAll(project, selection, dur)) {
+            tvHint.setText(R.string.editor_hint_all);
         } else {
-            tvHint.setText(EditTimelineMath.coversAll(project, selection, dur)
-                    ? R.string.editor_hint_all : R.string.editor_hint_range);
-            tvSelection.setText(getString(R.string.editor_sel_range,
+            tvHint.setText(getString(R.string.editor_sel_range,
                     EditTimelineMath.formatPrecise(selection.getStartMs()),
                     EditTimelineMath.formatPrecise(selection.getEndMs()),
                     EditTimelineMath.formatSeconds(selection.lengthMs())));
@@ -482,9 +504,10 @@ public class VideoEditorActivity extends AppCompatActivity
 
         boolean expanded = Boolean.TRUE.equals(vm.getAudioExpanded());
         boolean hasRows = showOriginal || !added.isEmpty();
-        ((TextView) findViewById(R.id.tv_audio_title)).setText(hasRows
-                ? getString(R.string.editor_audio) + (expanded ? "  \u25BE" : "  \u25B8")
+        ((TextView) findViewById(R.id.tv_audio_title)).setText(!hasRows ? getString(R.string.editor_audio)
+                : selected == VideoEditorViewModel.NO_TRACK ? getString(R.string.editor_audio_tap_hint)
                 : getString(R.string.editor_audio));
+        audioSection.setVisibility(expanded ? View.VISIBLE : View.GONE);
         audioScroll.setVisibility(hasRows && expanded ? View.VISIBLE : View.GONE);
         long outDur = project.outputDurationMs(dur);
         int cols = AudioPeaks.BUCKETS;
@@ -770,16 +793,85 @@ public class VideoEditorActivity extends AppCompatActivity
     @Override
     public void onViewChanged(float zoom, long startMs) {
         vm.setTimelineView(zoom, startMs);
+        if (btnZoomFit != null) btnZoomFit.setVisibility(zoom > 1.01f ? View.VISIBLE : View.GONE);
     }
 
-    /** A tap on the timeline places (or moves) a marker and shows that frame. */
+    /** A tap on the timeline only moves the playhead (markers are set with the buttons). */
     @Override
     public void onTap(long ms) {
         if (!vm.isReady() || vm.getSaveState() == VideoEditorViewModel.SaveState.RUNNING) return;
-        long outDur = vm.getProject().outputDurationMs(vm.getDurationMs());
-        vm.setSelection(vm.getSelection().tap(ms, outDur));
         seekPrecise(movePlayheadToOutput(ms));
         refresh();
+    }
+
+    /** Playhead position on the edited timeline (the end of the result when parked past it). */
+    private long playheadOutputMs() {
+        long dur = vm.getDurationMs();
+        EditProject p = vm.getProject();
+        long out = p.sourceToOutput(vm.getPlayheadMs(), dur);
+        return out < 0 ? p.outputDurationMs(dur) : out;
+    }
+
+    /** Set start / Set end: puts that marker at the playhead, or says why it can't. */
+    private void setMarker(boolean isStart) {
+        if (!vm.isReady() || vm.getSaveState() == VideoEditorViewModel.SaveState.RUNNING) return;
+        if (vm.isPlaying()) pausePlayback();
+        long outDur = vm.getProject().outputDurationMs(vm.getDurationMs());
+        long at = playheadOutputMs();
+        SectionSelection before = vm.getSelection();
+        SectionSelection after = isStart ? before.setStart(at, outDur) : before.setEnd(at, outDur);
+        if (after.equals(before)) {
+            Toast.makeText(this, before.hasStart() ? R.string.editor_end_after_start
+                    : R.string.editor_set_start_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        vm.setSelection(after);
+        btnSetStart.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+        refresh();
+    }
+
+    /** Moves the playhead by {@code deltaMs} on the edited timeline and shows that frame. */
+    private void nudge(long deltaMs) {
+        if (!vm.isReady() || vm.getSaveState() == VideoEditorViewModel.SaveState.RUNNING) return;
+        if (vm.isPlaying()) pausePlayback();
+        long outDur = vm.getProject().outputDurationMs(vm.getDurationMs());
+        long target = Math.max(0, Math.min(Math.max(0, outDur - 1), playheadOutputMs() + deltaMs));
+        seekPrecise(movePlayheadToOutput(target));
+        refresh();
+    }
+
+    private Runnable nudgeRepeat;
+
+    /** A nudge button: a tap steps once, holding repeats (faster after a moment). */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private void bindNudge(View button, int direction) {
+        button.setOnClickListener(v -> nudge(direction * NUDGE_MS));
+        button.setOnLongClickListener(v -> {
+            stopNudgeRepeat();
+            nudgeRepeat = new Runnable() {
+                int steps;
+
+                @Override
+                public void run() {
+                    nudge(direction * (steps++ < NUDGE_FAST_AFTER ? NUDGE_MS : NUDGE_FAST_MS));
+                    handler.postDelayed(this, NUDGE_REPEAT_MS);
+                }
+            };
+            handler.post(nudgeRepeat);
+            return true;
+        });
+        button.setOnTouchListener((v, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
+                stopNudgeRepeat();
+            }
+            return false;
+        });
+    }
+
+    private void stopNudgeRepeat() {
+        if (nudgeRepeat != null) handler.removeCallbacks(nudgeRepeat);
+        nudgeRepeat = null;
     }
 
     /** Parks the playhead on edited-timeline position {@code outMs}; returns the source position. */

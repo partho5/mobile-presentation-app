@@ -130,4 +130,51 @@ public class SectionSelectionTest {
         assertEquals(s, s.moveMarker(false, 9000, DUR));
         assertEquals(SectionSelection.EMPTY, SectionSelection.EMPTY.moveMarker(true, 1000, DUR));
     }
+
+    @Test
+    public void setStartThenSetEndMakesARange() {
+        SectionSelection s = SectionSelection.EMPTY.setStart(3000, DUR).setEnd(5000, DUR);
+        assertEquals(3000, s.getStartMs());
+        assertEquals(5000, s.getEndMs());
+    }
+
+    @Test
+    public void setEndWithoutStartChangesNothing() {
+        assertEquals(SectionSelection.EMPTY, SectionSelection.EMPTY.setEnd(5000, DUR));
+    }
+
+    @Test
+    public void setEndAtOrBeforeStartChangesNothing() {
+        SectionSelection s = SectionSelection.EMPTY.setStart(5000, DUR);
+        assertEquals(s, s.setEnd(5000, DUR));
+        assertEquals(s, s.setEnd(2000, DUR));
+        assertEquals(s, s.setEnd(5000 + SectionSelection.MIN_LENGTH_MS - 1, DUR));
+        assertEquals(5000 + SectionSelection.MIN_LENGTH_MS,
+                s.setEnd(5000 + SectionSelection.MIN_LENGTH_MS, DUR).getEndMs());
+    }
+
+    @Test
+    public void setStartBeforeTheEndOnlyMovesTheStart() {
+        SectionSelection s = SectionSelection.EMPTY.setStart(3000, DUR).setEnd(6000, DUR).setStart(4000, DUR);
+        assertEquals(4000, s.getStartMs());
+        assertEquals(6000, s.getEndMs());
+    }
+
+    @Test
+    public void setStartAtOrPastTheEndStartsOver() {
+        SectionSelection s = SectionSelection.EMPTY.setStart(3000, DUR).setEnd(6000, DUR).setStart(8000, DUR);
+        assertEquals(8000, s.getStartMs());
+        assertFalse(s.hasRange());
+        SectionSelection near = SectionSelection.EMPTY.setStart(3000, DUR).setEnd(6000, DUR)
+                .setStart(6000 - SectionSelection.MIN_LENGTH_MS + 1, DUR);
+        assertFalse(near.hasRange());
+    }
+
+    @Test
+    public void setStartAndEndStayInsideTheTimeline() {
+        SectionSelection s = SectionSelection.EMPTY.setStart(-50, DUR).setEnd(DUR + 500, DUR);
+        assertEquals(0, s.getStartMs());
+        assertEquals(DUR, s.getEndMs());
+        assertEquals(SectionSelection.EMPTY, SectionSelection.EMPTY.setStart(5, 0));
+    }
 }

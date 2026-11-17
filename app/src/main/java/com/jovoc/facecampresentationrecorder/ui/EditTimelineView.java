@@ -22,7 +22,8 @@ import com.jovoc.facecampresentationrecorder.edit.TimelineZoom;
  * The editor's timeline: a strip of video thumbnails over the edited result (what is left after
  * removals), a thin playhead, small markers above it at every join, and the section the user is
  * picking to remove: a sharp Start line and End line with a tint between them.
- * A tap places a marker, dragging scrubs, and a finger that lands on a marker drags that marker. Pinching (or {@link #zoomBy}) zooms in on part of the
+ * A tap moves the playhead (markers are set by the screen's Set start / Set end buttons), dragging
+ * scrubs, and a finger that lands on a marker drags that marker. Pinching (or {@link #zoomBy}) zooms in on part of the
  * timeline for exact points; while zoomed, dragging pans instead of scrubbing, and a time ruler
  * under the strip shows where you are. The view only draws and reports gestures; the editor
  * screen owns the state. Times are milliseconds on the edited timeline.
@@ -36,7 +37,7 @@ public class EditTimelineView extends View {
         /** The playhead was dragged to {@code ms}. */
         void onScrub(long ms);
 
-        /** The timeline was tapped (not dragged) at {@code ms}; the edges snap to 0 / the end. */
+        /** The timeline was tapped (not dragged) at {@code ms}: move the playhead there; the edges snap to 0 / the end. */
         void onTap(long ms);
 
         /**

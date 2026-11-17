@@ -74,6 +74,29 @@ public final class SectionSelection {
     }
 
     /**
+     * The selection after "Set start" at {@code ms} (the playhead). Without a range, or when
+     * {@code ms} is at or past the old end, the selection starts over from this point; otherwise
+     * only the start moves.
+     */
+    public SectionSelection setStart(long ms, long durationMs) {
+        if (durationMs <= 0) return this;
+        long t = Math.max(0, Math.min(durationMs, ms));
+        if (hasRange() && t <= endMs - MIN_LENGTH_MS) return new SectionSelection(t, endMs);
+        return new SectionSelection(t, -1);
+    }
+
+    /**
+     * The selection after "Set end" at {@code ms} (the playhead). Needs a start at least
+     * {@link #MIN_LENGTH_MS} before it; otherwise nothing changes (the caller says why).
+     */
+    public SectionSelection setEnd(long ms, long durationMs) {
+        if (durationMs <= 0 || !hasStart()) return this;
+        long t = Math.max(0, Math.min(durationMs, ms));
+        if (t < startMs + MIN_LENGTH_MS) return this;
+        return new SectionSelection(startMs, t);
+    }
+
+    /**
      * The selection after one marker was dragged to {@code ms}. The marker stays inside the
      * timeline and on its side of the other one, at least {@link #MIN_LENGTH_MS} away from it, so
      * it stops at the other marker instead of swapping. Without an end marker only the start can

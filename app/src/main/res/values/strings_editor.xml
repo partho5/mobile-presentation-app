@@ -13,12 +13,19 @@
     <string name="editor_remove_section">Remove selected section</string>
     <string name="editor_marker_start">Start</string>
     <string name="editor_marker_end">End</string>
-    <string name="editor_hint_start">Mark start and end to remove a part, then tap the delete icon</string>
-    <string name="editor_hint_end">Now mark the end</string>
-    <string name="editor_hint_range">Tap the delete icon to remove · drag markers to adjust</string>
+    <string name="editor_hint_start">Drag the timeline to where the cut begins, then tap Set start</string>
+    <string name="editor_hint_end">Starts at %1$s · move to where it ends, then tap Set end</string>
+    <string name="editor_set_start">Set start</string>
+    <string name="editor_set_end">Set end</string>
+    <string name="editor_remove">Remove</string>
+    <string name="editor_nudge_back">−0.1s</string>
+    <string name="editor_nudge_fwd">+0.1s</string>
+    <string name="editor_nudge_back_desc">Back 0.1 second. Hold to keep going.</string>
+    <string name="editor_nudge_fwd_desc">Forward 0.1 second. Hold to keep going.</string>
+    <string name="editor_set_start_first">Set the start first</string>
+    <string name="editor_end_after_start">The end must come after the start. Move the playhead later.</string>
     <string name="editor_hint_all">Can\'t remove everything · adjust a marker</string>
-    <string name="editor_sel_start_only">%1$s → …</string>
-    <string name="editor_sel_range">%1$s → %2$s selected (%3$s)</string>
+    <string name="editor_sel_range">%1$s → %2$s selected (%3$s) · tap Remove, or drag a marker</string>
     <string name="editor_play">Play</string>
     <string name="editor_pause">Pause</string>
     <string name="editor_save">Save</string>
@@ -44,7 +51,6 @@
     <string name="editor_loading">Loading video...</string>
     <string name="editor_load_failed">Couldn\'t open this video.</string>
     <string name="editor_time_fmt">%1$s / %2$s</string>
-    <string name="editor_result_length">Result: %1$s</string>
     <string name="editor_nothing_to_save">No changes to save yet.</string>
     <string name="editor_saving">Saving your video...</string>
     <string name="editor_saving_percent">%1$d%%</string>
@@ -80,5 +86,6 @@
     <string name="editor_save_too_long">This video is too long to save at a size that can be uploaded. Cut it shorter and try again.</string>
     <string name="editor_draft_restored">Your unsaved edits were restored.</string>
     <string name="editor_audio_pick_failed">Couldn\'t use that file. Pick an audio file.</string>
+    <string name="editor_audio_tap_hint">Audio · tap a sound to edit it</string>
     <string name="editor_audio_lane_desc">Audio lane. Tap a sound to edit it, drag an added track sideways to move it.</string>
 </resources>
