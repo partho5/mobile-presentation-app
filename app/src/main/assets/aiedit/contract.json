@@ -2898,7 +2898,7 @@
       }
     },
     {
-      "id": "True_story",
+      "id": "true_story",
       "mood": [
         "calm"
       ],
@@ -2979,12 +2979,12 @@
       }
     },
     {
-      "id": "so_True",
+      "id": "so_true",
       "mood": [
         "calm"
       ],
       "text": {
-        "en": "So True",
+        "en": "So true",
         "bn": "একদম ঠিক"
       }
     },
