@@ -36,8 +36,10 @@ branding content that viewers do not scroll past.
 
 - Recording: `service/ScreenRecordService` records the **whole phone screen** with `MediaProjection` + `MediaRecorder`: H.264,
   30 fps, 8 Mbps, AAC, at the screen's real size (for example 1080 x 2400, not 9:16). The master file is never modified.
-- Auto crop: `util/VideoCropHelper` makes 9:16, 4:5 and 1:1 versions with FFmpeg stream copy (lossless). 9:16 is always first
-  wherever ratios are listed.
+- Auto crop: `util/VideoCropHelper` makes 9:16, 4:5 and 1:1 versions with FFmpeg stream copy (lossless). Crops are
+  **top-anchored and full width**: only rows are dropped from the bottom (height = width × 16/9, × 5/4, × 1). So the facecam
+  can be outside a crop. 9:16 is always first wherever ratios are listed. The FFmpegKit build has no x264, so every
+  re-encode (renders and proxies) uses MediaCodec.
 - Facecam: a round camera bubble the user can **drag and resize** before and during recording (`MainActivity`,
   `ui/FloatingCamOverlay` outside the app). It is not always in the lower part. A planned setting moves it down automatically
   while the user draws (`PRODUCT_IDEAS_BACKLOG.md`, item "auto move face cam"). So the facecam position is a **track over
@@ -207,9 +209,9 @@ Routes (public API, device token, workspace by `x-workspace-id`, `Idempotency-Ke
 storage when the job ends (same rule as caption audio).
 
 **No video processing on the server.** The backend has no ffmpeg (its media processing runs on RunPod), and the owner's
-rule is to do as much as possible on the user's phone. The phone (FFmpegKit) makes the proxy for Standard and Heavy as
-pieces of at most 60 seconds (the Clef-omni limit): 360p, about 15 fps, low bitrate, mono audio, each at most 16 MiB. The
-server only forwards the pieces to Clef-omni.
+rule is to do as much as possible on the user's phone. The phone makes the proxy for Standard and Heavy with MediaCodec
+(the engine's `renderProxy`; the FFmpegKit build has no x264) as pieces of at most 60 seconds (the Clef-omni limit): short
+side 360, about 15 fps, low bitrate, mono audio, each at most 16 MiB. The server only forwards the pieces to Clef-omni.
 
 API modes: v1 has only the single call above. "Revise" (send the plan plus locked items, re-plan the rest) and a two-round
 mode (confirm cuts first) come later; they add friction and are not needed for v1.
@@ -220,36 +222,33 @@ Why phases exist inside the job: cuts and speed changes move the timeline. Effec
 
 Normalized coordinates use 0 to 1 of the master frame width and height.
 
+The exact request, contract JSON and plan envelope are in `to-build/tasks.md` ("Shared context"); this is the shape:
+
 ```json
 {
   "contract_version": 1,
-  "session_id": "uuid",
-  "level": "basic | standard | heavy",
-  "video": {
-    "duration_ms": 118000, "width": 1080, "height": 2400, "fps": 30,
-    "source": "in_app_recording | imported",
-    "outputs": ["9:16", "4:5", "1:1"]
-  },
+  "video": { "duration_ms": 118000, "width": 1080, "height": 2400, "fps": 30, "source": "in_app_recording | imported" },
+  "outputs": [ { "ratio": "9:16", "crop": { "x": 0, "y": 0, "w": 1, "h": 0.8 }, "caption_band": { "y0": 0.88, "y1": 0.99 } } ],
   "facecam_track": [
-    { "t_ms": 0, "shape": "circle", "cx": 0.78, "cy": 0.80, "radius": 0.13 },
-    { "t_ms": 41200, "shape": "circle", "cx": 0.78, "cy": 0.90, "radius": 0.13 }
+    { "t_ms": 0, "cx": 0.78, "cy": 0.62, "r": 0.13 },
+    { "t_ms": 41200, "cx": 0.78, "cy": 0.70, "r": 0.13 }
   ],
   "activity_map": [],
-  "brand": { "text_colors": ["#FF3B30", "#FFD60A", "#34C759"], "mode": "multi | brand" },
+  "text_colors": "multi | brand",
   "language": "ben",
-  "capabilities": {
-    "effects": ["v_punch_in", "c_word_highlight"],
-    "style_presets": ["sticker_red", "label_blue"],
-    "person_segmentation": false
-  },
+  "capabilities": { "effects": ["v_punch_in", "c_word_highlight"], "text_styles": ["sticker", "label_pill"] },
   "options": { "sound_effects": true }
 }
 ```
 
+- `outputs`: the enabled ratios, 9:16 first, each with its top-anchored crop (fractions of the master) and the caption
+  band the user's subtitle style occupies in that output (fractions of the output height).
 - `facecam_track`: one entry per change (drag, resize, auto move), on the master timeline. A step change at `t_ms`.
+  `cx`, `cy` are fractions of the master width and height; `r` is a fraction of the master width.
+- `text_colors`: the server resolves the palette (the workspace's brand colour, or the multi colour palette); the app
+  has no brand colour of its own.
 - Manual edits: when the user cut the video in the manual editor first, the phone maps the event log and facecam track
   through the editor's kept ranges before sending. The server never sees the manual edit.
-- `brand.text_colors`: from the workspace colour (brand mode) or the default multi colour palette (section 13).
 - Transcript word format (kept on the server, also returned to the app):
   `{ "i": 42, "w": "faster", "start_ms": 31240, "end_ms": 31610, "conf": 0.98 }`. Store the original precise timestamps; use
   integer milliseconds in the plan.
@@ -772,11 +771,10 @@ Server-side rendering frameworks were considered and dropped by the owner (2026-
 
 ## 21. Build order and tracker
 
-Detailed build trackers (the source of truth for progress; this table is the summary):
-- Backend: `/home/haku/projects/Next.js/Social-Media-Manager/AI_VIDEO_EDIT_BACKEND_PLAN.md` (B1–B5).
-- App: `AI_VIDEO_EDIT_APP_PLAN.md` in this repo's root (A1–A7).
-
-Build order: B1 → B2 → B3 → B4 → B5 → A1 → A2 → A3 → A4 → A5. Commit per part. Backend parts follow the backend's
+**The build runs from `to-build/tasks.md` in this repo**: self-contained task cards (T0.1 … T7.2), each backend card
+followed by its client app card, one card per session, and the only progress tracker. Design overviews (no status):
+`AI_VIDEO_EDIT_APP_PLAN.md` here and `/home/haku/projects/Next.js/Social-Media-Manager/AI_VIDEO_EDIT_BACKEND_PLAN.md`.
+The table below is the original part split, kept for orientation. Commit per card. Backend parts follow the backend's
 `_planning` system (a new contract `_planning/02_contracts/ai.video-editing.md` first; changes to frozen contracts go
 through `_drift.md`).
 

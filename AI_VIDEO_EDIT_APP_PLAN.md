@@ -1,8 +1,8 @@
 # AI Video Editing Engine — App Build Plan (parts A1–A7)
 
-RULE: this PC hangs under load, so do not run gradle, unit tests or the emulator. Write code only and verify by reading it
-against this plan and the spec; the owner builds and runs tests on a higher-RAM PC. Build one part at a time, tick
-**Progress** below, and commit per part (`feat(ai-edit): ...`) on branch `feat/ai-video-edit`.
+This file is the design overview of the app side. **The build runs from `to-build/tasks.md`**: self-contained task
+cards, one per session, each backend card next to its client app card, with the exact contract JSON. Progress is tracked
+there only. Branch `feat/ai-video-edit`.
 
 Top rule, above every other rule: **frictionless, smooth UX that lowers the user's cognitive load.**
 
@@ -24,17 +24,17 @@ Top rule, above every other rule: **frictionless, smooth UX that lowers the user
 4. 9:16 always first wherever ratios are listed, rendered or shown.
 5. Match the existing code style (comment density, naming, Java idioms of the neighbouring classes).
 
-## Progress
+## Parts and their task cards (status lives in `to-build/tasks.md`)
 
-| Part | Description | Needs backend | Status |
-|---|---|---|---|
-| A1 | Event log capture while recording | — | ⬜ |
-| A2 | Engine data layer: plan, contract, timeline (pure Java + JVM tests) | — | ⬜ |
-| A3 | Renderer core: decode → GL compositor → encode, cuts, speed, audio, captions | — | ⬜ |
-| A4 | First-wave effects: text looks, video effects, transitions, Lottie and icons, sounds | — | ⬜ |
-| A5 | Flow and UX: AI Edit button, uploads, job, foreground render, results, Settings | B2–B5 | ⬜ |
-| A6 | Frame-difference activity detection for imported videos | — | later |
-| A7 | Second-wave and person effects | B1 registry | later |
+| Part | Description | Task cards |
+|---|---|---|
+| A1 | Event log capture while recording | T1.3 |
+| A2 | Engine data layer: plan, contract, timeline (pure Java + JVM tests) | T0.2 |
+| A3 | Renderer core: decode → GL compositor → encode, cuts, speed, audio, captions, proxies | T2.3, T2.4 |
+| A4 | First-wave effects: text looks, video effects, transitions, Lottie and icons, sounds | T2.4, T4.3, T5.2 |
+| A5 | Flow and UX: AI Edit button, uploads, job, foreground render, results, Settings, caption credits | T3.1, T3.2, T6.2 |
+| A6 | Frame-difference activity detection for imported videos | T7.1 (later) |
+| A7 | Second-wave and person effects | T7.2 (later) |
 
 ---
 
@@ -148,8 +148,9 @@ crosses the facecam at any time.
   `POST /ai-captions/:id/use`, `POST /ai-captions/:id/release`; same client style as `publish/PublishApi`.
 - Uploads — `publish/DirectUploader` with a new `UploadKind.EDIT_PROXY` (purpose `edit_proxy`, `.mp4`). Audio: reuse the
   caption id from `subtitle/SubtitleEmbedStore` when present, else `publish/AudioExtractor` + `uploadAudio`.
-  Proxy (standard, heavy only): FFmpegKit makes pieces of ≤ 60 s, 360p, ~15 fps, low bitrate, mono audio, each
-  ≤ 16 MiB; one upload per piece. No video processing happens on the server.
+  Proxy (standard, heavy only): the engine's MediaCodec `renderProxy` makes pieces of ≤ 60 s, short side 360, ~15 fps,
+  low bitrate, mono audio, each ≤ 16 MiB (the FFmpegKit build has no x264); one upload per piece. No video processing
+  happens on the server.
 - `aiedit/flow/AiEditJob` + `AiEditStore` — state per recording (session id, level, job id, plan path, outputs);
   survives process death.
 - `aiedit/flow/AiEditService` — foreground service (pattern: `service/BgReplaceService`) with one notification:
