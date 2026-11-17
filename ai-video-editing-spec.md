@@ -116,8 +116,10 @@ Auto-publish ON is unchanged in v1: it publishes the original. A later setting m
 and `POST /ai-captions` charges `ai.captions.per_minute` (1 credit per whole minute, so takes under 1 minute are free). A
 2 minute take that is then discarded still costs 2 credits. Proposed fix (needs the owner, section 23): keep auto
 transcription for the instant subtitle preview, but hold the caption credits as a reservation and commit only when the
-transcript is used (embed, publish or AI edit); release on discard or after 7 days unused. This amends the frozen backend
-contract `ai.video-captions` through its `_drift.md`.
+transcript is used (embed, publish or AI edit); release on discard. An unused hold frees itself after about 24 hours: the
+backend's nightly reconciliation already releases any AI reservation older than 24 hours
+(`credits.reconcile.service.ts`, `OTHER_STALE_HOURS`). A use after that reserves again and commits, and never blocks a
+publish. This amends the frozen backend contract `ai.video-captions` through its `_drift.md`.
 
 ## 6. Editing levels
 
@@ -143,8 +145,10 @@ The engine is four layers. Only layer 4 is platform code.
 
 1. **Contract** (language-neutral, versioned): plan JSON schema (section 16), effect registry JSON (section 14), style presets
    JSON (section 13), event log schema (section 10), timing and easing rules (section 12), golden fixtures (sample plans with the
-   expected frame at given timestamps). One source of truth lives in the backend repo at `L/ai-video-edit/contract/`. The app
-   bundles a synced copy in the engine module's assets. `contract_version` travels in every request and plan.
+   expected frame at given timestamps). One source of truth: TypeScript modules in the backend repo at
+   `L/ai-video-edit/contract/`, served as JSON by `GET /public/v1/ai-edits/contract`. The app bundles a copy
+   (`app/src/main/assets/aiedit/contract.json`) and refreshes it from that route. `contract_version` travels in every
+   request and plan.
 2. **Planner core** (server, TypeScript, pure functions, no Nest or Prisma imports): registry loading, free windows, timeline
    remap, plan assembly, validator. Folder `L/ai-video-edit/core/`.
 3. **Planner services** (server, Nest): job service and repository, speech to text reuse, Clef-omni client, writer LLM client,
@@ -174,7 +178,8 @@ App                                        Server
 Record video + event log
 User taps AI Edit (level)
 Upload audio (or reuse aiCaptionId)
-  + low-res proxy (Standard, Heavy)  --->  POST /public/v1/ai-edits  (reserve credits, 202)
+  + low-res proxy pieces, each <= 60 s
+  (Standard, Heavy; cut on the phone) --->  POST /public/v1/ai-edits  (reserve credits, 202)
                                            Workflow:
                                              transcript (reuse or ElevenLabs)
                                              structure: silence cuts, speed
@@ -192,14 +197,19 @@ Routes (public API, device token, workspace by `x-workspace-id`, `Idempotency-Ke
 
 | Route | Answer |
 |---|---|
-| `POST /upload/multipart` with `purpose: 'edit_proxy'` | existing upload flow, new purpose for the low-res proxy (size cap) |
-| `POST /ai-edits` `{ level, aiCaptionId?, audioUploadId?, proxyUploadId?, request }` | 202 `{ id, status, cost }`; 402 `INSUFFICIENT_CREDITS` |
+| `POST /upload/multipart` with `purpose: 'edit_proxy'` | existing upload flow, new purpose for one proxy piece (`.mp4`, ≤ 16 MiB) |
+| `POST /ai-edits` `{ sessionId, level, aiCaptionId?, audioUploadId?, proxyUploadIds?, request }` | 202 `{ id, status, cost }`; 402 `INSUFFICIENT_CREDITS` |
 | `GET /ai-edits/:id` | `{ id, status, error?, plan?, assets?: [{ id, url, kind, native_duration_ms }] }` |
 | `GET /ai-edits/quote` | cost per level for this workspace (the button label) |
 | `GET /ai-edits/contract` | current `contract_version` and registry, for capability checks |
 
 `status`: `PENDING`, `TRANSCRIBING`, `PLANNING`, `READY`, `NO_SPEECH`, `FAILED`. The audio and proxy uploads are deleted from
 storage when the job ends (same rule as caption audio).
+
+**No video processing on the server.** The backend has no ffmpeg (its media processing runs on RunPod), and the owner's
+rule is to do as much as possible on the user's phone. The phone (FFmpegKit) makes the proxy for Standard and Heavy as
+pieces of at most 60 seconds (the Clef-omni limit): 360p, about 15 fps, low bitrate, mono audio, each at most 16 MiB. The
+server only forwards the pieces to Clef-omni.
 
 API modes: v1 has only the single call above. "Revise" (send the plan plus locked items, re-plan the rest) and a two-round
 mode (confirm cuts first) come later; they add friction and are not needed for v1.
@@ -225,7 +235,6 @@ Normalized coordinates use 0 to 1 of the master frame width and height.
     { "t_ms": 41200, "shape": "circle", "cx": 0.78, "cy": 0.90, "radius": 0.13 }
   ],
   "activity_map": [],
-  "manual_edit": { "kept_ranges": [[0, 52000], [54100, 118000]] },
   "brand": { "text_colors": ["#FF3B30", "#FFD60A", "#34C759"], "mode": "multi | brand" },
   "language": "ben",
   "capabilities": {
@@ -238,8 +247,8 @@ Normalized coordinates use 0 to 1 of the master frame width and height.
 ```
 
 - `facecam_track`: one entry per change (drag, resize, auto move), on the master timeline. A step change at `t_ms`.
-- `manual_edit`: present when the user cut the video in the manual editor first; the server maps the event log and the
-  transcript through the kept ranges. Absent means the whole master.
+- Manual edits: when the user cut the video in the manual editor first, the phone maps the event log and facecam track
+  through the editor's kept ranges before sending. The server never sees the manual edit.
 - `brand.text_colors`: from the workspace colour (brand mode) or the default multi colour palette (section 13).
 - Transcript word format (kept on the server, also returned to the app):
   `{ "i": 42, "w": "faster", "start_ms": 31240, "end_ms": 31610, "conf": 0.98 }`. Store the original precise timestamps; use
@@ -316,20 +325,22 @@ One Temporal workflow per job (new file, versioned; never edit a workflow alread
    words that repeat the topic, sentence starts after a slide change. The first 3 seconds always get a hook slot.
 5. **Perception (Standard, Heavy): Cloudflare Clef-omni.** Clef-omni (Workers AI `@cf/cloudflare/clef-omni`, $0.15 per million
    input tokens, built on Qwen3-Omni) takes audio, video, images and text in one call. It is a **decision model: it scores fixed
-   options in a schema; it does not write free text**. So use it only for closed questions, per chunk of about 20 seconds of the
-   low-res proxy with audio:
-   - `mood`: enum (excited, serious, sad, funny, surprising, calm);
-   - `energy`: number 0 to 1;
-   - `emphasized_words`: multi select from the chunk's candidate word indexes;
-   - `screen_busy`: boolean (extra check on top of the event log; imported videos);
-   - `commentary`: enum from the phrase library (section 13) or `none`, per slot;
-   - `effect_family`: enum (camera, look, text, icon, none) per slot.
-   Verify the exact request schema, video length limit and token cost per second of video in the Workers AI docs before
-   building. Clef-omni is cheap, so a 2 minute video is about 6 small calls.
+   options in a schema; it does not write free text**. Limits per call: at most 2 videos (each ≤ 60 s and ≤ 16 MiB, sampled
+   at 2 fps), 4 audio, 4 images, 64 questions, 64k tokens; media is embedded (no URLs). Question types are only `noul`
+   (a probability), `choice` (options given as a `criteria` map) and `score` (ordered levels). Per proxy piece:
+   - `mood`: choice (excited, serious, sad, funny, surprising, calm);
+   - `energy`: score (low … high);
+   - `emph_<word index>`: one noul per candidate word (emphasized or not);
+   - `screen_busy`: noul (extra check on top of the event log; imported videos);
+   - `comm_<slot>`: choice from the mood-matching phrase library ids (section 13) or `none`;
+   - `fam_<slot>`: choice of effect family (camera, look, text, icon, none).
+   Batch when a piece needs more than 64 questions. A 2 minute video is one call (2 pieces), about $0.003 at 480p. Read the
+   model's `schema-input.json` / `schema-output.json` for the exact media encoding and answer keys before building.
 6. **Writing (Heavy only): one LLM call.** Writes the complementary phrases and the icon search queries for the chosen slots,
-   in the video's language, with the brand voice and banned words from the brand profile. Use the existing `OpenaiService` and
-   Prompt Book keys (`edit.writer.general`, overridable per workspace), JSON schema output. The model is set in the Prompt Book,
-   not in code.
+   in the video's language, with the brand voice and banned words from the brand profile. Use the existing `OpenaiService`
+   (a new `writeEditTexts`, same shape as `writeCaption`), JSON schema output. In v1 the prompt is a constant in the edit
+   module and the model comes from env `AI_EDIT_WRITER_MODEL` (default the Prompt Book's model); a Prompt Book key comes
+   later, because a new Prompt Book group changes the admin screens.
 7. **Assemble (code).** Turn scores into plan items with deterministic rules: level budget, pacing (a visible change about every
    2 to 3 seconds), variety, cooldowns, hook rule, position zones per output ratio, text hold times, sound pairing.
 8. **Resolve assets** (section 15) to concrete asset ids with native durations.
@@ -719,10 +730,9 @@ Repair order: shift inside the same free window, shorten, swap to a cheaper effe
 
 ## 18. Prompts
 
-Clef-omni questions (section 11, step 5) are fixed schemas in code; their instruction texts live in the Prompt Book
-(`edit.perception.*`) so they can be tuned without a deploy.
+Clef-omni questions (section 11, step 5) and their instruction texts are fixed in code in v1.
 
-Writer LLM prompt (Heavy, section 11, step 6), Prompt Book key `edit.writer.general`:
+Writer LLM prompt (Heavy, section 11, step 6), a constant in the edit module:
 - Role: a short form video editor writing on-screen text for fast, face to camera self branding videos.
 - Output: JSON only, matching the writer schema (slot id → text, optional icon query).
 - 1 to 4 words per text, in the video's language, in the brand's voice; never a banned word; never repeat the caption verbatim
@@ -762,8 +772,13 @@ Server-side rendering frameworks were considered and dropped by the owner (2026-
 
 ## 21. Build order and tracker
 
-Build the parts in order. Tick each row when done and commit per part. Backend parts follow the backend's `_planning` system
-(a new contract `_planning/02_contracts/ai.video-editing.md` first; changes to frozen contracts go through `_drift.md`).
+Detailed build trackers (the source of truth for progress; this table is the summary):
+- Backend: `/home/haku/projects/Next.js/Social-Media-Manager/AI_VIDEO_EDIT_BACKEND_PLAN.md` (B1–B5).
+- App: `AI_VIDEO_EDIT_APP_PLAN.md` in this repo's root (A1–A7).
+
+Build order: B1 → B2 → B3 → B4 → B5 → A1 → A2 → A3 → A4 → A5. Commit per part. Backend parts follow the backend's
+`_planning` system (a new contract `_planning/02_contracts/ai.video-editing.md` first; changes to frozen contracts go
+through `_drift.md`).
 
 | Part | Repo | Scope | Status |
 |---|---|---|---|
@@ -815,8 +830,8 @@ Build the parts in order. Tick each row when done and commit per part. Backend p
 13. Engine is a package tree inside `:app` with strict separation of concerns, not a separate Gradle module.
 14. Prices: Basic 1, Standard 2, Heavy 3 credits per video up to 3 minutes; longer videos: the level price per started
     3 minutes. Values live in `pricing.config.ts`.
-15. Caption credits are held until the transcript is used (embed, publish, AI edit) and released on discard or after 7 days
-    unused (part B5).
+15. Caption credits are held until the transcript is used (embed, publish, AI edit) and released on discard, or by the
+    nightly reconciliation after about 24 hours unused (part B5).
 16. Standard and Heavy upload a 360p low bitrate proxy for Clef-omni. Server env: `CLOUDFLARE_ACCOUNT_ID`,
     `CLOUDFLARE_AI_TOKEN`.
 17. IconScout: development uses the URL in the search result JSON (plain download); production switches to `api-download`
