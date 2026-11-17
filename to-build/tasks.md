@@ -146,7 +146,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 
 | Card | Repo | What | Depends on | Status |
 |---|---|---|---|---|
-| T0.1 | backend | Contract modules + `GET /ai-edits/contract` | — | ⬜ |
+| T0.1 | backend | Contract modules + `GET /ai-edits/contract` | — | ✅ |
 | T0.2 | app | Contract mirror, plan model, parser, timeline (JVM tests) | T0.1 | ⬜ |
 | T1.1 | backend | Core: words, protected spans, free windows, silence cuts, remap | T0.1 | ⬜ |
 | T1.2 | backend | Core: slots, assembler, validator, golden plans | T1.1 | ⬜ |
