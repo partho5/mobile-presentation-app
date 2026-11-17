@@ -153,6 +153,36 @@ public final class OutputTimeline {
         return Math.min(src, pieceSrcEnd[i]);
     }
 
+    /** How many surviving pieces the source is played as, in order. */
+    public int pieceCount() {
+        return pieceSrcStart.length;
+    }
+
+    /** Source start of piece {@code i} in ms. */
+    public long pieceSourceStartMs(int i) {
+        return pieceSrcStart[i];
+    }
+
+    /** Source end (exclusive) of piece {@code i} in ms. */
+    public long pieceSourceEndMs(int i) {
+        return pieceSrcEnd[i];
+    }
+
+    /** Playback rate of piece {@code i}. */
+    public double pieceRate(int i) {
+        return pieceRate[i];
+    }
+
+    /** Output start of piece {@code i} in ms, unrounded. */
+    public double pieceOutputStartMs(int i) {
+        return pieceOutStart[i];
+    }
+
+    /** Exact output length in ms, unrounded. */
+    public double exactOutputDurationMs() {
+        return totalOut;
+    }
+
     /** The playback rate at an output time (1 outside the output and where no speed segment applies). */
     public double rateAtOutput(long outMs) {
         int n = pieceSrcStart.length;
