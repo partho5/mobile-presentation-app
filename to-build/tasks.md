@@ -153,7 +153,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T1.3 | app | Event log capture while recording + remap | T0.2 | ✅ |
 | T2.1 | backend | Data model, credits, `edit_proxy` upload purpose | T1.2 | ✅ |
 | T2.2 | backend | Routes + Basic workflow (transcript → plan → validate → commit) | T2.1 | ✅ |
-| T2.3 | app | Renderer core: decode → GL → encode, crops, cuts, audio, `renderProxy` | T0.2 | ⬜ |
+| T2.3 | app | Renderer core: decode → GL → encode, crops, cuts, audio, `renderProxy` | T0.2 | ✅ |
 | T2.4 | app | Captions painter, text looks, palette, `v_punch_in` | T2.3 | ⬜ |
 | T3.1 | app | Job flow: API client, uploads, job store, foreground service, results | T2.2, T2.4, T1.3 | ⬜ |
 | T3.2 | app | UX: AI Edit button, level sheet, discard undo, record again, Settings | T3.1 | ⬜ |
