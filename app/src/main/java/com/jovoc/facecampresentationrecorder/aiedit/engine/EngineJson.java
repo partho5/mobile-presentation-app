@@ -52,10 +52,11 @@ public final class EngineJson {
             Object v = o.get(k);
             if (v instanceof Boolean || v instanceof String) {
                 out.put(k, v);
-            } else if (v instanceof Double || v instanceof Float) {
-                out.put(k, ((Number) v).doubleValue());
-            } else if (v instanceof Number) {
+            } else if (v instanceof Integer || v instanceof Long || v instanceof Short || v instanceof Byte) {
                 out.put(k, ((Number) v).longValue());
+            } else if (v instanceof Number) {
+                // Double on Android; BigDecimal in the JVM org.json that the unit tests use.
+                out.put(k, ((Number) v).doubleValue());
             } else {
                 throw new JSONException("not a primitive: " + k);
             }
