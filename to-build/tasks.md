@@ -167,7 +167,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T4.2 | backend | Writer LLM (Heavy) + brand voice, banned words, palette | T4.1 | ✅ |
 | T4.3 | app | Video effects + transitions (first wave) | T2.4 | ✅ |
 | T5.1 | backend | Assets: IconScout + shared R2 cache + sound URLs | T2.2 | ✅ |
-| T5.2 | app | Asset cache, Lottie and icon overlays, sound mix | T5.1, T4.3 | ⬜ |
+| T5.2 | app | Asset cache, Lottie and icon overlays, sound mix | T5.1, T4.3 | ✅ |
 | T6.1 | backend | Caption credits held until used; use / release routes | T2.2 | ⬜ |
 | T6.2 | app | Caption use on embed, release on discard, AI edit reuses the caption | T6.1, T3.2 | ⬜ |
 | T7.1 | app | Frame-difference detection for imported videos | T3.1 | later |
