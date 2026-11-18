@@ -1,6 +1,7 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditSettings;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.BG_PREF_NAME;
@@ -195,6 +196,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupAutoCrop();
         setupBackground();
         setupSubtitles();
+        setupAiEdit();
         setupAutoPublish();
         setupFloatingCam();
     }
@@ -252,6 +254,38 @@ public class SettingsActivity extends AppCompatActivity {
                     : 3;
             prefs.edit().putInt(KEY_COUNTDOWN_SECONDS, value).apply();
             ActivityLog.log("setting_change", "key", "countdown_s", "value", value);
+        });
+    }
+
+    /** "AI edit": the level a tap on AI Edit uses (Standard), the text colours (multi) and sound effects (on). */
+    private void setupAiEdit() {
+        RadioGroup level = findViewById(R.id.rg_ai_edit_level);
+        String current = AiEditSettings.level(this);
+        level.check(AiEditSettings.LEVEL_BASIC.equals(current) ? R.id.rb_ai_level_basic
+                : AiEditSettings.LEVEL_HEAVY.equals(current) ? R.id.rb_ai_level_heavy
+                : R.id.rb_ai_level_standard);
+        level.setOnCheckedChangeListener((g, id) -> {
+            String value = id == R.id.rb_ai_level_basic ? AiEditSettings.LEVEL_BASIC
+                    : id == R.id.rb_ai_level_heavy ? AiEditSettings.LEVEL_HEAVY
+                    : AiEditSettings.LEVEL_STANDARD;
+            AiEditSettings.setLevel(this, value);
+            ActivityLog.log("setting_change", "key", "ai_edit_level", "value", value);
+        });
+
+        RadioGroup colors = findViewById(R.id.rg_ai_edit_colors);
+        colors.check(AiEditSettings.COLORS_BRAND.equals(AiEditSettings.textColors(this))
+                ? R.id.rb_ai_colors_brand : R.id.rb_ai_colors_multi);
+        colors.setOnCheckedChangeListener((g, id) -> {
+            String value = id == R.id.rb_ai_colors_brand ? AiEditSettings.COLORS_BRAND : AiEditSettings.COLORS_MULTI;
+            AiEditSettings.setTextColors(this, value);
+            ActivityLog.log("setting_change", "key", "ai_edit_text_colors", "value", value);
+        });
+
+        CheckBox sound = findViewById(R.id.cb_ai_edit_sound);
+        sound.setChecked(AiEditSettings.soundEffects(this));
+        sound.setOnCheckedChangeListener((b, checked) -> {
+            AiEditSettings.setSoundEffects(this, checked);
+            ActivityLog.log("setting_change", "key", "ai_edit_sound_effects", "value", checked);
         });
     }
 

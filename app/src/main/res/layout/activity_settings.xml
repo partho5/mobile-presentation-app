@@ -882,6 +882,124 @@
                 </LinearLayout>
             </FrameLayout>
 
+            <!-- AI edit: the level a tap on "AI Edit" uses, the text colours and the sound effects -->
+            <include layout="@layout/view_settings_divider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_ai_edit_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="2dp"
+                android:text="@string/set_ai_edit_level_header"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <RadioGroup
+                android:id="@+id/rg_ai_edit_level"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rb_ai_level_basic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/ai_edit_level_basic"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_ai_level_standard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/ai_edit_level_standard"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_ai_level_heavy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/ai_edit_level_heavy"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="2dp"
+                android:text="@string/set_ai_edit_colors_header"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <RadioGroup
+                android:id="@+id/rg_ai_edit_colors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rb_ai_colors_multi"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_ai_edit_colors_multi"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/rb_ai_colors_brand"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_ai_edit_colors_brand"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_ai_edit_colors_hint"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <CheckBox
+                android:id="@+id/cb_ai_edit_sound"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:buttonTint="#22D3EE"
+                android:minHeight="48dp"
+                android:text="@string/set_ai_edit_sound_checkbox"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_ai_edit_sound_hint"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
             <!-- Auto upload: one row into the Auto upload screen; the subtitle is set in SettingsActivity -->
             <include layout="@layout/view_settings_divider" />
 

@@ -9,4 +9,62 @@
     <string name="ai_edit_notif_done_text">Your AI edit is ready</string>
     <string name="ai_edit_notif_failed_text">Your AI edit stopped. Open the app to try again.</string>
     <string name="recording_ai_edit_tag">AI edit</string>
+
+    <!-- Preview row (ui/AiEditPanel, ui/VideoPlayerDialog) -->
+    <string name="ai_edit_button">AI Edit</string>
+    <string name="ai_edit_button_cost">AI Edit · %1$s</string>
+    <plurals name="ai_edit_credits">
+        <item quantity="one">%d credit</item>
+        <item quantity="other">%d credits</item>
+    </plurals>
+    <string name="ai_edit_button_desc">Make an AI edit of this video</string>
+    <string name="ai_edit_levels_desc">Choose the AI Edit level</string>
+    <string name="ai_edit_record_again">Record again</string>
+    <string name="ai_edit_record_again_desc">Close the preview and record again</string>
+    <string name="ai_edit_working">AI Edit is working…</string>
+    <string name="ai_edit_progress_percent">%1$s %2$d%%</string>
+    <string name="ai_edit_ready">✓ AI edit ready · swipe to preview</string>
+    <string name="ai_edit_sign_in">Sign in to use AI Edit.</string>
+    <string name="ai_edit_start_failed">AI Edit could not start. Try again.</string>
+
+    <!-- Level sheet -->
+    <string name="ai_edit_sheet_title">AI Edit level</string>
+    <string name="ai_edit_sheet_hint">For this video only. Change the usual level in Settings.</string>
+    <string name="ai_edit_level_basic">Basic</string>
+    <string name="ai_edit_level_standard">Standard</string>
+    <string name="ai_edit_level_heavy">Heavy</string>
+    <string name="ai_edit_level_basic_line">Cuts the pauses, adds captions and key-word pop-ups.</string>
+    <string name="ai_edit_level_standard_line">Adds zooms, icons, sounds and transitions that follow what you show.</string>
+    <string name="ai_edit_level_heavy_line">Everything in Standard, plus written hooks and commentary.</string>
+
+    <!-- One line when it stops, and its one action -->
+    <string name="ai_edit_err_credits">Not enough credits for this edit.</string>
+    <string name="ai_edit_err_cap">You reached the AI limit of your plan.</string>
+    <string name="ai_edit_err_too_long">This video is too long for an AI edit.</string>
+    <string name="ai_edit_err_no_audio">This recording has no sound to edit from.</string>
+    <string name="ai_edit_err_no_speech">No speech was heard, so there is nothing to edit. No credits used.</string>
+    <string name="ai_edit_err_offline">No connection. Try again when you are online.</string>
+    <string name="ai_edit_err_signed_out">Sign in to use AI Edit.</string>
+    <string name="ai_edit_err_no_space">Not enough free storage for the edit.</string>
+    <string name="ai_edit_err_source">The recording could not be read.</string>
+    <string name="ai_edit_err_update_app">Update the app to render this edit.</string>
+    <string name="ai_edit_err_nothing">Nothing is left to render after the edit.</string>
+    <string name="ai_edit_err_generic">AI Edit did not finish. Credits are given back.</string>
+    <string name="ai_edit_action_try_again">Try again</string>
+    <string name="ai_edit_action_top_up">Top up</string>
+    <string name="ai_edit_action_upgrade">Upgrade</string>
+
+    <!-- Discard with undo -->
+    <string name="player_discarded">Recording discarded</string>
+    <string name="player_undo">Undo</string>
+
+    <!-- Settings section "AI edit" -->
+    <string name="set_ai_edit_header">AI edit</string>
+    <string name="set_ai_edit_level_header">AI Edit level (the one-tap default)</string>
+    <string name="set_ai_edit_colors_header">Text colours</string>
+    <string name="set_ai_edit_colors_multi">Multi colour</string>
+    <string name="set_ai_edit_colors_brand">Brand colour</string>
+    <string name="set_ai_edit_colors_hint">Brand colour uses your workspace colour for the text in the edit.</string>
+    <string name="set_ai_edit_sound_checkbox">Sound effects</string>
+    <string name="set_ai_edit_sound_hint">Adds short sounds to the edit where they fit.</string>
 </resources>

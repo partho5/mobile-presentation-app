@@ -1,10 +1,8 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -15,7 +13,6 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -43,6 +40,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.signature.ObjectKey;
 import com.google.android.material.card.MaterialCardView;
+import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
@@ -226,6 +224,10 @@ public class VideoPlayerDialog {
     private final ImageButton btnPublish;
     /** The group's master video, or null when it is gone (Edit hidden). Main thread only. */
     private String masterPath;
+    /** The AI Edit row (button, level sheet, progress, result). Null until the dialog is built. */
+    private AiEditPanel aiPanel;
+    /** An AI version to bring to the centre once the next reload has it in the list. */
+    private String pendingShowPath;
     private boolean isEmbedding;
     private String pendingEmbedPath;
     private AtomicBoolean burnCancelFlag;
@@ -278,10 +280,10 @@ public class VideoPlayerDialog {
 
         // The pager spans the dialog less 1dp each side (see dialog_video_player.xml)
         stageW = dialogW - (int) (2 * density);
-        // Let the video take whatever height the dialog's other rows (header, controls,
-        // file card, paddings: ~270dp) leave within 90% of the screen, but never more than
+        // Let the video take whatever height the dialog's other rows (header, controls, AI Edit
+        // row, file card, paddings: ~340dp) leave within 90% of the screen, but never more than
         // 70% of it, so a tall slide still leaves room around it to swipe
-        int fitH = Math.max((int) (200 * density), (int) (dm.heightPixels * 0.90f - 270 * density));
+        int fitH = Math.max((int) (200 * density), (int) (dm.heightPixels * 0.90f - 340 * density));
         maxCardH = Math.min(fitH, (int) (dm.heightPixels * 0.70f));
         minCardW = (int) (MIN_CARD_W_DP * density);
         singleMaxCardW = Math.min((int) (dm.widthPixels * 0.82f), stageW);
@@ -402,43 +404,27 @@ public class VideoPlayerDialog {
             ActivityLog.log("player_action", "item", "delete");
             Version current = findVersion(playingPath);
             if (current == null) return;
-            final File fileToDelete = current.file;
-            new AlertDialog.Builder(context)
-                    .setTitle("Delete Recording")
-                    .setMessage("Are you sure you want to delete \"" + fileToDelete.getName() + "\"?")
-                    .setPositiveButton("Delete", (d, which) -> {
-                        if (activeVideo != null) {
-                            activeVideo.stopPlayback();
-                        }
-                        boolean deleted = false;
-                        if (fileToDelete.exists()) {
-                            deleted = fileToDelete.delete();
-                        }
-
-                        if (deleted || !fileToDelete.exists()) {
-                            VideoGroupStore.remove(context, fileToDelete.getAbsolutePath());
-                            SubtitleEmbedStore.remove(appContext, fileToDelete.getAbsolutePath());
-                            try {
-                                ContentResolver resolver = context.getContentResolver();
-                                resolver.delete(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                                        MediaStore.Video.Media.DATA + "=?",
-                                        new String[]{fileToDelete.getAbsolutePath()});
-                            } catch (Exception ignored) {}
-
-                            MediaScannerConnection.scanFile(context, new String[]{fileToDelete.getAbsolutePath()}, null, null);
-
-                            if (listener != null) {
-                                listener.onVideoDeleted(fileToDelete);
-                            }
-                            Toast.makeText(context, "Video deleted", Toast.LENGTH_SHORT).show();
-                            dialog.dismiss();
-                        } else {
-                            Toast.makeText(context, "Failed to delete video", Toast.LENGTH_SHORT).show();
-                        }
-                    })
-                    .setNegativeButton("Cancel", (d, which) -> d.dismiss())
-                    .show();
+            // No confirm dialog: the preview closes and "Recording discarded · Undo" shows for a few seconds
+            final File fileToDiscard = current.file;
+            final Context host = context;
+            final OnVideoActionListener actions = listener;
+            dialog.dismiss();
+            DiscardUndo.discard(host, fileToDiscard, () -> {
+                if (actions != null) actions.onVideoDeleted(fileToDiscard);
+            });
         });
+
+        // Record again: close the preview; the recorder underneath is still on the same slide, ready to record.
+        // Only offered right after a recording, where the recorder is the screen below.
+        TextView btnRecordAgain = dialog.findViewById(R.id.btn_record_again);
+        if (context instanceof MainActivity) {
+            btnRecordAgain.setOnClickListener(v -> {
+                ActivityLog.log("player_action", "item", "record_again");
+                dialog.dismiss();
+            });
+        } else {
+            btnRecordAgain.setVisibility(View.GONE);
+        }
 
         // Share Action — always the version in the centre
         btnShare.setOnClickListener(v -> {
@@ -501,6 +487,23 @@ public class VideoPlayerDialog {
             btnSub.setOnClickListener(v -> onSubClicked());
             updateSubButton();
         }
+
+        // AI Edit: one tap to the default level; it hears the job while this preview is open
+        aiPanel = new AiEditPanel(context, dialog.findViewById(R.id.ai_edit_panel), new AiEditPanel.Host() {
+            @Override
+            public File sourceVideo() {
+                if (masterPath != null) return new File(masterPath);
+                Version current = findVersion(playingPath);
+                return current != null ? current.file : null;
+            }
+
+            @Override
+            public void onVersionsChanged(File show) {
+                if (dismissed) return;
+                if (show != null) pendingShowPath = show.getAbsolutePath();
+                reloadVersions();
+            }
+        });
 
         // Versions arrive while the dialog is open. The receiver is registered before the
         // first load so a crop finishing in between is not missed.
@@ -613,6 +616,7 @@ public class VideoPlayerDialog {
         dialog.setOnDismissListener(d -> {
             ActivityLog.log("player_close", "open_ms", android.os.SystemClock.elapsedRealtime() - openedAt);
             dismissed = true;
+            if (aiPanel != null) aiPanel.release();
             if (burnCancelFlag != null) {
                 burnCancelFlag.set(true);
             }
@@ -874,7 +878,9 @@ public class VideoPlayerDialog {
      * still runs it looks disabled and says "Preparing..." when tapped.
      */
     private void updateEditButtons(String master) {
+        boolean masterChanged = master == null ? masterPath != null : !master.equals(masterPath);
         masterPath = master;
+        if (masterChanged && aiPanel != null) aiPanel.onSourceChanged();
         btnEdit.setVisibility(master == null ? View.GONE : View.VISIBLE);
         boolean preparing = master != null && BgReplaceService.isReplacePending(master);
         btnEdit.setAlpha(preparing ? 0.35f : 1f);
@@ -1017,6 +1023,20 @@ public class VideoPlayerDialog {
         diff.dispatchUpdatesTo(adapter);
 
         pager.setUserInputEnabled(versions.size() > 1);
+
+        // A new AI version was asked to come to the centre: make it the playing one (once)
+        if (pendingShowPath != null && indexOfPath(pendingShowPath) >= 0) {
+            // The AI version starts from its beginning: its times are not the original's
+            String show = pendingShowPath;
+            pendingShowPath = null;
+            deactivateActive();
+            playingPath = show;
+            pendingSeekMs = 0;
+            pendingPlay = true;
+            Version shown = findVersion(show);
+            if (shown != null) updateMetadataUI(shown.file, tvFileName, tvMetadata);
+            updateSubButton();
+        }
 
         // Indices shifted: keep the playing file centred, without the playback restarting
         restoring = true;
