@@ -7,6 +7,7 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.LayeredPaint
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContract;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.EffectFactory;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.FacecamSource;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.Plan;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.MediaProbe;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.RenderPipeline;
@@ -92,7 +93,7 @@ public final class Engine {
         CropRect crop = OutputTimeline.cropFor(job.ratio, probe.width, probe.height);
         new RenderPipeline(job.source, probe, timeline, crop, spec.width, spec.height)
                 .video(spec.bitrate, probe.frameRate)
-                .withEffects(EffectFactory.videoEffects(plan, contract))
+                .withEffects(EffectFactory.videoEffects(plan, contract, facecamSource(timeline, crop, probe)))
                 .withPainter(painterFor(job, spec, timeline, crop, probe))
                 .withCancelFlag(job.cancel)
                 .withProgress(listener == null ? null : percent -> listener.onProgress(job, percent))
@@ -124,6 +125,27 @@ public final class Engine {
             out[0] = (float) ((key.cx * probe.width - cropX) * scale);
             out[1] = (float) (key.cy * probe.height * scale);
             out[2] = (float) (key.radius * probe.width * scale);
+            return true;
+        };
+    }
+
+    /**
+     * The facecam circle as fractions of this output: the master's fractions through the top-anchored crop. The
+     * circle can fall partly or wholly outside a crop (the facecam sits low on the screen).
+     */
+    private static FacecamSource facecamSource(final OutputTimeline timeline, final CropRect crop,
+                                               final MediaProbe probe) {
+        final double cropX = crop != null ? crop.x : 0;
+        final double cropY = crop != null ? crop.y : 0;
+        final double cropW = crop != null ? crop.w : probe.width;
+        final double cropH = crop != null ? crop.h : probe.height;
+        return (outputMs, out) -> {
+            Plan.FacecamKey key = timeline.facecamAt(outputMs);
+            if (key == null) return false;
+            out[0] = (key.cx * probe.width - cropX) / cropW;
+            out[1] = (key.cy * probe.height - cropY) / cropH;
+            out[2] = key.radius * probe.width / cropW;
+            out[3] = key.radius * probe.width / cropH;
             return true;
         };
     }

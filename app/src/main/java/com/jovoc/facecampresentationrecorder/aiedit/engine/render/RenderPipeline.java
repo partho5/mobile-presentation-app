@@ -154,7 +154,7 @@ public final class RenderPipeline {
         return this;
     }
 
-    /** The camera effects applied to the picture, by output time; null or empty for none. */
+    /** The video effects applied to the picture, by output time; null or empty for none. */
     public RenderPipeline withEffects(List<VideoEffect> effects) {
         this.effects = effects != null ? effects : Collections.<VideoEffect>emptyList();
         return this;
@@ -590,8 +590,7 @@ public final class RenderPipeline {
         long outMs = outUs / 1000;
         transform.reset();
         for (int i = 0; i < effects.size(); i++) effects.get(i).apply(outMs, transform);
-        compositor.drawVideo(oesTexture, stMatrix, (float) transform.scale,
-                (float) transform.centerX, (float) transform.centerY);
+        compositor.drawVideo(oesTexture, stMatrix, transform);
         if (layer != null && painter.draw(layer.begin(), outMs, outW, outH)) layer.drawOver();
         gl.setPresentationTime(outUs * 1000L);
         gl.swapBuffers();

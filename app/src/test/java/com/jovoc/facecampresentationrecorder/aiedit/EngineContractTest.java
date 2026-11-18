@@ -94,9 +94,10 @@ public class EngineContractTest {
         assertTrue(c.effectsForLevel("heavy", null).size() > c.effectsForLevel("standard", null).size());
         assertTrue(c.effectsForLevel("standard", null).size() > basic.size());
 
-        List<RegistryEntry> mine = c.effectsForLevel("basic", Capabilities.current());
+        List<RegistryEntry> mine = c.effectsForLevel("heavy", Capabilities.current());
         assertEquals(Capabilities.current().getEffects().size(), mine.size());
         for (RegistryEntry e : mine) assertTrue(Capabilities.current().canRender(e.id));
+        assertTrue(c.effectsForLevel("basic", Capabilities.current()).size() < mine.size());
         assertEquals(0, c.effectsForLevel("nope", null).size());
     }
 
@@ -176,6 +177,9 @@ public class EngineContractTest {
         assertTrue(caps.canRender("c_word_highlight"));
         assertTrue(caps.canRender("c_emphasis_big"));
         assertTrue(caps.canRender("v_punch_in"));
+        assertTrue(caps.canRender("v_push_in"));
+        assertTrue(caps.canRender("tr_whip"));
+        assertTrue(caps.canRender("y_face_grow_slide_shrink"));
         assertTrue(caps.canStyle("highlighter"));
         assertFalse(caps.canRender("v_shake"));
         assertTrue(caps.knownTo(TestContract.load()));
