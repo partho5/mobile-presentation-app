@@ -95,9 +95,8 @@ public class EngineContractTest {
         assertTrue(c.effectsForLevel("standard", null).size() > basic.size());
 
         List<RegistryEntry> mine = c.effectsForLevel("basic", Capabilities.current());
-        assertEquals(2, mine.size());
-        assertTrue(Arrays.asList(mine.get(0).id, mine.get(1).id).containsAll(
-                Arrays.asList("t_jump_cut", "c_word_highlight")));
+        assertEquals(Capabilities.current().getEffects().size(), mine.size());
+        for (RegistryEntry e : mine) assertTrue(Capabilities.current().canRender(e.id));
         assertEquals(0, c.effectsForLevel("nope", null).size());
     }
 
@@ -171,11 +170,14 @@ public class EngineContractTest {
     }
 
     @Test
-    public void capabilitiesStartWithCaptionsAndJumpCutAndAreKnownToTheContract() throws Exception {
+    public void capabilitiesCoverTheBasicRenderAndAreKnownToTheContract() throws Exception {
         Capabilities caps = Capabilities.current();
         assertTrue(caps.canRender("t_jump_cut"));
         assertTrue(caps.canRender("c_word_highlight"));
-        assertFalse(caps.canRender("v_punch_in"));
+        assertTrue(caps.canRender("c_emphasis_big"));
+        assertTrue(caps.canRender("v_punch_in"));
+        assertTrue(caps.canStyle("highlighter"));
+        assertFalse(caps.canRender("v_shake"));
         assertTrue(caps.knownTo(TestContract.load()));
         assertFalse(new Capabilities(Arrays.asList("v_made_up"), Arrays.<String>asList())
                 .knownTo(TestContract.load()));

@@ -15,4 +15,15 @@ public interface CaptionPainter {
      * @return true when something was drawn; false lets the engine skip the upload of an empty layer
      */
     boolean draw(Canvas canvas, long outputMs, int outputW, int outputH);
+
+    /** The app's 20 sp caption size at 1080 px wide, as a share of the output width. */
+    float DEFAULT_TEXT_SIZE_SHARE = 60f / 1080f;
+
+    /**
+     * The caption text size in pixels for an output of this width; text overlays are 2.5 times this. The default
+     * is {@link #DEFAULT_TEXT_SIZE_SHARE} of the width.
+     */
+    default float captionTextSizePx(int outputW, int outputH) {
+        return outputW * DEFAULT_TEXT_SIZE_SHARE;
+    }
 }

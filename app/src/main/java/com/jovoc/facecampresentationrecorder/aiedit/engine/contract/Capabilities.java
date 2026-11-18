@@ -24,10 +24,12 @@ public final class Capabilities {
         this.textStyles = Collections.unmodifiableSet(new LinkedHashSet<>(textStyles));
     }
 
-    /** What this build renders: the caption highlight and the jump cut, nothing else yet. */
+    /** What this build renders: captions with big emphasis words, the jump cut, punch-in and the text overlays. */
     public static Capabilities current() {
-        return new Capabilities(Arrays.asList("c_word_highlight", "t_jump_cut"),
-                Collections.<String>emptyList());
+        return new Capabilities(
+                Arrays.asList("c_word_highlight", "c_emphasis_big", "t_jump_cut", "v_punch_in",
+                        "x_pop", "x_stamp", "x_sticker", "x_3d", "x_glow", "x_label_tag", "x_marker_sweep"),
+                Arrays.asList("sticker", "label_pill", "3d", "glow", "gradient", "highlighter"));
     }
 
     public boolean canRender(String effectId) {

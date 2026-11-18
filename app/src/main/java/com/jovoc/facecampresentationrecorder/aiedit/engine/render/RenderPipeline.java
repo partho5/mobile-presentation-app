@@ -14,6 +14,8 @@ import android.view.Surface;
 
 import com.jovoc.facecampresentationrecorder.aiedit.engine.EngineException;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.VideoEffect;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.VideoTransform;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.timeline.CropRect;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.timeline.OutputTimeline;
 
@@ -21,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -79,6 +82,8 @@ public final class RenderPipeline {
     private int audioChannels;
     private int audioBitrate;
     private CaptionPainter painter;
+    private List<VideoEffect> effects = Collections.emptyList();
+    private final VideoTransform transform = new VideoTransform();
     private final List<AudioPath.MixSource> sounds = new ArrayList<>();
     private AtomicBoolean cancel;
     private Progress progress;
@@ -146,6 +151,12 @@ public final class RenderPipeline {
 
     public RenderPipeline withPainter(CaptionPainter painter) {
         this.painter = painter;
+        return this;
+    }
+
+    /** The camera effects applied to the picture, by output time; null or empty for none. */
+    public RenderPipeline withEffects(List<VideoEffect> effects) {
+        this.effects = effects != null ? effects : Collections.<VideoEffect>emptyList();
         return this;
     }
 
@@ -576,8 +587,12 @@ public final class RenderPipeline {
 
     /** Draws the latched frame and the layers onto the encoder surface, stamped {@code outUs}. */
     private void drawFrame(long outUs) {
-        compositor.drawVideo(oesTexture, stMatrix);
-        if (layer != null && painter.draw(layer.begin(), outUs / 1000, outW, outH)) layer.drawOver();
+        long outMs = outUs / 1000;
+        transform.reset();
+        for (int i = 0; i < effects.size(); i++) effects.get(i).apply(outMs, transform);
+        compositor.drawVideo(oesTexture, stMatrix, (float) transform.scale,
+                (float) transform.centerX, (float) transform.centerY);
+        if (layer != null && painter.draw(layer.begin(), outMs, outW, outH)) layer.drawOver();
         gl.setPresentationTime(outUs * 1000L);
         gl.swapBuffers();
     }

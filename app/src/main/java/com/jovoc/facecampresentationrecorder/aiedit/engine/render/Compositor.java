@@ -10,7 +10,7 @@ import java.nio.FloatBuffer;
 /**
  * Draws the decoded frame (an external OES texture) cropped and scaled to fill the output. The crop is in the
  * upright source's pixels, top-anchored as the recorder crops (see {@code OutputTimeline.cropFor}); null shows
- * the whole frame. Video effects (later cards) become extra shader programs here.
+ * the whole frame. The zoom of the camera effects is applied in the vertex shader; other video effects (later cards) become extra programs here.
  */
 final class Compositor {
 
@@ -19,9 +19,12 @@ final class Compositor {
             "layout(location = 0) in vec4 aPosition;\n" +
             "layout(location = 1) in vec2 aTexCoord;\n" +
             "uniform mat4 uSTMatrix;\n" +
+            "uniform float uZoom;\n" +
+            "uniform vec2 uZoomCenter;\n" +
             "out vec2 vTexCoord;\n" +
             "void main() {\n" +
-            "    gl_Position = aPosition;\n" +
+            "    vec2 p = uZoomCenter + (aPosition.xy - uZoomCenter) * uZoom;\n" +
+            "    gl_Position = vec4(p, aPosition.zw);\n" +
             "    vTexCoord = (uSTMatrix * vec4(aTexCoord, 0.0, 1.0)).xy;\n" +
             "}\n";
 
@@ -41,6 +44,8 @@ final class Compositor {
     private final int program;
     private final int stMatrixLoc;
     private final int textureLoc;
+    private final int zoomLoc;
+    private final int zoomCenterLoc;
     private final FloatBuffer positions;
     private final FloatBuffer texCoords;
 
@@ -55,6 +60,8 @@ final class Compositor {
         program = GlUtil.createProgram(VERTEX_SHADER, OES_FRAG_SHADER);
         stMatrixLoc = GLES30.glGetUniformLocation(program, "uSTMatrix");
         textureLoc = GLES30.glGetUniformLocation(program, "uTexture");
+        zoomLoc = GLES30.glGetUniformLocation(program, "uZoom");
+        zoomCenterLoc = GLES30.glGetUniformLocation(program, "uZoomCenter");
         positions = GlUtil.floatBuffer(GlUtil.QUAD_POSITIONS);
         texCoords = GlUtil.floatBuffer(cropTexCoords(crop, srcW, srcH));
     }
@@ -73,8 +80,16 @@ final class Compositor {
         return new float[]{u0, vBottom, u1, vBottom, u0, vTop, u1, vTop};
     }
 
-    /** Draws the latched frame of {@code oesTexture} over the whole output. */
+    /** Draws the latched frame of {@code oesTexture} over the whole output, no zoom. */
     void drawVideo(int oesTexture, float[] stMatrix) {
+        drawVideo(oesTexture, stMatrix, 1f, 0.5f, 0.5f);
+    }
+
+    /**
+     * Draws the latched frame over the whole output, zoomed by {@code zoom} (1 or more, so the frame stays full)
+     * about a point given as fractions of the output (x across, y down from the top).
+     */
+    void drawVideo(int oesTexture, float[] stMatrix, float zoom, float centerX, float centerY) {
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0);
         GLES30.glViewport(0, 0, outW, outH);
         GLES30.glDisable(GLES30.GL_BLEND);
@@ -83,6 +98,8 @@ final class Compositor {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTexture);
         GLES30.glUniform1i(textureLoc, 0);
+        GLES30.glUniform1f(zoomLoc, Math.max(1f, zoom));
+        GLES30.glUniform2f(zoomCenterLoc, 2f * centerX - 1f, 1f - 2f * centerY);
         GlUtil.drawQuad(positions, texCoords);
         GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0);
     }

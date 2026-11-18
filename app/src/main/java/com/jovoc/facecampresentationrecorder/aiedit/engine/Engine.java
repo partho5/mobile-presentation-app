@@ -2,12 +2,17 @@ package com.jovoc.facecampresentationrecorder.aiedit.engine;
 
 import android.util.Log;
 
+import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.LayeredPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContract;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.EffectFactory;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.Plan;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.MediaProbe;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.RenderPipeline;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.timeline.CropRect;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.text.TextOverlayPainter;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.text.TextPlacement;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.timeline.OutputTimeline;
 
 import java.io.File;
@@ -87,11 +92,40 @@ public final class Engine {
         CropRect crop = OutputTimeline.cropFor(job.ratio, probe.width, probe.height);
         new RenderPipeline(job.source, probe, timeline, crop, spec.width, spec.height)
                 .video(spec.bitrate, probe.frameRate)
-                .withPainter(job.captionPainter)
+                .withEffects(EffectFactory.videoEffects(plan, contract))
+                .withPainter(painterFor(job, spec, timeline, crop, probe))
                 .withCancelFlag(job.cancel)
                 .withProgress(listener == null ? null : percent -> listener.onProgress(job, percent))
                 .render(job.output);
         if (listener != null) listener.onFinished(job);
+    }
+
+    /** The captions of the job with the plan's text overlays on top; null when there is nothing to draw. */
+    private CaptionPainter painterFor(RenderJob job, OutputSpec spec, OutputTimeline timeline, CropRect crop,
+                                      MediaProbe probe) {
+        float captionSize = job.captionPainter != null
+                ? job.captionPainter.captionTextSizePx(spec.width, spec.height)
+                : spec.width * CaptionPainter.DEFAULT_TEXT_SIZE_SHARE;
+        TextOverlayPainter overlays = new TextOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
+                captionSize, facecamKeepout(timeline, crop, probe, spec));
+        if (overlays.overlayCount() == 0) return job.captionPainter;
+        return new LayeredPainter(overlays, job.captionPainter);
+    }
+
+    /** The facecam circle in output pixels: the master's fractions through the top-anchored crop. */
+    private static TextPlacement.Keepout facecamKeepout(final OutputTimeline timeline, final CropRect crop,
+                                                        final MediaProbe probe, final OutputSpec spec) {
+        final double cropX = crop != null ? crop.x : 0;
+        final double cropW = crop != null ? crop.w : probe.width;
+        return (outputMs, out) -> {
+            Plan.FacecamKey key = timeline.facecamAt(outputMs);
+            if (key == null) return false;
+            double scale = spec.width / cropW;
+            out[0] = (float) ((key.cx * probe.width - cropX) * scale);
+            out[1] = (float) (key.cy * probe.height * scale);
+            out[2] = (float) (key.radius * probe.width * scale);
+            return true;
+        };
     }
 
     /** {@link #renderProxy(File, long, long, File, AtomicBoolean)} that cannot be cancelled. */
