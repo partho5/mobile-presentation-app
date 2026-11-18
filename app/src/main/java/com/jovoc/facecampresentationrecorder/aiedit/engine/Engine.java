@@ -30,7 +30,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * The AI edit renderer's front door (spec section 19). {@link #render} writes a finished MP4 per ratio from a plan:
  * cuts and speed segments, the top-anchored crop of each ratio at the contract's output size and bitrate, and the
- * captions, text, icons and Lottie, and the sound effects; {@link #renderProxy} writes the small proxy piece the server looks at (Standard, Heavy).
+ * captions, text, icons and Lottie, and the sound effects; {@link #renderProxy} writes the small proxy piece the
+ * server looks at (Standard, Heavy).
  *
  * Each output is a new file; the source is only read. Blocking: call from a worker thread (the job's foreground
  * service). A cancelled job throws {@link CancellationException} and leaves no partial file.
