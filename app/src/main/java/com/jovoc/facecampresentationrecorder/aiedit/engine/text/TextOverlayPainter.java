@@ -7,6 +7,7 @@ import android.graphics.RectF;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContract;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.RegistryEntry;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.TextLook;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.Plan;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.PlanComponent;
@@ -83,7 +84,10 @@ public final class TextOverlayPainter implements CaptionPainter {
     private void addItem(PlanItem item) {
         PlanComponent c = item.component;
         if (c == null || !c.isText() || c.text == null || c.text.trim().isEmpty() || item.endMs <= item.startMs) return;
-        String preset = c.stylePreset != null ? c.stylePreset : item.paramString("style_preset", DEFAULT_LOOK);
+        RegistryEntry entry = contract.effect(item.effect);
+        Object registryPreset = entry != null ? entry.defaultParams.get("style_preset") : null;
+        String preset = c.stylePreset != null ? c.stylePreset : item.paramString("style_preset",
+                registryPreset instanceof String ? (String) registryPreset : DEFAULT_LOOK);
         TextLook look = contract.textLook(preset);
         if (look == null) look = contract.textLook(DEFAULT_LOOK);
         if (look == null) return;
