@@ -147,8 +147,22 @@ public class DirectUploader {
     }
 
     /**
-     * The shared upload / resume loop. For {@link UploadKind#AUDIO} the returned
-     * {@link CompletedUpload} only carries {@code id} (the audio answer has no path).
+     * Uploads one proxy piece of an AI edit (purpose {@code edit_proxy}, only ".mp4"), resuming its stored
+     * session like the video. {@code sessions} is the video store ({@code upload_sessions}) under a job id of
+     * its own, never a publish job's. Returns the upload id to give to POST /ai-edits. The row is kept; the
+     * caller calls {@link #finish} once the edit was created.
+     */
+    public CompletedAudio uploadEditProxy(long jobId, File proxy, String workspaceId,
+                                          UploadSessionStore sessions, ApiClient.ProgressListener progress,
+                                          BooleanSupplier cancelled) throws PublishException {
+        CompletedUpload done = run(UploadKind.EDIT_PROXY, jobId, proxy, workspaceId, sessions, progress,
+                cancelled, null);
+        return new CompletedAudio(done.id);
+    }
+
+    /**
+     * The shared upload / resume loop. For a work file ({@link UploadKind#isWorkFile}) the returned
+     * {@link CompletedUpload} only carries {@code id} (the answer has no path).
      */
     private CompletedUpload run(UploadKind kind, long jobId, File file, String workspaceId,
                                 UploadSessionStore sessions, ApiClient.ProgressListener progress,
@@ -239,7 +253,7 @@ public class DirectUploader {
                     }
                 }
                 CompletedUpload done;
-                if (kind == UploadKind.AUDIO) {
+                if (kind.isWorkFile()) {
                     CompletedAudio audio = api.completeAudio(row.uploadId, parts, workspaceId);
                     done = new CompletedUpload(audio.id, null, null);
                 } else {

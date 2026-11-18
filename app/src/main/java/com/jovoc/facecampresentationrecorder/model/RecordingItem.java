@@ -98,6 +98,11 @@ public class RecordingItem {
         return com.jovoc.facecampresentationrecorder.edit.EditGroupMath.isEditedName(fileName);
     }
 
+    /** True for an AI edit's output (shown with an "AI edit" tag beside "Edited"). */
+    public boolean isAiEdited() {
+        return com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditNames.isAiEditedName(fileName);
+    }
+
     public String getFormatTag() {
         return formatTag;
     }

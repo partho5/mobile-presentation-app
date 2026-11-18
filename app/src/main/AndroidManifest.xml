@@ -125,6 +125,12 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <service
+            android:name=".aiedit.flow.AiEditService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Cancel action of the "publishing soon" (undo window) notification. -->
         <receiver
             android:name=".publish.PublishCancelReceiver"

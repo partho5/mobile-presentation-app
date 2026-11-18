@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI edit job notification (aiedit/flow/AiEditService) -->
+    <string name="ai_edit_channel_name">AI edit</string>
+    <string name="ai_edit_notif_uploading">Uploading…</string>
+    <string name="ai_edit_notif_planning">Planning…</string>
+    <string name="ai_edit_notif_rendering">Rendering %1$s…</string>
+    <string name="ai_edit_notif_done">Done</string>
+    <string name="ai_edit_notif_done_text">Your AI edit is ready</string>
+    <string name="ai_edit_notif_failed_text">Your AI edit stopped. Open the app to try again.</string>
+    <string name="recording_ai_edit_tag">AI edit</string>
+</resources>

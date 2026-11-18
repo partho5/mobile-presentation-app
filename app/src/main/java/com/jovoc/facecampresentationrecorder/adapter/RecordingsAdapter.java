@@ -112,6 +112,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         holder.tvDuration.setText(item.getFormattedDuration());
         holder.tvFormatTag.setText(item.getFormatTag());
         holder.tvEditedTag.setVisibility(item.isEdited() ? View.VISIBLE : View.GONE);
+        holder.tvAiEditTag.setVisibility(item.isAiEdited() ? View.VISIBLE : View.GONE);
 
         // An unfinished or broken file gets a status line instead of a date, so the
         // card never looks like a normal recording that simply refuses to play.
@@ -623,6 +624,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
         TextView tvRecordedTime;
         TextView tvFormatTag;
         TextView tvEditedTag;
+        TextView tvAiEditTag;
         TextView tvStatus;
         TextView tvPublishStatus;
         ProgressBar pbPublish;
@@ -640,6 +642,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             tvRecordedTime = itemView.findViewById(R.id.tv_recorded_time);
             tvFormatTag = itemView.findViewById(R.id.tv_format_tag);
             tvEditedTag = itemView.findViewById(R.id.tv_edited_tag);
+            tvAiEditTag = itemView.findViewById(R.id.tv_ai_edit_tag);
             tvStatus = itemView.findViewById(R.id.tv_status);
             tvPublishStatus = itemView.findViewById(R.id.tv_publish_status);
             pbPublish = itemView.findViewById(R.id.pb_publish);
