@@ -1,3 +1,9 @@
+<!-- runner-config
+REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder /home/haku/projects/Next.js/Social-Media-Manager
+BRANCH=feat/ai-video-edit
+SCRATCH=test_audio.wav test_video.mp4
+-->
+
 RULE: this PC hangs under load, so do not run gradle, `pnpm build`, unit tests, specs, dev servers or the emulator. Write
 code only and verify by reading it against this file and the spec; the owner builds and runs tests on a higher-RAM PC.
 
@@ -160,7 +166,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T4.1 | backend | Perception with Clef-omni (Standard, Heavy) | T2.2 | ✅ |
 | T4.2 | backend | Writer LLM (Heavy) + brand voice, banned words, palette | T4.1 | ✅ |
 | T4.3 | app | Video effects + transitions (first wave) | T2.4 | ✅ |
-| T5.1 | backend | Assets: IconScout + shared R2 cache + sound URLs | T2.2 | ⬜ |
+| T5.1 | backend | Assets: IconScout + shared R2 cache + sound URLs | T2.2 | ✅ |
 | T5.2 | app | Asset cache, Lottie and icon overlays, sound mix | T5.1, T4.3 | ⬜ |
 | T6.1 | backend | Caption credits held until used; use / release routes | T2.2 | ⬜ |
 | T6.2 | app | Caption use on embed, release on discard, AI edit reuses the caption | T6.1, T3.2 | ⬜ |
