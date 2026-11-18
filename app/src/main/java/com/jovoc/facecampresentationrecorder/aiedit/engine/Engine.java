@@ -8,9 +8,11 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContra
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.EffectFactory;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.FacecamSource;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.overlay.IconOverlayPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.Plan;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.MediaProbe;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.render.RenderPipeline;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.sound.SoundTrack;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.timeline.CropRect;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.text.TextOverlayPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.text.TextPlacement;
@@ -28,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * The AI edit renderer's front door (spec section 19). {@link #render} writes a finished MP4 per ratio from a plan:
  * cuts and speed segments, the top-anchored crop of each ratio at the contract's output size and bitrate, and the
- * captions; {@link #renderProxy} writes the small proxy piece the server looks at (Standard, Heavy).
+ * captions, text, icons and Lottie, and the sound effects; {@link #renderProxy} writes the small proxy piece the server looks at (Standard, Heavy).
  *
  * Each output is a new file; the source is only read. Blocking: call from a worker thread (the job's foreground
  * service). A cancelled job throws {@link CancellationException} and leaves no partial file.
@@ -95,22 +97,30 @@ public final class Engine {
                 .video(spec.bitrate, probe.frameRate)
                 .withEffects(EffectFactory.videoEffects(plan, contract, facecamSource(timeline, crop, probe)))
                 .withPainter(painterFor(job, spec, timeline, crop, probe))
+                .withSound(SoundTrack.fromPlan(plan, job.assetsDir))
                 .withCancelFlag(job.cancel)
                 .withProgress(listener == null ? null : percent -> listener.onProgress(job, percent))
                 .render(job.output);
         if (listener != null) listener.onFinished(job);
     }
 
-    /** The captions of the job with the plan's text overlays on top; null when there is nothing to draw. */
+    /**
+     * The captions of the job with the plan's text overlays on top, and the icons and Lottie under the text; null
+     * when there is nothing to draw.
+     */
     private CaptionPainter painterFor(RenderJob job, OutputSpec spec, OutputTimeline timeline, CropRect crop,
                                       MediaProbe probe) {
         float captionSize = job.captionPainter != null
                 ? job.captionPainter.captionTextSizePx(spec.width, spec.height)
                 : spec.width * CaptionPainter.DEFAULT_TEXT_SIZE_SHARE;
-        TextOverlayPainter overlays = new TextOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
-                captionSize, facecamKeepout(timeline, crop, probe, spec));
-        if (overlays.overlayCount() == 0) return job.captionPainter;
-        return new LayeredPainter(overlays, job.captionPainter);
+        TextPlacement.Keepout keepout = facecamKeepout(timeline, crop, probe, spec);
+        TextOverlayPainter texts = new TextOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
+                captionSize, keepout);
+        IconOverlayPainter icons = new IconOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
+                job.assetsDir, keepout);
+        if (texts.overlayCount() == 0 && icons.overlayCount() == 0) return job.captionPainter;
+        return new LayeredPainter(icons.overlayCount() > 0 ? icons : null,
+                texts.overlayCount() > 0 ? texts : null, job.captionPainter);
     }
 
     /** The facecam circle in output pixels: the master's fractions through the top-anchored crop. */

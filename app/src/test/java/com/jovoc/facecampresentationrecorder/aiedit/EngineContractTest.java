@@ -180,6 +180,8 @@ public class EngineContractTest {
         assertTrue(caps.canRender("v_push_in"));
         assertTrue(caps.canRender("tr_whip"));
         assertTrue(caps.canRender("y_face_grow_slide_shrink"));
+        assertTrue(caps.canRender("i_scale_pop"));
+        assertFalse(caps.canRender("i_spin_in"));
         assertTrue(caps.canStyle("highlighter"));
         assertFalse(caps.canRender("v_shake"));
         assertTrue(caps.knownTo(TestContract.load()));

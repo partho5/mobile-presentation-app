@@ -26,14 +26,16 @@ public final class Capabilities {
 
     /**
      * What this build renders: captions (highlight, active-word pop, big emphasis words), the jump cut, the camera
-     * moves, flash and glitch looks, the facecam layouts, the cut transitions and the text overlays.
+     * moves, flash and glitch looks, the facecam layouts, the cut transitions, the text overlays and the icon / Lottie
+     * scale pop.
      */
     public static Capabilities current() {
         return new Capabilities(
                 Arrays.asList("c_word_highlight", "c_active_pop", "c_emphasis_big", "t_jump_cut",
                         "v_punch_in", "v_push_in", "v_alt_crop", "l_flash", "l_rgb_glitch",
                         "y_face_grow_slide_shrink", "y_slide_grow_face_shrink", "tr_flash_cut", "tr_whip",
-                        "x_pop", "x_stamp", "x_sticker", "x_3d", "x_glow", "x_label_tag", "x_marker_sweep"),
+                        "x_pop", "x_stamp", "x_sticker", "x_3d", "x_glow", "x_label_tag", "x_marker_sweep",
+                        "i_scale_pop"),
                 Arrays.asList("sticker", "label_pill", "3d", "glow", "gradient", "highlighter"));
     }
 

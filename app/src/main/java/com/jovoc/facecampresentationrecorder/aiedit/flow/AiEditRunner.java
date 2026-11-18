@@ -350,11 +350,13 @@ final class AiEditRunner {
         }
         MediaProbe probe = probe(source);
         final CaptionPainter painter = painterFor(job, source, plan, probe, contract, repo);
+        // Icons, Lottie and sounds: downloaded once by id; one that fails is simply left out of the render
+        File assetsDir = new AssetCache(context, cancel).ensure(plan);
 
         List<RenderJob> jobs = new ArrayList<>();
         for (String ratio : job.ratios) {
             if (job.doneRatios.contains(ratio)) continue;
-            jobs.add(new RenderJob(source, plan, ratio, AiEditNames.outputFile(job.outputBase, ratio), null,
+            jobs.add(new RenderJob(source, plan, ratio, AiEditNames.outputFile(job.outputBase, ratio), assetsDir,
                     painter, cancel));
         }
         try {
