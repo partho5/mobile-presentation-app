@@ -155,7 +155,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T2.2 | backend | Routes + Basic workflow (transcript → plan → validate → commit) | T2.1 | ✅ |
 | T2.3 | app | Renderer core: decode → GL → encode, crops, cuts, audio, `renderProxy` | T0.2 | ✅ |
 | T2.4 | app | Captions painter, text looks, palette, `v_punch_in` | T2.3 | ✅ |
-| T3.1 | app | Job flow: API client, uploads, job store, foreground service, results | T2.2, T2.4, T1.3 | ⬜ |
+| T3.1 | app | Job flow: API client, uploads, job store, foreground service, results | T2.2, T2.4, T1.3 | ✅ |
 | T3.2 | app | UX: AI Edit button, level sheet, discard undo, record again, Settings | T3.1 | ⬜ |
 | T4.1 | backend | Perception with Clef-omni (Standard, Heavy) | T2.2 | ⬜ |
 | T4.2 | backend | Writer LLM (Heavy) + brand voice, banned words, palette | T4.1 | ⬜ |
