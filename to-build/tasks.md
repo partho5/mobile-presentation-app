@@ -158,7 +158,7 @@ Order = the order below. "Basic end to end" works after T3.2; everything after a
 | T3.1 | app | Job flow: API client, uploads, job store, foreground service, results | T2.2, T2.4, T1.3 | ✅ |
 | T3.2 | app | UX: AI Edit button, level sheet, discard undo, record again, Settings | T3.1 | ✅ |
 | T4.1 | backend | Perception with Clef-omni (Standard, Heavy) | T2.2 | ✅ |
-| T4.2 | backend | Writer LLM (Heavy) + brand voice, banned words, palette | T4.1 | ⬜ |
+| T4.2 | backend | Writer LLM (Heavy) + brand voice, banned words, palette | T4.1 | ✅ |
 | T4.3 | app | Video effects + transitions (first wave) | T2.4 | ⬜ |
 | T5.1 | backend | Assets: IconScout + shared R2 cache + sound URLs | T2.2 | ⬜ |
 | T5.2 | app | Asset cache, Lottie and icon overlays, sound mix | T5.1, T4.3 | ⬜ |
