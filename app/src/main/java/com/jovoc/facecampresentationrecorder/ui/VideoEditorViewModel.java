@@ -23,6 +23,7 @@ import com.jovoc.facecampresentationrecorder.edit.EditTimelineMath;
 import com.jovoc.facecampresentationrecorder.edit.SectionSelection;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
+import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -453,6 +454,7 @@ public class VideoEditorViewModel extends ViewModel {
                         && SubtitleCache.loadForVideo(app.getCacheDir(), masterFile) != null);
                 if (burnedDuringRender) {
                     SubtitleEmbedStore.markEmbedded(app, out);
+                    CaptionUsage.useFor(app, masterFile);
                 }
                 startGroupCrops(app, project.getMasterPath(), out);
                 MediaScannerConnection.scanFile(app, new String[]{out.getAbsolutePath()}, null, null);

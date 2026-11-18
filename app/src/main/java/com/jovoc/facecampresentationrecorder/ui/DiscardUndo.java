@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
 
@@ -79,6 +80,7 @@ final class DiscardUndo {
     private static boolean delete(Context app, File file) {
         if (file.exists() && !file.delete()) return false;
         VideoGroupStore.remove(app, file.getAbsolutePath());
+        CaptionUsage.releaseFor(app, file);
         SubtitleEmbedStore.remove(app, file.getAbsolutePath());
         try {
             ContentResolver resolver = app.getContentResolver();

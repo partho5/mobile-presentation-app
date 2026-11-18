@@ -12,6 +12,7 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.ui.BillingLink;
 import com.jovoc.facecampresentationrecorder.ui.PlanNotice;
 import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
@@ -40,6 +41,11 @@ public class FaceCamApp extends Application {
             BillingLink.init(this);
         } catch (Exception e) {
             // Plans must never stop the app from starting; every gate then reads as Free.
+        }
+        try {
+            CaptionUsage.flush(this); // retries a transcript use / release that could not be sent
+        } catch (Exception e) {
+            // Settling transcripts must never stop the app from starting.
         }
         try {
             ActivityLog.init(this);

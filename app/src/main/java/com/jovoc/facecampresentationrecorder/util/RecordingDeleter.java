@@ -5,6 +5,7 @@ import android.content.Context;
 import android.media.MediaScannerConnection;
 import android.provider.MediaStore;
 
+import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 
 import java.io.File;
@@ -20,6 +21,7 @@ public final class RecordingDeleter {
         boolean removed = !file.exists() || file.delete();
         if (!removed) return false;
         VideoGroupStore.remove(context, file.getAbsolutePath());
+        CaptionUsage.releaseFor(context, file);
         SubtitleEmbedStore.remove(context, file.getAbsolutePath());
 
         try {

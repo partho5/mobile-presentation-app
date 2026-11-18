@@ -289,6 +289,23 @@ public class PublishApi {
         }
     }
 
+    /** POST /public/v1/ai-captions/:id/use: the transcript is used (burned in), so its credits are committed. */
+    public void useCaption(String captionId, String workspaceId) throws PublishException {
+        captionCall("/use", captionId, workspaceId);
+    }
+
+    /** POST /public/v1/ai-captions/:id/release: the transcript is thrown away, so its held credits go back. */
+    public void releaseCaption(String captionId, String workspaceId) throws PublishException {
+        captionCall("/release", captionId, workspaceId);
+    }
+
+    private void captionCall(String action, String captionId, String workspaceId) throws PublishException {
+        String path = PATH_AI_CAPTIONS + "/" + pathSegment(captionId) + action;
+        Map<String, String> headers = workspaceHeaders(workspaceId, null);
+        ApiResponse r = authed(() -> repo.execute("POST", path, "{}", headers));
+        if (!r.isSuccess()) throw PublishException.from(r);
+    }
+
     /**
      * GET /public/v1/posts/status for up to {@link #MAX_STATUS_IDS} posts of one workspace. Ids the
      * server does not know (or that belong to another workspace) are simply absent from the answer.

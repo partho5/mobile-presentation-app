@@ -56,6 +56,7 @@ import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
+import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleStyle;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleTrack;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
@@ -1527,6 +1528,7 @@ public class VideoPlayerDialog {
                                 swapped = swapEmbeddedFile(targetFile, tempOut, backup);
                                 if (swapped) {
                                     SubtitleEmbedStore.markEmbedded(appContext, targetFile);
+                                    CaptionUsage.useFor(appContext, targetFile);
                                     MediaScannerConnection.scanFile(
                                             appContext,
                                             new String[]{targetFile.getAbsolutePath()},
