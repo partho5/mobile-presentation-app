@@ -269,6 +269,8 @@ final class AiEditPanel implements AiEditListener {
         runningLevel = null;
         runningText = null;
         runningPercent = -1;
+        // The running line is stale now; a ready or failed line, when there is one, is set right after
+        statusRow.setVisibility(View.GONE);
     }
 
     /** The button label and the running status; the ready and failed lines are set by their own calls. */
