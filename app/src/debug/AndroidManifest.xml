@@ -7,5 +7,17 @@
             android:name="com.jovoc.facecampresentationrecorder.bgreplace.BgTestActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
+        <!-- Debug-only text motion sheet (AI edit, card C4): its own icon "Motion sheet" in the launcher.
+             Launch: adb shell am start -n com.jovoc.facecampresentationrecorder/.aiedit.debugsheet.MotionSheetActivity -->
+        <activity
+            android:name="com.jovoc.facecampresentationrecorder.aiedit.debugsheet.MotionSheetActivity"
+            android:exported="true"
+            android:label="Motion sheet"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
