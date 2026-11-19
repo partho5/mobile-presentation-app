@@ -36,6 +36,8 @@ public final class AssetFiles {
             name = "a_" + name;
             changed = true;
         }
+        // A name that looks like a frames folder or its part folder must not collide with one
+        if (name.endsWith(FRAMES_SUFFIX) || name.endsWith(".part")) changed = true;
         // Two different ids that clean to the same name must not share a file
         return changed ? name + "-" + Integer.toHexString(id.hashCode()) : name;
     }

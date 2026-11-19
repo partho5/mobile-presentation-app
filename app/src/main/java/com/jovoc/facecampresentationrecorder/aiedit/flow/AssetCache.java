@@ -121,11 +121,13 @@ final class AssetCache {
     private void keyFrames(PlanAsset asset, File target) {
         if (AssetFiles.existingFrames(dir, asset.id) != null) return;
         throwIfCancelled();
-        if (!AssetKeyer.key(target, AssetFiles.framesDir(dir, asset.id), cancel)) {
+        boolean keyed = AssetKeyer.key(target, AssetFiles.framesDir(dir, asset.id), cancel);
+        // A cancelled job keeps the download; only a real keying failure drops it
+        throwIfCancelled();
+        if (!keyed) {
             // No frames means no clip: the renderer leaves this one out
             target.delete();
         }
-        throwIfCancelled();
     }
 
     /**

@@ -42,6 +42,8 @@ public class OverlayMathTest {
         assertFalse(evil.contains("\\"));
         assertNotEquals("..", AssetFiles.safeName(".."));
         assertNotEquals(AssetFiles.safeName("a/b"), AssetFiles.safeName("a_b"));
+        assertFalse(AssetFiles.isFramesName(AssetFiles.safeName("x.frames")));
+        assertFalse(AssetFiles.safeName("x.frames.part").endsWith(".part"));
         File dir = new File("assets");
         assertEquals(dir, AssetFiles.fileFor(dir, "x/y").getParentFile());
         assertNull(AssetFiles.existing(dir, "no-such-asset"));
