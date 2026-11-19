@@ -106,6 +106,8 @@ public class VideoEditorActivity extends AppCompatActivity
     private MediaPlayer player;
     private boolean prepared;
     private androidx.appcompat.app.AlertDialog discardDialog;
+    /** The AI Edit row under the top bar: starts the AI edit of this recording (the saved original, not the draft). */
+    private AiEditPanel aiPanel;
 
     private final Runnable ticker = new Runnable() {
         @Override
@@ -128,6 +130,19 @@ public class VideoEditorActivity extends AppCompatActivity
         setContentView(R.layout.activity_video_editor);
 
         video = findViewById(R.id.editor_video);
+        View aiRoot = findViewById(R.id.ai_edit_panel);
+        aiRoot.findViewById(R.id.btn_record_again).setVisibility(View.GONE); // the preview's action, not the editor's
+        aiPanel = new AiEditPanel(this, aiRoot, new AiEditPanel.Host() {
+            @Override
+            public File sourceVideo() {
+                return new File(path);
+            }
+
+            @Override
+            public void onVersionsChanged(File show) {
+                // The results join the recording's group; the preview shows them when it is opened again
+            }
+        });
         subtitlesView = findViewById(R.id.editor_subtitles);
         if (subtitlesView != null) {
             subtitlesView.setStyle(SubtitleStyle.fromSettings(this));
@@ -336,6 +351,7 @@ public class VideoEditorActivity extends AppCompatActivity
         handler.removeCallbacks(ticker);
         if (discardDialog != null) discardDialog.dismiss();
         if (vm != null) vm.setListener(null);
+        if (aiPanel != null) aiPanel.release();
         super.onDestroy();
     }
 

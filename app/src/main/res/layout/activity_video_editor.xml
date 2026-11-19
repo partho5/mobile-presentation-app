@@ -98,6 +98,17 @@
                 app:cornerRadius="22dp" />
         </LinearLayout>
 
+        <!-- AI Edit: starts the AI edit of this recording from here too (ui/AiEditPanel). -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp">
+
+            <include layout="@layout/view_ai_edit_panel" />
+        </FrameLayout>
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
