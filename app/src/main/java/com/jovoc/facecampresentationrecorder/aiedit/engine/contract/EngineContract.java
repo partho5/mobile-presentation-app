@@ -161,6 +161,11 @@ public final class EngineContract {
     private final Map<String, RegistryEntry> effectsById;
     private final List<TextLook> textLooks;
     private final Map<String, TextLook> textLooksById;
+    private final List<String> rejectedLookIds;
+    private final List<String> textFeatures;
+    private final List<String> textLayerOrder;
+    private final Map<String, Double> colorRoles;
+    private final String lookVectorsJson;
     private final PaletteSpec palette;
     private final List<Phrase> phrases;
     private final List<String> sounds;
@@ -214,14 +219,47 @@ public final class EngineContract {
 
         List<TextLook> tl = new ArrayList<>();
         Map<String, TextLook> tlIds = new LinkedHashMap<>();
+        List<String> rejected = new ArrayList<>();
         JSONArray ta = o.getJSONArray("text_styles");
         for (int i = 0; i < ta.length(); i++) {
-            TextLook t = TextLook.fromJson(ta.getJSONObject(i));
-            tlIds.put(t.id, t);
-            tl.add(t);
+            // One look that cannot be read is dropped (and so never listed to the server); the rest of the contract stays
+            JSONObject lo1 = ta.optJSONObject(i);
+            try {
+                if (lo1 == null) throw new JSONException("look is not an object");
+                TextLook t = TextLook.fromJson(lo1);
+                if (tlIds.containsKey(t.id)) throw new JSONException("duplicate look id");
+                tlIds.put(t.id, t);
+                tl.add(t);
+            } catch (JSONException | IllegalArgumentException e) {
+                String id = lo1 == null ? null : lo1.optString("id", null);
+                rejected.add(id != null && id.matches("^[A-Za-z0-9._:-]{1,64}$") ? id : "#" + i);
+            }
         }
+        if (tl.isEmpty()) throw new JSONException("no readable text look");
         textLooks = Collections.unmodifiableList(tl);
         textLooksById = Collections.unmodifiableMap(tlIds);
+        rejectedLookIds = Collections.unmodifiableList(rejected);
+
+        // The text-styles keys the server added; absent on an older contract, read strictly when present
+        textFeatures = o.has("text_features") ? EngineJson.strings(o.getJSONArray("text_features"))
+                : Collections.<String>emptyList();
+        textLayerOrder = o.has("text_layer_order") ? EngineJson.strings(o.getJSONArray("text_layer_order"))
+                : Collections.<String>emptyList();
+        Map<String, Double> roles = new LinkedHashMap<>();
+        if (o.has("color_roles")) {
+            JSONObject ro = o.getJSONObject("color_roles");
+            Iterator<String> rk = ro.keys();
+            while (rk.hasNext()) {
+                String role = rk.next();
+                JSONObject r = ro.getJSONObject(role);
+                Iterator<String> fk = r.keys();
+                if (!fk.hasNext()) throw new JSONException("empty colour role");
+                String key = fk.next();
+                roles.put(role + "." + key, r.getDouble(key));
+            }
+        }
+        colorRoles = Collections.unmodifiableMap(roles);
+        lookVectorsJson = o.has("look_vectors") ? o.getJSONArray("look_vectors").toString() : "[]";
 
         palette = new PaletteSpec(o.getJSONObject("palette"));
 
@@ -350,6 +388,35 @@ public final class EngineContract {
     /** One text look by id, or null. */
     public TextLook textLook(String id) {
         return textLooksById.get(id);
+    }
+
+    /** Ids of the looks the contract carried but this build could not read (dropped, never listed); empty when none. */
+    public List<String> getRejectedLookIds() {
+        return rejectedLookIds;
+    }
+
+    /** The feature ids the server lists in {@code text_features}; empty for a contract without the key. */
+    public List<String> getTextFeatures() {
+        return textFeatures;
+    }
+
+    /** The server's {@code text_layer_order}, back to front; empty for a contract without the key. */
+    public List<String> getTextLayerOrder() {
+        return textLayerOrder;
+    }
+
+    /** The served colour-role numbers as {@code role.key} to value (for example {@code accent_light.paper_share}). */
+    public Map<String, Double> getColorRoles() {
+        return colorRoles;
+    }
+
+    /** The served {@code look_vectors} (the conformance runner's input), an empty array when absent. */
+    public JSONArray lookVectors() {
+        try {
+            return new JSONArray(lookVectorsJson);
+        } catch (JSONException e) {
+            return new JSONArray();
+        }
     }
 
     public PaletteSpec getPalette() {

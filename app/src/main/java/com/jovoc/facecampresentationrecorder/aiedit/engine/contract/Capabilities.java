@@ -1,9 +1,12 @@
 package com.jovoc.facecampresentationrecorder.aiedit.engine.contract;
 
+import com.jovoc.facecampresentationrecorder.aiedit.engine.text.TextLookSupport;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,9 +33,23 @@ public final class Capabilities {
      */
     public static final List<String> DEVICE_PASSED_TEXT_MOTIONS = Collections.unmodifiableList(Arrays.<String>asList());
 
+    /**
+     * The looks the owner ticked under "Passed on a device" in {@code to-build/tasks.md} (gate 1). The six shipped looks
+     * are there by definition (installed phones always drew them); a new look is added only after the owner ticked it
+     * (card C10), never by hand or by a card before that.
+     */
+    public static final List<String> DEVICE_PASSED_TEXT_LOOKS = TextLookSupport.SHIPPED_LOOKS;
+
+    /**
+     * The {@code text_features} ids the painter implements and the owner ticked (gate 1). The shipped looks need none, so
+     * this is empty until the owner ticks features with the new looks.
+     */
+    public static final List<String> DEVICE_PASSED_TEXT_FEATURES = Collections.unmodifiableList(Arrays.<String>asList());
+
     private final Set<String> effects;
     private final Set<String> textStyles;
     private final Set<String> textMotions;
+    private final Set<String> textFeatures;
 
     public Capabilities(Collection<String> effects, Collection<String> textStyles) {
         this(effects, textStyles, Collections.<String>emptyList());
@@ -43,6 +60,13 @@ public final class Capabilities {
      */
     public Capabilities(Collection<String> effects, Collection<String> textStyles,
                         Collection<String> extraTextMotions) {
+        this(effects, textStyles, extraTextMotions, Collections.<String>emptyList());
+    }
+
+    /** @param textFeatures the {@code text_features} ids this build draws and the owner ticked */
+    public Capabilities(Collection<String> effects, Collection<String> textStyles,
+                        Collection<String> extraTextMotions, Collection<String> textFeatures) {
+        this.textFeatures = Collections.unmodifiableSet(new LinkedHashSet<>(textFeatures));
         this.effects = Collections.unmodifiableSet(new LinkedHashSet<>(effects));
         this.textStyles = Collections.unmodifiableSet(new LinkedHashSet<>(textStyles));
         Set<String> motions = new LinkedHashSet<>(LEGACY_TEXT_MOTIONS);
@@ -57,6 +81,37 @@ public final class Capabilities {
      */
     public static Capabilities current() {
         return current(DEVICE_PASSED_TEXT_MOTIONS);
+    }
+
+    /**
+     * What this build renders, by evidence: the text styles are the contract's looks that the owner ticked, that the
+     * painter draws completely ({@link TextLookSupport#drawable}) and whose every needed feature is listed too; the
+     * features are the ones the painter implements, the owner ticked and the contract names. A look the painter has no
+     * handler for is never listed. A contract whose layer order or colour roles differ from the painter's lists the
+     * shipped six only.
+     */
+    public static Capabilities current(EngineContract contract) {
+        return current(contract, DEVICE_PASSED_TEXT_LOOKS, DEVICE_PASSED_TEXT_FEATURES, DEVICE_PASSED_TEXT_MOTIONS);
+    }
+
+    /** {@link #current(EngineContract)} with the given owner-ticked ids (the seam the tests use). */
+    public static Capabilities current(EngineContract contract, Collection<String> passedLooks,
+                                       Collection<String> passedFeatures, List<String> passedTextMotions) {
+        List<String> features = new ArrayList<>();
+        for (String f : TextLookSupport.IMPLEMENTED_FEATURES) {
+            if (passedFeatures.contains(f) && contract.getTextFeatures().contains(f)) features.add(f);
+        }
+        boolean contractOk = TextLookSupport.contractMatches(contract);
+        List<String> styles = new ArrayList<>();
+        for (TextLook look : contract.getTextLooks()) {
+            if (!passedLooks.contains(look.id)) continue;
+            if (!contractOk && !TextLookSupport.SHIPPED_LOOKS.contains(look.id)) continue;
+            if (!TextLookSupport.drawable(look)) continue;
+            if (!features.containsAll(TextLookSupport.requiredFeatures(look))) continue;
+            styles.add(look.id);
+        }
+        Capabilities base = current(passedTextMotions);
+        return new Capabilities(base.effects, styles, passedTextMotions, features);
     }
 
     /** {@link #current()} with the given owner-ticked motion ids (the seam the tests use; the app calls {@link #current()}). */
@@ -92,6 +147,15 @@ public final class Capabilities {
         return effects;
     }
 
+    /** Whether the server may plan a look that needs this feature id. */
+    public boolean canDraw(String textFeatureId) {
+        return textFeatures.contains(textFeatureId);
+    }
+
+    public Set<String> getTextFeatures() {
+        return textFeatures;
+    }
+
     public Set<String> getTextStyles() {
         return textStyles;
     }
@@ -109,7 +173,8 @@ public final class Capabilities {
             return new JSONObject()
                     .put("effects", new JSONArray(effects))
                     .put("text_styles", new JSONArray(textStyles))
-                    .put("text_motions", new JSONArray(textMotions));
+                    .put("text_motions", new JSONArray(textMotions))
+                    .put("text_features", new JSONArray(textFeatures));
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }

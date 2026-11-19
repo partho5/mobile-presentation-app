@@ -438,4 +438,31 @@ public final class TextLook {
     static TextLook fromJson(JSONObject o) throws JSONException {
         return new TextLook(o);
     }
+
+    private static TextLook plainLook;
+
+    /**
+     * The built-in plain look every overlay falls back to when its own look cannot be drawn completely (gate 3): bold
+     * sans text as written, a paper fill and a round stroke in the accent colour, no box, no tilt. It is code, not
+     * contract data, so a bad contract cannot break it.
+     */
+    public static synchronized TextLook plain() {
+        if (plainLook == null) {
+            try {
+                JSONObject stroke = new JSONObject().put("color", "accent").put("width", 0.14);
+                JSONObject o = new JSONObject().put("id", "plain").put("fill", "paper").put("stroke", stroke)
+                        .put("shadow", JSONObject.NULL).put("glow", JSONObject.NULL).put("extrude", JSONObject.NULL)
+                        .put("background", JSONObject.NULL).put("bar", JSONObject.NULL).put("tilt_deg", JSONObject.NULL)
+                        .put("text_fill", new JSONObject().put("kind", "solid").put("color", "paper"))
+                        .put("text_stroke", new JSONObject().put("color", "accent").put("width", 0.14).put("join", "round"))
+                        .put("text_shadow", JSONObject.NULL).put("box", JSONObject.NULL).put("opacity", 1)
+                        .put("font", new JSONObject().put("family", "sans").put("weight", 700))
+                        .put("case", "as_written").put("letter_spacing", 0);
+                plainLook = new TextLook(o);
+            } catch (JSONException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return plainLook;
+    }
 }

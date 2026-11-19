@@ -194,6 +194,10 @@ final class AiEditRunner {
         listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.UPLOADING, null, -1);
         refreshContract(api, job.workspaceId);
         EngineContract contract = loadContract();
+        // A look this build could not read is not listed to the server; the log keeps its id (a code), never a text
+        if (!contract.getRejectedLookIds().isEmpty()) {
+            Log.w(TAG, "Contract looks not read: " + contract.getRejectedLookIds());
+        }
         MediaProbe probe = probe(source);
 
         AppDatabase db = AppDatabase.getInstance(context);
@@ -207,7 +211,7 @@ final class AiEditRunner {
 
         String body = AiEditRequestBuilder.build(job,
                 new AiEditRequestBuilder.Video(probe.durationMs, probe.width, probe.height, probe.frameRate),
-                logFor(source, probe), SubtitleStyle.fromSettings(context), contract, Capabilities.current(),
+                logFor(source, probe), SubtitleStyle.fromSettings(context), contract, Capabilities.current(contract),
                 languageOf(source));
         checkCancelled();
         AiEditStatus created;

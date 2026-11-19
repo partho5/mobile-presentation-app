@@ -45,7 +45,8 @@ public final class TextOverlayPainter implements CaptionPainter {
     /** One text item: its animation, and the sprite and position once it has been built. */
     private static final class Overlay {
         final PlanItem item;
-        final TextLook look;
+        /** The item's look, or {@link TextLook#plain()} once the look could not be drawn completely. */
+        TextLook look;
         final TextAnimator animator;
         final int wordCount;
         final int unitCount;
@@ -186,13 +187,22 @@ public final class TextOverlayPainter implements CaptionPainter {
         o.built = true;
         PlanComponent c = o.item.component;
         try {
+            TextLookSupport.require(o.look);
             o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
                     Math.round(MAX_WIDTH_SHARE * outW), language);
         } catch (UnsupportedLookException e) {
-            // A look the painter cannot draw completely is not drawn half styled (the plain fallback comes with C7)
+            // A look the painter cannot draw completely (a field without a handler, or a feature it lacks) is not drawn
+            // half styled: the whole overlay is drawn in the plain look and the receipt says so (item id only)
             notes.add(RenderNotes.PROPERTY_NOT_DRAWN, o.item.id);
-            free(o);
-            return;
+            o.look = TextLook.plain();
+            try {
+                o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
+                        Math.round(MAX_WIDTH_SHARE * outW), language);
+            } catch (UnsupportedLookException again) {
+                // The built-in look is always drawable; if it is not, nothing is drawn
+                free(o);
+                return;
+            }
         }
         if (o.sprite == null) {
             notes.add(RenderNotes.OVERLAY_SKIPPED_NO_ROOM, o.item.id);

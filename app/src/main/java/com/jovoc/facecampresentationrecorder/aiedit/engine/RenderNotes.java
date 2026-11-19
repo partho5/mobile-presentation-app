@@ -17,7 +17,7 @@ public final class RenderNotes {
     public static final String TEXT_SHRUNK = "text_shrunk";
     /** A text did not fit on one line and was put on two. */
     public static final String TEXT_WRAPPED = "text_wrapped";
-    /** A text look has a property the phone cannot draw, so the overlay was not drawn in that look (C7 adds the plain fallback). */
+    /** A text look has a property the phone cannot draw, so the overlay was drawn in the built-in plain look instead. */
     public static final String PROPERTY_NOT_DRAWN = "property_not_drawn";
     /** An icon's file is missing or cannot be read, so it was left out. */
     public static final String ASSET_MISSING = "asset_missing";
