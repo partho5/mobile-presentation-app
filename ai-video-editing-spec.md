@@ -738,7 +738,7 @@ Writer LLM prompt (Heavy, section 11, step 6), a constant in the edit module:
 - Output: JSON only, matching the writer schema (slot id → text, optional icon query).
 - 1 to 4 words per text, in the video's language, in the brand's voice; never a banned word; never repeat the caption verbatim
   unless the slot is a keyword echo.
-- Icon queries: 1 to 3 English words for a concrete object (IconScout search works best in English).
+- Icon queries: 2 to 6 English words describing a small scene, as a stock catalogue names it, e.g. "doctor looking at watch" (IconScout search works best in English); the model then picks among the found names.
 
 For long videos, split into chunks of about 30 to 40 seconds and keep a running list of used effects so cooldown rules hold
 across chunks.
