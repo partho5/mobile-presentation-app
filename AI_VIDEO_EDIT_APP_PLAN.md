@@ -15,7 +15,7 @@ Top rule, above every other rule: **frictionless, smooth UX that lowers the user
 
 1. Package tree inside `:app` (no new Gradle module), strict separation of concerns:
    - `aiedit/capture/` — records the event log while recording.
-   - `aiedit/engine/` — renders a plan. Imports only other `aiedit/engine/` classes, the Android SDK and lottie-android.
+   - `aiedit/engine/` — renders a plan. Imports only other `aiedit/engine/` classes, the Android SDK.
      Never app UI, publish, auth, settings or subtitle classes; those come in through small interfaces.
    - `aiedit/flow/` — API calls, uploads, job state, foreground service, and the glue to the UI.
 2. The master recording is never modified. Every output is a new file.
@@ -31,7 +31,7 @@ Top rule, above every other rule: **frictionless, smooth UX that lowers the user
 | A1 | Event log capture while recording | T1.3 |
 | A2 | Engine data layer: plan, contract, timeline (pure Java + JVM tests) | T0.2 |
 | A3 | Renderer core: decode → GL compositor → encode, cuts, speed, audio, captions, proxies | T2.3, T2.4 |
-| A4 | First-wave effects: text looks, video effects, transitions, Lottie and icons, sounds | T2.4, T4.3, T5.2 |
+| A4 | First-wave effects: text looks, video effects, transitions, mp4 clips and icons, sounds | T2.4, T4.3, T5.2 |
 | A5 | Flow and UX: AI Edit button, uploads, job, foreground render, results, Settings, caption credits | T3.1, T3.2, T6.2 |
 | A6 | Frame-difference activity detection for imported videos | T7.1 (later) |
 | A7 | Second-wave and person effects | T7.2 (later) |
@@ -76,7 +76,7 @@ the video (check by reading against a debug build's `SlideLogger` output on the 
 
 **Goal:** parse and reason about plans with no Android graphics, fully unit tested.
 
-- `aiedit/engine/plan/` — `Plan`, `PlanItem`, `PlanComponent` (styled text, lottie, icon image), `PlanCaptions`,
+- `aiedit/engine/plan/` — `Plan`, `PlanItem`, `PlanComponent` (styled text, icon video, icon image), `PlanCaptions`,
   `Palette`, `PlanParser` (org.json; rejects an unknown `contract_version`).
 - `aiedit/engine/contract/` — `EngineContract` (registry entries, text looks, palette, level rules, speed rules,
   zones per ratio) loaded from `app/src/main/assets/aiedit/contract.json` (a copy of the backend's
@@ -129,10 +129,9 @@ plan's `output_duration_ms`; the master is unchanged.
   copies for 3D; `PaletteResolver` (multi colour rotation, or brand colour → darker shade + black or white text by
   contrast); entry and exit animations (pop, stamp, slide up, word by word; quick exit) on the cached text bitmap's
   transform; text effects `x_pop`, `x_stamp`, `x_sticker`, `x_3d`, `x_glow`, `x_marker_sweep`, `x_label_tag`.
-- `aiedit/engine/overlay/` — Lottie with lottie-android (`LottieDrawable` drawn at progress = output time × fit
-  factor; never slower than native), icon images, `i_scale_pop`.
+- `aiedit/engine/overlay/` — mp4 clips as keyed PNG frames (frame picked by output time × fit factor; never slower than
+  native; the keying is in `aiedit/flow`), icon images, `i_scale_pop`.
 - Sounds: the plan's sound ids mixed in `AudioPath` from the downloaded files.
-- Add the lottie-android dependency to `app/build.gradle` (check the current stable version when building).
 - Keep `Capabilities` exactly equal to what renders.
 
 **Done when:** a golden plan with every first-wave effect renders; every animation time is inside spec §12; no overlay
@@ -181,5 +180,5 @@ masked, 4 × 4 grid mean absolute difference, configurable threshold, spans merg
 
 ## A7 — Second wave and person effects (later)
 
-The rest of spec §14 (speed ramps, look, layout, text, Lottie and facecam effects), then person effects on top of the
+The rest of spec §14 (speed ramps, look, layout, text, mp4 clip and facecam effects), then person effects on top of the
 existing segmentation in `bgreplace/`, and mild effects inside protected spans (`content_safe`).

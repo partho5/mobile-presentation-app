@@ -132,7 +132,7 @@ publish. This amends the frozen backend contract `ai.video-captions` through its
 | Feature effects (max) | 3 | 6 | 10 |
 | Text overlays | keyword echo only | + commentary phrases | + complementary phrases |
 | Video effects (zoom, flash, glitch, layout) | punch in only | yes | yes |
-| Icons and Lottie | no | up to 2 | up to 4 |
+| Icons and mp4 clips | no | up to 2 | up to 4 |
 | Transitions at cuts | no | flash or whip | all |
 | Sound effects | no | yes | yes |
 | Video analysis (Clef-omni, section 11) | no (audio and event log only) | yes | yes |
@@ -156,14 +156,14 @@ The engine is four layers. Only layer 4 is platform code.
 3. **Planner services** (server, Nest): job service and repository, speech to text reuse, Clef-omni client, writer LLM client,
    asset resolver, Temporal workflow, public API routes.
 4. **Renderer** (Android): inside the `:app` module, in its own package tree `aiedit/engine/`, with strict separation of
-   concerns: engine packages import only each other, the Android SDK and lottie-android, never app UI, publish, auth or
+   concerns: engine packages import only each other and the Android SDK, never app UI, publish, auth or
    settings classes. Inputs come in through the `Engine` facade and small interfaces. Its packages:
    - `plan`: plan and registry models and JSON parser (pure Java, unit tested on the JVM).
    - `timeline`: source to output time math, cut and speed mapping (pure Java).
    - `render`: MediaCodec decode, OpenGL ES compositor, MediaCodec encode, MediaMuxer, audio path.
    - `effects`: one class per effect id, created from the registry entry and params.
    - `text`: style presets, brand palette, text layout and animation (Canvas into textures).
-   - `assets`: interface for Lottie, icon and sound files (the app injects the downloader and cache).
+   - `assets`: interface for mp4 clip frames, icon and sound files (the app injects the downloader, keyer and cache).
    - `Engine` facade: `Engine.render(RenderJob, Listener)`; `RenderJob` = source file, plan, target ratio, output file.
 
    App side (packages `aiedit/capture/` and `aiedit/flow/`): event log recorder, API client, job worker and foreground
@@ -226,7 +226,7 @@ The exact request, contract JSON and plan envelope are in `to-build/tasks.md` ("
 
 ```json
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "video": { "duration_ms": 118000, "width": 1080, "height": 2400, "fps": 30, "source": "in_app_recording | imported" },
   "outputs": [ { "ratio": "9:16", "crop": { "x": 0, "y": 0, "w": 1, "h": 0.8 }, "caption_band": { "y0": 0.88, "y1": 0.99 } } ],
   "facecam_track": [
@@ -362,13 +362,13 @@ Defaults; store them in the registry and keep them configurable.
 | Fast push in | 400 to 800 ms maximum |
 | Slow motion (rare) | 500 ms maximum |
 | Text hold time | at least 500 ms + 150 ms per word, at most 2500 ms |
-| Icon or Lottie hold time | 500 to 1500 ms |
+| Icon or mp4 clip hold time | 500 to 1500 ms |
 
 Easing: fast out curves (ease out cubic, ease out back with small overshoot). No slow ease in out.
 
-Lottie fitting: `speed_factor = native_duration_ms / slot_duration_ms`. Above 1, speed up by scaling the progress mapping (do not
-cut). Cap at 3.0; above that pick another asset. Never slow a Lottie below native speed; if the slot is longer, hold the last
-frame or end early.
+Clip fitting: `speed_factor = native_duration_ms / slot_duration_ms`. Above 1, speed up by scaling the progress mapping (do not
+cut). Cap at 3.0 (`clip_max_factor`); above that pick another asset. Never slow a clip below native speed; if the slot is
+longer, hold the last frame or end early.
 
 Removed because they are slow: subtle handheld drift, long slow push in.
 
@@ -405,7 +405,7 @@ Bengali; missing languages fall back to keyword echo.
 
 ### Brand colour (text only)
 
-Images, icons, Lottie and video assets keep their own colours. Text uses a palette:
+Images, icons and video assets keep their own colours. Text uses a palette:
 - Default **multi colour** palette: rotate through about 5 high contrast accents (for example red #FF3B30, yellow #FFD60A,
   green #34C759, cyan #32D7FF, magenta #FF2D92), each paired with black or white for outline and text.
 - **Brand** mode: the workspace `color` is the accent; the renderer derives a darker shade (3D, outline) and picks black or white
@@ -551,7 +551,7 @@ With a small round facecam, apply person effects inside the circle only. The app
 All text effects: target `overlay`, content_safe no, cost L (typewriter and draw effects M), `brand_colorable` true. Text is
 never plain; it always has a `style_preset` (section 13).
 
-### Lottie and icon image (overlay)
+### mp4 clip and icon image (overlay)
 
 | id | Description |
 |---|---|
@@ -566,7 +566,7 @@ never plain; it always has a `style_preset` (section 13).
 | i_sparkle | Sparkle |
 | i_wipe_reveal | Wipe reveal |
 
-All: target `overlay`, content_safe no, cost L (burst M), `min_level` standard. Works for `lottie` and `icon_image`
+All: target `overlay`, content_safe no, cost L (burst M), `min_level` standard. Works for `icon_video` and `icon_image`
 components. Each has an entry and an exit.
 
 ### Transitions between segments
@@ -609,23 +609,25 @@ voice at a fixed low level.
 Captions c_word_highlight, c_active_pop, c_emphasis_big. Video v_punch_in, v_push_in, v_alt_crop, t_jump_cut, l_flash,
 l_rgb_glitch, y_slide_grow_face_shrink, y_face_grow_slide_shrink. Text x_pop, x_stamp, x_sticker, x_3d, x_glow,
 x_marker_sweep, x_label_tag. Icons i_scale_pop. Transitions tr_whip, tr_flash_cut. Sounds pop, whoosh.
-Second wave: t_speed_ramp, the rest of look, layout and text, Lottie effects, facecam effects. Last: person effects.
+Second wave: t_speed_ramp, the rest of look, layout and text, mp4 clip effects, facecam effects. Last: person effects.
 
-## 15. Assets: icons, Lottie, sounds
+## 15. Assets: icons, mp4 clips, sounds
 
-- Source: **IconScout API v3** (key to be provided by the owner; kept only on the server, never in the app). Search with
-  `GET /v3/search` (Client-ID); download with `POST /v3/items/{uuid}/api-download` (Client-ID and Client-Secret). Types:
-  icons, illustrations, 3D, Lottie. Their price is in IconScout API credits (about 1 per icon, 20 per Lottie per their API page),
-  so the server **caches every downloaded asset** in its own storage (R2) by IconScout id and reuses it for every user.
-- Before shipping, confirm in IconScout's terms that the API plan allows (a) using assets inside videos users export and
-  publish, and (b) caching one download for many users. If (b) is not allowed, cost per video goes up a lot.
-- Video clip overlays: prefer Lottie (vector, small, renders per frame on the phone). MP4 clips would need a second decoder in
-  the renderer; leave them for later.
-- The server resolves the writer's query (or the keyword) to an asset id plus `native_duration_ms` before returning the plan.
-  The app downloads assets once into an app private cache keyed by id.
-- **Development mode** (`ICONSCOUT_DOWNLOAD=preview`, the default until the owner switches it): the server searches with the
-  Client-ID only and downloads the file from the URL already in the search result JSON with a plain HTTP GET, instead of the paid
-  `api-download` call. `ICONSCOUT_DOWNLOAD=api` switches to the licensed download for production.
+- Source: **IconScout API v3** (Client-ID only, kept on the server, never in the app). Search with `GET /v3/search` (0 credits).
+  Animated hits (`asset=lottie` in IconScout's API) give a free mp4 preview in `urls.thumb`; `asset=icon` gives a png. **Only these
+  free files are used: no `api-download`, no Lottie JSON.** The server **caches every downloaded file** in R2 by IconScout id and
+  keeps its metadata (uuid, name, slug, price, query, colours, duration, size) in `AiEditAsset`; every user reuses it.
+- Owner's decision (2026-11-19): the free preview mp4 and png may be used inside exported videos. Re-check IconScout's terms
+  before a public launch, including caching one download for many users.
+- Choosing a file: the writer gives a descriptive scene query per slot. The server takes the top 10 hits, keeps only hits with a
+  `uuid`, a `name` and a `urls.thumb`, and **one LLM call for all slots** picks the best `uuid` per slot from the names alone
+  (or none; an answer outside the list is none). The pick is remembered per query. A missing or empty list, a failed download
+  or no pick drops that slot's icon.
+- Video clip overlays: the mp4 has a solid white background. The phone keys white to transparent **once per asset** with FFmpegKit
+  (`colorkey=0xFFFFFF:0.1:0.1`) into RGBA PNG frames, and the engine draws the frame for each output time. The server does no
+  media processing: it only reads duration and size from the file headers.
+- The server returns the asset id plus `native_duration_ms` in the plan. The app downloads assets once into an app private cache
+  keyed by id. Server retention: a file is deleted after a configurable number of days without use (never a hard-coded count).
 - Sounds: a small fixed list of short effects (`pop_1`, `pop_2`, `whoosh_short`, `swoosh`, `ding`, `impact_soft`, `click`), served
   by the server from `AI_EDIT_SOUNDS_BASE_URL` (`<base>/<id>.wav`) and returned in the plan's asset list like icons, so they can
   be swapped without an app release. Only CC0 sources: Kenney "Interface Sounds" and "UI Audio" (kenney.nl, CC0) for pops,
@@ -640,7 +642,7 @@ renderer.
 
 ```json
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "plan_version": 1,
   "session_id": "uuid",
   "level": "standard",
@@ -682,7 +684,7 @@ renderer.
       "anchor": { "word_index": 77, "offset_ms": 0 },
       "position": { "zone": "upper_right" },
       "component": {
-        "type": "lottie",
+        "type": "icon_video",
         "asset_id": "is_1234567",
         "native_duration_ms": 4000,
         "fit": { "mode": "speed_up", "factor": 2.2 }
@@ -719,7 +721,7 @@ Reject or repair an item when any rule fails. Log every rejection for tuning.
 9. At most 2 effects active at the same moment; no two cost H effects overlapping; at most one text overlay at a time.
 10. Hook rule: at least one strong effect in the first 3 seconds. If missing, add one or warn.
 11. Pacing: a visible change at least every 3 seconds (effect start, cut, transition or caption emphasis). Warn on longer gaps.
-12. Lottie fit factor at most 3.0, never below 1.0.
+12. Clip fit factor at most 3.0, never below 1.0.
 13. Text hold time follows section 12. Text is 1 to 4 words, and contains no banned word from the brand profile.
 14. The anchor word exists. If anchor and time disagree, trust the anchor and recompute the time.
 15. Phase 1 cuts and speed changes do not touch protected spans.
@@ -746,9 +748,10 @@ across chunks.
 - Where: on the phone, in `aiedit/engine/` (section 7), run from a foreground service with a progress notification so the
   user can leave the app.
 - Pipeline: MediaExtractor + MediaCodec decode (hardware), OpenGL ES 3.0 compositor (video effects as shader programs; text,
-  captions, icons and Lottie drawn with Canvas into textures and blended), MediaCodec H.264 encode, MediaMuxer. Same family as the
+  captions, icons and mp4 clip frames drawn with Canvas into textures and blended), MediaCodec H.264 encode, MediaMuxer. Same family as the
   existing `edit/EditRenderer` and `subtitle/SubtitleDrawer`, which already burn subtitles in hardware. Do not add Media3 or
-  FFmpeg for this; FFmpeg stays for the lossless crop only.
+  FFmpeg for the render itself; FFmpeg stays for the lossless crop and, once per mp4 clip asset (in `aiedit/flow`, not the
+  engine), the white background key.
 - Output size per ratio (one table in `aiedit/engine/render/OutputSizes`): **9:16 = 1080 x 1920 (1080p)**; 4:5 = 720 x 900 and
   1:1 = 720 x 720 (feed formats watched on phones; smaller is faster to render). Render one file per enabled ratio, 9:16 first
   and shown as soon as it is ready. Rendering per ratio (not cropping the 9:16 result) keeps overlays inside each ratio's frame.
@@ -756,8 +759,8 @@ across chunks.
   720 wide.
 - Cuts and speed: apply in the decode loop by source timestamps; keep audio in sync (audio resampled for speed segments, crossfade
   of a few ms at each cut to avoid clicks).
-- Lottie: lottie-android; draw the frame for each output timestamp by setting progress from time; speed up by scaling the
-  progress mapping.
+- mp4 clips: the keyed PNG frames (section 15); draw the frame for each output timestamp by index from time; speed up by scaling
+  the progress mapping; hold the last frame.
 - Text: `StaticLayout` + `TextPaint` (all scripts), stroke and shadow layers, `BlurMaskFilter` glow, `LinearGradient` fills,
   stacked copies for 3D. Cache a text bitmap per item and animate with the transform matrix, not by redrawing each frame.
 - Avoid per frame allocation. Test on a low end phone. Target: a 2 minute 9:16 render in under about 2 minutes on a mid phone.
@@ -788,7 +791,7 @@ through `_drift.md`).
 | A1 | app | Event log recorder (strokes, board, slides, facecam track) saved next to the master; remap through manual edit kept ranges | ⬜ |
 | A2 | app | `aiedit/engine/` packages: plan, registry and timeline with JVM unit tests; contract sync copy | ⬜ |
 | A3 | app | Renderer core: decode, GL compositor, encode 1080p per ratio, cuts and speed with audio, captions with the user's template | ⬜ |
-| A4 | app | First wave effects (section 14): text styles with palette, video effects, transitions, icons and Lottie, sounds | ⬜ |
+| A4 | app | First wave effects (section 14): text styles with palette, video effects, transitions, icons and mp4 clips, sounds | ⬜ |
 | A5 | app | Flow: AI Edit button with cost and level sheet, Discard with undo, Record again, Settings (level, brand colours, sounds), upload and job polling, foreground render, result in the group tagged "AI edit", errors and top-up path | ⬜ |
 | A6 | app | Frame difference detection for imported videos | ⬜ |
 | A7 | both | Second wave and person effects; mild effects inside protected spans (content_safe) | ⬜ |
