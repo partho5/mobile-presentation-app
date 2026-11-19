@@ -107,7 +107,9 @@ public final class TextLookRenderer {
         float contentH = textH + 2 * padY;
         int bmpW = (int) Math.ceil(contentW + 2 * margin);
         int bmpH = (int) Math.ceil(contentH + 2 * margin);
-        float left = margin + padX;
+        // The lines are centred in a box as wide as the limit, but the pill is only as wide as the longest line:
+        // shift the layout so its longest line starts at the pill's inner left edge
+        float left = margin + padX - minLineLeft(layout);
         float top = margin + padY;
 
         Bitmap bitmap = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888);
@@ -150,6 +152,12 @@ public final class TextLookRenderer {
             m = Math.max(m, look.extrude.copies * Math.max(Math.abs(look.extrude.dx), Math.abs(look.extrude.dy)) * s);
         }
         return (float) Math.ceil(m) + 2;
+    }
+
+    private static float minLineLeft(StaticLayout layout) {
+        float l = Float.MAX_VALUE;
+        for (int i = 0; i < layout.getLineCount(); i++) l = Math.min(l, layout.getLineLeft(i));
+        return l == Float.MAX_VALUE ? 0 : l;
     }
 
     private static float maxLineWidth(StaticLayout layout) {

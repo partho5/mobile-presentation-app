@@ -24,9 +24,9 @@ import java.util.List;
 public final class TextOverlayPainter implements CaptionPainter {
 
     /** Overlay text is this many times the caption text size. */
-    static final float SIZE_FACTOR = 2.5f;
+    static final float SIZE_FACTOR = 1.6f;
     /** The whole block, with its pill, is at most this share of the output width. */
-    static final float MAX_WIDTH_SHARE = 0.84f;
+    static final float MAX_WIDTH_SHARE = 0.8f;
     static final String DEFAULT_LOOK = "sticker";
     static final String DEFAULT_ZONE = "middle_center";
 
@@ -66,7 +66,7 @@ public final class TextOverlayPainter implements CaptionPainter {
     private final float[] spot = new float[2];
 
     /**
-     * @param captionSizePx the caption text size of this output; overlay text is 2.5 times it
+     * @param captionSizePx the caption text size of this output; overlay text is 1.6 times it
      * @param facecam       where the facecam is in output pixels, or null for none
      */
     public TextOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,

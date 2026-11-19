@@ -20,7 +20,7 @@ public interface CaptionPainter {
     float DEFAULT_TEXT_SIZE_SHARE = 60f / 1080f;
 
     /**
-     * The caption text size in pixels for an output of this width; text overlays are 2.5 times this. The default
+     * The caption text size in pixels for an output of this width; text overlays are 1.6 times this. The default
      * is {@link #DEFAULT_TEXT_SIZE_SHARE} of the width.
      */
     default float captionTextSizePx(int outputW, int outputH) {
