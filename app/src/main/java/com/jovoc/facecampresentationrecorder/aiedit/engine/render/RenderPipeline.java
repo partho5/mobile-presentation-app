@@ -113,6 +113,7 @@ public final class RenderPipeline {
 
     // Muxing
     private MediaMuxer muxer;
+    private File tempDir;
     private MediaFormat audioFormat;
     private int muxVideoTrack = -1;
     private int muxAudioTrack = -1;
@@ -163,6 +164,16 @@ public final class RenderPipeline {
     /** Adds a source to the audio mix bus. */
     public RenderPipeline withSound(AudioPath.MixSource sound) {
         if (sound != null) sounds.add(sound);
+        return this;
+    }
+
+    /**
+     * Where the temporary soundtrack file goes (default: beside the output). On shared storage that must be a
+     * folder of the app: MediaProvider refuses to create anything but video files under DCIM, so an ".m4a" beside
+     * an output there fails with EPERM.
+     */
+    public RenderPipeline withTempDir(File dir) {
+        this.tempDir = dir;
         return this;
     }
 
@@ -218,7 +229,8 @@ public final class RenderPipeline {
         }
 
         File part = new File(dir, "." + output.getName() + ".part.mp4");
-        File audioTemp = new File(dir, part.getName() + ".audio.m4a");
+        File audioDir = tempDir != null && (tempDir.isDirectory() || tempDir.mkdirs()) ? tempDir : dir;
+        File audioTemp = new File(audioDir, part.getName() + ".audio.m4a");
         part.delete();
         audioTemp.delete();
         boolean ok = false;

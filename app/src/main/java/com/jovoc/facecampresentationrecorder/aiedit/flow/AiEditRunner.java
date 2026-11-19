@@ -123,7 +123,10 @@ final class AiEditRunner {
         job.error = e.code;
         job.errorRetryable = e.retryable;
         store.save(job, System.currentTimeMillis());
-        Log.w(TAG, "AI edit stopped: " + e.code);
+        // The kind and the message of the cause only (a path or a codec word, never the plan's texts)
+        Throwable cause = e.getCause();
+        Log.w(TAG, "AI edit stopped: " + e.code
+                + (cause != null ? " (" + cause.getClass().getSimpleName() + ": " + cause.getMessage() + ")" : ""));
         listener.onFailed(job.sourcePath, job.level, e.code, e.retryable);
     }
 
@@ -293,11 +296,11 @@ final class AiEditRunner {
         while (true) {
             checkCancelled();
             listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.PLANNING, null, -1);
+            AiEditStatus ready = null;
             try {
                 AiEditStatus st = api.get(job.editId, job.workspaceId);
                 if (AiEditStatus.READY.equals(st.status)) {
-                    keepPlan(job, source, st);
-                    return;
+                    ready = st;
                 }
                 if (AiEditStatus.NO_SPEECH.equals(st.status)) {
                     // Credits are back; asking again would only be told the same.
@@ -318,17 +321,31 @@ final class AiEditRunner {
                 if (!e.retryable || AiEditException.FAILED.equals(e.code)) throw e;
                 // A dropped connection or a server hiccup: keep waiting until the limit.
             }
+            if (ready != null) {
+                // Outside the try above: a local failure (the plan cannot be saved) must stop the job at once,
+                // not be taken for a dropped connection and polled again until the limit.
+                keepPlan(job, source, ready);
+                return;
+            }
             long waited = System.currentTimeMillis() - start;
             if (waited >= GIVE_UP_MS) throw new AiEditException(AiEditException.TIMEOUT, true);
             sleep(waited < FAST_POLL_WINDOW_MS ? FAST_POLL_MS : SLOW_POLL_MS);
         }
     }
 
-    /** Saves the plan beside where the outputs go and moves the job on to rendering. */
+    /** The app-private folder of the plan files (created on first use). */
+    private File plansDir() {
+        File dir = AiEditNames.plansDir(context.getFilesDir());
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        return dir;
+    }
+
+    /** Saves the plan in the app's own folder and moves the job on to rendering. */
     private void keepPlan(AiEditJob job, File source, AiEditStatus st) throws AiEditException {
-        if (job.outputBase == null) job.outputBase = AiEditNames.nextOutputBase(source, job.ratios);
+        if (job.outputBase == null) job.outputBase = AiEditNames.nextOutputBase(source, job.ratios, plansDir());
         try {
-            writeAtomically(AiEditNames.planFile(job.outputBase), st.body.getBytes(StandardCharsets.UTF_8));
+            writeAtomically(AiEditNames.planFile(plansDir(), job.outputBase), st.body.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new AiEditException(AiEditException.NO_SPACE, true, e);
         }
@@ -342,7 +359,7 @@ final class AiEditRunner {
         EngineContract contract = loadContract();
         final Plan plan;
         try {
-            plan = PlanParser.parse(readText(AiEditNames.planFile(job.outputBase)), contract);
+            plan = PlanParser.parse(readText(AiEditNames.planFile(plansDir(), job.outputBase)), contract);
         } catch (PlanParseException e) {
             throw AiEditException.from(e);
         } catch (IOException e) {
@@ -353,11 +370,13 @@ final class AiEditRunner {
         // Icons, icon clips and sounds: downloaded once by id; one that fails is simply left out of the render
         File assetsDir = new AssetCache(context, cancel).ensure(plan);
 
+        // The soundtrack's temp file cannot sit beside the outputs in DCIM (only video files may be made there)
+        File tempDir = new File(context.getCacheDir(), "aiedit_tmp");
         List<RenderJob> jobs = new ArrayList<>();
         for (String ratio : job.ratios) {
             if (job.doneRatios.contains(ratio)) continue;
             jobs.add(new RenderJob(source, plan, ratio, AiEditNames.outputFile(job.outputBase, ratio), assetsDir,
-                    painter, cancel));
+                    painter, cancel, tempDir));
         }
         try {
             new Engine(contract).render(jobs, new Listener() {

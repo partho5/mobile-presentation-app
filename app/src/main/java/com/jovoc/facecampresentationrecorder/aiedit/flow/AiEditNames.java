@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
  * File names of an AI edit's results. An output is {@code <base>_aiedit_<w>x<h>.mp4} (a second result of the same
  * recording {@code <base>_aiedit_2_<w>x<h>.mp4}), so it carries the crop name the recordings list already reads for
  * the ratio tag and for the group, and never matches the manual editor's {@code _edit} names. The plan is kept
- * beside the files as {@code <base>_aiedit.plan.json}. Pure; no Android classes.
+ * in the app's own folder (see {@link #planFile}): MediaProvider refuses to create anything but video files under
+ * DCIM, so a ".plan.json" (or its temp file) beside the outputs fails with EPERM. Pure; no Android classes.
  */
 public final class AiEditNames {
 
@@ -31,23 +32,32 @@ public final class AiEditNames {
         return new File(outputBase + "_" + ratioSuffix(ratio) + ".mp4");
     }
 
-    /** The plan JSON kept beside the results under {@code outputBase}. */
-    public static File planFile(String outputBase) {
-        return new File(outputBase + ".plan.json");
+    /** The folder of the plan JSONs inside the app's files directory. */
+    public static File plansDir(File filesDir) {
+        return new File(filesDir, "aiedit_plans");
+    }
+
+    /**
+     * The plan JSON of the results under {@code outputBase}, in {@code plansDir} (the app's own storage, never
+     * DCIM). The hash of the full base keeps two recordings of the same name in different folders apart.
+     */
+    public static File planFile(File plansDir, String outputBase) {
+        String name = new File(outputBase).getName();
+        return new File(plansDir, name + "." + Integer.toHexString(outputBase.hashCode()) + ".plan.json");
     }
 
     /**
      * The first base beside {@code source} none of whose files exists yet for {@code ratios}:
      * {@code <source>_aiedit}, then {@code <source>_aiedit_2}, ...
      */
-    public static String nextOutputBase(File source, List<String> ratios) {
+    public static String nextOutputBase(File source, List<String> ratios, File plansDir) {
         String name = source.getName();
         int dot = name.lastIndexOf('.');
         String stem = dot > 0 ? name.substring(0, dot) : name;
         File dir = source.getParentFile();
         for (int n = 1; ; n++) {
             String base = new File(dir, stem + "_aiedit" + (n > 1 ? "_" + n : "")).getPath();
-            boolean taken = planFile(base).exists();
+            boolean taken = planFile(plansDir, base).exists();
             for (String ratio : ratios) taken |= outputFile(base, ratio).exists();
             if (!taken) return base;
         }

@@ -22,9 +22,16 @@ public final class RenderJob {
     public final CaptionPainter captionPainter;
     /** Set from any thread to stop the render; the partial file is deleted. */
     public final AtomicBoolean cancel;
+    /** The app's own folder for the render's temporary files; null puts them beside the output. */
+    public final File tempDir;
 
     public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
                      CaptionPainter captionPainter, AtomicBoolean cancel) {
+        this(source, plan, ratio, output, assetsDir, captionPainter, cancel, null);
+    }
+
+    public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
+                     CaptionPainter captionPainter, AtomicBoolean cancel, File tempDir) {
         if (source == null || plan == null || ratio == null || output == null) {
             throw new IllegalArgumentException("source, plan, ratio and output are required");
         }
@@ -35,6 +42,7 @@ public final class RenderJob {
         this.assetsDir = assetsDir;
         this.captionPainter = captionPainter;
         this.cancel = cancel != null ? cancel : new AtomicBoolean(false);
+        this.tempDir = tempDir;
     }
 
     public boolean isCancelled() {

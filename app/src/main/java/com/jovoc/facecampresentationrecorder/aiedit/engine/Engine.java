@@ -99,6 +99,7 @@ public final class Engine {
                 .withEffects(EffectFactory.videoEffects(plan, contract, facecamSource(timeline, crop, probe)))
                 .withPainter(painterFor(job, spec, timeline, crop, probe))
                 .withSound(SoundTrack.fromPlan(plan, job.assetsDir))
+                .withTempDir(job.tempDir)
                 .withCancelFlag(job.cancel)
                 .withProgress(listener == null ? null : percent -> listener.onProgress(job, percent))
                 .render(job.output);

@@ -102,7 +102,8 @@ public class AiEditService extends Service {
             if (outputsExist(job)) return StartResult.ALREADY_DONE;
             // The user removed the files: draw them again from the saved plan, or ask for the plan again.
             job.doneRatios.clear();
-            if (job.outputBase != null && AiEditNames.planFile(job.outputBase).isFile()) {
+            File plans = AiEditNames.plansDir(app.getFilesDir());
+            if (job.outputBase != null && AiEditNames.planFile(plans, job.outputBase).isFile()) {
                 job.stage = AiEditJob.STAGE_RENDER;
             } else {
                 job.resetForNewServerJob();
