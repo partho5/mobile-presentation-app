@@ -55,7 +55,22 @@ final class LookCellEvaluator {
         frameRatio = null;
     }
 
+    /**
+     * Draws and probes one cell. A cell that throws (a renderer or probe defect) is reported as a failed cell, named by the
+     * exception class only, instead of ending the background thread, which would kill the app; the sheet exists to find
+     * such cells.
+     */
     Evaluated evaluate(LookSheetGrid.Cell cell, TextLook look, boolean keepSprite) {
+        try {
+            return evaluateCell(cell, look, keepSprite);
+        } catch (RuntimeException e) {
+            return new Evaluated(new LookCellResult(cell.lookId, cell.string.id, cell.ratio, LookCellResult.Status.UNSUPPORTED,
+                    cell.string.overCap, new ArrayList<LookProbes.Result>(), new ArrayList<String>(),
+                    "crashed: " + e.getClass().getSimpleName()), null, null, 0);
+        }
+    }
+
+    private Evaluated evaluateCell(LookSheetGrid.Cell cell, TextLook look, boolean keepSprite) {
         OutputSpec spec = contract.output(cell.ratio);
         Plan plan = LookSheetGrid.plan(cell, look);
         PaletteResolver colors = new PaletteResolver(plan.palette, contract.getPalette());
