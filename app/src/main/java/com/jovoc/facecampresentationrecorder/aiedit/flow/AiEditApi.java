@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.aiedit.flow;
 
+import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.auth.ApiResponse;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
@@ -22,6 +23,8 @@ public class AiEditApi {
     public static final String PATH_AI_EDITS = "/public/v1/ai-edits";
     public static final String PATH_CONTRACT = PATH_AI_EDITS + "/contract";
     public static final String PATH_QUOTE = PATH_AI_EDITS + "/quote";
+    /** Names the app build to the server on the plan reads, so a plan can be traced to the build that got it. */
+    static final String HEADER_APP_VERSION = "x-app-version";
 
     /** What an edit of one length costs this workspace at each level, in credits. */
     public static final class Quote {
@@ -80,7 +83,17 @@ public class AiEditApi {
 
     /** GET /public/v1/ai-edits/:id: the status and, once READY, the plan with its assets. */
     public AiEditStatus get(String editId, String workspaceId) throws AiEditException {
-        return parse(send("GET", PATH_AI_EDITS + "/" + pathSegment(editId), null, workspaceId));
+        Map<String, String> extra = new HashMap<>();
+        extra.put(HEADER_APP_VERSION, RenderReceipt.sanitizeVersion(BuildConfig.VERSION_NAME));
+        return parse(send("GET", PATH_AI_EDITS + "/" + pathSegment(editId), null, workspaceId, extra));
+    }
+
+    /**
+     * POST /public/v1/ai-edits/:id/render-report: the receipt of one render attempt (see {@link RenderReceipt}).
+     * Idempotent per attempt on the server, so a repeat is harmless.
+     */
+    public void reportRender(String editId, String body, String workspaceId) throws AiEditException {
+        send("POST", PATH_AI_EDITS + "/" + pathSegment(editId) + "/render-report", body, workspaceId);
     }
 
     // ---- internals ----
@@ -96,7 +109,13 @@ public class AiEditApi {
     /** Sends the call and returns the answer when it is 2xx; else throws the mapped failure. */
     private ApiResponse send(String method, String path, String body, String workspaceId)
             throws AiEditException {
+        return send(method, path, body, workspaceId, null);
+    }
+
+    private ApiResponse send(String method, String path, String body, String workspaceId,
+                             Map<String, String> extraHeaders) throws AiEditException {
         Map<String, String> headers = new HashMap<>();
+        if (extraHeaders != null) headers.putAll(extraHeaders);
         if (workspaceId != null && !workspaceId.isEmpty()) headers.put(AuthRepository.HEADER_WORKSPACE, workspaceId);
         ApiResponse r;
         try {

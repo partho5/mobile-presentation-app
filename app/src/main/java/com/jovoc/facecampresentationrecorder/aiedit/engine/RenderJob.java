@@ -24,6 +24,8 @@ public final class RenderJob {
     public final AtomicBoolean cancel;
     /** The app's own folder for the render's temporary files; null puts them beside the output. */
     public final File tempDir;
+    /** Where the painters note what they skipped or shrank; never null. */
+    public final RenderNotes notes;
 
     public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
                      CaptionPainter captionPainter, AtomicBoolean cancel) {
@@ -32,6 +34,11 @@ public final class RenderJob {
 
     public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
                      CaptionPainter captionPainter, AtomicBoolean cancel, File tempDir) {
+        this(source, plan, ratio, output, assetsDir, captionPainter, cancel, tempDir, null);
+    }
+
+    public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
+                     CaptionPainter captionPainter, AtomicBoolean cancel, File tempDir, RenderNotes notes) {
         if (source == null || plan == null || ratio == null || output == null) {
             throw new IllegalArgumentException("source, plan, ratio and output are required");
         }
@@ -43,6 +50,7 @@ public final class RenderJob {
         this.captionPainter = captionPainter;
         this.cancel = cancel != null ? cancel : new AtomicBoolean(false);
         this.tempDir = tempDir;
+        this.notes = notes != null ? notes : new RenderNotes();
     }
 
     public boolean isCancelled() {

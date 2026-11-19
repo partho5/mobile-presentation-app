@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
+import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditReceipts;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
@@ -46,6 +47,11 @@ public class FaceCamApp extends Application {
             CaptionUsage.flush(this); // retries a transcript use / release that could not be sent
         } catch (Exception e) {
             // Settling transcripts must never stop the app from starting.
+        }
+        try {
+            AiEditReceipts.flushAsync(this); // retries an AI edit render receipt that could not be sent
+        } catch (Exception e) {
+            // A receipt must never stop the app from starting.
         }
         try {
             ActivityLog.init(this);

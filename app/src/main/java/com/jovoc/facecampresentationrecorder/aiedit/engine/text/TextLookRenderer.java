@@ -47,8 +47,12 @@ public final class TextLookRenderer {
         public final int barColor;
         /** Per word: the part of the bitmap that holds it (for word-by-word reveal), in word order. */
         public final RectF[] wordClips;
+        /** True when the text had to be drawn smaller than asked to fit its box. */
+        public final boolean shrunk;
 
-        Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips) {
+        Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips,
+               boolean shrunk) {
+            this.shrunk = shrunk;
             this.bitmap = bitmap;
             this.width = bitmap.getWidth();
             this.height = bitmap.getHeight();
@@ -123,7 +127,7 @@ public final class TextLookRenderer {
         int barColor = look.bar != null
                 ? PaletteResolver.withAlpha(colors.resolve(look.bar.color, colorSlot), look.bar.alpha) : 0;
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
-                wordClips(shown, layout, left, top, bmpW, bmpH));
+                wordClips(shown, layout, left, top, bmpW, bmpH), size < sizePx);
     }
 
     private static StaticLayout layout(String text, TextPaint paint, int width, boolean cut) {

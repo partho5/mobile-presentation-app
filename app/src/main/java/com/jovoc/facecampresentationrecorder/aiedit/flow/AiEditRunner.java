@@ -2,14 +2,17 @@ package com.jovoc.facecampresentationrecorder.aiedit.flow;
 
 import android.content.Context;
 import android.media.MediaScannerConnection;
+import android.os.Build;
 import android.util.Log;
 
+import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLogData;
 import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLogStore;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.Engine;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.EngineException;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.Listener;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.RenderJob;
+import com.jovoc.facecampresentationrecorder.aiedit.engine.RenderNotes;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.Capabilities;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.ContractException;
@@ -50,6 +53,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -96,6 +100,7 @@ final class AiEditRunner {
      */
     void run(AiEditJob job) {
         job.clearError();
+        Attempt attempt = new Attempt();
         try {
             File source = new File(job.sourcePath);
             if (!source.isFile() || source.length() == 0) {
@@ -105,17 +110,69 @@ final class AiEditRunner {
             AiEditApi api = new AiEditApi(repo);
             if (AiEditJob.STAGE_UPLOAD.equals(job.stage)) upload(job, source, repo, api);
             if (AiEditJob.STAGE_PLAN.equals(job.stage)) awaitPlan(job, source, api);
-            if (AiEditJob.STAGE_RENDER.equals(job.stage)) render(job, source, repo);
+            if (AiEditJob.STAGE_RENDER.equals(job.stage)) render(job, source, repo, attempt);
             job.stage = AiEditJob.STAGE_DONE;
             store.save(job, System.currentTimeMillis());
             listener.onDone(job.sourcePath, job.level);
         } catch (AiEditException e) {
+            attempt.fail(e.code);
             stop(job, e);
         } catch (CancellationException e) {
+            attempt.fail(AiEditException.CANCELLED);
             stop(job, new AiEditException(AiEditException.CANCELLED, true, e));
         } catch (RuntimeException | JSONException e) {
             Log.w(TAG, "AI edit crashed", e);
+            attempt.fail(AiEditException.RENDER_FAILED);
             stop(job, new AiEditException(AiEditException.RENDER_FAILED, true, e));
+        }
+        // After the listener has shown the results (or the failure): a receipt never holds them back
+        keepReceipt(job, attempt);
+    }
+
+    /** One render attempt of one run: what the receipt to the server tells (see {@link RenderReceipt}). */
+    private static final class Attempt {
+        /** Stable for the run, so a repeated send of the receipt is told apart from a new attempt. */
+        final String id = UUID.randomUUID().toString();
+        final RenderNotes notes = new RenderNotes();
+        final List<RenderReceipt.Output> outputs = new ArrayList<>();
+        /** True once the plan was in hand; before that there is nothing to report. */
+        boolean active;
+        String servedSha256;
+        boolean parseOk = true;
+        /** The ratio being rendered (or next in line), and when it began. */
+        String current;
+        long currentStartMs;
+
+        void begin(String ratio) {
+            current = ratio;
+            currentStartMs = System.currentTimeMillis();
+        }
+
+        void finished(String ratio, long bytes, String next) {
+            outputs.add(RenderReceipt.Output.ok(ratio, System.currentTimeMillis() - currentStartMs, bytes));
+            if (next != null) begin(next);
+            else current = null;
+        }
+
+        /** The run stopped with our own {@code code}: the ratio in hand did not come out. */
+        void fail(String code) {
+            if (!active || current == null) return;
+            outputs.add(RenderReceipt.Output.failed(current, code, System.currentTimeMillis() - currentStartMs));
+            current = null;
+        }
+    }
+
+    /** Saves the receipt of the attempt for sending (and sends it on a background thread). Never throws. */
+    private void keepReceipt(AiEditJob job, Attempt attempt) {
+        if (!attempt.active || attempt.servedSha256 == null || job.editId == null) return;
+        try {
+            String body = RenderReceipt.build(attempt.id, attempt.servedSha256, attempt.parseOk,
+                    BuildConfig.VERSION_NAME, Build.MODEL, attempt.outputs, attempt.notes.notes());
+            store.savePendingReceipt(new AiEditStore.PendingReceipt(attempt.id, job.editId, job.workspaceId, body,
+                    System.currentTimeMillis()));
+            AiEditReceipts.flushAsync(context);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Render receipt not kept: " + e.getClass().getSimpleName());
         }
     }
 
@@ -362,15 +419,30 @@ final class AiEditRunner {
 
     // ---- render ----
 
-    private void render(final AiEditJob job, final File source, AuthRepository repo) throws AiEditException {
-        EngineContract contract = loadContract();
-        final Plan plan;
+    private void render(final AiEditJob job, final File source, AuthRepository repo, final Attempt attempt)
+            throws AiEditException {
+        // The plan as it was received (saved byte for byte): its hash goes in the receipt before anything parses it
+        final byte[] planBytes;
         try {
-            plan = PlanParser.parse(readText(AiEditNames.planFile(plansDir(), job.outputBase)), contract);
-        } catch (PlanParseException e) {
-            throw AiEditException.from(e);
+            planBytes = readBytes(AiEditNames.planFile(plansDir(), job.outputBase));
         } catch (IOException e) {
             throw new AiEditException(AiEditException.SOURCE_UNREADABLE, false, e);
+        }
+        attempt.servedSha256 = RenderReceipt.sha256Hex(planBytes);
+        attempt.active = true;
+        EngineContract contract;
+        try {
+            contract = loadContract();
+        } catch (AiEditException e) {
+            attempt.parseOk = false;
+            throw e;
+        }
+        final Plan plan;
+        try {
+            plan = PlanParser.parse(new String(planBytes, StandardCharsets.UTF_8), contract);
+        } catch (PlanParseException e) {
+            attempt.parseOk = false;
+            throw AiEditException.from(e);
         }
         MediaProbe probe = probe(source);
         final CaptionPainter painter = painterFor(job, source, plan, probe, contract, repo);
@@ -383,18 +455,24 @@ final class AiEditRunner {
         for (String ratio : job.ratios) {
             if (job.doneRatios.contains(ratio)) continue;
             jobs.add(new RenderJob(source, plan, ratio, AiEditNames.outputFile(job.outputBase, ratio), assetsDir,
-                    painter, cancel, tempDir));
+                    painter, cancel, tempDir, attempt.notes));
         }
+        final List<RenderJob> order = Engine.inRenderOrder(jobs);
+        if (!order.isEmpty()) attempt.begin(order.get(0).ratio);
         try {
             new Engine(contract).render(jobs, new Listener() {
                 @Override
                 public void onProgress(RenderJob rendering, int percent) {
+                    if (!rendering.ratio.equals(attempt.current)) attempt.begin(rendering.ratio);
                     listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.RENDERING,
                             rendering.ratio, percent);
                 }
 
                 @Override
                 public void onFinished(RenderJob rendered) {
+                    int at = order.indexOf(rendered);
+                    attempt.finished(rendered.ratio, rendered.output.length(),
+                            at >= 0 && at + 1 < order.size() ? order.get(at + 1).ratio : null);
                     job.doneRatios.add(rendered.ratio);
                     store.save(job, System.currentTimeMillis());
                     register(source, rendered.output, painter != null);
@@ -480,13 +558,13 @@ final class AiEditRunner {
         }
     }
 
-    private static String readText(File file) throws IOException {
+    private static byte[] readBytes(File file) throws IOException {
         try (InputStream in = new FileInputStream(file)) {
             ByteArrayOutputStream buf = new ByteArrayOutputStream();
             byte[] chunk = new byte[8192];
             int n;
             while ((n = in.read(chunk)) > 0) buf.write(chunk, 0, n);
-            return new String(buf.toByteArray(), StandardCharsets.UTF_8);
+            return buf.toByteArray();
         }
     }
 

@@ -117,9 +117,9 @@ public final class Engine {
                 : spec.width * CaptionPainter.DEFAULT_TEXT_SIZE_SHARE;
         TextPlacement.Keepout keepout = facecamKeepout(timeline, crop, probe, spec);
         TextOverlayPainter texts = new TextOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
-                captionSize, keepout);
+                captionSize, keepout, job.notes);
         IconOverlayPainter icons = new IconOverlayPainter(job.plan, contract, spec, spec.width, spec.height,
-                job.assetsDir, keepout);
+                job.assetsDir, keepout, job.notes);
         if (texts.overlayCount() == 0 && icons.overlayCount() == 0) return job.captionPainter;
         return new LayeredPainter(icons.overlayCount() > 0 ? icons : null,
                 texts.overlayCount() > 0 ? texts : null, job.captionPainter);

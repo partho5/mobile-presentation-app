@@ -2,6 +2,7 @@ package com.jovoc.facecampresentationrecorder.aiedit.engine.overlay;
 
 import android.graphics.Canvas;
 
+import com.jovoc.facecampresentationrecorder.aiedit.engine.RenderNotes;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContract;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
@@ -55,6 +56,7 @@ public final class IconOverlayPainter implements CaptionPainter {
     private final int outW;
     private final int outH;
     private final TextPlacement.Keepout facecam;
+    private final RenderNotes notes;
     private final List<Overlay> overlays = new ArrayList<>();
     private final IconAnimator.State state = new IconAnimator.State();
     private final float[] spot = new float[2];
@@ -65,6 +67,13 @@ public final class IconOverlayPainter implements CaptionPainter {
      */
     public IconOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
                               File assetsDir, TextPlacement.Keepout facecam) {
+        this(plan, contract, spec, outW, outH, assetsDir, facecam, null);
+    }
+
+    /** @param notes where a missing asset or a skipped icon is noted (codes and item ids only), or null for none */
+    public IconOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
+                              File assetsDir, TextPlacement.Keepout facecam, RenderNotes notes) {
+        this.notes = notes != null ? notes : new RenderNotes();
         this.contract = contract;
         this.spec = spec;
         this.outW = outW;
@@ -81,7 +90,10 @@ public final class IconOverlayPainter implements CaptionPainter {
         File file = clip
                 ? AssetFiles.existingFrames(assetsDir, c.assetId)
                 : AssetFiles.existing(assetsDir, c.assetId);
-        if (file == null || plan.asset(c.assetId) == null) return;
+        if (file == null || plan.asset(c.assetId) == null) {
+            notes.add(RenderNotes.ASSET_MISSING, item.id);
+            return;
+        }
         overlays.add(new Overlay(item, file,
                 new IconAnimator(item, contract.effect(item.effect), contract.getSpeed())));
     }
@@ -132,6 +144,7 @@ public final class IconOverlayPainter implements CaptionPainter {
                         ClipFit.factor(c.fitMode, c.fitFactor, contract.getSpeed().clipMaxFactor))
                 : IconLayer.load(o.file, side);
         if (o.layer == null) {
+            notes.add(RenderNotes.ASSET_MISSING, o.item.id);
             o.skipped = true;
             return;
         }
@@ -152,6 +165,7 @@ public final class IconOverlayPainter implements CaptionPainter {
             o.x = spot[0];
             o.y = spot[1];
         } else {
+            notes.add(RenderNotes.OVERLAY_SKIPPED_NO_ROOM, o.item.id);
             free(o);
         }
     }

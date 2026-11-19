@@ -21,6 +21,29 @@ public final class AiEditStore {
     private static final String PREFS = "ai_edit_jobs";
     private static final String PREFIX_JOB = "job:";
     private static final String PREFIX_SESSION = "session:";
+    private static final String PREFIX_RECEIPT = "receipt:";
+    /** The receipts kept for a retry: when more are waiting, the oldest are dropped. */
+    static final int MAX_PENDING_RECEIPTS = 5;
+    /** A receipt older than this is dropped unsent: the server no longer wants it. */
+    static final long RECEIPT_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000;
+
+    /** A render receipt that has not reached the server yet: codes, ids and numbers only. */
+    public static final class PendingReceipt {
+        public final String attemptId;
+        public final String editId;
+        public final String workspaceId;
+        /** The receipt's JSON body. */
+        public final String body;
+        public final long createdMs;
+
+        public PendingReceipt(String attemptId, String editId, String workspaceId, String body, long createdMs) {
+            this.attemptId = attemptId;
+            this.editId = editId;
+            this.workspaceId = workspaceId;
+            this.body = body;
+            this.createdMs = createdMs;
+        }
+    }
 
     public interface Store {
         String get(String key);
@@ -117,5 +140,48 @@ public final class AiEditStore {
         String id = fromLog != null && !fromLog.isEmpty() ? fromLog : UUID.randomUUID().toString();
         store.put(key, id);
         return id;
+    }
+
+    // ---- render receipts waiting to be sent ----
+
+    /** Keeps a receipt until the server has it; past {@link #MAX_PENDING_RECEIPTS} the oldest are dropped. */
+    public synchronized void savePendingReceipt(PendingReceipt r) {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("attempt", r.attemptId);
+            o.put("edit", r.editId);
+            o.put("workspace", r.workspaceId == null ? JSONObject.NULL : r.workspaceId);
+            o.put("body", r.body);
+            o.put("created", r.createdMs);
+            store.put(PREFIX_RECEIPT + r.attemptId, o.toString());
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+        List<PendingReceipt> all = pendingReceipts();
+        for (int i = 0; i < all.size() - MAX_PENDING_RECEIPTS; i++) removePendingReceipt(all.get(i).attemptId);
+    }
+
+    /** The receipts not yet sent, oldest first. */
+    public synchronized List<PendingReceipt> pendingReceipts() {
+        List<PendingReceipt> out = new ArrayList<>();
+        for (String key : store.keys()) {
+            if (!key.startsWith(PREFIX_RECEIPT)) continue;
+            String json = store.get(key);
+            if (json == null) continue;
+            try {
+                JSONObject o = new JSONObject(json);
+                out.add(new PendingReceipt(o.getString("attempt"), o.getString("edit"),
+                        o.isNull("workspace") ? null : o.optString("workspace", null), o.getString("body"),
+                        o.optLong("created", 0)));
+            } catch (JSONException e) {
+                store.remove(key);
+            }
+        }
+        java.util.Collections.sort(out, (a, b) -> Long.compare(a.createdMs, b.createdMs));
+        return out;
+    }
+
+    public synchronized void removePendingReceipt(String attemptId) {
+        store.remove(PREFIX_RECEIPT + attemptId);
     }
 }

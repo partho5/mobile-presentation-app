@@ -34,7 +34,7 @@ self-contained: read **Shared context** below, then the card's own "Read first" 
 | Card | What | Depends on | Status |
 |---|---|---|---|
 | A1 | Show the server's real status (Transcribing / Planning) in progress text | - | ✅ |
-| L6 | Send the render receipt to the server | backend L5 | ⬜ |
+| L6 | Send the render receipt to the server | backend L5 | ✅ |
 
 ---
 

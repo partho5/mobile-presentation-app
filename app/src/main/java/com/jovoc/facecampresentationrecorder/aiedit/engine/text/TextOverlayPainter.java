@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 
+import com.jovoc.facecampresentationrecorder.aiedit.engine.RenderNotes;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.EngineContract;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.OutputSpec;
@@ -59,6 +60,7 @@ public final class TextOverlayPainter implements CaptionPainter {
     private final float captionSizePx;
     private final TextPlacement.Keepout facecam;
     private final TextLookRenderer renderer;
+    private final RenderNotes notes;
     private final List<Overlay> overlays = new ArrayList<>();
     private final TextAnimator.State state = new TextAnimator.State();
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -71,6 +73,13 @@ public final class TextOverlayPainter implements CaptionPainter {
      */
     public TextOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
                               float captionSizePx, TextPlacement.Keepout facecam) {
+        this(plan, contract, spec, outW, outH, captionSizePx, facecam, null);
+    }
+
+    /** @param notes where a skipped or shrunk text is noted (codes and item ids only), or null for none */
+    public TextOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
+                              float captionSizePx, TextPlacement.Keepout facecam, RenderNotes notes) {
+        this.notes = notes != null ? notes : new RenderNotes();
         this.contract = contract;
         this.spec = spec;
         this.outW = outW;
@@ -138,6 +147,7 @@ public final class TextOverlayPainter implements CaptionPainter {
         PlanComponent c = o.item.component;
         o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
                 Math.round(MAX_WIDTH_SHARE * outW));
+        if (o.sprite.shrunk) notes.add(RenderNotes.TEXT_SHRUNK, o.item.id);
         o.tiltDeg = tilt(o.item, o.look);
         double rad = Math.toRadians(Math.abs(o.tiltDeg));
         float halfW = (float) (o.sprite.contentW * Math.cos(rad) + o.sprite.contentH * Math.sin(rad)) / 2;
@@ -153,6 +163,7 @@ public final class TextOverlayPainter implements CaptionPainter {
             o.x = spot[0];
             o.y = spot[1];
         } else {
+            notes.add(RenderNotes.OVERLAY_SKIPPED_NO_ROOM, o.item.id);
             free(o);
         }
     }
