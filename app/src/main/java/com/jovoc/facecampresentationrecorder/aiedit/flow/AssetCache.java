@@ -89,7 +89,7 @@ final class AssetCache {
     private void download(PlanAsset asset, File target) {
         HttpUrl url = HttpUrl.parse(asset.url);
         if (url == null) return;
-        File part = new File(dir, target.getName() + ".part");
+        File part = new File(dir, AssetFiles.partName(target.getName()));
         boolean ok = false;
         try (Response response = http.newCall(new Request.Builder().url(url).get().build()).execute()) {
             if (!response.isSuccessful() || response.body() == null) return;
@@ -144,10 +144,10 @@ final class AssetCache {
         for (File f : files) {
             if (total <= MAX_CACHE_BYTES) break;
             String name = f.getName();
-            File frames = new File(dir, name + ".frames");
+            File frames = new File(dir, AssetFiles.framesName(name));
             if (AssetFiles.isFramesName(name)) {
                 // Frames go with their mp4; only frames left without one are judged here
-                String owner = name.substring(0, name.length() - ".frames".length());
+                String owner = AssetFiles.ownerOf(name);
                 if (new File(dir, owner).exists()) continue;
                 if (keep.contains(owner)) continue;
             } else if (keep.contains(name)) {

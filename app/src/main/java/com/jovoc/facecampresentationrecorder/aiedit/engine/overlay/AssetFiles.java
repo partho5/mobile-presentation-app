@@ -11,7 +11,9 @@ public final class AssetFiles {
     private static final int MAX_NAME = 100;
     /** The frame rate of the keyed frames of a video asset; a clip lasts frameCount / FRAME_FPS. */
     public static final int FRAME_FPS = 24;
-    private static final String FRAMES_SUFFIX = ".frames";
+    /** The ends of a video asset's frames folder and of a folder or file still being written. */
+    public static final String FRAMES_SUFFIX = ".frames";
+    public static final String PART_SUFFIX = ".part";
 
     private AssetFiles() {}
 
@@ -37,7 +39,7 @@ public final class AssetFiles {
             changed = true;
         }
         // A name that looks like a frames folder or its part folder must not collide with one
-        if (name.endsWith(FRAMES_SUFFIX) || name.endsWith(".part")) changed = true;
+        if (name.endsWith(FRAMES_SUFFIX) || name.endsWith(PART_SUFFIX)) changed = true;
         // Two different ids that clean to the same name must not share a file
         return changed ? name + "-" + Integer.toHexString(id.hashCode()) : name;
     }
@@ -56,7 +58,7 @@ public final class AssetFiles {
 
     /** The folder of the keyed PNG frames of video asset {@code id} under {@code dir}. */
     public static File framesDir(File dir, String id) {
-        return new File(dir, safeName(id) + FRAMES_SUFFIX);
+        return new File(dir, framesName(safeName(id)));
     }
 
     /** The frames folder of asset {@code id} when it holds at least one PNG, else null. */
@@ -70,6 +72,21 @@ public final class AssetFiles {
     /** Whether {@code name} is the frames folder of another entry of the assets folder. */
     public static boolean isFramesName(String name) {
         return name.endsWith(FRAMES_SUFFIX);
+    }
+
+    /** The name of the frames folder of the entry named {@code name}. */
+    public static String framesName(String name) {
+        return name + FRAMES_SUFFIX;
+    }
+
+    /** The name of the entry a frames folder belongs to; {@code framesName} is a {@link #isFramesName} name. */
+    public static String ownerOf(String framesName) {
+        return framesName.substring(0, framesName.length() - FRAMES_SUFFIX.length());
+    }
+
+    /** The name of the folder or file in which the entry named {@code name} is written before it is moved in. */
+    public static String partName(String name) {
+        return name + PART_SUFFIX;
     }
 
     /** The size in bytes of a file, or of everything under a folder. */

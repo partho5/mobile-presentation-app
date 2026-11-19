@@ -36,7 +36,7 @@ final class AssetKeyer {
      */
     static boolean key(File mp4, File framesDir, AtomicBoolean cancel) {
         if (cancel != null && cancel.get()) return false;
-        File part = new File(framesDir.getParentFile(), framesDir.getName() + ".part");
+        File part = new File(framesDir.getParentFile(), AssetFiles.partName(framesDir.getName()));
         // A ".part" left by an earlier crash would hold stale frames
         AssetFiles.deleteTree(part);
         if (!part.mkdirs()) return false;

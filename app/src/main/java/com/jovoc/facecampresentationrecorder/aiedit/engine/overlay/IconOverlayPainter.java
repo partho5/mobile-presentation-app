@@ -17,8 +17,8 @@ import java.util.List;
 /**
  * Draws the icon items of a plan ({@code i_scale_pop}): each icon image or mp4 clip (its keyed frames) is loaded
  * when its item first appears, placed in its zone inside the safe rectangle and off the facecam, animated by
- * {@link IconAnimator}, and freed when the item ends. An item whose file is missing or unreadable, or that fits nowhere clear of the facecam, is left
- * out; the rest of the edit is unaffected. Nothing is allocated per frame.
+ * {@link IconAnimator}, and freed when the item ends. An item whose file is missing or unreadable, or that fits
+ * nowhere clear of the facecam, is left out; the rest of the edit is unaffected. Nothing is allocated per frame.
  */
 public final class IconOverlayPainter implements CaptionPainter {
 

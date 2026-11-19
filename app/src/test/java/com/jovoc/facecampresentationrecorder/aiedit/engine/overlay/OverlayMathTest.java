@@ -57,6 +57,9 @@ public class OverlayMathTest {
         assertEquals(dir, frames.getParentFile());
         assertEquals(AssetFiles.safeName("x/y") + ".frames", frames.getName());
         assertTrue(AssetFiles.isFramesName(frames.getName()));
+        assertEquals(frames.getName(), AssetFiles.framesName(AssetFiles.safeName("x/y")));
+        assertEquals(AssetFiles.safeName("x/y"), AssetFiles.ownerOf(frames.getName()));
+        assertEquals("a.part", AssetFiles.partName("a"));
         assertNull(AssetFiles.existingFrames(dir, "x/y"));
         assertNull(AssetFiles.existingFrames(null, "x/y"));
         assertTrue(frames.mkdirs());
