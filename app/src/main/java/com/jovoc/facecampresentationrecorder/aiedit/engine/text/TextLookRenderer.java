@@ -10,8 +10,8 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.text.Layout;
 import android.text.StaticLayout;
+import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
-import android.text.TextUtils;
 
 import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.TextLook;
 
@@ -22,14 +22,11 @@ import java.util.Locale;
 /**
  * Draws a styled text (one of the six text looks) once into a transparent bitmap, the {@link Sprite} the
  * animator then moves, scales and fades. Sizes are fractions of the text size, colours are roles resolved by
- * {@link PaletteResolver}. Text is laid out with {@link StaticLayout}, at most two lines, shrunk until it fits.
+ * {@link PaletteResolver}. How the text is fitted (size, at most two lines, or skipped) is decided by
+ * {@link TextLayoutPolicy}; this class only measures through the real paint and draws what the policy says.
  */
 public final class TextLookRenderer {
 
-    /** The text never gets smaller than this share of the wanted size; beyond it the second line is cut with an ellipsis. */
-    private static final float MIN_SIZE_SHARE = 0.5f;
-    private static final float SHRINK = 0.92f;
-    private static final int MAX_LINES = 2;
     /** Highlighter bar: how far it sticks out of the text, how far down the line it starts, and its height. */
     private static final float BAR_OVERHANG = 0.1f;
     private static final float BAR_TOP_AT = 0.40f;
@@ -49,10 +46,13 @@ public final class TextLookRenderer {
         public final RectF[] wordClips;
         /** True when the text had to be drawn smaller than asked to fit its box. */
         public final boolean shrunk;
+        /** True when the text is on two lines. */
+        public final boolean wrapped;
 
         Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips,
-               boolean shrunk) {
+               boolean shrunk, boolean wrapped) {
             this.shrunk = shrunk;
+            this.wrapped = wrapped;
             this.bitmap = bitmap;
             this.width = bitmap.getWidth();
             this.height = bitmap.getHeight();
@@ -80,6 +80,7 @@ public final class TextLookRenderer {
      * @param colorSlot the item's {@code color_slot}
      * @param sizePx    the wanted text size
      * @param maxWidthPx the widest the whole block (with its pill) may be
+     * @return the sprite, or null when the text fits nowhere (the caller skips the overlay; never an ellipsis)
      */
     public Sprite render(String text, TextLook look, int colorSlot, float sizePx, int maxWidthPx) {
         String shown = hasCase(text) ? text.toUpperCase(Locale.ROOT) : text;
@@ -87,19 +88,13 @@ public final class TextLookRenderer {
         paint.setTypeface(Typeface.DEFAULT_BOLD);
         paint.setTextAlign(Paint.Align.LEFT);
 
-        float size = sizePx;
-        StaticLayout layout;
-        while (true) {
-            paint.setTextSize(size);
-            int avail = availableWidth(look, size, maxWidthPx);
-            layout = layout(shown, paint, avail, false);
-            boolean fits = layout.getLineCount() <= MAX_LINES;
-            if (fits || size <= sizePx * MIN_SIZE_SHARE) {
-                if (!fits) layout = layout(shown, paint, avail, true);
-                break;
-            }
-            size = Math.max(sizePx * MIN_SIZE_SHARE, size * SHRINK);
-        }
+        TextLayoutPolicy.Result fit = TextLayoutPolicy.fit(shown, sizePx, new PaintMeasurer(paint, look, maxWidthPx));
+        if (fit.skipped) return null;
+        float size = fit.size;
+        paint.setTextSize(size);
+        StaticLayout layout = layout(fit.joined(), paint, availableWidth(look, size, maxWidthPx), fit.rtl);
+        // The real layout broke a line the policy measured as fitting: fail closed rather than draw a third line
+        if (layout.getLineCount() > fit.lines.size()) return null;
 
         float s = size;
         float padX = look.background != null ? (float) look.background.padX * s : 0;
@@ -127,15 +122,40 @@ public final class TextLookRenderer {
         int barColor = look.bar != null
                 ? PaletteResolver.withAlpha(colors.resolve(look.bar.color, colorSlot), look.bar.alpha) : 0;
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
-                wordClips(shown, layout, left, top, bmpW, bmpH), size < sizePx);
+                wordClips(fit.joined(), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped);
     }
 
-    private static StaticLayout layout(String text, TextPaint paint, int width, boolean cut) {
-        StaticLayout.Builder b = StaticLayout.Builder.obtain(text, 0, text.length(), paint, width)
+    /** The lines are already broken by the policy (newlines); centred, in the paragraph direction of the text. */
+    private static StaticLayout layout(String text, TextPaint paint, int width, boolean rtl) {
+        return StaticLayout.Builder.obtain(text, 0, text.length(), paint, width)
                 .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                .setIncludePad(false);
-        if (cut) b.setMaxLines(MAX_LINES).setEllipsize(TextUtils.TruncateAt.END);
-        return b.build();
+                .setTextDirection(rtl ? TextDirectionHeuristics.RTL : TextDirectionHeuristics.LTR)
+                .setIncludePad(false)
+                .build();
+    }
+
+    /** The policy's ruler: real widths from the paint, the room from the look's padding and effect margin. */
+    private static final class PaintMeasurer implements TextLayoutPolicy.TextMeasurer {
+        private final TextPaint paint;
+        private final TextLook look;
+        private final int maxWidthPx;
+
+        PaintMeasurer(TextPaint paint, TextLook look, int maxWidthPx) {
+            this.paint = paint;
+            this.look = look;
+            this.maxWidthPx = maxWidthPx;
+        }
+
+        @Override
+        public float width(String line, float size) {
+            paint.setTextSize(size);
+            return paint.measureText(line);
+        }
+
+        @Override
+        public float available(float size) {
+            return availableWidth(look, size, maxWidthPx);
+        }
     }
 
     /** The width the lines may use: the block limit less the pill padding and the room kept for effects. */

@@ -130,11 +130,71 @@ Paragraph direction comes from the text (`java.text.Bidi`), alignment is centred
 JVM caveat: the JVM's `BreakIterator` is not Android's ICU one, so JVM tests assert invariants (a break is a line-break
 opportunity, never inside a grapheme, balanced, deterministic), not exact break positions for Thai or Japanese.
 
+### Server API and where to read it (do not re-derive from the server code)
+The server half (cards S0-S9) is **built and committed** (server repo `feat/ai-video-edit`, last card commits
+`1faf7fc5` S6, `9eb9628b` S7, `55c3f8c8` + `fbf78bab` S8). Its written contract is the one file to read:
+`/home/haku/projects/Next.js/Social-Media-Manager/_planning/02_contracts/ai.video-editing.md`. Read only the sections a card
+needs: "Routes" (endpoints), "Motion params" (C2, C3), "Look format, additive" and "The ten new looks" (C5-C10), "Look
+vectors" (C8), "Fit rule" and "Text size `s` per ratio" (C1), "Decision register" (who owns what). No new endpoints exist;
+the phone's `AiEditApi` already calls all of these:
+| Route (`/public/v1`) | What the text-styles work changed |
+|---|---|
+| `GET /ai-edits/contract` | serves 16 looks (old fields + new blocks), plus new top-level keys `color_roles`, `text_layer_order`, `text_features`, `look_vectors`; `contract_version` stays 2 |
+| `POST /ai-edits` | `request.capabilities` accepts optional `text_motions: string[]` and `text_features: string[]` (names `^[a-z0-9_]{1,64}$`, at most 50 each); absent or null = legacy only |
+| `GET /ai-edits/:id` | the plan may carry `params.entry`, `hold`, `exit`, `exit_dir`, `exit_ms`, signed `tilt_deg` |
+| `POST /ai-edits/:id/render-report` | accepts warning codes `property_not_drawn`, `text_wrapped`, `layer_clipped` (code + item id only), beside the old ones |
+Facts the server fixed that the cards must match exactly:
+- **Capability ids.** `text_motions` lists entry ids plain (`fade`, `slide_left`, ...), hold ids as `hold_<id>` and exit ids as
+  `exit_<id>` (`fade` is both an entry and an exit). The still hold needs no id. Legacy five (always assumed): `pop`, `stamp`,
+  `slide_up`, `word_by_word`, `sweep`. Send only ids whose JVM check passed and the owner ticked.
+- **`text_features`** ids come from the contract's `text_features` list; a look is planned only if the phone lists the look in
+  `text_styles` AND every feature that look needs. The six shipped looks need none; all ten new looks need `box_border` and
+  `case_as_written`.
+- **Old fields stay.** Every look still carries the legacy `fill` (solid or `vertical` only), `stroke`, `shadow`, `glow`,
+  `extrude`, `background`, `bar`, `tilt_deg`; the new blocks (`text_fill`, `text_stroke`, `text_shadow`, `box`, `opacity`,
+  `font`, `case`, `letter_spacing`) sit beside them. New reader: read the new blocks when present, never reshape the old ones.
+- **Tilt.** The server writes a signed `params.tilt_deg` inside the look's range; the new code must use the sign as given
+  (today's painter ignores it and hashes the item id).
+- **Layer order vs glow.** The contract's layer order puts `glow` last; today's renderer draws the legacy glow behind the text.
+  The six shipped looks keep their legacy glow behind the text (they must draw as before); decide the new-look glow meaning in
+  C5 from the contract text and the S7 vectors, and record the decision in the C5 commit message.
+- **Letter spacing** is 0 for joining or reordering scripts: the server's list (`NO_SPACING_SCRIPTS` in
+  `contract/edit.vectors.ts`: Arabic, Syriac, Mongolian, N'Ko, the Indic scripts, Khmer, Myanmar, Thai, Lao) must match C2's
+  script table: compare them in C2 and C6 and report a difference in the commit message.
+- **Fonts.** `font.family` is one of `sans`, `sans_condensed`, `serif`, `mono`. Sheet 3 looks (`dark_accent`, `coral_pill`) use
+  `sans_condensed` (a guess): C9's device sheet is where the owner confirms it.
+- **Size.** The server estimates fit per look (box, border, ring, hard shadow, glow add size); the phone still measures for
+  real. `s` per ratio is in the contract's "Text size `s`" section (96 / 64 / 64 px at 20 sp for 9:16 / 4:5 / 1:1).
+- **`look_vectors`** (C8): per look `{look, facts, probes}`; facts are relative to the measured text box (fractions of `s`);
+  each fact lists the `TextLook` fields it exercises in `fields`; each probe has `direction`, `text_drawn` (case applied with
+  the plan's language) and `letter_spacing_s`.
+- **Server is not machine-run yet.** Its specs ran only through a light script, not `pnpm build` or jest. If the served
+  contract looks wrong against the contract doc, stop and report it at the top of the card's report; do not patch around it.
+
+### Context hints for every card (keep the session small)
+1. Read in this order and stop: this file's **Shared context** (once), the card's own block, the card's "Read first" files.
+   Do not read the whole server repo, the whole contract doc, other cards, or git history beyond what the card names.
+2. Open large files by range (`grep -n` the symbol first), never in full; `TextLookRenderer`, `TextOverlayPainter`,
+   `TextAnimator` are the only text files most cards touch.
+3. Write the pure logic first (layout policy, paint plan, motion math: no `Bitmap`, `Canvas`, `Paint`, `android.icu`), test it
+   on the JVM with the shared string matrix (`aiedit/TestStrings.java`, created in C1), and keep the Canvas side a thin
+   translator so the device-only part stays small.
+4. A card edits only the files it names; if it needs another file, add one line to the report and make the smallest change.
+   Never touch `subtitle/*`, the master recording, or the six shipped looks' drawn result.
+5. One gradle command at a time, only `./gradlew --offline :app:assembleDebug` and targeted `--tests '<pattern>'`. Run the
+   targeted test for the code you changed, not a suite. If a command would be heavy, stop and say so in the report.
+6. Commit with explicit paths (`git add <files>`, `git commit <files> -m ...`), never `git add -A`; never commit
+   `test_audio.wav`, `test_video.mp4`, `run.log`.
+7. The final report is short and fixed: files changed, decisions made where the card was silent, commit hash, what was not run,
+   anything the next card must know (one line each). The next card starts from the report and this file, not from your chat.
+8. Where a card needs the owner (C4, C9, C10: run the device sheet, tick **Passed on a device**), end the report with the exact
+   thing the owner must do and stop; the runner then asks the owner and continues after the tick.
+
 ## Progress
 
 | Card | Slice | What | Depends on | Status |
 |---|---|---|---|---|
-| C1 | 1 | Layout policy for any script: measure, shrink, wrap at most 2 lines, skip (no ellipsis), bidi; receipt notes | server S1, S2 | ☐ |
+| C1 | 1 | Layout policy for any script: measure, shrink, wrap at most 2 lines, skip (no ellipsis), bidi; receipt notes | server S1, S2 | ☑ |
 | C2 | 1 | Entry motions, reveal direction, typewriter step, signed tilt | server S3, S4 | ☐ |
 | C3 | 1 | Hold effects and exits; send `text_motions` for ticked ids | C2 | ☐ |
 | C4 | 1 | Debug preview sheet: every motion x string matrix x 3 ratios; owner runs it and ticks | C1, C3 | ☐ |

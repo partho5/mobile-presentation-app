@@ -15,6 +15,8 @@ public final class RenderNotes {
     public static final String OVERLAY_SKIPPED_NO_ROOM = "overlay_skipped_no_room";
     /** A text was drawn smaller than asked to fit its box. */
     public static final String TEXT_SHRUNK = "text_shrunk";
+    /** A text did not fit on one line and was put on two. */
+    public static final String TEXT_WRAPPED = "text_wrapped";
     /** An icon's file is missing or cannot be read, so it was left out. */
     public static final String ASSET_MISSING = "asset_missing";
 
@@ -38,7 +40,8 @@ public final class RenderNotes {
 
     /** Records {@code code} for {@code itemId}; an unknown code, a repeat, or one past the limit is dropped. */
     public synchronized void add(String code, String itemId) {
-        if (!OVERLAY_SKIPPED_NO_ROOM.equals(code) && !TEXT_SHRUNK.equals(code) && !ASSET_MISSING.equals(code)) return;
+        if (!OVERLAY_SKIPPED_NO_ROOM.equals(code) && !TEXT_SHRUNK.equals(code) && !TEXT_WRAPPED.equals(code)
+                && !ASSET_MISSING.equals(code)) return;
         String id = itemId != null && ID.matcher(itemId).matches() ? itemId : null;
         if (notes.size() >= MAX_NOTES) return;
         for (Note n : notes) {

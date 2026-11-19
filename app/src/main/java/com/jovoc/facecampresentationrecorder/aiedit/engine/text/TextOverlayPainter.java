@@ -147,7 +147,13 @@ public final class TextOverlayPainter implements CaptionPainter {
         PlanComponent c = o.item.component;
         o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
                 Math.round(MAX_WIDTH_SHARE * outW));
+        if (o.sprite == null) {
+            notes.add(RenderNotes.OVERLAY_SKIPPED_NO_ROOM, o.item.id);
+            free(o);
+            return;
+        }
         if (o.sprite.shrunk) notes.add(RenderNotes.TEXT_SHRUNK, o.item.id);
+        if (o.sprite.wrapped) notes.add(RenderNotes.TEXT_WRAPPED, o.item.id);
         o.tiltDeg = tilt(o.item, o.look);
         double rad = Math.toRadians(Math.abs(o.tiltDeg));
         float halfW = (float) (o.sprite.contentW * Math.cos(rad) + o.sprite.contentH * Math.sin(rad)) / 2;
