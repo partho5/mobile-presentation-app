@@ -380,4 +380,305 @@ public class TextAnimatorTest {
         assertEquals(1f, s.scaleY, 1e-6f);
         assertEquals(TextAnimator.EXIT_SCALE, s.scale, 0.01f);
     }
+
+    // ---- C3: holds and exits. The plan's params.hold / hold_ms and params.exit / exit_ms / exit_dir pick them.
+
+    private static final String[] HOLDS = {"float", "pulse", "shake", "shimmer", "neon_flicker"};
+    private static final String[] EXITS = {"fade", "slide_out", "shrink", "pop_out", "typewriter_delete", "wipe_out"};
+
+    private TextAnimator motion(Map<String, Object> params, long start, long end, int units, boolean rtl) {
+        Map<String, Object> p = new HashMap<String, Object>(params);
+        if (!p.containsKey("entry")) p.put("entry", "fade");
+        PlanItem item = new PlanItem("i1", "x_pop", "text", "overlay", start, end, -1, 0, "middle_center",
+                PlanComponent.styledText("keyword_echo", "Hello", "sticker", 0), p, null, 0, null);
+        return new TextAnimator(item, contract.effect("x_pop"), contract.getSpeed(), 2, units, rtl);
+    }
+
+    private static Map<String, Object> params(Object... kv) {
+        Map<String, Object> m = new HashMap<String, Object>();
+        for (int i = 0; i < kv.length; i += 2) m.put((String) kv[i], kv[i + 1]);
+        return m;
+    }
+
+    @Test
+    public void everyHoldIsKnownRepeatsEachCycleAndIsStillBeforeItAndAfterNothing() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator.State t = new TextAnimator.State();
+        for (String h : HOLDS) {
+            TextAnimator a = motion(params("hold", h), 0, 6000, 5, false);
+            assertEquals(h, h, a.hold);
+            assertTrue(h, a.holdMs > 0);
+            // No hold while the entry plays
+            a.at(a.entryTotalMs() - 1, s);
+            assertEquals(h, -1f, s.shimmer, 0f);
+            // The same moment of two cycles looks the same
+            long base = a.entryTotalMs() + 37;
+            a.at(base, s);
+            a.at(base + 3 * a.holdMs, t);
+            assertEquals(h, s.dx, t.dx, 1e-5f);
+            assertEquals(h, s.dy, t.dy, 1e-5f);
+            assertEquals(h, s.scale, t.scale, 1e-5f);
+            assertEquals(h, s.alpha, t.alpha, 1e-5f);
+            assertEquals(h, s.shimmer, t.shimmer, 1e-5f);
+        }
+    }
+
+    @Test
+    public void withoutAHoldTheTextStaysStill() {
+        TextAnimator a = motion(params("hold", "none"), 0, 3000, 5, false);
+        assertEquals(null, a.hold);
+        TextAnimator b = motion(params("hold", "spin"), 0, 3000, 5, false);
+        assertEquals(null, b.hold);
+        TextAnimator.State s = new TextAnimator.State();
+        for (long t = a.entryTotalMs(); t < 3000 - a.exitMs; t += 41) {
+            a.at(t, s);
+            assertSettled("none", s);
+            assertEquals(-1f, s.shimmer, 0f);
+        }
+    }
+
+    @Test
+    public void floatPulseShakeStartAtRestAndMoveInsideTheirAmplitude() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator f = motion(params("hold", "float"), 0, 8000, 5, false);
+        float lo = 0, hi = 0;
+        for (long t = f.entryTotalMs(); t < f.entryTotalMs() + f.holdMs; t++) {
+            f.at(t, s);
+            lo = Math.min(lo, s.dy);
+            hi = Math.max(hi, s.dy);
+            assertEquals(0f, s.dx, 0f);
+        }
+        assertEquals(TextAnimator.FLOAT_AMPLITUDE, hi, 1e-3f);
+        assertEquals(-TextAnimator.FLOAT_AMPLITUDE, lo, 1e-3f);
+        f.at(f.entryTotalMs(), s);
+        assertEquals(0f, s.dy, 1e-6f);
+
+        TextAnimator p = motion(params("hold", "pulse"), 0, 8000, 5, false);
+        float maxScale = 1;
+        for (long t = p.entryTotalMs(); t < p.entryTotalMs() + p.holdMs; t++) {
+            p.at(t, s);
+            maxScale = Math.max(maxScale, s.scale);
+            assertTrue(s.scale >= 1f);
+        }
+        assertEquals(1 + TextAnimator.PULSE_GROW, maxScale, 1e-3f);
+        p.at(p.entryTotalMs(), s);
+        assertEquals(1f, s.scale, 1e-6f);
+
+        TextAnimator k = motion(params("hold", "shake"), 0, 8000, 5, false);
+        float maxDx = 0;
+        for (long t = k.entryTotalMs(); t < k.entryTotalMs() + 4 * k.holdMs; t++) {
+            k.at(t, s);
+            maxDx = Math.max(maxDx, Math.abs(s.dx));
+        }
+        assertTrue(maxDx > 0.9f * TextAnimator.HOLD_SHAKE_AMPLITUDE && maxDx <= TextAnimator.HOLD_SHAKE_AMPLITUDE + 1e-6f);
+    }
+
+    @Test
+    public void shimmerSweepsLeftToRightThenRestsAndNeonFlickerDipsAndRecovers() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator a = motion(params("hold", "shimmer"), 0, 8000, 5, false);
+        long base = a.entryTotalMs();
+        float last = -0.5f;
+        int frames = 0;
+        for (long t = base; t < base + a.holdMs; t++) {
+            a.at(t, s);
+            if (s.shimmer < 0) continue;
+            assertTrue(s.shimmer >= last);
+            assertTrue(s.shimmer <= 1f);
+            last = s.shimmer;
+            frames++;
+        }
+        assertTrue(frames > 0 && last > 0.95f);
+        a.at(base + a.holdMs - 1, s);
+        assertEquals(-1f, s.shimmer, 0f);
+
+        TextAnimator n = motion(params("hold", "neon_flicker"), 0, 8000, 5, false);
+        float min = 1;
+        for (long t = n.entryTotalMs(); t < n.entryTotalMs() + n.holdMs; t++) {
+            n.at(t, s);
+            min = Math.min(min, s.alpha);
+            assertTrue(s.alpha <= 1f && s.alpha > 0.3f);
+        }
+        assertEquals(TextAnimator.FLICKER_DEEP, min, 1e-6f);
+        n.at(n.entryTotalMs() + n.holdMs / 5 + 1, s);   // between dips
+        assertEquals(1f, s.alpha, 1e-6f);
+    }
+
+    @Test
+    public void holdCycleIsClampedToItsLimits() {
+        long[][] limits = {{1200, 3000}, {500, 1200}, {80, 200}, {600, 1600}, {80, 400}};
+        for (int i = 0; i < HOLDS.length; i++) {
+            assertEquals(HOLDS[i], limits[i][1], motion(params("hold", HOLDS[i], "hold_ms", 99999L), 0, 9000, 5, false).holdMs);
+            assertEquals(HOLDS[i], limits[i][0], motion(params("hold", HOLDS[i], "hold_ms", 1L), 0, 9000, 5, false).holdMs);
+        }
+        assertEquals(1800, motion(params("hold", "float"), 0, 9000, 5, false).holdMs);
+    }
+
+    @Test
+    public void noExitNamedKeepsTheShippedFadeAndShrink() {
+        TextAnimator a = motion(params("hold", "none"), 0, 3000, 5, false);
+        assertEquals(null, a.exit);
+        TextAnimator b = motion(params("exit", "teleport"), 0, 3000, 5, false);
+        assertEquals(null, b.exit);
+        TextAnimator.State s = new TextAnimator.State();
+        b.at(2999, s);
+        assertEquals(TextAnimator.EXIT_SCALE, s.scale, 0.01f);
+        assertEquals(0f, s.alpha, 0.02f);
+    }
+
+    @Test
+    public void everyExitStartsClean_andEndsExactlyAtTheItemsEnd_withNothingLeftToSee() {
+        TextAnimator.State s = new TextAnimator.State();
+        for (String e : EXITS) {
+            TextAnimator a = motion(params("exit", e, "exit_ms", 150L), 1000, 4000, 5, false);
+            assertEquals(e, e, a.exit);
+            long exitStart = 4000 - a.exitMs;
+            // The frame before the exit is still, and the exit's first frame has barely moved
+            assertTrue(e, a.at(exitStart - 1, s));
+            assertSettled(e, s);
+            assertTrue(e, a.at(exitStart, s));
+            assertTrue(e, s.alpha >= 0.99f && Math.abs(s.dx) < 1e-4 && Math.abs(s.dy) < 1e-4);
+            // The last frame has nothing left to see
+            assertTrue(e, a.at(3999, s));
+            boolean gone = s.alpha < 0.02f || s.units == 0 || s.reveal < 0.02f;
+            assertTrue(e, gone);
+            // And it is never drawn at or after the end
+            assertFalse(e, a.at(4000, s));
+            assertFalse(e, a.at(4100, s));
+        }
+    }
+
+    @Test
+    public void exitNeverRunsPastTheItemAndFollowsItsOwnLimits() {
+        EngineContract.SpeedRules speed = contract.getSpeed();
+        for (String e : EXITS) {
+            long hi = motion(params("exit", e, "exit_ms", 9000L), 0, 3000, 5, false).exitMs;
+            long lo = motion(params("exit", e, "exit_ms", 1L), 0, 3000, 5, false).exitMs;
+            assertEquals(e, 200, hi);
+            assertEquals(e, 100, lo);
+            assertTrue(e, hi <= speed.exitMs[1] && lo >= speed.exitMs[0]);
+            // A short item: entry, then exit, inside it; the exit is at most half
+            TextAnimator shortItem = motion(params("exit", e, "exit_ms", 200L, "entry_ms", 300L), 0, 300, 5, false);
+            assertTrue(e, shortItem.exitMs <= 150);
+            assertTrue(e, shortItem.entryTotalMs() + shortItem.exitMs <= 300);
+        }
+        assertEquals(150, motion(params("exit", "fade"), 0, 3000, 5, false).exitMs);
+        assertEquals(200, motion(params("exit", "typewriter_delete"), 0, 3000, 5, false).exitMs);
+    }
+
+    @Test
+    public void slideOutLeavesBySideAndFadesAway() {
+        TextAnimator.State s = new TextAnimator.State();
+        String[] sides = {"left", "right", "top", "bottom"};
+        for (String side : sides) {
+            TextAnimator a = motion(params("exit", "slide_out", "exit_dir", side), 0, 3000, 5, false);
+            a.at(2999, s);
+            switch (side) {
+                case "left": assertTrue(s.dx < -0.1f && s.dy == 0f); break;
+                case "right": assertTrue(s.dx > 0.1f && s.dy == 0f); break;
+                case "top": assertTrue(s.dy < -0.05f && s.dx == 0f); break;
+                default: assertTrue(s.dy > 0.05f && s.dx == 0f);
+            }
+            assertTrue(side, s.alpha < 0.05f);
+            a.at(3000 - a.exitMs + a.exitMs / 2, s);
+            assertTrue(side, s.alpha > 0.2f && s.alpha < 0.8f);
+        }
+        // No exit_dir: the side the entry came from, else the bottom
+        TextAnimator fromLeft = motion(params("entry", "slide_left", "exit", "slide_out"), 0, 3000, 5, false);
+        assertEquals("left", fromLeft.exitDir);
+        assertEquals("bottom", motion(params("exit", "slide_out"), 0, 3000, 5, false).exitDir);
+        assertEquals("bottom", motion(params("exit", "slide_out", "exit_dir", "diagonal"), 0, 3000, 5, false).exitDir);
+    }
+
+    @Test
+    public void shrinkAndPopOutAndFadeChangeScaleAndAlphaAsNamed() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator shrink = motion(params("exit", "shrink"), 0, 3000, 5, false);
+        shrink.at(2999, s);
+        assertEquals(TextAnimator.SHRINK_END, s.scale, 0.02f);
+        assertTrue(s.alpha < 0.02f);
+
+        TextAnimator pop = motion(params("exit", "pop_out"), 0, 3000, 5, false);
+        float peak = 0;
+        for (long t = 3000 - pop.exitMs; t < 3000; t++) {
+            pop.at(t, s);
+            peak = Math.max(peak, s.scale);
+        }
+        assertEquals(TextAnimator.POP_OUT_PEAK, peak, 0.01f);
+        pop.at(2999, s);
+        assertEquals(TextAnimator.POP_OUT_END, s.scale, 0.02f);
+        assertTrue(s.alpha < 0.02f);
+
+        TextAnimator fade = motion(params("exit", "fade"), 0, 3000, 5, false);
+        fade.at(2999, s);
+        assertEquals(1f, s.scale, 1e-6f);
+        assertTrue(s.alpha < 0.02f);
+    }
+
+    @Test
+    public void typewriterDeleteRemovesStepsFromTheEndInOrder() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator a = motion(params("exit", "typewriter_delete"), 0, 3000, 5, false);
+        long start = 3000 - a.exitMs;
+        a.at(start, s);
+        assertEquals(5, s.units);
+        int last = 5;
+        for (long t = start; t < 3000; t++) {
+            a.at(t, s);
+            assertTrue(s.units <= last && s.units >= 0);
+            last = s.units;
+        }
+        assertEquals(0, last);
+        a.at(2999, s);
+        assertEquals(0f, s.alpha, 0f);
+        a.at(start + a.exitMs / 2, s);
+        assertTrue(s.units > 0 && s.units < 5);
+    }
+
+    @Test
+    public void wipeOutIsTheWipeBackwardsFromTheReadingDirectionEdge() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator ltr = motion(params("exit", "wipe_out"), 0, 3000, 5, false);
+        ltr.at(3000 - ltr.exitMs, s);
+        assertEquals(1f, s.reveal, 1e-6f);
+        assertFalse(s.revealFromRight);
+        ltr.at(3000 - ltr.exitMs / 2, s);
+        assertTrue(s.reveal > 0.3f && s.reveal < 0.7f);
+        ltr.at(2999, s);
+        assertTrue(s.reveal < 0.02f);
+        TextAnimator rtl = motion(params("exit", "wipe_out"), 0, 3000, 5, true);
+        rtl.at(3000 - rtl.exitMs / 2, s);
+        assertTrue(s.revealFromRight);
+        assertTrue(s.reveal < 1f);
+    }
+
+    @Test
+    public void anExitRunsOnTopOfTheHoldWithoutAJump() {
+        TextAnimator.State s = new TextAnimator.State();
+        TextAnimator a = motion(params("hold", "float", "exit", "shrink"), 0, 4000, 5, false);
+        TextAnimator.State before = new TextAnimator.State();
+        a.at(4000 - a.exitMs - 1, before);
+        a.at(4000 - a.exitMs, s);
+        assertEquals(before.dy, s.dy, 0.001f);
+        assertEquals(before.scale, s.scale, 0.01f);
+        // The shimmer band is gone once the exit starts
+        TextAnimator b = motion(params("hold", "shimmer", "hold_ms", 600L, "exit", "fade"), 0, 4000, 5, false);
+        for (long t = 4000 - b.exitMs; t < 4000; t++) {
+            b.at(t, s);
+            assertEquals(-1f, s.shimmer, 0f);
+        }
+    }
+
+    @Test
+    public void holdsAndExitsReplayIdentically() {
+        TextAnimator a = motion(params("hold", "neon_flicker", "exit", "pop_out"), 0, 4000, 5, false);
+        TextAnimator b = motion(params("hold", "neon_flicker", "exit", "pop_out"), 0, 4000, 5, false);
+        TextAnimator.State x = new TextAnimator.State();
+        TextAnimator.State y = new TextAnimator.State();
+        for (long t = 0; t < 4000; t += 7) {
+            assertEquals(a.at(t, x), b.at(t, y));
+            assertEquals(x.alpha, y.alpha, 0f);
+            assertEquals(x.scale, y.scale, 0f);
+        }
+    }
 }

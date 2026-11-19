@@ -196,7 +196,7 @@ Facts the server fixed that the cards must match exactly:
 |---|---|---|---|---|
 | C1 | 1 | Layout policy for any script: measure, shrink, wrap at most 2 lines, skip (no ellipsis), bidi; receipt notes | server S1, S2 | ☑ |
 | C2 | 1 | Entry motions, reveal direction, typewriter step, signed tilt | server S3, S4 | ☑ |
-| C3 | 1 | Hold effects and exits; send `text_motions` for ticked ids | C2 | ☐ |
+| C3 | 1 | Hold effects and exits; send `text_motions` for ticked ids | C2 | ☑ |
 | C4 | 1 | Debug preview sheet: every motion x string matrix x 3 ratios; owner runs it and ticks | C1, C3 | ☐ |
 | C5 | 2 | Pure paint plan from the new look blocks; thin Canvas translator; six looks unchanged | server S6 | ☐ |
 | C6 | 2 | Fonts (system families), case, letter spacing, generic for every script | C5 | ☐ |

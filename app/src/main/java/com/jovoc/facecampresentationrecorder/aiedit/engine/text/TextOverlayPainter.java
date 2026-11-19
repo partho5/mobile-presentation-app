@@ -2,8 +2,13 @@ package com.jovoc.facecampresentationrecorder.aiedit.engine.text;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
+import android.graphics.Matrix;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Shader;
 
 import com.jovoc.facecampresentationrecorder.aiedit.engine.RenderNotes;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.captions.CaptionPainter;
@@ -31,6 +36,9 @@ public final class TextOverlayPainter implements CaptionPainter {
     static final float MAX_WIDTH_SHARE = 0.8f;
     /** The blurred copy of a {@code blur_in} text is this many times smaller than the sprite. */
     static final int BLUR_DOWNSCALE = 8;
+    /** The light band of a {@code shimmer} hold: this share of the sprite width, peak alpha at its centre. */
+    static final float SHIMMER_WIDTH_SHARE = 0.35f;
+    static final int SHIMMER_PEAK_ALPHA = 150;
     static final String DEFAULT_LOOK = "sticker";
     static final String DEFAULT_ZONE = "middle_center";
 
@@ -74,6 +82,9 @@ public final class TextOverlayPainter implements CaptionPainter {
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float[] spot = new float[2];
     private final RectF blurDst = new RectF();
+    /** The shimmer band: one unit-wide gradient, moved and scaled with {@link #shimmerMatrix} (nothing is allocated per frame). */
+    private final Paint shimmerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Matrix shimmerMatrix = new Matrix();
 
     /**
      * @param captionSizePx the caption text size of this output; overlay text is 1.6 times it
@@ -95,6 +106,9 @@ public final class TextOverlayPainter implements CaptionPainter {
         this.captionSizePx = captionSizePx;
         this.facecam = facecam;
         this.renderer = new TextLookRenderer(new PaletteResolver(plan.palette, contract.getPalette()));
+        shimmerPaint.setShader(new LinearGradient(0, 0, 1, 0, new int[]{0x00FFFFFF, 0xFFFFFFFF, 0x00FFFFFF},
+                new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        shimmerPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP));
         for (PlanItem item : plan.items) addItem(item);
     }
 
@@ -217,6 +231,9 @@ public final class TextOverlayPainter implements CaptionPainter {
             float w = sp.width * state.reveal;
             canvas.clipRect(state.revealFromRight ? sp.width - w : 0, 0, state.revealFromRight ? sp.width : w, sp.height);
         }
+        // A shimmer lights only what the text drew: the band is blended over the sprite inside its own layer
+        boolean shimmer = state.shimmer >= 0;
+        int layer = shimmer ? canvas.saveLayer(0, 0, sp.width, sp.height, null) : -1;
         if (o.blurred != null && state.blur > 0) {
             paint.setAlpha(Math.round(alpha * Math.min(1f, state.blur)));
             blurDst.set(0, 0, sp.width, sp.height);
@@ -241,6 +258,16 @@ public final class TextOverlayPainter implements CaptionPainter {
                 canvas.drawBitmap(sp.bitmap, 0, 0, paint);
                 canvas.restore();
             }
+        }
+        if (shimmer) {
+            float band = sp.width * SHIMMER_WIDTH_SHARE;
+            float left = -band + (sp.width + band) * state.shimmer;
+            shimmerMatrix.setScale(band, 1);
+            shimmerMatrix.postTranslate(left, 0);
+            shimmerPaint.getShader().setLocalMatrix(shimmerMatrix);
+            shimmerPaint.setAlpha(Math.round(SHIMMER_PEAK_ALPHA * alpha / 255f));
+            canvas.drawRect(0, 0, sp.width, sp.height, shimmerPaint);
+            canvas.restoreToCount(layer);
         }
         canvas.restore();
     }

@@ -9,9 +9,13 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.PlanItem;
  * The motion of one text overlay on the output timeline: an entry ({@code pop}, {@code stamp}, {@code slide_up},
  * {@code word_by_word}, {@code sweep}, and {@code fade}, {@code slide_left}, {@code slide_right}, {@code slide_top},
  * {@code slide_bottom}, {@code typewriter}, {@code wipe}, {@code drop_bounce}, {@code blur_in}, {@code flip},
- * {@code glitch}), a hold, and the exit (scale 1 to 0.85 while the alpha falls, out cubic). Entry, shake and exit
- * times are clamped to the contract's {@code speed} (typewriter: its own 200 to 500 ms) and to the item's length.
- * After its entry an animation adds no motion. Pure maths: it fills a reusable {@link State}; the painter turns that
+ * {@code glitch}), a hold ({@code float}, {@code pulse}, {@code shake}, {@code shimmer}, {@code neon_flicker}: one
+ * loop cycle of {@code hold_ms}, repeated until the exit), and the exit. An exit named by {@code params.exit}
+ * ({@code fade}, {@code slide_out} toward {@code exit_dir}, {@code shrink}, {@code pop_out},
+ * {@code typewriter_delete}, {@code wipe_out}) runs on top of the hold and ends exactly at the item's end; no
+ * {@code params.exit} (or an unknown one) is the shipped exit: scale 1 to 0.85 while the alpha falls, out cubic.
+ * Entry, shake and exit times are clamped to the contract's {@code speed} (typewriter: its own 200 to 500 ms) and to
+ * the item's length. Without a hold, after its entry an animation adds no motion. Pure maths: it fills a reusable {@link State}; the painter turns that
  * into canvas calls on the cached sprite. A slide named for a side starts on that side and moves to its place.
  */
 public final class TextAnimator {
@@ -36,8 +40,11 @@ public final class TextAnimator {
         public boolean revealFromRight;
         /** Typewriter steps shown so far (of the animator's unit count), or {@link #ALL_WORDS}. */
         public int units = ALL_WORDS;
+        /** Where the light band of a {@code shimmer} hold is across the sprite, 0..1 (left edge to right), or -1 for none. */
+        public float shimmer = NO_SHIMMER;
 
         void reset() {
+            shimmer = NO_SHIMMER;
             scaleY = 1;
             blur = 0;
             reveal = 1;
@@ -53,6 +60,7 @@ public final class TextAnimator {
     }
 
     public static final int ALL_WORDS = -1;
+    public static final float NO_SHIMMER = -1f;
 
     /** The pop overshoots to this and settles to 1. */
     static final float POP_FROM = 0.6f;
@@ -88,7 +96,51 @@ public final class TextAnimator {
             {"typewriter", "typing_ms", 200L, 400L, 500L},
     };
 
+    /** Hold ids and their loop cycle: key {@code hold_ms}, min, default, max in ms (contract doc, motion params). */
+    private static final Object[][] HOLD_TABLE = {
+            {"float", 1200L, 1800L, 3000L},
+            {"pulse", 500L, 800L, 1200L},
+            {"shake", 80L, 120L, 200L},
+            {"shimmer", 600L, 1000L, 1600L},
+            {"neon_flicker", 80L, 160L, 400L},
+    };
+
+    /** Exit ids and their duration: key {@code exit_ms}, min, default, max in ms (contract doc, motion params). */
+    private static final Object[][] EXIT_TABLE = {
+            {"fade", 100L, 150L, 200L},
+            {"slide_out", 100L, 150L, 200L},
+            {"shrink", 100L, 150L, 200L},
+            {"pop_out", 100L, 150L, 200L},
+            {"wipe_out", 100L, 150L, 200L},
+            {"typewriter_delete", 100L, 200L, 200L},
+    };
+
+    /** The float drifts this far up and down, a share of the output height. */
+    static final float FLOAT_AMPLITUDE = 0.006f;
+    /** The pulse swells to this much larger. */
+    static final float PULSE_GROW = 0.05f;
+    /** The shake moves this far sideways (and a third of it up and down), a share of the output width. */
+    static final float HOLD_SHAKE_AMPLITUDE = 0.006f;
+    /** The neon flicker dims to these alphas in its cycle. */
+    static final float FLICKER_DEEP = 0.45f;
+    static final float FLICKER_SHALLOW = 0.75f;
+    /** A pop out first swells to this, then collapses (the swell takes {@link #POP_OUT_SWELL_AT} of the exit). */
+    static final float POP_OUT_PEAK = 1.12f;
+    static final double POP_OUT_SWELL_AT = 0.3;
+    static final float POP_OUT_END = 0.5f;
+    /** A shrink ends at this scale. */
+    static final float SHRINK_END = 0.3f;
+    /** The shimmer's light band crosses in this share of its cycle. */
+    static final double SHIMMER_SWEEP = 0.6;
+
     final String entry;
+    /** The hold ({@code float}, ...) or null for a still text. */
+    final String hold;
+    /** The exit named by the plan, or null for the shipped fade-and-shrink exit. */
+    final String exit;
+    /** Which way a {@code slide_out} leaves: {@code left}, {@code right}, {@code top} or {@code bottom}. */
+    final String exitDir;
+    final long holdMs;
     final long startMs;
     final long endMs;
     final long entryMs;
@@ -123,8 +175,25 @@ public final class TextAnimator {
         entry = isKnown(kind) ? kind : "pop";
         long length = Math.max(0, endMs - startMs);
 
-        long exit = clamp(Math.round(number(item, registry, "exit_ms", 150)), speed.exitMs[0], speed.exitMs[1]);
-        exit = Math.min(exit, length / 2);
+        String exitKind = item.paramString("exit", null);
+        Object[] exitRow = exitKind != null ? tableRow(EXIT_TABLE, exitKind) : null;
+        exit = exitRow != null ? (String) exitRow[0] : null;
+        long exitLen;
+        if (exitRow == null) {
+            exitLen = clamp(Math.round(number(item, registry, "exit_ms", 150)), speed.exitMs[0], speed.exitMs[1]);
+        } else {
+            exitLen = clamp(Math.round(item.paramNumber("exit_ms", (Long) exitRow[2])), (Long) exitRow[1],
+                    (Long) exitRow[3]);
+            // Never outside the contract's own speed rules either
+            exitLen = clamp(exitLen, speed.exitMs[0], speed.exitMs[1]);
+        }
+        exitLen = Math.min(exitLen, length / 2);
+        exitDir = exitDirection(item.paramString("exit_dir", null), entry);
+        String holdKind = item.paramString("hold", null);
+        Object[] holdRow = holdKind != null ? tableRow(HOLD_TABLE, holdKind) : null;
+        hold = holdRow != null ? (String) holdRow[0] : null;
+        holdMs = holdRow == null ? 0 : clamp(Math.round(item.paramNumber("hold_ms", (Long) holdRow[2])),
+                (Long) holdRow[1], (Long) holdRow[3]);
         long ent;
         Object[] row = entryRow(entry);
         if (row == null) {
@@ -150,11 +219,11 @@ public final class TextAnimator {
             // Hit and shake together stay inside the longest entry
             shake = Math.max(0, Math.min(shake, speed.entryMs[1] - ent));
         }
-        ent = Math.min(ent, Math.max(0, length - exit - shake));
+        ent = Math.min(ent, Math.max(0, length - exitLen - shake));
         entryMs = ent;
         shakeMs = shake;
         shakes = count;
-        exitMs = exit;
+        exitMs = exitLen;
         fromDy = limitD(registry, "from_dy", item.paramNumber("from_dy", defaultNumber(registry, "from_dy", 0.08)));
         fromDx = Math.max(SLIDE_DX_MIN, Math.min(SLIDE_DX_MAX, item.paramNumber("from_dx", SLIDE_DX)));
     }
@@ -165,8 +234,23 @@ public final class TextAnimator {
     }
 
     private static Object[] entryRow(String kind) {
-        for (Object[] row : ENTRY_TABLE) if (row[0].equals(kind)) return row;
+        return tableRow(ENTRY_TABLE, kind);
+    }
+
+    private static Object[] tableRow(Object[][] table, String id) {
+        for (Object[] row : table) if (row[0].equals(id)) return row;
         return null;
+    }
+
+    /** The side a slide out leaves by: the plan's {@code exit_dir}, else the side the entry came from, else the bottom. */
+    private static String exitDirection(String asked, String entry) {
+        if ("left".equals(asked) || "right".equals(asked) || "top".equals(asked) || "bottom".equals(asked)) return asked;
+        switch (entry) {
+            case "slide_left": return "left";
+            case "slide_right": return "right";
+            case "slide_top": return "top";
+            default: return "bottom";
+        }
     }
 
     /** The whole entry: the hit, plus the shake of a stamp. */
@@ -188,18 +272,105 @@ public final class TextAnimator {
         } else if (entry.equals("word_by_word")) {
             out.words = visibleWords(sinceStart);
         }
+        if (sinceStart >= entryTotalMs() && hold != null) holdFrame(sinceStart - entryTotalMs(), out);
         if (exitMs > 0 && outputMs >= endMs - exitMs) {
-            double p = Ease.outCubic(Ease.progress(outputMs, endMs - exitMs, exitMs));
-            out.scale = (float) Ease.lerp(1, EXIT_SCALE, p);
-            out.alpha = (float) (1 - p);
-            out.dx = 0;
-            out.dy = 0;
-            out.barProgress = 1;
-            out.scaleY = 1;
-            out.blur = 0;
-            out.reveal = 1;
+            double p = Ease.progress(outputMs, endMs - exitMs, exitMs);
+            if (exit == null) {
+                legacyExitFrame(p, out);
+            } else {
+                exitFrame(p, out);
+            }
         }
         return true;
+    }
+
+    /** The shipped exit: scale 1 to 0.85 while the alpha falls, out cubic; it replaces whatever else was moving. */
+    private void legacyExitFrame(double linear, State out) {
+        double p = Ease.outCubic(linear);
+        out.scale = (float) Ease.lerp(1, EXIT_SCALE, p);
+        out.alpha = (float) (1 - p);
+        out.dx = 0;
+        out.dy = 0;
+        out.barProgress = 1;
+        out.scaleY = 1;
+        out.blur = 0;
+        out.reveal = 1;
+        out.shimmer = NO_SHIMMER;
+    }
+
+    /**
+     * A named exit at {@code linear} (0 at its start, 1 at the item's end), added to the hold's values so the hold
+     * does not jump when the exit begins. Every exit ends with nothing left to see.
+     */
+    private void exitFrame(double linear, State out) {
+        double out3 = Ease.outCubic(linear);
+        double in3 = linear * linear * linear;
+        out.shimmer = NO_SHIMMER;
+        switch (exit) {
+            case "slide_out":
+                switch (exitDir) {
+                    case "left": out.dx -= (float) (fromDx * in3); break;
+                    case "right": out.dx += (float) (fromDx * in3); break;
+                    case "top": out.dy -= (float) (fromDy * in3); break;
+                    default: out.dy += (float) (fromDy * in3); break;
+                }
+                out.alpha *= (float) (1 - linear);
+                break;
+            case "shrink":
+                out.scale *= (float) Ease.lerp(1, SHRINK_END, out3);
+                out.alpha *= (float) (1 - out3);
+                break;
+            case "pop_out":
+                if (linear < POP_OUT_SWELL_AT) {
+                    out.scale *= (float) Ease.lerp(1, POP_OUT_PEAK, Ease.outCubic(linear / POP_OUT_SWELL_AT));
+                } else {
+                    double q = (linear - POP_OUT_SWELL_AT) / (1 - POP_OUT_SWELL_AT);
+                    out.scale *= (float) Ease.lerp(POP_OUT_PEAK, POP_OUT_END, q * q);
+                    out.alpha *= (float) (1 - q);
+                }
+                break;
+            case "typewriter_delete":
+                // The last step goes first, so it reads as the typing undone (the reading direction is the steps' order)
+                out.units = (int) Math.max(0, Math.min(unitCount, Math.floor((1 - linear) * unitCount)));
+                if (out.units == 0) out.alpha = 0;
+                break;
+            case "wipe_out":
+                // The entry's wipe played backwards: the edge it started from is the last to go
+                out.reveal = (float) (1 - linear);
+                out.revealFromRight = rtl;
+                if (out.reveal <= 0) out.alpha = 0;
+                break;
+            default:   // fade
+                out.alpha *= (float) (1 - out3);
+        }
+    }
+
+    /** The loop of a hold at {@code sinceEntryMs} after the entry: the same cycle over and over. */
+    private void holdFrame(long sinceEntryMs, State out) {
+        double phase = (sinceEntryMs % holdMs) / (double) holdMs;
+        double turn = 2 * Math.PI * phase;
+        switch (hold) {
+            case "float":
+                out.dy = (float) (-FLOAT_AMPLITUDE * Math.sin(turn));
+                break;
+            case "pulse": {
+                double s = Math.sin(Math.PI * phase);
+                out.scale = (float) (1 + PULSE_GROW * s * s);
+                break;
+            }
+            case "shake":
+                out.dx = (float) (HOLD_SHAKE_AMPLITUDE * Math.sin(turn));
+                out.dy = (float) (HOLD_SHAKE_AMPLITUDE / 3 * Math.cos(2 * turn));
+                break;
+            case "shimmer":
+                // The band travels from just off the left edge to just off the right one, then rests for the rest of the cycle
+                out.shimmer = phase < SHIMMER_SWEEP ? (float) (phase / SHIMMER_SWEEP) : NO_SHIMMER;
+                break;
+            default:   // neon_flicker: a short deep dip, then a shallow one, at fixed places of the cycle
+                if (phase < 0.12) out.alpha = FLICKER_DEEP;
+                else if (phase >= 0.3 && phase < 0.4) out.alpha = FLICKER_SHALLOW;
+                else if (phase >= 0.5 && phase < 0.56) out.alpha = FLICKER_DEEP;
+        }
     }
 
     private void entryFrame(long outputMs, State out) {
