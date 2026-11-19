@@ -48,9 +48,12 @@ public final class TextLookRenderer {
         public final boolean wrapped;
         /** True when the look named a font family the phone does not know and {@code sans} was drawn instead. */
         public final boolean fontFallback;
+        /** The text size the lines were laid out at (the wanted size, or the smaller one a shrunk text got); every length of the look is a fraction of it. */
+        public final float sizePx;
 
         Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips,
-               RectF[] unitClips, boolean shrunk, boolean wrapped, boolean fontFallback) {
+               RectF[] unitClips, boolean shrunk, boolean wrapped, boolean fontFallback, float sizePx) {
+            this.sizePx = sizePx;
             this.fontFallback = fontFallback;
             this.shrunk = shrunk;
             this.wrapped = wrapped;
@@ -144,7 +147,7 @@ public final class TextLookRenderer {
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
                 stripClips(wordSpans(drawn), layout, left, top, bmpW, bmpH),
                 stripClips(unitSpans(drawn), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped,
-                !LookTypography.isKnownFamily(look.font.family));
+                !LookTypography.isKnownFamily(look.font.family), size);
     }
 
     /**

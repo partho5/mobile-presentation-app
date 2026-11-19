@@ -31,9 +31,9 @@ import java.util.List;
 public final class TextOverlayPainter implements CaptionPainter {
 
     /** Overlay text is this many times the caption text size. */
-    static final float SIZE_FACTOR = 1.6f;
+    public static final float SIZE_FACTOR = 1.6f;
     /** The whole block, with its pill, is at most this share of the output width. */
-    static final float MAX_WIDTH_SHARE = 0.8f;
+    public static final float MAX_WIDTH_SHARE = 0.8f;
     /** The blurred copy of a {@code blur_in} text is this many times smaller than the sprite. */
     static final int BLUR_DOWNSCALE = 8;
     /** The light band of a {@code shimmer} hold: this share of the sprite width, peak alpha at its centre. */

@@ -19,5 +19,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Debug-only text look sheet (AI edit, card C9): its own icon "Look sheet" in the launcher.
+             Launch: adb shell am start -n com.jovoc.facecampresentationrecorder/.aiedit.debugsheet.LookSheetActivity -->
+        <activity
+            android:name="com.jovoc.facecampresentationrecorder.aiedit.debugsheet.LookSheetActivity"
+            android:exported="true"
+            android:label="Look sheet"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
