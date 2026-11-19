@@ -87,6 +87,7 @@ public class MotionSheetActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (player != null) player.cancel();
+        if (preview != null) preview.release();
         super.onDestroy();
     }
 
@@ -311,7 +312,7 @@ public class MotionSheetActivity extends AppCompatActivity {
         void setCell(MotionSheetGrid.Cell c, OutputSpec s) {
             cell = c;
             spec = s;
-            painter = null;
+            release();
             lastMs = -1;
             float aspect = (float) s.width / s.height;
             int availW = getResources().getDisplayMetrics().widthPixels - dp(20);
@@ -320,6 +321,12 @@ public class MotionSheetActivity extends AppCompatActivity {
             lp.height = h;
             lp.width = Math.round(h * aspect);
             setLayoutParams(lp);
+        }
+
+        /** Frees the painter's sprite and blurred copy now (a painter frees them once its item has ended). */
+        void release() {
+            if (painter != null) painter.draw(new Canvas(), MotionSheetGrid.ITEM_MS, 1, 1);
+            painter = null;
         }
 
         void show(long ms) {
@@ -338,6 +345,7 @@ public class MotionSheetActivity extends AppCompatActivity {
                     (float) spec.safeY1 * h, line);
             // A painter frees its sprite once the item ends and cannot go back, so going back starts a new one
             if (painter == null || wantMs < lastMs) {
+                release();
                 notes = new RenderNotes();
                 painter = new TextOverlayPainter(MotionSheetGrid.plan(cell), contract, spec, w, h,
                         w * CaptionPainter.DEFAULT_TEXT_SIZE_SHARE, null, notes);
