@@ -49,6 +49,23 @@ public class OverlayMathTest {
     }
 
     @Test
+    public void keyedFramesLiveInOneFolderNextToTheClip() throws Exception {
+        File dir = java.nio.file.Files.createTempDirectory("assets").toFile();
+        File frames = AssetFiles.framesDir(dir, "x/y");
+        assertEquals(dir, frames.getParentFile());
+        assertEquals(AssetFiles.safeName("x/y") + ".frames", frames.getName());
+        assertTrue(AssetFiles.isFramesName(frames.getName()));
+        assertNull(AssetFiles.existingFrames(dir, "x/y"));
+        assertNull(AssetFiles.existingFrames(null, "x/y"));
+        assertTrue(frames.mkdirs());
+        assertNull(AssetFiles.existingFrames(dir, "x/y"));
+        assertTrue(new File(frames, "0001.png").createNewFile());
+        assertEquals(frames, AssetFiles.existingFrames(dir, "x/y"));
+        assertTrue(AssetFiles.deleteTree(dir));
+        assertFalse(dir.exists());
+    }
+
+    @Test
     public void lottieFactorIsOneUnlessSpedUpAndCapped() {
         assertEquals(1.0, LottieFit.factor("native", 2.0, 3.0), 1e-9);
         assertEquals(1.0, LottieFit.factor(null, 2.0, 3.0), 1e-9);

@@ -74,9 +74,13 @@ final class AssetCache {
             if (target.isFile() && target.length() > 0) {
                 // A use keeps it among the newest
                 target.setLastModified(System.currentTimeMillis());
-                continue;
+            } else {
+                download(asset, target);
             }
-            download(asset, target);
+            // The clip's frames are made once, after its download (also for one downloaded by an earlier edit)
+            if ("video".equals(asset.kind) && target.isFile() && target.length() > 0) {
+                keyFrames(asset, target);
+            }
         }
         prune(wanted);
         return dir;
@@ -113,19 +117,46 @@ final class AssetCache {
         }
     }
 
-    /** Removes the oldest files until the folder is under the limit; the plan's own files stay. */
+    /** Keys the white box of a video asset to transparent frames, unless they are already there; a failure skips it. */
+    private void keyFrames(PlanAsset asset, File target) {
+        if (AssetFiles.existingFrames(dir, asset.id) != null) return;
+        throwIfCancelled();
+        if (!AssetKeyer.key(target, AssetFiles.framesDir(dir, asset.id), cancel)) {
+            // No frames means no clip: the renderer leaves this one out
+            target.delete();
+        }
+        throwIfCancelled();
+    }
+
+    /**
+     * Removes the oldest assets until the folder is under the limit; the plan's own files stay. A video asset is its
+     * mp4 and its frames folder, counted and removed together.
+     */
     private void prune(Set<String> keep) {
         File[] files = dir.listFiles();
         if (files == null) return;
         long total = 0;
-        for (File f : files) total += f.length();
+        for (File f : files) total += AssetFiles.sizeOf(f);
         if (total <= MAX_CACHE_BYTES) return;
         Arrays.sort(files, (a, b) -> Long.compare(a.lastModified(), b.lastModified()));
         for (File f : files) {
             if (total <= MAX_CACHE_BYTES) break;
-            if (keep.contains(f.getName())) continue;
-            long size = f.length();
-            if (f.delete()) total -= size;
+            String name = f.getName();
+            File frames = new File(dir, name + ".frames");
+            if (AssetFiles.isFramesName(name)) {
+                // Frames go with their mp4; only frames left without one are judged here
+                String owner = name.substring(0, name.length() - ".frames".length());
+                if (new File(dir, owner).exists()) continue;
+                if (keep.contains(owner)) continue;
+            } else if (keep.contains(name)) {
+                continue;
+            }
+            long size = AssetFiles.sizeOf(f);
+            if (frames.exists()) {
+                size += AssetFiles.sizeOf(frames);
+                AssetFiles.deleteTree(frames);
+            }
+            if (AssetFiles.deleteTree(f)) total -= size;
         }
     }
 

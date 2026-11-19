@@ -9,6 +9,9 @@ import java.io.File;
 public final class AssetFiles {
 
     private static final int MAX_NAME = 100;
+    /** The frame rate of the keyed frames of a video asset; a clip lasts frameCount / FRAME_FPS. */
+    public static final int FRAME_FPS = 24;
+    private static final String FRAMES_SUFFIX = ".frames";
 
     private AssetFiles() {}
 
@@ -47,5 +50,39 @@ public final class AssetFiles {
         if (dir == null || id == null) return null;
         File f = fileFor(dir, id);
         return f.isFile() && f.length() > 0 ? f : null;
+    }
+
+    /** The folder of the keyed PNG frames of video asset {@code id} under {@code dir}. */
+    public static File framesDir(File dir, String id) {
+        return new File(dir, safeName(id) + FRAMES_SUFFIX);
+    }
+
+    /** The frames folder of asset {@code id} when it holds at least one PNG, else null. */
+    public static File existingFrames(File dir, String id) {
+        if (dir == null || id == null) return null;
+        File f = framesDir(dir, id);
+        File[] png = f.isDirectory() ? f.listFiles((d, n) -> n.endsWith(".png")) : null;
+        return png != null && png.length > 0 ? f : null;
+    }
+
+    /** Whether {@code name} is the frames folder of another entry of the assets folder. */
+    public static boolean isFramesName(String name) {
+        return name.endsWith(FRAMES_SUFFIX);
+    }
+
+    /** The size in bytes of a file, or of everything under a folder. */
+    public static long sizeOf(File f) {
+        if (!f.isDirectory()) return f.length();
+        long total = 0;
+        File[] children = f.listFiles();
+        if (children != null) for (File c : children) total += sizeOf(c);
+        return total;
+    }
+
+    /** Deletes a file, or a folder with everything under it; false when something is left. */
+    public static boolean deleteTree(File f) {
+        File[] children = f.isDirectory() ? f.listFiles() : null;
+        if (children != null) for (File c : children) deleteTree(c);
+        return f.delete();
     }
 }
