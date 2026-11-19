@@ -147,7 +147,7 @@ public final class TextLayoutPolicy {
     }
 
     /** Marks, joiners, variation selectors and emoji modifiers: code points that belong to the letter before them. */
-    private static boolean joinsToPrevious(int cp) {
+    static boolean joinsToPrevious(int cp) {
         int type = Character.getType(cp);
         if (type == Character.NON_SPACING_MARK || type == Character.ENCLOSING_MARK
                 || type == Character.COMBINING_SPACING_MARK) return true;

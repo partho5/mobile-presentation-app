@@ -44,13 +44,15 @@ public final class TextLookRenderer {
         public final int barColor;
         /** Per word: the part of the bitmap that holds it (for word-by-word reveal), in word order. */
         public final RectF[] wordClips;
+        /** Per typewriter step ({@link TextMotion#revealUnits}): the part of the bitmap that holds it, in step order. */
+        public final RectF[] unitClips;
         /** True when the text had to be drawn smaller than asked to fit its box. */
         public final boolean shrunk;
         /** True when the text is on two lines. */
         public final boolean wrapped;
 
         Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips,
-               boolean shrunk, boolean wrapped) {
+               RectF[] unitClips, boolean shrunk, boolean wrapped) {
             this.shrunk = shrunk;
             this.wrapped = wrapped;
             this.bitmap = bitmap;
@@ -61,6 +63,7 @@ public final class TextLookRenderer {
             this.bars = bars;
             this.barColor = barColor;
             this.wordClips = wordClips;
+            this.unitClips = unitClips;
         }
 
         public void recycle() {
@@ -121,8 +124,10 @@ public final class TextLookRenderer {
         RectF[] bars = look.bar != null ? bars(layout, look, s, left, top) : new RectF[0];
         int barColor = look.bar != null
                 ? PaletteResolver.withAlpha(colors.resolve(look.bar.color, colorSlot), look.bar.alpha) : 0;
+        String drawn = fit.joined();
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
-                wordClips(fit.joined(), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped);
+                stripClips(wordSpans(drawn), layout, left, top, bmpW, bmpH),
+                stripClips(unitSpans(drawn), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped);
     }
 
     /** The lines are already broken by the policy (newlines); centred, in the paragraph direction of the text. */
@@ -293,11 +298,8 @@ public final class TextLookRenderer {
         return false;
     }
 
-    /**
-     * For each word the strip of the bitmap it lives in: its own span between the midpoints to its neighbours on
-     * the line, and the full height for the first and last line. Drawn clipped to a strip, only that word shows.
-     */
-    private static RectF[] wordClips(String text, StaticLayout layout, float left, float top, int bmpW, int bmpH) {
+    /** The runs of non-white-space characters of {@code text}, as [start, end) offsets. */
+    private static List<int[]> wordSpans(String text) {
         List<int[]> spans = new ArrayList<>();
         int start = -1;
         for (int i = 0; i <= text.length(); i++) {
@@ -308,6 +310,30 @@ public final class TextLookRenderer {
                 start = -1;
             }
         }
+        return spans;
+    }
+
+    /** The typewriter steps of {@code text} as [start, end) offsets, trimmed of white space (the line break included). */
+    private static List<int[]> unitSpans(String text) {
+        int[] ends = TextMotion.revealUnits(text);
+        List<int[]> spans = new ArrayList<>();
+        int from = 0;
+        for (int end : ends) {
+            int a = from;
+            int b = end;
+            while (a < b && Character.isWhitespace(text.charAt(a))) a++;
+            while (b > a && Character.isWhitespace(text.charAt(b - 1))) b--;
+            if (b > a) spans.add(new int[]{a, b});
+            from = end;
+        }
+        return spans;
+    }
+
+    /**
+     * For each span the strip of the bitmap it lives in: its own extent between the midpoints to its neighbours on
+     * the line, and the full height for the first and last line. Drawn clipped to a strip, only that span shows.
+     */
+    private static RectF[] stripClips(List<int[]> spans, StaticLayout layout, float left, float top, int bmpW, int bmpH) {
         int n = spans.size();
         float[] wl = new float[n];
         float[] wr = new float[n];

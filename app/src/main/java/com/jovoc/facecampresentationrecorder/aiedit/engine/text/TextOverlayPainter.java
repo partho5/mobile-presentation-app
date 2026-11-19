@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.aiedit.engine.text;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -28,6 +29,8 @@ public final class TextOverlayPainter implements CaptionPainter {
     static final float SIZE_FACTOR = 1.6f;
     /** The whole block, with its pill, is at most this share of the output width. */
     static final float MAX_WIDTH_SHARE = 0.8f;
+    /** The blurred copy of a {@code blur_in} text is this many times smaller than the sprite. */
+    static final int BLUR_DOWNSCALE = 8;
     static final String DEFAULT_LOOK = "sticker";
     static final String DEFAULT_ZONE = "middle_center";
 
@@ -37,7 +40,10 @@ public final class TextOverlayPainter implements CaptionPainter {
         final TextLook look;
         final TextAnimator animator;
         final int wordCount;
+        final int unitCount;
         TextLookRenderer.Sprite sprite;
+        /** A soft copy of the sprite, made once for {@code blur_in}; drawn scaled up, so it is blurred. */
+        Bitmap blurred;
         float x;
         float y;
         float tiltDeg;
@@ -45,11 +51,12 @@ public final class TextOverlayPainter implements CaptionPainter {
         /** The text fits nowhere clear of the facecam, or the sprite is already freed. */
         boolean skipped;
 
-        Overlay(PlanItem item, TextLook look, TextAnimator animator, int wordCount) {
+        Overlay(PlanItem item, TextLook look, TextAnimator animator, int wordCount, int unitCount) {
             this.item = item;
             this.look = look;
             this.animator = animator;
             this.wordCount = wordCount;
+            this.unitCount = unitCount;
         }
     }
 
@@ -66,6 +73,7 @@ public final class TextOverlayPainter implements CaptionPainter {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float[] spot = new float[2];
+    private final RectF blurDst = new RectF();
 
     /**
      * @param captionSizePx the caption text size of this output; overlay text is 1.6 times it
@@ -101,8 +109,11 @@ public final class TextOverlayPainter implements CaptionPainter {
         if (look == null) look = contract.textLook(DEFAULT_LOOK);
         if (look == null) return;
         int words = c.text.trim().split("\\s+").length;
-        TextAnimator animator = new TextAnimator(item, contract.effect(item.effect), contract.getSpeed(), words);
-        overlays.add(new Overlay(item, look, animator, words));
+        int units = TextMotion.revealUnits(c.text.trim()).length;
+        boolean rtl = TextMotion.readingDirection(c.text) == TextMotion.RTL;
+        TextAnimator animator = new TextAnimator(item, contract.effect(item.effect), contract.getSpeed(), words,
+                units, rtl);
+        overlays.add(new Overlay(item, look, animator, words, units));
     }
 
     /** How many text items will be drawn. */
@@ -134,6 +145,10 @@ public final class TextOverlayPainter implements CaptionPainter {
     }
 
     private void free(Overlay o) {
+        if (o.blurred != null) {
+            o.blurred.recycle();
+            o.blurred = null;
+        }
         if (o.sprite != null) {
             o.sprite.recycle();
             o.sprite = null;
@@ -154,6 +169,11 @@ public final class TextOverlayPainter implements CaptionPainter {
         }
         if (o.sprite.shrunk) notes.add(RenderNotes.TEXT_SHRUNK, o.item.id);
         if (o.sprite.wrapped) notes.add(RenderNotes.TEXT_WRAPPED, o.item.id);
+        if ("blur_in".equals(o.animator.entry)) {
+            // Blur once, here, never per frame: a small copy, drawn scaled up with filtering
+            o.blurred = Bitmap.createScaledBitmap(o.sprite.bitmap, Math.max(1, o.sprite.width / BLUR_DOWNSCALE),
+                    Math.max(1, o.sprite.height / BLUR_DOWNSCALE), true);
+        }
         o.tiltDeg = tilt(o.item, o.look);
         double rad = Math.toRadians(Math.abs(o.tiltDeg));
         float halfW = (float) (o.sprite.contentW * Math.cos(rad) + o.sprite.contentH * Math.sin(rad)) / 2;
@@ -174,19 +194,13 @@ public final class TextOverlayPainter implements CaptionPainter {
         }
     }
 
-    /** A steady tilt inside the look's range, picked from the item id so a re-render matches. */
+    /**
+     * A steady tilt: the item's {@code params.tilt_deg} as the server gave it, sign included, kept inside the look's
+     * range (0 for a look without one). Without that param, a value inside the range picked from the item id, so a
+     * re-render matches.
+     */
     static float tilt(PlanItem item, TextLook look) {
-        if (look.tiltDeg == null) return 0;
-        int h = item.id != null ? item.id.hashCode() : 0;
-        double u = (h & 0x7fffffff) % 1000 / 999.0;
-        double lo = look.tiltDeg[0];
-        double hi = look.tiltDeg[1];
-        Object asked = item.params.get("tilt_deg");
-        if (asked instanceof Number) {
-            double mag = Math.min(Math.abs(((Number) asked).doubleValue()), Math.max(Math.abs(lo), Math.abs(hi)));
-            return (float) ((h & 1) == 0 ? mag : -mag);
-        }
-        return (float) (lo + (hi - lo) * u);
+        return TextMotion.tilt(item.params.get("tilt_deg"), look.tiltDeg, item.id);
     }
 
     private void drawOverlay(Canvas canvas, Overlay o) {
@@ -196,10 +210,29 @@ public final class TextOverlayPainter implements CaptionPainter {
         canvas.save();
         canvas.translate(o.x + state.dx * outW, o.y + state.dy * outH);
         canvas.rotate(o.tiltDeg);
-        canvas.scale(state.scale, state.scale);
+        canvas.scale(state.scale, state.scale * Math.max(0.001f, state.scaleY));
         canvas.translate(-sp.width / 2f, -sp.height / 2f);
         drawBars(canvas, sp, alpha);
-        if (state.words == TextAnimator.ALL_WORDS || state.words >= o.wordCount || sp.wordClips.length != o.wordCount) {
+        if (state.reveal < 1) {
+            float w = sp.width * state.reveal;
+            canvas.clipRect(state.revealFromRight ? sp.width - w : 0, 0, state.revealFromRight ? sp.width : w, sp.height);
+        }
+        if (o.blurred != null && state.blur > 0) {
+            paint.setAlpha(Math.round(alpha * Math.min(1f, state.blur)));
+            blurDst.set(0, 0, sp.width, sp.height);
+            canvas.drawBitmap(o.blurred, null, blurDst, paint);
+            paint.setAlpha(Math.round(alpha * (1 - Math.min(1f, state.blur))));
+            canvas.drawBitmap(sp.bitmap, 0, 0, paint);
+        } else if (state.units != TextAnimator.ALL_WORDS && sp.unitClips.length > 0) {
+            int shown = state.units >= o.unitCount ? sp.unitClips.length
+                    : (int) Math.ceil((double) state.units * sp.unitClips.length / o.unitCount);
+            for (int w = 0; w < shown && w < sp.unitClips.length; w++) {
+                canvas.save();
+                canvas.clipRect(sp.unitClips[w]);
+                canvas.drawBitmap(sp.bitmap, 0, 0, paint);
+                canvas.restore();
+            }
+        } else if (state.words == TextAnimator.ALL_WORDS || state.words >= o.wordCount || sp.wordClips.length != o.wordCount) {
             canvas.drawBitmap(sp.bitmap, 0, 0, paint);
         } else {
             for (int w = 0; w < state.words && w < sp.wordClips.length; w++) {
