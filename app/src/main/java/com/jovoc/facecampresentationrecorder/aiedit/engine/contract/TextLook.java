@@ -5,11 +5,26 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.EngineJson;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
 /**
  * One text look (spec section 13): which parts it draws, as colour roles ({@code accent}, {@code accent_dark},
  * {@code on_accent}, {@code ink}, {@code paper}) and sizes as fractions of the text size. A part the look does
  * not draw is null, exactly as in the server's explicit shape (fill, stroke, shadow, glow, extrude,
  * background, bar, tilt_deg).
+ *
+ * <p>Since the server's look format grew (contract doc, "Look format, additive") a look also carries the new blocks
+ * ({@code text_fill}, {@code text_stroke}, {@code text_shadow}, {@code box}, {@code opacity}, {@code font},
+ * {@code case}, {@code letter_spacing}); the painter reads those. A look without them (an older contract, or a test
+ * fixture) is read from its legacy fields into the same new shape ({@link #hasNewBlocks} is false), so there is one
+ * way to draw. Enum values are kept as written; {@code LookPaintPlan} refuses a value or a key it has no handler for
+ * ({@link #unknownKeys}) instead of drawing half a look.
  */
 public final class TextLook {
 
@@ -35,10 +50,13 @@ public final class TextLook {
     public static final class Stroke {
         public final String color;
         public final double width;
+        /** {@code round}, {@code miter} or {@code bevel}; the legacy stroke is always round. */
+        public final String join;
 
-        Stroke(String color, double width) {
+        Stroke(String color, double width, String join) {
             this.color = color;
             this.width = width;
+            this.join = join;
         }
     }
 
@@ -117,6 +135,121 @@ public final class TextLook {
         }
     }
 
+    /** The new fill block: a solid role, or a gradient with a direction ({@code ltr}, {@code ttb}, {@code diag}). */
+    public static final class FillSpec {
+        /** {@code solid} or {@code gradient} (anything else is refused by the paint plan). */
+        public final String kind;
+        public final String color;
+        public final String direction;
+        public final String from;
+        public final String to;
+        /** Opacity of a box fill, 1 for a text fill. */
+        public final double alpha;
+
+        FillSpec(String kind, String color, String direction, String from, String to, double alpha) {
+            this.kind = kind;
+            this.color = color;
+            this.direction = direction;
+            this.from = from;
+            this.to = to;
+            this.alpha = alpha;
+        }
+    }
+
+    /** The second ring of a border: drawn {@code gap} outside the border, {@code width} thick. */
+    public static final class Ring {
+        public final String color;
+        public final double width;
+        public final double gap;
+
+        Ring(String color, double width, double gap) {
+            this.color = color;
+            this.width = width;
+            this.gap = gap;
+        }
+    }
+
+    /** The border of a box, drawn outside its padding, with an optional second ring outside that. */
+    public static final class Border {
+        public final String color;
+        public final double width;
+        public final Ring ring;
+
+        Border(String color, double width, Ring ring) {
+            this.color = color;
+            this.width = width;
+            this.ring = ring;
+        }
+    }
+
+    /** The shadow of a box; {@code style} is {@code soft} or {@code hard} (a hard one has blur 0). */
+    public static final class BoxShadow {
+        public final String style;
+        public final String color;
+        public final double alpha;
+        public final double dx;
+        public final double dy;
+        public final double blur;
+
+        BoxShadow(String style, String color, double alpha, double dx, double dy, double blur) {
+            this.style = style;
+            this.color = color;
+            this.alpha = alpha;
+            this.dx = dx;
+            this.dy = dy;
+            this.blur = blur;
+        }
+    }
+
+    /** The neon glow of a box's outline. */
+    public static final class BoxGlow {
+        public final String color;
+        public final double alpha;
+        public final double blur;
+
+        BoxGlow(String color, double alpha, double blur) {
+            this.color = color;
+            this.alpha = alpha;
+            this.blur = blur;
+        }
+    }
+
+    /** The new box block: shape, fill, border, radius (fraction of the box height), padding, shadow, glow. */
+    public static final class Box {
+        /** {@code pill}, {@code rounded} or {@code sharp}. */
+        public final String shape;
+        public final FillSpec fill;
+        public final Border border;
+        public final double radius;
+        public final double padX;
+        public final double padY;
+        public final BoxShadow shadow;
+        public final BoxGlow glow;
+
+        Box(String shape, FillSpec fill, Border border, double radius, double padX, double padY, BoxShadow shadow,
+            BoxGlow glow) {
+            this.shape = shape;
+            this.fill = fill;
+            this.border = border;
+            this.radius = radius;
+            this.padX = padX;
+            this.padY = padY;
+            this.shadow = shadow;
+            this.glow = glow;
+        }
+    }
+
+    /** A system font family ({@code sans}, {@code sans_condensed}, {@code serif}, {@code mono}) and weight 100..900. */
+    public static final class Font {
+        public final String family;
+        public final int weight;
+
+        Font(String family, int weight) {
+            this.family = family;
+            this.weight = weight;
+        }
+    }
+
     public final String id;
     public final Fill fill;
     public final Stroke stroke;
@@ -127,6 +260,29 @@ public final class TextLook {
     public final Bar bar;
     /** Min and max tilt in degrees, or null for no tilt. */
     public final double[] tiltDeg;
+
+    /** True when the contract carried the new blocks; false when they were derived from the legacy fields. */
+    public final boolean hasNewBlocks;
+    public final FillSpec textFill;
+    /** Null for no letter stroke. */
+    public final Stroke textStroke;
+    /** The text's own shadow, null for none (a box's shadow is {@code box.shadow}). */
+    public final Shadow textShadow;
+    /** Null for a look without a box. */
+    public final Box box;
+    /** Opacity of the whole overlay, 0..1. */
+    public final double opacity;
+    public final Font font;
+    /** {@code as_written} or {@code upper}. */
+    public final String caseMode;
+    /** Fraction of the text size. */
+    public final double letterSpacing;
+    /** Keys of the look (and of its new blocks) this reader does not know, as plain key names; empty when none. */
+    public final List<String> unknownKeys;
+
+    private static final Set<String> LOOK_KEYS = new HashSet<>(Arrays.asList("id", "fill", "stroke", "shadow", "glow",
+            "extrude", "background", "bar", "tilt_deg", "text_fill", "text_stroke", "text_shadow", "box", "opacity",
+            "font", "case", "letter_spacing"));
 
     private TextLook(JSONObject o) throws JSONException {
         id = o.getString("id");
@@ -139,7 +295,7 @@ public final class TextLook {
             fill = new Fill(o.getString("fill"), null, null);
         }
         JSONObject s = part(o, "stroke");
-        stroke = s == null ? null : new Stroke(s.getString("color"), s.getDouble("width"));
+        stroke = s == null ? null : new Stroke(s.getString("color"), s.getDouble("width"), "round");
         JSONObject sh = part(o, "shadow");
         shadow = sh == null ? null : new Shadow(sh.getString("color"), sh.getDouble("alpha"),
                 sh.getDouble("dx"), sh.getDouble("dy"), sh.getDouble("blur"));
@@ -159,6 +315,118 @@ public final class TextLook {
             tiltDeg = EngineJson.doubles(o.getJSONArray("tilt_deg"));
             if (tiltDeg.length != 2) throw new JSONException("tilt needs two numbers");
         }
+
+        List<String> unknown = new ArrayList<>();
+        keys(o, "", LOOK_KEYS, unknown);
+        hasNewBlocks = o.has("text_fill");
+        if (hasNewBlocks) {
+            textFill = fillSpec(o.getJSONObject("text_fill"), "text_fill", unknown, false);
+            JSONObject ts = part(o, "text_stroke");
+            textStroke = ts == null ? null : strokeBlock(ts, unknown);
+            JSONObject tsh = part(o, "text_shadow");
+            if (tsh != null) keys(tsh, "text_shadow.", set("color", "alpha", "dx", "dy", "blur"), unknown);
+            textShadow = tsh == null ? null : new Shadow(tsh.getString("color"), tsh.getDouble("alpha"),
+                    tsh.getDouble("dx"), tsh.getDouble("dy"), tsh.getDouble("blur"));
+            JSONObject bx = part(o, "box");
+            box = bx == null ? null : boxBlock(bx, unknown);
+            opacity = o.getDouble("opacity");
+            JSONObject fo = o.getJSONObject("font");
+            keys(fo, "font.", set("family", "weight"), unknown);
+            font = new Font(fo.getString("family"), fo.getInt("weight"));
+            caseMode = o.getString("case");
+            letterSpacing = o.getDouble("letter_spacing");
+        } else {
+            // Legacy shape: what installed phones draw, in the new form (a shadow of a look with a background is the
+            // box's shadow; case upper; sans 700; no spacing)
+            textFill = fill.isGradient() ? new FillSpec("gradient", null, "ttb", fill.gradientFrom, fill.gradientTo, 1)
+                    : new FillSpec("solid", fill.role, null, null, null, 1);
+            textStroke = stroke == null ? null : new Stroke(stroke.color, stroke.width, "round");
+            textShadow = background == null ? shadow : null;
+            box = background == null ? null : legacyBox(background, shadow);
+            opacity = 1;
+            font = new Font("sans", 700);
+            caseMode = "upper";
+            letterSpacing = 0;
+        }
+        unknownKeys = Collections.unmodifiableList(unknown);
+    }
+
+    private static Set<String> set(String... keys) {
+        return new HashSet<>(Arrays.asList(keys));
+    }
+
+    /** Adds {@code prefix + key} to {@code unknown} for every key of {@code o} not in {@code known}. */
+    private static void keys(JSONObject o, String prefix, Set<String> known, List<String> unknown) {
+        Iterator<String> it = o.keys();
+        while (it.hasNext()) {
+            String k = it.next();
+            if (!known.contains(k)) unknown.add(prefix + k);
+        }
+    }
+
+    private static FillSpec fillSpec(JSONObject f, String path, List<String> unknown, boolean withAlpha)
+            throws JSONException {
+        String kind = f.getString("kind");
+        if ("solid".equals(kind)) {
+            keys(f, path + ".", withAlpha ? set("kind", "color", "alpha") : set("kind", "color"), unknown);
+            return new FillSpec(kind, f.getString("color"), null, null, null, withAlpha ? f.getDouble("alpha") : 1);
+        }
+        if ("gradient".equals(kind)) {
+            keys(f, path + ".", withAlpha ? set("kind", "direction", "from", "to", "alpha")
+                    : set("kind", "direction", "from", "to"), unknown);
+            return new FillSpec(kind, null, f.getString("direction"), f.getString("from"), f.getString("to"),
+                    withAlpha ? f.getDouble("alpha") : 1);
+        }
+        // A fill kind this reader does not know: kept by name so the paint plan refuses the look
+        unknown.add(path + ".kind");
+        return new FillSpec(kind, null, null, null, null, 1);
+    }
+
+    private static Stroke strokeBlock(JSONObject o, List<String> unknown) throws JSONException {
+        keys(o, "text_stroke.", set("color", "width", "join"), unknown);
+        return new Stroke(o.getString("color"), o.getDouble("width"), o.getString("join"));
+    }
+
+    private static Box boxBlock(JSONObject o, List<String> unknown) throws JSONException {
+        keys(o, "box.", set("shape", "fill", "border", "radius", "padding", "shadow", "glow"), unknown);
+        FillSpec fill = fillSpec(o.getJSONObject("fill"), "box.fill", unknown, true);
+        Border border = null;
+        JSONObject b = part(o, "border");
+        if (b != null) {
+            keys(b, "box.border.", set("color", "width", "ring"), unknown);
+            Ring ring = null;
+            JSONObject r = part(b, "ring");
+            if (r != null) {
+                keys(r, "box.border.ring.", set("color", "width", "gap"), unknown);
+                ring = new Ring(r.getString("color"), r.getDouble("width"), r.getDouble("gap"));
+            }
+            border = new Border(b.getString("color"), b.getDouble("width"), ring);
+        }
+        JSONObject pad = o.getJSONObject("padding");
+        keys(pad, "box.padding.", set("x", "y"), unknown);
+        BoxShadow shadow = null;
+        JSONObject sh = part(o, "shadow");
+        if (sh != null) {
+            keys(sh, "box.shadow.", set("style", "color", "alpha", "dx", "dy", "blur"), unknown);
+            shadow = new BoxShadow(sh.getString("style"), sh.getString("color"), sh.getDouble("alpha"),
+                    sh.getDouble("dx"), sh.getDouble("dy"), sh.getDouble("blur"));
+        }
+        BoxGlow glow = null;
+        JSONObject gl = part(o, "glow");
+        if (gl != null) {
+            keys(gl, "box.glow.", set("color", "alpha", "blur"), unknown);
+            glow = new BoxGlow(gl.getString("color"), gl.getDouble("alpha"), gl.getDouble("blur"));
+        }
+        return new Box(o.getString("shape"), fill, border, o.getDouble("radius"), pad.getDouble("x"),
+                pad.getDouble("y"), shadow, glow);
+    }
+
+    /** The legacy {@code background} (and the legacy shadow that belongs to it) as a box. */
+    private static Box legacyBox(Background bg, Shadow shadow) {
+        BoxShadow bs = shadow == null ? null : new BoxShadow(shadow.blur > 0 ? "soft" : "hard", shadow.color,
+                shadow.alpha, shadow.dx, shadow.dy, shadow.blur);
+        return new Box(bg.radius >= 0.5 ? "pill" : "rounded", new FillSpec("solid", bg.color, null, null, null, bg.alpha),
+                null, bg.radius, bg.padX, bg.padY, bs, null);
     }
 
     /** The object of a part, or null when the look does not draw it (the key must still be present). */

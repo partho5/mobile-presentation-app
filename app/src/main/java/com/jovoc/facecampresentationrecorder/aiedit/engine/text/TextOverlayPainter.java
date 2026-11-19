@@ -174,8 +174,15 @@ public final class TextOverlayPainter implements CaptionPainter {
     private void build(Overlay o) {
         o.built = true;
         PlanComponent c = o.item.component;
-        o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
-                Math.round(MAX_WIDTH_SHARE * outW));
+        try {
+            o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
+                    Math.round(MAX_WIDTH_SHARE * outW));
+        } catch (UnsupportedLookException e) {
+            // A look the painter cannot draw completely is not drawn half styled (the plain fallback comes with C7)
+            notes.add(RenderNotes.PROPERTY_NOT_DRAWN, o.item.id);
+            free(o);
+            return;
+        }
         if (o.sprite == null) {
             notes.add(RenderNotes.OVERLAY_SKIPPED_NO_ROOM, o.item.id);
             free(o);

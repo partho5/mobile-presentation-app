@@ -104,7 +104,9 @@ public class EngineContractTest {
     @Test
     public void textLooksKeepTheExplicitShape() throws Exception {
         EngineContract c = TestContract.load();
-        assertEquals(6, c.getTextLooks().size());
+        assertEquals(16, c.getTextLooks().size());   // the six shipped looks, then the ten of S8
+        assertEquals("sticker", c.getTextLooks().get(0).id);
+        assertEquals("highlighter", c.getTextLooks().get(5).id);
 
         TextLook sticker = c.textLook("sticker");
         assertEquals("accent", sticker.fill.role);

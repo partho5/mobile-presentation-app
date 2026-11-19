@@ -20,16 +20,13 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Draws a styled text (one of the six text looks) once into a transparent bitmap, the {@link Sprite} the
- * animator then moves, scales and fades. Sizes are fractions of the text size, colours are roles resolved by
- * {@link PaletteResolver}. How the text is fitted (size, at most two lines, or skipped) is decided by
- * {@link TextLayoutPolicy}; this class only measures through the real paint and draws what the policy says.
+ * Draws a styled text once into a transparent bitmap, the {@link Sprite} the animator then moves, scales and fades.
+ * Sizes are fractions of the text size, colours are roles resolved by {@link PaletteResolver}. How the text is fitted
+ * (size, at most two lines, or skipped) is decided by {@link TextLayoutPolicy}; what is drawn, and in which order, is
+ * decided by {@link LookPaintPlan}. This class is the thin translator: it measures through the real paint, then turns
+ * each plan operation into Canvas calls.
  */
 public final class TextLookRenderer {
-
-    /** Highlighter bar: how far it sticks out of the text, how far down the line it starts, and its height. */
-    private static final float BAR_OVERHANG = 0.1f;
-    private static final float BAR_TOP_AT = 0.40f;
 
     /** A rendered text: the bitmap, and the parts the animator needs besides it. */
     public static final class Sprite {
@@ -82,48 +79,55 @@ public final class TextLookRenderer {
      *
      * @param colorSlot the item's {@code color_slot}
      * @param sizePx    the wanted text size
-     * @param maxWidthPx the widest the whole block (with its pill) may be
+     * @param maxWidthPx the widest the whole block (with its box) may be
      * @return the sprite, or null when the text fits nowhere (the caller skips the overlay; never an ellipsis)
+     * @throws UnsupportedLookException when the look has a property this painter cannot draw (nothing is drawn)
      */
-    public Sprite render(String text, TextLook look, int colorSlot, float sizePx, int maxWidthPx) {
-        String shown = hasCase(text) ? text.toUpperCase(Locale.ROOT) : text;
+    public Sprite render(String text, TextLook look, int colorSlot, float sizePx, int maxWidthPx)
+            throws UnsupportedLookException {
+        LookPaintPlan.Room room = LookPaintPlan.room(look);
+        boolean upper = "upper".equals(look.caseMode);
+        String shown = upper && hasCase(text) ? text.toUpperCase(Locale.ROOT) : text;
         TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         paint.setTypeface(Typeface.DEFAULT_BOLD);
         paint.setTextAlign(Paint.Align.LEFT);
 
-        TextLayoutPolicy.Result fit = TextLayoutPolicy.fit(shown, sizePx, new PaintMeasurer(paint, look, maxWidthPx));
+        TextLayoutPolicy.Result fit = TextLayoutPolicy.fit(shown, sizePx, new PaintMeasurer(paint, room, maxWidthPx));
         if (fit.skipped) return null;
+        LookPaintPlan plan = LookPaintPlan.build(look, colors, colorSlot, fit);
         float size = fit.size;
         paint.setTextSize(size);
-        StaticLayout layout = layout(fit.joined(), paint, availableWidth(look, size, maxWidthPx), fit.rtl);
+        StaticLayout layout = layout(fit.joined(), paint, availableWidth(room, size, maxWidthPx), fit.rtl);
         // The real layout broke a line the policy measured as fitting: fail closed rather than draw a third line
         if (layout.getLineCount() > fit.lines.size()) return null;
 
         float s = size;
-        float padX = look.background != null ? (float) look.background.padX * s : 0;
-        float padY = look.background != null ? (float) look.background.padY * s : 0;
-        float margin = margin(look, s);
+        float insetX = (float) room.insetX * s;
+        float insetY = (float) room.insetY * s;
+        float margin = margin(room, s);
         int textW = (int) Math.ceil(maxLineWidth(layout));
         int textH = layout.getHeight();
-        float contentW = textW + 2 * padX;
-        float contentH = textH + 2 * padY;
+        float contentW = textW + 2 * insetX;
+        float contentH = textH + 2 * insetY;
         int bmpW = (int) Math.ceil(contentW + 2 * margin);
         int bmpH = (int) Math.ceil(contentH + 2 * margin);
         // The lines are centred in a box as wide as the limit, but the pill is only as wide as the longest line:
         // shift the layout so its longest line starts at the pill's inner left edge
-        float left = margin + padX - minLineLeft(layout);
-        float top = margin + padY;
+        float minLeft = minLineLeft(layout);
+        float left = margin + insetX - minLeft;
+        float top = margin + insetY;
 
         Bitmap bitmap = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-        if (look.background != null) {
-            drawBackground(canvas, look, colorSlot, s, margin, contentW, contentH);
-        }
-        drawText(canvas, layout, paint, look, colorSlot, s, left, top);
+        Frame frame = new Frame(margin, contentW, contentH, (float) plan.borderOuter * s, s, left, top, minLeft,
+                maxLineWidth(layout), layout.getHeight());
+        int saved = -1;
+        if (plan.opacity < 1) saved = canvas.saveLayerAlpha(0, 0, bmpW, bmpH, (int) Math.round(plan.opacity * 255));
+        drawPlan(canvas, plan, layout, paint, frame);
+        if (saved >= 0) canvas.restoreToCount(saved);
 
-        RectF[] bars = look.bar != null ? bars(layout, look, s, left, top) : new RectF[0];
-        int barColor = look.bar != null
-                ? PaletteResolver.withAlpha(colors.resolve(look.bar.color, colorSlot), look.bar.alpha) : 0;
+        RectF[] bars = plan.bar != null ? bars(layout, plan.bar, s, left, top) : new RectF[0];
+        int barColor = plan.bar != null ? plan.bar.color : 0;
         String drawn = fit.joined();
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
                 stripClips(wordSpans(drawn), layout, left, top, bmpW, bmpH),
@@ -142,12 +146,12 @@ public final class TextLookRenderer {
     /** The policy's ruler: real widths from the paint, the room from the look's padding and effect margin. */
     private static final class PaintMeasurer implements TextLayoutPolicy.TextMeasurer {
         private final TextPaint paint;
-        private final TextLook look;
+        private final LookPaintPlan.Room room;
         private final int maxWidthPx;
 
-        PaintMeasurer(TextPaint paint, TextLook look, int maxWidthPx) {
+        PaintMeasurer(TextPaint paint, LookPaintPlan.Room room, int maxWidthPx) {
             this.paint = paint;
-            this.look = look;
+            this.room = room;
             this.maxWidthPx = maxWidthPx;
         }
 
@@ -159,28 +163,19 @@ public final class TextLookRenderer {
 
         @Override
         public float available(float size) {
-            return availableWidth(look, size, maxWidthPx);
+            return availableWidth(room, size, maxWidthPx);
         }
     }
 
-    /** The width the lines may use: the block limit less the pill padding and the room kept for effects. */
-    private static int availableWidth(TextLook look, float s, int maxWidthPx) {
-        float pad = look.background != null ? 2 * (float) look.background.padX * s : 0;
-        return Math.max(1, (int) (maxWidthPx - pad - 2 * margin(look, s)));
+    /** The width the lines may use: the block limit less the box padding and border and the room kept for effects. */
+    private static int availableWidth(LookPaintPlan.Room room, float s, int maxWidthPx) {
+        float inset = 2 * (float) room.insetX * s;
+        return Math.max(1, (int) (maxWidthPx - inset - 2 * margin(room, s)));
     }
 
-    /** Room around the text for the stroke, shadow, glow and 3D copies, in pixels. */
-    static float margin(TextLook look, float s) {
-        double m = 0;
-        if (look.stroke != null) m = Math.max(m, look.stroke.width * s / 2);
-        if (look.shadow != null) {
-            m = Math.max(m, Math.max(Math.abs(look.shadow.dx), Math.abs(look.shadow.dy)) * s + look.shadow.blur * s * 1.5);
-        }
-        if (look.glow != null) m = Math.max(m, look.glow.blur * s * 1.6);
-        if (look.extrude != null) {
-            m = Math.max(m, look.extrude.copies * Math.max(Math.abs(look.extrude.dx), Math.abs(look.extrude.dy)) * s);
-        }
-        return (float) Math.ceil(m) + 2;
+    /** Room around the content for the stroke, shadow, glow and 3D copies, in pixels. */
+    static float margin(LookPaintPlan.Room room, float s) {
+        return (float) Math.ceil(room.effect * s) + 2;
     }
 
     private static float minLineLeft(StaticLayout layout) {
@@ -195,77 +190,173 @@ public final class TextLookRenderer {
         return w;
     }
 
-    private void drawBackground(Canvas canvas, TextLook look, int slot, float s, float margin,
-                                float w, float h) {
-        TextLook.Background bg = look.background;
+    /** Where things sit in the bitmap, in pixels: the margin, the content size, the layout's origin and its text box. */
+    private static final class Frame {
+        final float margin;
+        final float s;
+        final float left;
+        final float top;
+        /** The padding rectangle (the box fill); the border and ring lie outside it. */
+        final RectF fill;
+        /** The text box in layout coordinates, the span a text gradient covers. */
+        final float textLeft;
+        final float textWidth;
+        final float textHeight;
+
+        Frame(float margin, float contentW, float contentH, float borderOuterPx, float s, float left, float top,
+              float textLeft, float textWidth, float textHeight) {
+            this.margin = margin;
+            this.s = s;
+            this.left = left;
+            this.top = top;
+            this.fill = new RectF(margin + borderOuterPx, margin + borderOuterPx, margin + contentW - borderOuterPx,
+                    margin + contentH - borderOuterPx);
+            this.textLeft = textLeft;
+            this.textWidth = textWidth;
+            this.textHeight = textHeight;
+        }
+    }
+
+    /** Turns each operation of the plan, in order, into Canvas calls. */
+    private static void drawPlan(Canvas canvas, LookPaintPlan plan, StaticLayout layout, TextPaint paint, Frame f) {
+        float s = f.s;
+        for (LookPaintPlan.Op op : plan.ops) {
+            switch (op.kind) {
+                case BOX_SHADOW: {
+                    LookPaintPlan.BoxShadowOp o = (LookPaintPlan.BoxShadowOp) op;
+                    Paint p = fillPaint(o.color);
+                    if (o.blur > 0) p.setMaskFilter(new BlurMaskFilter((float) o.blur * s, BlurMaskFilter.Blur.NORMAL));
+                    RectF r = outset(f.fill, (float) o.expand * s);
+                    r.offset((float) o.dx * s, (float) o.dy * s);
+                    float rad = LookPaintPlan.cornerRadiusPx(o.radiusOfHeight, o.expand, f.fill.height(), s);
+                    canvas.drawRoundRect(r, rad, rad, p);
+                    break;
+                }
+                case BOX_FILL: {
+                    LookPaintPlan.BoxFillOp o = (LookPaintPlan.BoxFillOp) op;
+                    Paint p = fillPaint(o.paint.color);
+                    if (o.paint.isGradient()) p.setShader(gradient(o.paint.gradient, f.fill.left, f.fill.top,
+                            f.fill.width(), f.fill.height()));
+                    float rad = LookPaintPlan.cornerRadiusPx(o.radiusOfHeight, 0, f.fill.height(), s);
+                    canvas.drawRoundRect(f.fill, rad, rad, p);
+                    break;
+                }
+                case BOX_BORDER:
+                case BOX_RING: {
+                    LookPaintPlan.BoxStrokeOp o = (LookPaintPlan.BoxStrokeOp) op;
+                    float width = (float) o.width * s;
+                    Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(width);
+                    p.setColor(o.color);
+                    RectF r = outset(f.fill, (float) o.offset * s + width / 2);
+                    float rad = LookPaintPlan.cornerRadiusPx(o.radiusOfHeight, o.offset + o.width / 2, f.fill.height(), s);
+                    p.setStrokeJoin(rad > 0 ? Paint.Join.ROUND : Paint.Join.MITER);
+                    canvas.drawRoundRect(r, rad, rad, p);
+                    break;
+                }
+                case GLOW_BEHIND_TEXT: {
+                    LookPaintPlan.GlowBehindOp o = (LookPaintPlan.GlowBehindOp) op;
+                    glowText(canvas, layout, paint, f, o.color, o.blur, BlurMaskFilter.Blur.NORMAL);
+                    break;
+                }
+                case EXTRUDE: {
+                    LookPaintPlan.ExtrudeOp o = (LookPaintPlan.ExtrudeOp) op;
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor(o.color);
+                    for (int i = o.copies; i >= 1; i--) {
+                        drawLayout(canvas, layout, f.left + i * (float) o.dx * s, f.top + i * (float) o.dy * s);
+                    }
+                    break;
+                }
+                case TEXT_SHADOW: {
+                    LookPaintPlan.TextShadowOp o = (LookPaintPlan.TextShadowOp) op;
+                    float sx = f.left + (float) o.dx * s;
+                    float sy = f.top + (float) o.dy * s;
+                    if (o.blur > 0) paint.setMaskFilter(new BlurMaskFilter((float) o.blur * s, BlurMaskFilter.Blur.NORMAL));
+                    if (o.strokeWidth > 0) {
+                        strokeStyle(paint, o.strokeWidth, o.strokeJoin, s);
+                        paint.setColor(o.color);
+                        drawLayout(canvas, layout, sx, sy);
+                    }
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setColor(o.color);
+                    drawLayout(canvas, layout, sx, sy);
+                    paint.setMaskFilter(null);
+                    break;
+                }
+                case TEXT_STROKE: {
+                    LookPaintPlan.TextStrokeOp o = (LookPaintPlan.TextStrokeOp) op;
+                    strokeStyle(paint, o.width, o.join, s);
+                    paint.setColor(o.color);
+                    drawLayout(canvas, layout, f.left, f.top);
+                    break;
+                }
+                case TEXT_FILL: {
+                    LookPaintPlan.TextFillOp o = (LookPaintPlan.TextFillOp) op;
+                    paint.setStyle(Paint.Style.FILL);
+                    if (o.paint.isGradient()) {
+                        // Stops span the measured text box, in the layout's own coordinates
+                        paint.setShader(gradient(o.paint.gradient, f.textLeft, 0, f.textWidth, f.textHeight));
+                    } else {
+                        paint.setColor(o.paint.color);
+                    }
+                    drawLayout(canvas, layout, f.left, f.top);
+                    paint.setShader(null);
+                    break;
+                }
+                case BOX_GLOW: {
+                    LookPaintPlan.BoxGlowOp o = (LookPaintPlan.BoxGlowOp) op;
+                    Paint p = fillPaint(o.color);
+                    p.setMaskFilter(new BlurMaskFilter(Math.max(1f, (float) o.blur * s), BlurMaskFilter.Blur.OUTER));
+                    float rad = LookPaintPlan.cornerRadiusPx(o.radiusOfHeight, o.expand, f.fill.height(), s);
+                    canvas.drawRoundRect(outset(f.fill, (float) o.expand * s), rad, rad, p);
+                    break;
+                }
+                case TEXT_GLOW: {
+                    LookPaintPlan.TextGlowOp o = (LookPaintPlan.TextGlowOp) op;
+                    glowText(canvas, layout, paint, f, o.color, o.blur, BlurMaskFilter.Blur.OUTER);
+                    break;
+                }
+                default:
+                    // Not reachable: the plan only holds the kinds above; a new kind needs a branch here
+                    throw new IllegalStateException("op without a drawer");
+            }
+        }
+    }
+
+    /** A blurred copy of the letters, drawn twice so the halo reads on a busy picture. */
+    private static void glowText(Canvas canvas, StaticLayout layout, TextPaint paint, Frame f, int color, double blur,
+                                 BlurMaskFilter.Blur style) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(color);
+        paint.setMaskFilter(new BlurMaskFilter(Math.max(1f, (float) blur * f.s), style));
+        for (int i = 0; i < LookPaintPlan.PASSES; i++) drawLayout(canvas, layout, f.left, f.top);
+        paint.setMaskFilter(null);
+    }
+
+    private static Paint fillPaint(int color) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(PaletteResolver.withAlpha(colors.resolve(bg.color, slot), bg.alpha));
-        if (look.shadow != null) {
-            int shadow = PaletteResolver.withAlpha(colors.resolve(look.shadow.color, slot), look.shadow.alpha);
-            p.setShadowLayer((float) look.shadow.blur * s, (float) look.shadow.dx * s, (float) look.shadow.dy * s, shadow);
-        }
-        float r = (float) bg.radius * h;
-        canvas.drawRoundRect(margin, margin, margin + w, margin + h, r, r, p);
+        p.setColor(color);
+        return p;
     }
 
-    /** Glow, 3D copies, shadow, stroke and fill, back to front. */
-    private void drawText(Canvas canvas, StaticLayout layout, TextPaint paint, TextLook look, int slot,
-                          float s, float left, float top) {
-        if (look.glow != null) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(PaletteResolver.withAlpha(colors.resolve(look.glow.color, slot), look.glow.alpha));
-            paint.setMaskFilter(new BlurMaskFilter(Math.max(1f, (float) look.glow.blur * s), BlurMaskFilter.Blur.NORMAL));
-            // Two passes make the halo strong enough to read on a busy picture
-            drawLayout(canvas, layout, left, top);
-            drawLayout(canvas, layout, left, top);
-            paint.setMaskFilter(null);
-        }
-        if (look.extrude != null) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(colors.resolve(look.extrude.color, slot));
-            for (int i = look.extrude.copies; i >= 1; i--) {
-                drawLayout(canvas, layout, left + i * (float) look.extrude.dx * s, top + i * (float) look.extrude.dy * s);
-            }
-        }
-        if (look.shadow != null && look.background == null) {
-            int shadow = PaletteResolver.withAlpha(colors.resolve(look.shadow.color, slot), look.shadow.alpha);
-            float sx = left + (float) look.shadow.dx * s;
-            float sy = top + (float) look.shadow.dy * s;
-            if (look.shadow.blur > 0) {
-                paint.setMaskFilter(new BlurMaskFilter((float) look.shadow.blur * s, BlurMaskFilter.Blur.NORMAL));
-            }
-            if (look.stroke != null) {
-                strokeStyle(paint, look.stroke, s);
-                paint.setColor(shadow);
-                drawLayout(canvas, layout, sx, sy);
-            }
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(shadow);
-            drawLayout(canvas, layout, sx, sy);
-            paint.setMaskFilter(null);
-        }
-        if (look.stroke != null) {
-            strokeStyle(paint, look.stroke, s);
-            paint.setColor(colors.resolve(look.stroke.color, slot));
-            drawLayout(canvas, layout, left, top);
-        }
-        paint.setStyle(Paint.Style.FILL);
-        if (look.fill.isGradient()) {
-            int from = colors.resolve(look.fill.gradientFrom, slot);
-            int to = colors.resolve(look.fill.gradientTo, slot);
-            paint.setShader(new LinearGradient(0, 0, 0, layout.getHeight(), from, to, Shader.TileMode.CLAMP));
-        } else {
-            paint.setColor(colors.resolve(look.fill.role, slot));
-        }
-        drawLayout(canvas, layout, left, top);
-        paint.setShader(null);
+    private static RectF outset(RectF r, float by) {
+        return new RectF(r.left - by, r.top - by, r.right + by, r.bottom + by);
     }
 
-    private static void strokeStyle(TextPaint paint, TextLook.Stroke stroke, float s) {
+    /** A gradient line (fractions of the painted box) placed on the box at ({@code x}, {@code y}) of {@code w} by {@code h}. */
+    private static Shader gradient(LookPaintPlan.Gradient g, float x, float y, float w, float h) {
+        return new LinearGradient(x + (float) g.x0 * w, y + (float) g.y0 * h, x + (float) g.x1 * w, y + (float) g.y1 * h,
+                g.from, g.to, Shader.TileMode.CLAMP);
+    }
+
+    private static void strokeStyle(TextPaint paint, double width, String join, float s) {
         paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth((float) stroke.width * s);
-        paint.setStrokeJoin(Paint.Join.ROUND);
+        paint.setStrokeWidth((float) width * s);
+        paint.setStrokeJoin("miter".equals(join) ? Paint.Join.MITER : "bevel".equals(join) ? Paint.Join.BEVEL
+                : Paint.Join.ROUND);
     }
 
     private static void drawLayout(Canvas canvas, StaticLayout layout, float x, float y) {
@@ -276,14 +367,15 @@ public final class TextLookRenderer {
     }
 
     /** One bar per line, behind the text, from the line's left to its right edge. */
-    private RectF[] bars(StaticLayout layout, TextLook look, float s, float left, float top) {
+    private static RectF[] bars(StaticLayout layout, LookPaintPlan.Bar bar, float s, float left, float top) {
         RectF[] bars = new RectF[layout.getLineCount()];
         for (int i = 0; i < bars.length; i++) {
             float lineTop = layout.getLineTop(i);
             float lineH = layout.getLineBottom(i) - lineTop;
-            float barTop = top + lineTop + lineH * BAR_TOP_AT;
-            bars[i] = new RectF(left + layout.getLineLeft(i) - BAR_OVERHANG * s, barTop,
-                    left + layout.getLineRight(i) + BAR_OVERHANG * s, barTop + (float) look.bar.height * lineH);
+            float barTop = top + lineTop + lineH * (float) LookPaintPlan.Bar.TOP_AT;
+            float overhang = (float) LookPaintPlan.Bar.OVERHANG * s;
+            bars[i] = new RectF(left + layout.getLineLeft(i) - overhang, barTop,
+                    left + layout.getLineRight(i) + overhang, barTop + (float) bar.heightOfLine * lineH);
         }
         return bars;
     }

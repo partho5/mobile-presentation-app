@@ -2653,8 +2653,32 @@
         -6,
         6
       ],
+      "text_stroke": {
+        "color": "ink",
+        "width": 0.14,
+        "join": "round"
+      },
+      "text_shadow": {
+        "color": "ink",
+        "alpha": 1,
+        "dx": 0.05,
+        "dy": 0.06,
+        "blur": 0
+      },
+      "box": null,
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "sticker",
-      "fill": "accent"
+      "fill": "accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "accent"
+      }
     },
     {
       "stroke": null,
@@ -2676,8 +2700,44 @@
       },
       "bar": null,
       "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "pill",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": null,
+        "radius": 0.5,
+        "padding": {
+          "x": 0.35,
+          "y": 0.2
+        },
+        "shadow": {
+          "style": "soft",
+          "color": "ink",
+          "alpha": 0.35,
+          "dx": 0,
+          "dy": 0.04,
+          "blur": 0.08
+        },
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "label_pill",
-      "fill": "on_accent"
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
     },
     {
       "stroke": {
@@ -2695,8 +2755,26 @@
       "background": null,
       "bar": null,
       "tilt_deg": null,
+      "text_stroke": {
+        "color": "ink",
+        "width": 0.06,
+        "join": "round"
+      },
+      "text_shadow": null,
+      "box": null,
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "3d",
-      "fill": "accent"
+      "fill": "accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "accent"
+      }
     },
     {
       "stroke": {
@@ -2713,8 +2791,26 @@
       "background": null,
       "bar": null,
       "tilt_deg": null,
+      "text_stroke": {
+        "color": "accent",
+        "width": 0.04,
+        "join": "round"
+      },
+      "text_shadow": null,
+      "box": null,
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "glow",
-      "fill": "paper"
+      "fill": "paper",
+      "text_fill": {
+        "kind": "solid",
+        "color": "paper"
+      }
     },
     {
       "stroke": {
@@ -2727,9 +2823,29 @@
       "background": null,
       "bar": null,
       "tilt_deg": null,
+      "text_stroke": {
+        "color": "ink",
+        "width": 0.1,
+        "join": "round"
+      },
+      "text_shadow": null,
+      "box": null,
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "gradient",
       "fill": {
         "gradient": "vertical",
+        "from": "paper",
+        "to": "accent"
+      },
+      "text_fill": {
+        "kind": "gradient",
+        "direction": "ttb",
         "from": "paper",
         "to": "accent"
       }
@@ -2746,8 +2862,552 @@
         "height": 0.55
       },
       "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": null,
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "upper",
+      "letter_spacing": 0,
       "id": "highlighter",
-      "fill": "ink"
+      "fill": "ink",
+      "text_fill": {
+        "kind": "solid",
+        "color": "ink"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": {
+        "color": "accent",
+        "alpha": 0.7,
+        "blur": 0.25
+      },
+      "extrude": null,
+      "background": {
+        "color": "ink",
+        "alpha": 1,
+        "radius": 0.22,
+        "pad_x": 0.45,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "solid",
+          "color": "ink",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent",
+          "width": 0.06,
+          "ring": null
+        },
+        "radius": 0.22,
+        "padding": {
+          "x": 0.45,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": {
+          "color": "accent",
+          "alpha": 0.8,
+          "blur": 0.35
+        }
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 500
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "neon_box",
+      "fill": "paper",
+      "text_fill": {
+        "kind": "solid",
+        "color": "accent_light"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.5,
+        "pad_x": 0.55,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "pill",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent_dark",
+          "width": 0.1,
+          "ring": null
+        },
+        "radius": 0.5,
+        "padding": {
+          "x": 0.55,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "pill_ring",
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": {
+        "color": "ink",
+        "alpha": 1,
+        "dx": 0.1,
+        "dy": 0.1,
+        "blur": 0
+      },
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.3,
+        "pad_x": 0.5,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "gradient",
+          "direction": "ltr",
+          "from": "accent",
+          "to": "accent_light",
+          "alpha": 1
+        },
+        "border": {
+          "color": "ink",
+          "width": 0.1,
+          "ring": null
+        },
+        "radius": 0.3,
+        "padding": {
+          "x": 0.5,
+          "y": 0.22
+        },
+        "shadow": {
+          "style": "hard",
+          "color": "ink",
+          "alpha": 1,
+          "dx": 0.1,
+          "dy": 0.1,
+          "blur": 0
+        },
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 800
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "gradient_block",
+      "fill": "ink",
+      "text_fill": {
+        "kind": "solid",
+        "color": "ink"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.25,
+        "pad_x": 0.5,
+        "pad_y": 0.25
+      },
+      "bar": null,
+      "tilt_deg": [
+        -7,
+        -5
+      ],
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "paper",
+          "width": 0.06,
+          "ring": {
+            "color": "accent",
+            "width": 0.07,
+            "gap": 0
+          }
+        },
+        "radius": 0.25,
+        "padding": {
+          "x": 0.5,
+          "y": 0.25
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 800
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "tilt_sticker",
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.3,
+        "pad_x": 0.5,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent_dark",
+          "width": 0.03,
+          "ring": null
+        },
+        "radius": 0.3,
+        "padding": {
+          "x": 0.5,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "solid_round",
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "paper",
+        "alpha": 1,
+        "radius": 0.5,
+        "pad_x": 0.55,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "pill",
+        "fill": {
+          "kind": "solid",
+          "color": "accent_light",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent_dark",
+          "width": 0.03,
+          "ring": null
+        },
+        "radius": 0.5,
+        "padding": {
+          "x": 0.55,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "pastel_pill",
+      "fill": "accent_dark",
+      "text_fill": {
+        "kind": "solid",
+        "color": "accent_dark"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0,
+        "pad_x": 0.5,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "sharp",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "ink",
+          "width": 0.08,
+          "ring": null
+        },
+        "radius": 0,
+        "padding": {
+          "x": 0.5,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "flat_rect",
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.25,
+        "pad_x": 0.5,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "ink",
+          "width": 0.06,
+          "ring": null
+        },
+        "radius": 0.25,
+        "padding": {
+          "x": 0.5,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans",
+        "weight": 800
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "yellow_bold",
+      "fill": "ink",
+      "text_fill": {
+        "kind": "solid",
+        "color": "ink"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "ink",
+        "alpha": 1,
+        "radius": 0.3,
+        "pad_x": 0.5,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "rounded",
+        "fill": {
+          "kind": "solid",
+          "color": "ink",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent",
+          "width": 0.08,
+          "ring": null
+        },
+        "radius": 0.3,
+        "padding": {
+          "x": 0.5,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans_condensed",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "dark_accent",
+      "fill": "accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "accent"
+      }
+    },
+    {
+      "stroke": null,
+      "shadow": null,
+      "glow": null,
+      "extrude": null,
+      "background": {
+        "color": "accent",
+        "alpha": 1,
+        "radius": 0.5,
+        "pad_x": 0.6,
+        "pad_y": 0.22
+      },
+      "bar": null,
+      "tilt_deg": null,
+      "text_stroke": null,
+      "text_shadow": null,
+      "box": {
+        "shape": "pill",
+        "fill": {
+          "kind": "solid",
+          "color": "accent",
+          "alpha": 1
+        },
+        "border": {
+          "color": "accent_dark",
+          "width": 0.05,
+          "ring": null
+        },
+        "radius": 0.5,
+        "padding": {
+          "x": 0.6,
+          "y": 0.22
+        },
+        "shadow": null,
+        "glow": null
+      },
+      "opacity": 1,
+      "font": {
+        "family": "sans_condensed",
+        "weight": 700
+      },
+      "case": "as_written",
+      "letter_spacing": 0,
+      "id": "coral_pill",
+      "fill": "on_accent",
+      "text_fill": {
+        "kind": "solid",
+        "color": "on_accent"
+      }
     }
   ],
   "palette": {
@@ -2761,6 +3421,4020 @@
     "ink": "#111111",
     "paper": "#FFFFFF"
   },
+  "color_roles": {
+    "accent_dark": {
+      "factor": 0.55
+    },
+    "accent_light": {
+      "paper_share": 0.65
+    }
+  },
+  "text_layer_order": [
+    "box_shadow",
+    "box_fill",
+    "box_border",
+    "text_shadow",
+    "text_stroke",
+    "text_fill",
+    "glow"
+  ],
+  "text_features": [
+    "text_gradient_ltr",
+    "text_gradient_diag",
+    "text_stroke_join",
+    "box_gradient",
+    "box_border",
+    "box_border_ring",
+    "box_glow",
+    "opacity",
+    "font_family",
+    "font_weight",
+    "case_as_written",
+    "letter_spacing"
+  ],
+  "look_vectors": [
+    {
+      "look": "sticker",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "text_stroke",
+            "text_shadow"
+          ],
+          "draws": [
+            "text_shadow",
+            "text_stroke",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          }
+        },
+        {
+          "kind": "text_stroke",
+          "fields": [
+            "text_stroke",
+            "stroke"
+          ],
+          "color": "ink",
+          "width_s": 0.14,
+          "join": "round"
+        },
+        {
+          "kind": "text_shadow",
+          "fields": [
+            "text_shadow",
+            "shadow"
+          ],
+          "color": "ink",
+          "alpha": 1,
+          "dx_s": 0.05,
+          "dy_s": 0.06,
+          "blur_s": 0,
+          "hard": true
+        },
+        {
+          "kind": "tilt",
+          "fields": [
+            "tilt_deg"
+          ],
+          "range_deg": [
+            -6,
+            6
+          ]
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "label_pill",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_shadow",
+            "box_fill",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "pill",
+          "radius_of_height": 0.5,
+          "padding_s": {
+            "x": 0.35,
+            "y": 0.2
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.35,
+            "right": 0.35,
+            "top": 0.2,
+            "bottom": 0.2
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_shadow",
+          "fields": [
+            "box",
+            "shadow"
+          ],
+          "style": "soft",
+          "color": "ink",
+          "alpha": 0.35,
+          "dx_s": 0,
+          "dy_s": 0.04,
+          "blur_s": 0.08
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "3d",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "text_stroke"
+          ],
+          "draws": [
+            "text_stroke",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          }
+        },
+        {
+          "kind": "text_stroke",
+          "fields": [
+            "text_stroke",
+            "stroke"
+          ],
+          "color": "ink",
+          "width_s": 0.06,
+          "join": "round"
+        },
+        {
+          "kind": "extrude",
+          "fields": [
+            "extrude"
+          ],
+          "copies": 6,
+          "color": "accent_dark",
+          "dx_s": 0.012,
+          "dy_s": 0.016
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "glow",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "text_stroke",
+            "glow"
+          ],
+          "draws": [
+            "text_stroke",
+            "text_fill",
+            "glow"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "paper"
+          }
+        },
+        {
+          "kind": "text_stroke",
+          "fields": [
+            "text_stroke",
+            "stroke"
+          ],
+          "color": "accent",
+          "width_s": 0.04,
+          "join": "round"
+        },
+        {
+          "kind": "glow",
+          "fields": [
+            "glow"
+          ],
+          "color": "accent",
+          "alpha": 0.85,
+          "blur_s": 0.35
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "gradient",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "text_stroke"
+          ],
+          "draws": [
+            "text_stroke",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "gradient",
+            "direction": "ttb",
+            "from": "paper",
+            "to": "accent",
+            "samples": [
+              {
+                "at": {
+                  "x": 0.5,
+                  "y": 0.05
+                },
+                "is": "from"
+              },
+              {
+                "at": {
+                  "x": 0.5,
+                  "y": 0.95
+                },
+                "is": "to"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "text_stroke",
+          "fields": [
+            "text_stroke",
+            "stroke"
+          ],
+          "color": "ink",
+          "width_s": 0.1,
+          "join": "round"
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "highlighter",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill"
+          ],
+          "draws": [
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "ink"
+          }
+        },
+        {
+          "kind": "bar",
+          "fields": [
+            "bar"
+          ],
+          "color": "accent",
+          "alpha": 0.85,
+          "height_of_line": 0.55
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "upper"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "AMAZING",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "ПРИВЕТ МИР",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "İĞDIR IŞIK",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GYPSY JUMPING QUICKLY",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "GREAT 🔥 JOB",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "EXTRAORDINARILY UNBELIEVABLE ORGANIZATIONAL TRANSFORMATION",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "neon_box",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box",
+            "glow"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill",
+            "glow"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent_light"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.22,
+          "padding_s": {
+            "x": 0.45,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.45,
+            "right": 0.45,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "ink"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent",
+          "width_s": 0.06,
+          "ring": null
+        },
+        {
+          "kind": "box_glow",
+          "fields": [
+            "box"
+          ],
+          "color": "accent",
+          "alpha": 0.8,
+          "blur_s": 0.35
+        },
+        {
+          "kind": "glow",
+          "fields": [
+            "glow"
+          ],
+          "color": "accent",
+          "alpha": 0.7,
+          "blur_s": 0.25
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 500
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "pill_ring",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "pill",
+          "radius_of_height": 0.5,
+          "padding_s": {
+            "x": 0.55,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.55,
+            "right": 0.55,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent_dark",
+          "width_s": 0.1,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "gradient_block",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_shadow",
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "ink"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.3,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "gradient",
+            "direction": "ltr",
+            "from": "accent",
+            "to": "accent_light",
+            "samples": [
+              {
+                "at": {
+                  "x": 0.05,
+                  "y": 0.5
+                },
+                "is": "from"
+              },
+              {
+                "at": {
+                  "x": 0.95,
+                  "y": 0.5
+                },
+                "is": "to"
+              }
+            ]
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "ink",
+          "width_s": 0.1,
+          "ring": null
+        },
+        {
+          "kind": "box_shadow",
+          "fields": [
+            "box",
+            "shadow"
+          ],
+          "style": "hard",
+          "color": "ink",
+          "alpha": 1,
+          "dx_s": 0.1,
+          "dy_s": 0.1,
+          "blur_s": 0
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 800
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "tilt_sticker",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.25,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.25
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.25,
+            "bottom": 0.25
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "paper",
+          "width_s": 0.06,
+          "ring": {
+            "color": "accent",
+            "width_s": 0.07,
+            "gap_s": 0
+          }
+        },
+        {
+          "kind": "tilt",
+          "fields": [
+            "tilt_deg"
+          ],
+          "range_deg": [
+            -7,
+            -5
+          ]
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 800
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "solid_round",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.3,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent_dark",
+          "width_s": 0.03,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "pastel_pill",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent_dark"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "pill",
+          "radius_of_height": 0.5,
+          "padding_s": {
+            "x": 0.55,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.55,
+            "right": 0.55,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent_light"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent_dark",
+          "width_s": 0.03,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "flat_rect",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "sharp",
+          "radius_of_height": 0,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "ink",
+          "width_s": 0.08,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "yellow_bold",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "ink"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.25,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "ink",
+          "width_s": 0.06,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans",
+          "weight": 800
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "dark_accent",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "rounded",
+          "radius_of_height": 0.3,
+          "padding_s": {
+            "x": 0.5,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.5,
+            "right": 0.5,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "ink"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent",
+          "width_s": 0.08,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans_condensed",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    },
+    {
+      "look": "coral_pill",
+      "facts": [
+        {
+          "kind": "layers",
+          "fields": [
+            "text_fill",
+            "box"
+          ],
+          "draws": [
+            "box_fill",
+            "box_border",
+            "text_fill"
+          ]
+        },
+        {
+          "kind": "text_fill",
+          "fields": [
+            "text_fill",
+            "fill"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "on_accent"
+          }
+        },
+        {
+          "kind": "box",
+          "fields": [
+            "box",
+            "background"
+          ],
+          "shape": "pill",
+          "radius_of_height": 0.5,
+          "padding_s": {
+            "x": 0.6,
+            "y": 0.22
+          },
+          "contains_text_with_inset_s": {
+            "left": 0.6,
+            "right": 0.6,
+            "top": 0.22,
+            "bottom": 0.22
+          }
+        },
+        {
+          "kind": "box_fill",
+          "fields": [
+            "box"
+          ],
+          "fill": {
+            "kind": "solid",
+            "color": "accent"
+          },
+          "alpha": 1
+        },
+        {
+          "kind": "box_border",
+          "fields": [
+            "box"
+          ],
+          "color": "accent_dark",
+          "width_s": 0.05,
+          "ring": null
+        },
+        {
+          "kind": "opacity",
+          "fields": [
+            "opacity"
+          ],
+          "value": 1
+        },
+        {
+          "kind": "font",
+          "fields": [
+            "font"
+          ],
+          "family": "sans_condensed",
+          "weight": 700
+        },
+        {
+          "kind": "case",
+          "fields": [
+            "case"
+          ],
+          "mode": "as_written"
+        },
+        {
+          "kind": "letter_spacing",
+          "fields": [
+            "letter_spacing"
+          ],
+          "spacing_s": 0
+        }
+      ],
+      "probes": [
+        {
+          "probe": "one_grapheme",
+          "text": "A",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "A",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "one_word",
+          "text": "Amazing",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Amazing",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "longest_allowed",
+          "text": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "WWWWWWW WWWWWWW WWWWWWW WWWW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "all_caps_latin",
+          "text": "SAVE TIME NOW",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "SAVE TIME NOW",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "bengali_conjunct",
+          "text": "শ্রেষ্ঠ",
+          "language": "bn",
+          "direction": "ltr",
+          "text_drawn": "শ্রেষ্ঠ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "devanagari",
+          "text": "नमस्ते दुनिया",
+          "language": "hi",
+          "direction": "ltr",
+          "text_drawn": "नमस्ते दुनिया",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "arabic",
+          "text": "مرحبا بالعالم",
+          "language": "ar",
+          "direction": "rtl",
+          "text_drawn": "مرحبا بالعالم",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "hebrew",
+          "text": "שלום עולם",
+          "language": "he",
+          "direction": "rtl",
+          "text_drawn": "שלום עולם",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "chinese",
+          "text": "节省时间",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "节省时间",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "japanese",
+          "text": "ありがとう",
+          "language": "ja",
+          "direction": "ltr",
+          "text_drawn": "ありがとう",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "thai",
+          "text": "สวัสดีครับ",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "สวัสดีครับ",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "cyrillic",
+          "text": "Привет мир",
+          "language": "ru",
+          "direction": "ltr",
+          "text_drawn": "Привет мир",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "turkish_i",
+          "text": "iğdır ışık",
+          "language": "tr",
+          "direction": "ltr",
+          "text_drawn": "iğdır ışık",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "mixed_ltr_rtl",
+          "text": "Save שלום 50% مرحبا",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Save שלום 50% مرحبا",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "descenders",
+          "text": "gypsy jumping quickly",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "gypsy jumping quickly",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "emoji_inside",
+          "text": "Great 🔥 job",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Great 🔥 job",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_latin",
+          "text": "Extraordinarily unbelievable organizational transformation",
+          "language": "en",
+          "direction": "ltr",
+          "text_drawn": "Extraordinarily unbelievable organizational transformation",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_chinese",
+          "text": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "language": "zh",
+          "direction": "ltr",
+          "text_drawn": "今天我们一起来学习如何在每天的生活中节省更多的时间并且提高工作效率让生活变得更加美好",
+          "letter_spacing_s": 0
+        },
+        {
+          "probe": "over_cap_thai",
+          "text": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "language": "th",
+          "direction": "ltr",
+          "text_drawn": "ฉันรักประเทศไทยมากที่สุดในโลกนี้และจะอยู่ที่นี่ตลอดไปไม่ว่าจะเกิดอะไรขึ้นก็ตาม",
+          "letter_spacing_s": 0
+        }
+      ]
+    }
+  ],
   "phrases": [
     {
       "id": "did_you_know",
