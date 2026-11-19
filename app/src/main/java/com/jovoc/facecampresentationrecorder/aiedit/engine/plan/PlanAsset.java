@@ -3,7 +3,7 @@ package com.jovoc.facecampresentationrecorder.aiedit.engine.plan;
 /** A file the phone downloads once; a component's {@code asset_id} and a sound's {@code id} name an entry. */
 public final class PlanAsset {
     public final String id;
-    /** {@code lottie}, {@code icon} or {@code sound}. */
+    /** {@code video}, {@code icon} or {@code sound}. */
     public final String kind;
     public final String url;
     /** 0 when the server did not say. */

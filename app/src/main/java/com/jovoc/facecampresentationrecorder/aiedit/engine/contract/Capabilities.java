@@ -26,7 +26,7 @@ public final class Capabilities {
 
     /**
      * What this build renders: captions (highlight, active-word pop, big emphasis words), the jump cut, the camera
-     * moves, flash and glitch looks, the facecam layouts, the cut transitions, the text overlays and the icon / Lottie
+     * moves, flash and glitch looks, the facecam layouts, the cut transitions, the text overlays and the icon
      * scale pop.
      */
     public static Capabilities current() {

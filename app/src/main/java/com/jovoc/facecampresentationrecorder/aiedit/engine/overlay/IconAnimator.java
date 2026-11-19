@@ -6,7 +6,7 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.effects.Ease;
 import com.jovoc.facecampresentationrecorder.aiedit.engine.plan.PlanItem;
 
 /**
- * The motion of one icon or Lottie overlay ({@code i_scale_pop}) on the output timeline: a scale pop in (0 to a
+ * The motion of one icon overlay ({@code i_scale_pop}) on the output timeline: a scale pop in (0 to a
  * small overshoot, then 1, out back), a hold, and the exit (scale 1 to 0.85 while the alpha falls, out cubic).
  * Entry and exit times are clamped to the contract's {@code speed} and to the item's length. Pure maths: it fills a
  * reusable {@link State}; the painter turns that into canvas calls.

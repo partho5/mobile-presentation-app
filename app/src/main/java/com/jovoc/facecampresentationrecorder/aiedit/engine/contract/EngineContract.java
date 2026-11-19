@@ -30,7 +30,7 @@ import java.util.Map;
 public final class EngineContract {
 
     /** The contract version this build understands. */
-    public static final int SUPPORTED_VERSION = 1;
+    public static final int SUPPORTED_VERSION = 2;
     /** Levels, cheapest first. */
     public static final String[] LEVEL_ORDER = {"basic", "standard", "heavy"};
     /** Output ratios, 9:16 first everywhere they are listed. */
@@ -74,7 +74,7 @@ public final class EngineContract {
         public final int textHoldPerWordMs;
         public final int textHoldMaxMs;
         public final int[] iconHoldMs;
-        public final double lottieMaxFactor;
+        public final double clipMaxFactor;
 
         SpeedRules(JSONObject o) throws JSONException {
             entryMs = pair(o, "entry_ms");
@@ -89,7 +89,7 @@ public final class EngineContract {
             textHoldPerWordMs = h.getInt("per_word_ms");
             textHoldMaxMs = h.getInt("max_ms");
             iconHoldMs = pair(o, "icon_hold_ms");
-            lottieMaxFactor = o.getDouble("lottie_max_factor");
+            clipMaxFactor = o.getDouble("clip_max_factor");
         }
 
         private static int[] pair(JSONObject o, String key) throws JSONException {

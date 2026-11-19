@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * The AI edit renderer's front door (spec section 19). {@link #render} writes a finished MP4 per ratio from a plan:
  * cuts and speed segments, the top-anchored crop of each ratio at the contract's output size and bitrate, and the
- * captions, text, icons and Lottie, and the sound effects; {@link #renderProxy} writes the small proxy piece the
+ * captions, text, icons and the sound effects; {@link #renderProxy} writes the small proxy piece the
  * server looks at (Standard, Heavy).
  *
  * Each output is a new file; the source is only read. Blocking: call from a worker thread (the job's foreground
@@ -106,7 +106,7 @@ public final class Engine {
     }
 
     /**
-     * The captions of the job with the plan's text overlays on top, and the icons and Lottie under the text; null
+     * The captions of the job with the plan's text overlays on top, and the icons under the text; null
      * when there is nothing to draw.
      */
     private CaptionPainter painterFor(RenderJob job, OutputSpec spec, OutputTimeline timeline, CropRect crop,

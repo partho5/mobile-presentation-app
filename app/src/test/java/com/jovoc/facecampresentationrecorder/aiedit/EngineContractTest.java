@@ -34,7 +34,7 @@ public class EngineContractTest {
         assertNull(c.level("ultra"));
         assertEquals(2500, c.getSpeed().textHoldMs(100));
         assertEquals(500 + 150 * 3, c.getSpeed().textHoldMs(3));
-        assertEquals(3.0, c.getSpeed().lottieMaxFactor, 0.0);
+        assertEquals(3.0, c.getSpeed().clipMaxFactor, 0.0);
         assertEquals(300, c.getProtection().paddingMs);
         assertEquals(5, c.getPalette().multi.size());
         assertEquals(7, c.getSounds().size());
@@ -81,7 +81,7 @@ public class EngineContractTest {
         }
         assertNull(c.effect("v_does_not_exist"));
         assertTrue(c.effect("x_sticker").brandColorable);
-        assertEquals(Arrays.asList("lottie", "icon_image"), c.effect("i_scale_pop").allowedComponents);
+        assertEquals(Arrays.asList("icon_video", "icon_image"), c.effect("i_scale_pop").allowedComponents);
         assertEquals(Arrays.asList("person_segmentation"), c.effect("p_bg_blur").requires);
     }
 
@@ -149,10 +149,10 @@ public class EngineContractTest {
 
     @Test
     public void unknownVersionIsRefused() throws Exception {
-        String json = TestContract.json().replaceFirst("\"contract_version\": 1", "\"contract_version\": 2");
+        String json = TestContract.json().replaceFirst("\"contract_version\": 2", "\"contract_version\": 3");
         try {
             EngineContract.fromJson(json);
-            fail("version 2 must be refused");
+            fail("version 3 must be refused");
         } catch (ContractException expected) {
             // refused, as the card requires
         }
@@ -160,7 +160,7 @@ public class EngineContractTest {
 
     @Test
     public void damagedOrMissingTextIsRefused() {
-        for (String bad : new String[]{null, "", "{}", "[]", "{\"contract_version\":1}"}) {
+        for (String bad : new String[]{null, "", "{}", "[]", "{\"contract_version\":2}"}) {
             try {
                 EngineContract.fromJson(bad);
                 fail("must be refused: " + bad);

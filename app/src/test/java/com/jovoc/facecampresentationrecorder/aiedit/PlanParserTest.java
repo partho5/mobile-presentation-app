@@ -39,7 +39,7 @@ public class PlanParserTest {
                 + "\"items\":["
                 + "{\"id\":\"e2\",\"effect\":\"i_scale_pop\",\"layer\":\"icon\",\"target\":\"overlay\","
                 + "\"start_ms\":40000,\"end_ms\":41800,\"anchor\":{\"word_index\":77,\"offset_ms\":0},"
-                + "\"position\":{\"zone\":\"upper_right\"},\"component\":{\"type\":\"lottie\","
+                + "\"position\":{\"zone\":\"upper_right\"},\"component\":{\"type\":\"icon_video\","
                 + "\"asset_id\":\"is_1\",\"native_duration_ms\":4000,\"fit\":{\"mode\":\"speed_up\",\"factor\":2.2}},"
                 + "\"params\":{}},"
                 + "{\"id\":\"e1\",\"effect\":\"" + effect + "\",\"layer\":\"text\",\"target\":\"overlay\","
@@ -53,14 +53,14 @@ public class PlanParserTest {
                 + "\"warnings\":[]}";
     }
 
-    private static final String ASSETS = "[{\"id\":\"is_1\",\"kind\":\"lottie\",\"url\":\"https://x/y.json\","
+    private static final String ASSETS = "[{\"id\":\"is_1\",\"kind\":\"video\",\"url\":\"https://x/y.mp4\","
             + "\"native_duration_ms\":4000,\"width\":512,\"height\":512},"
             + "{\"id\":\"pop_1\",\"kind\":\"sound\",\"url\":\"https://x/pop_1.wav\"}]";
 
     @Test
     public void validPlanParses() throws Exception {
-        Plan p = PlanParser.parse(plan(1, "x_sticker"), contract);
-        assertEquals(1, p.contractVersion);
+        Plan p = PlanParser.parse(plan(2, "x_sticker"), contract);
+        assertEquals(2, p.contractVersion);
         assertEquals(1, p.planVersion);
         assertEquals("s-1", p.sessionId);
         assertEquals("standard", p.level);
@@ -106,7 +106,7 @@ public class PlanParserTest {
         assertEquals(1, c.colorSlot);
 
         PlanItem icon = p.items.get(1);
-        assertEquals("lottie", icon.component.type);
+        assertEquals("icon_video", icon.component.type);
         assertEquals("is_1", icon.component.assetId);
         assertEquals(4000, icon.component.nativeDurationMs);
         assertEquals("speed_up", icon.component.fitMode);
@@ -116,8 +116,17 @@ public class PlanParserTest {
     }
 
     @Test
+    public void theOldLottieNamesAreRefused() {
+        expect(plan(2, "x_sticker").replace("\"type\":\"icon_video\"", "\"type\":\"lottie\""),
+                PlanParseException.BAD_PLAN);
+        String job = "{\"id\":\"j1\",\"status\":\"READY\",\"cost\":2,\"plan\":" + plan(2, "x_sticker")
+                + ",\"assets\":" + ASSETS.replace("\"kind\":\"video\"", "\"kind\":\"lottie\"") + "}";
+        expect(job, PlanParseException.BAD_PLAN);
+    }
+
+    @Test
     public void paletteRotatesThroughTheServersColours() throws Exception {
-        Plan p = PlanParser.parse(plan(1, "x_sticker"), contract);
+        Plan p = PlanParser.parse(plan(2, "x_sticker"), contract);
         assertEquals("multi", p.palette.mode);
         assertEquals("#FF3B30", p.palette.colorFor(0));
         assertEquals("#FFD60A", p.palette.colorFor(1));
@@ -127,11 +136,11 @@ public class PlanParserTest {
 
     @Test
     public void jobResponseGivesThePlanAndItsAssets() throws Exception {
-        String job = "{\"id\":\"j1\",\"status\":\"READY\",\"cost\":2,\"plan\":" + plan(1, "x_sticker")
+        String job = "{\"id\":\"j1\",\"status\":\"READY\",\"cost\":2,\"plan\":" + plan(2, "x_sticker")
                 + ",\"assets\":" + ASSETS + "}";
         Plan p = PlanParser.parse(job, contract);
         assertEquals(2, p.assets.size());
-        assertEquals("https://x/y.json", p.asset("is_1").url);
+        assertEquals("https://x/y.mp4", p.asset("is_1").url);
         assertEquals(512, p.asset("is_1").width);
         assertEquals("sound", p.asset("pop_1").kind);
         assertEquals(0, p.asset("pop_1").nativeDurationMs);
@@ -141,42 +150,42 @@ public class PlanParserTest {
 
     @Test
     public void missingPaletteFallsBackToTheContractColours() throws Exception {
-        String json = plan(1, "x_sticker").replaceFirst("\"palette\":\\{[^}]*\\},", "");
+        String json = plan(2, "x_sticker").replaceFirst("\"palette\":\\{[^}]*\\},", "");
         Plan p = PlanParser.parse(json, contract);
         assertEquals(contract.getPalette().multi, p.palette.colors);
     }
 
     @Test
     public void badVersionIsRefusedWithItsOwnCode() {
-        expect(plan(2, "x_sticker"), PlanParseException.UNSUPPORTED_VERSION);
+        expect(plan(3, "x_sticker"), PlanParseException.UNSUPPORTED_VERSION);
     }
 
     @Test
     public void unknownEffectIsRefused() {
-        expect(plan(1, "x_does_not_exist"), PlanParseException.UNKNOWN_EFFECT);
+        expect(plan(2, "x_does_not_exist"), PlanParseException.UNKNOWN_EFFECT);
     }
 
     @Test
     public void unknownCaptionEffectIsRefused() {
-        expect(plan(1, "x_sticker").replace("c_word_highlight", "c_made_up"), PlanParseException.UNKNOWN_EFFECT);
+        expect(plan(2, "x_sticker").replace("c_word_highlight", "c_made_up"), PlanParseException.UNKNOWN_EFFECT);
     }
 
     @Test
     public void damagedPlansAreRefused() {
         expect(null, PlanParseException.BAD_PLAN);
         expect("", PlanParseException.BAD_PLAN);
-        expect("{\"contract_version\":1}", PlanParseException.BAD_PLAN);
-        expect(plan(1, "x_sticker").replace("\"level\":\"standard\"", "\"level\":\"ultra\""),
+        expect("{\"contract_version\":2}", PlanParseException.BAD_PLAN);
+        expect(plan(2, "x_sticker").replace("\"level\":\"standard\"", "\"level\":\"ultra\""),
                 PlanParseException.BAD_PLAN);
-        expect(plan(1, "x_sticker").replace("\"zone\":\"upper_center\"", "\"zone\":\"nowhere\""),
+        expect(plan(2, "x_sticker").replace("\"zone\":\"upper_center\"", "\"zone\":\"nowhere\""),
                 PlanParseException.BAD_PLAN);
-        expect(plan(1, "x_sticker").replace("\"end_ms\":32600", "\"end_ms\":31000"),
+        expect(plan(2, "x_sticker").replace("\"end_ms\":32600", "\"end_ms\":31000"),
                 PlanParseException.BAD_PLAN);
-        expect(plan(1, "x_sticker").replace("\"id\":\"e2\"", "\"id\":\"e1\""), PlanParseException.BAD_PLAN);
-        expect(plan(1, "x_sticker").replace("\"src_end_ms\":5900", "\"src_end_ms\":5200"),
+        expect(plan(2, "x_sticker").replace("\"id\":\"e2\"", "\"id\":\"e1\""), PlanParseException.BAD_PLAN);
+        expect(plan(2, "x_sticker").replace("\"src_end_ms\":5900", "\"src_end_ms\":5200"),
                 PlanParseException.BAD_PLAN);
-        // A styled text on an effect that only takes Lottie or icon components.
-        expect(plan(1, "i_scale_pop"), PlanParseException.BAD_PLAN);
+        // A styled text on an effect that only takes icon clip or icon image components.
+        expect(plan(2, "i_scale_pop"), PlanParseException.BAD_PLAN);
     }
 
     private void expect(String json, String code) {

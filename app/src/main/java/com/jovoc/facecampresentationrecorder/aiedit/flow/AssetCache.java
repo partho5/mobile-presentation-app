@@ -24,7 +24,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * The phone's copy of the plan's icons, Lottie files and sounds: {@code getFilesDir()/aiedit/assets/<id>}, each id
+ * The phone's copy of the plan's icons, icon clips and sounds: {@code getFilesDir()/aiedit/assets/<id>}, each id
  * downloaded once and kept for every later edit. A download that fails leaves no file, and the renderer then leaves
  * that one icon or sound out; the edit itself is never failed by an asset. The urls are the server's own cached
  * copies (no key, nothing of the recording is sent). Blocking: call from the job's worker thread.

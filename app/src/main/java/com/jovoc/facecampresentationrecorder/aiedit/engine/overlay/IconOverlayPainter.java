@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Draws the icon and Lottie items of a plan ({@code i_scale_pop}): each file is loaded when its item first appears,
+ * Draws the icon items of a plan ({@code i_scale_pop}): each file is loaded when its item first appears,
  * placed in its zone inside the safe rectangle and off the facecam, animated by {@link IconAnimator}, and freed when
  * the item ends. An item whose file is missing or unreadable, or that fits nowhere clear of the facecam, is left
  * out; the rest of the edit is unaffected. Nothing is allocated per frame.
@@ -76,13 +76,15 @@ public final class IconOverlayPainter implements CaptionPainter {
         PlanComponent c = item.component;
         if (c == null || c.isText() || c.assetId == null || item.endMs <= item.startMs) return;
         if (!SCALE_POP.equals(item.effect)) return;
+        // An mp4 icon clip is rendered from A3; until then the item is left out
+        if (PlanComponent.ICON_VIDEO.equals(c.type)) return;
         File file = AssetFiles.existing(assetsDir, c.assetId);
         if (file == null || plan.asset(c.assetId) == null) return;
         overlays.add(new Overlay(item, file,
                 new IconAnimator(item, contract.effect(item.effect), contract.getSpeed())));
     }
 
-    /** How many icon and Lottie items will be drawn. */
+    /** How many icon items will be drawn. */
     public int overlayCount() {
         return overlays.size();
     }
@@ -121,11 +123,8 @@ public final class IconOverlayPainter implements CaptionPainter {
     /** Loads the picture and finds its spot: the zone centre, kept in the safe rectangle and off the facecam. */
     private void build(Overlay o) {
         o.built = true;
-        PlanComponent c = o.item.component;
         int side = Math.max(1, Math.round(SIZE_SHARE * outW));
-        o.layer = PlanComponent.LOTTIE.equals(c.type)
-                ? LottieLayer.load(o.file, LottieFit.factor(c.fitMode, c.fitFactor, contract.getSpeed().lottieMaxFactor))
-                : IconLayer.load(o.file, side);
+        o.layer = IconLayer.load(o.file, side);
         if (o.layer == null) {
             o.skipped = true;
             return;

@@ -350,7 +350,7 @@ final class AiEditRunner {
         }
         MediaProbe probe = probe(source);
         final CaptionPainter painter = painterFor(job, source, plan, probe, contract, repo);
-        // Icons, Lottie and sounds: downloaded once by id; one that fails is simply left out of the render
+        // Icons, icon clips and sounds: downloaded once by id; one that fails is simply left out of the render
         File assetsDir = new AssetCache(context, cancel).ensure(plan);
 
         List<RenderJob> jobs = new ArrayList<>();

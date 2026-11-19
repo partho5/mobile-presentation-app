@@ -127,7 +127,7 @@ public final class PlanParser {
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.getJSONObject(i);
             String kind = o.getString("kind");
-            if (!"lottie".equals(kind) && !"icon".equals(kind) && !"sound".equals(kind)) {
+            if (!"video".equals(kind) && !"icon".equals(kind) && !"sound".equals(kind)) {
                 throw new JSONException("unknown asset kind");
             }
             out.add(new PlanAsset(o.getString("id"), kind, o.getString("url"),
@@ -195,7 +195,7 @@ public final class PlanParser {
             return PlanComponent.styledText(c.getString("kind"), c.getString("text"),
                     c.getString("style_preset"), c.getInt("color_slot"));
         }
-        if (PlanComponent.LOTTIE.equals(type) || PlanComponent.ICON_IMAGE.equals(type)) {
+        if (PlanComponent.ICON_VIDEO.equals(type) || PlanComponent.ICON_IMAGE.equals(type)) {
             String fitMode = null;
             double factor = 1.0;
             JSONObject fit = c.optJSONObject("fit");

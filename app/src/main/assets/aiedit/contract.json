@@ -1,5 +1,5 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "levels": {
     "basic": {
       "max_feature_effects": 3,
@@ -73,7 +73,7 @@
       500,
       1500
     ],
-    "lottie_max_factor": 3
+    "clip_max_factor": 3
   },
   "protection": {
     "padding_ms": 300,
@@ -1947,7 +1947,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -1980,7 +1980,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2013,7 +2013,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2045,7 +2045,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2082,7 +2082,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2115,7 +2115,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2153,7 +2153,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2186,7 +2186,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2213,7 +2213,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",
@@ -2240,7 +2240,7 @@
       "layer": "icon",
       "target": "overlay",
       "allowed_components": [
-        "lottie",
+        "icon_video",
         "icon_image"
       ],
       "min_level": "standard",

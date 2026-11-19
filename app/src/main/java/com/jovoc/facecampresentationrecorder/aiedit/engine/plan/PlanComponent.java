@@ -1,15 +1,15 @@
 package com.jovoc.facecampresentationrecorder.aiedit.engine.plan;
 
 /**
- * What an overlay item draws: a styled text, or a Lottie or icon image of the plan's asset list. One class for
+ * What an overlay item draws: a styled text, or an mp4 icon clip or icon image of the plan's asset list. One class for
  * both, the fields of the other kind are null or 0.
  */
 public final class PlanComponent {
     public static final String STYLED_TEXT = "styled_text";
-    public static final String LOTTIE = "lottie";
+    public static final String ICON_VIDEO = "icon_video";
     public static final String ICON_IMAGE = "icon_image";
 
-    /** {@link #STYLED_TEXT}, {@link #LOTTIE} or {@link #ICON_IMAGE}. */
+    /** {@link #STYLED_TEXT}, {@link #ICON_VIDEO} or {@link #ICON_IMAGE}. */
     public final String type;
 
     // styled_text
@@ -20,7 +20,7 @@ public final class PlanComponent {
     public final String stylePreset;
     public final int colorSlot;
 
-    // lottie, icon_image
+    // icon_video, icon_image
     public final String assetId;
     public final int nativeDurationMs;
     /** {@code speed_up} or {@code native}; null when the plan gave no fit. */
