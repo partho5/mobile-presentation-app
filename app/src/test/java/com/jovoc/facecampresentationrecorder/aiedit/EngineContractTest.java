@@ -24,7 +24,7 @@ public class EngineContractTest {
     @Test
     public void bundledContractLoads() throws Exception {
         EngineContract c = TestContract.load();
-        assertEquals(1, c.getVersion());
+        assertEquals(2, c.getVersion());
         assertEquals(3, c.level("basic").maxFeatureEffects);
         assertEquals(0, c.level("basic").maxIcons);
         assertFalse(c.level("basic").transitions);
