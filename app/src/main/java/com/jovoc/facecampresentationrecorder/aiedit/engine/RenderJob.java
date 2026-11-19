@@ -26,6 +26,8 @@ public final class RenderJob {
     public final File tempDir;
     /** Where the painters note what they skipped or shrank; never null. */
     public final RenderNotes notes;
+    /** The plan's language (ISO 639 code or tag) for {@code case: upper}; null when not known. */
+    public final String language;
 
     public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
                      CaptionPainter captionPainter, AtomicBoolean cancel) {
@@ -39,6 +41,12 @@ public final class RenderJob {
 
     public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
                      CaptionPainter captionPainter, AtomicBoolean cancel, File tempDir, RenderNotes notes) {
+        this(source, plan, ratio, output, assetsDir, captionPainter, cancel, tempDir, notes, null);
+    }
+
+    public RenderJob(File source, Plan plan, String ratio, File output, File assetsDir,
+                     CaptionPainter captionPainter, AtomicBoolean cancel, File tempDir, RenderNotes notes,
+                     String language) {
         if (source == null || plan == null || ratio == null || output == null) {
             throw new IllegalArgumentException("source, plan, ratio and output are required");
         }
@@ -51,6 +59,7 @@ public final class RenderJob {
         this.cancel = cancel != null ? cancel : new AtomicBoolean(false);
         this.tempDir = tempDir;
         this.notes = notes != null ? notes : new RenderNotes();
+        this.language = language;
     }
 
     public boolean isCancelled() {

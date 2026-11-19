@@ -276,7 +276,6 @@ public final class LookPaintPlan {
     public static final int PASSES = 2;
 
     private static final String[] JOINS = {"round", "miter", "bevel"};
-    private static final String[] FAMILIES = {"sans", "sans_condensed", "serif", "mono"};
 
     /** The operations, in draw order. */
     public final List<Op> ops;
@@ -466,7 +465,7 @@ public final class LookPaintPlan {
             if (b.shadow != null) oneOf(b.shadow.style, new String[]{"soft", "hard"}, "box.shadow.style");
         }
         if (!(look.opacity >= 0 && look.opacity <= 1)) throw new UnsupportedLookException("opacity");
-        oneOf(look.font.family, FAMILIES, "font.family");
+        // An unknown family is not refused: LookTypography draws sans and the painter notes property_not_drawn
         if (look.font.weight < 100 || look.font.weight > 900) throw new UnsupportedLookException("font.weight");
         oneOf(look.caseMode, new String[]{"as_written", "upper"}, "case");
         if (Double.isNaN(look.letterSpacing) || Double.isInfinite(look.letterSpacing)) {

@@ -17,7 +17,6 @@ import com.jovoc.facecampresentationrecorder.aiedit.engine.contract.TextLook;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Draws a styled text once into a transparent bitmap, the {@link Sprite} the animator then moves, scales and fades.
@@ -47,9 +46,12 @@ public final class TextLookRenderer {
         public final boolean shrunk;
         /** True when the text is on two lines. */
         public final boolean wrapped;
+        /** True when the look named a font family the phone does not know and {@code sans} was drawn instead. */
+        public final boolean fontFallback;
 
         Sprite(Bitmap bitmap, float contentW, float contentH, RectF[] bars, int barColor, RectF[] wordClips,
-               RectF[] unitClips, boolean shrunk, boolean wrapped) {
+               RectF[] unitClips, boolean shrunk, boolean wrapped, boolean fontFallback) {
+            this.fontFallback = fontFallback;
             this.shrunk = shrunk;
             this.wrapped = wrapped;
             this.bitmap = bitmap;
@@ -85,14 +87,24 @@ public final class TextLookRenderer {
      */
     public Sprite render(String text, TextLook look, int colorSlot, float sizePx, int maxWidthPx)
             throws UnsupportedLookException {
-        LookPaintPlan.Room room = LookPaintPlan.room(look);
-        boolean upper = "upper".equals(look.caseMode);
-        String shown = upper && hasCase(text) ? text.toUpperCase(Locale.ROOT) : text;
-        TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        paint.setTypeface(Typeface.DEFAULT_BOLD);
-        paint.setTextAlign(Paint.Align.LEFT);
+        return render(text, look, colorSlot, sizePx, maxWidthPx, null);
+    }
 
-        TextLayoutPolicy.Result fit = TextLayoutPolicy.fit(shown, sizePx, new PaintMeasurer(paint, room, maxWidthPx));
+    /**
+     * As {@link #render(String, TextLook, int, float, int)}, with the plan's language (an ISO 639 code or tag, or
+     * null) that {@code case: upper} uses to make capitals.
+     */
+    public Sprite render(String text, TextLook look, int colorSlot, float sizePx, int maxWidthPx, String language)
+            throws UnsupportedLookException {
+        LookPaintPlan.Room room = LookPaintPlan.room(look);
+        String shown = LookTypography.shownText(text, "upper".equals(look.caseMode), language);
+        TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        paint.setTypeface(typeface(look.font.family, look.font.weight));
+        paint.setTextAlign(Paint.Align.LEFT);
+        double spacing = LookTypography.letterSpacing(shown, look.letterSpacing);
+
+        TextLayoutPolicy.Result fit = TextLayoutPolicy.fit(shown, sizePx,
+                new PaintMeasurer(paint, room, maxWidthPx, spacing));
         if (fit.skipped) return null;
         LookPaintPlan plan = LookPaintPlan.build(look, colors, colorSlot, fit);
         float size = fit.size;
@@ -131,7 +143,21 @@ public final class TextLookRenderer {
         String drawn = fit.joined();
         return new Sprite(bitmap, contentW, contentH, bars, barColor,
                 stripClips(wordSpans(drawn), layout, left, top, bmpW, bmpH),
-                stripClips(unitSpans(drawn), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped);
+                stripClips(unitSpans(drawn), layout, left, top, bmpW, bmpH), fit.shrunk, fit.wrapped,
+                !LookTypography.isKnownFamily(look.font.family));
+    }
+
+    /**
+     * The system face for a contract family and weight (the system's own fallback draws every script). The shipped
+     * default, sans at 700, is the exact face the six shipped looks always used.
+     */
+    private static Typeface typeface(String family, int weight) {
+        int w = LookTypography.weight(weight);
+        if (LookTypography.effectiveFamily(family).equals(LookTypography.FALLBACK_FAMILY)
+                && w == LookTypography.SHIPPED_WEIGHT) {
+            return Typeface.DEFAULT_BOLD;
+        }
+        return Typeface.create(Typeface.create(LookTypography.systemFamily(family), Typeface.NORMAL), w, false);
     }
 
     /** The lines are already broken by the policy (newlines); centred, in the paragraph direction of the text. */
@@ -149,10 +175,13 @@ public final class TextLookRenderer {
         private final LookPaintPlan.Room room;
         private final int maxWidthPx;
 
-        PaintMeasurer(TextPaint paint, LookPaintPlan.Room room, int maxWidthPx) {
+        /** @param spacing letter spacing as a fraction of the text size (already 0 for joining scripts) */
+        PaintMeasurer(TextPaint paint, LookPaintPlan.Room room, int maxWidthPx, double spacing) {
             this.paint = paint;
             this.room = room;
             this.maxWidthPx = maxWidthPx;
+            // Measured and drawn with the same paint, so the lines the policy fits are the lines that are drawn
+            paint.setLetterSpacing((float) spacing);
         }
 
         @Override
@@ -378,16 +407,6 @@ public final class TextLookRenderer {
                     left + layout.getLineRight(i) + overhang, barTop + (float) bar.heightOfLine * lineH);
         }
         return bars;
-    }
-
-    /** Whether the text has letters with case (Latin, Cyrillic, Greek...), so all caps is meaningful. */
-    static boolean hasCase(String text) {
-        for (int i = 0; i < text.length(); ) {
-            int cp = text.codePointAt(i);
-            if (Character.toUpperCase(cp) != cp || Character.toLowerCase(cp) != cp) return true;
-            i += Character.charCount(cp);
-        }
-        return false;
     }
 
     /** The runs of non-white-space characters of {@code text}, as [start, end) offsets. */

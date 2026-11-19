@@ -422,8 +422,8 @@ public class LookPaintPlanTest {
         assertRefused(withLook("sticker", l -> l.getJSONObject("text_stroke").put("join", "arcs")), "sticker",
                 "text_stroke.join");
         assertRefused(withLook("neon_box", l -> l.getJSONObject("box").put("shape", "hexagon")), "neon_box", "box.shape");
-        assertRefused(withLook("neon_box", l -> l.getJSONObject("font").put("family", "cursive")), "neon_box",
-                "font.family");
+        // an unknown font family is not refused: LookTypography draws sans (C6) and the painter notes it
+        assertNotNull(plan(withLook("neon_box", l -> l.getJSONObject("font").put("family", "cursive")), "neon_box"));
         assertRefused(withLook("neon_box", l -> l.put("case", "title")), "neon_box", "case");
         assertRefused(withLook("neon_box", l -> l.put("opacity", 1.5)), "neon_box", "opacity");
         assertRefused(withLook("gradient", l -> l.getJSONObject("text_fill").put("direction", "radial")), "gradient",

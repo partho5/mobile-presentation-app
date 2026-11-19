@@ -452,10 +452,12 @@ final class AiEditRunner {
         // The soundtrack's temp file cannot sit beside the outputs in DCIM (only video files may be made there)
         File tempDir = new File(context.getCacheDir(), "aiedit_tmp");
         List<RenderJob> jobs = new ArrayList<>();
+        // The plan carries no language; case: upper uses the caption's, the one the request told the server
+        String language = languageOf(source);
         for (String ratio : job.ratios) {
             if (job.doneRatios.contains(ratio)) continue;
             jobs.add(new RenderJob(source, plan, ratio, AiEditNames.outputFile(job.outputBase, ratio), assetsDir,
-                    painter, cancel, tempDir, attempt.notes));
+                    painter, cancel, tempDir, attempt.notes, language));
         }
         final List<RenderJob> order = Engine.inRenderOrder(jobs);
         if (!order.isEmpty()) attempt.begin(order.get(0).ratio);

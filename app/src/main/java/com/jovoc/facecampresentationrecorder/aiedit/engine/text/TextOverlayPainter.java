@@ -76,6 +76,7 @@ public final class TextOverlayPainter implements CaptionPainter {
     private final TextPlacement.Keepout facecam;
     private final TextLookRenderer renderer;
     private final RenderNotes notes;
+    private final String language;
     private final List<Overlay> overlays = new ArrayList<>();
     private final TextAnimator.State state = new TextAnimator.State();
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -98,6 +99,16 @@ public final class TextOverlayPainter implements CaptionPainter {
     /** @param notes where a skipped or shrunk text is noted (codes and item ids only), or null for none */
     public TextOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
                               float captionSizePx, TextPlacement.Keepout facecam, RenderNotes notes) {
+        this(plan, contract, spec, outW, outH, captionSizePx, facecam, notes, null);
+    }
+
+    /**
+     * @param language the plan's language (ISO 639 code or tag) that {@code case: upper} makes capitals in, or null
+     *                 for the language-neutral rules
+     */
+    public TextOverlayPainter(Plan plan, EngineContract contract, OutputSpec spec, int outW, int outH,
+                              float captionSizePx, TextPlacement.Keepout facecam, RenderNotes notes, String language) {
+        this.language = language;
         this.notes = notes != null ? notes : new RenderNotes();
         this.contract = contract;
         this.spec = spec;
@@ -176,7 +187,7 @@ public final class TextOverlayPainter implements CaptionPainter {
         PlanComponent c = o.item.component;
         try {
             o.sprite = renderer.render(c.text, o.look, c.colorSlot, SIZE_FACTOR * captionSizePx,
-                    Math.round(MAX_WIDTH_SHARE * outW));
+                    Math.round(MAX_WIDTH_SHARE * outW), language);
         } catch (UnsupportedLookException e) {
             // A look the painter cannot draw completely is not drawn half styled (the plain fallback comes with C7)
             notes.add(RenderNotes.PROPERTY_NOT_DRAWN, o.item.id);
@@ -188,6 +199,8 @@ public final class TextOverlayPainter implements CaptionPainter {
             free(o);
             return;
         }
+        // An unknown font family drew sans: the overlay is there, but a property was not drawn as asked
+        if (o.sprite.fontFallback) notes.add(RenderNotes.PROPERTY_NOT_DRAWN, o.item.id);
         if (o.sprite.shrunk) notes.add(RenderNotes.TEXT_SHRUNK, o.item.id);
         if (o.sprite.wrapped) notes.add(RenderNotes.TEXT_WRAPPED, o.item.id);
         if ("blur_in".equals(o.animator.entry)) {
