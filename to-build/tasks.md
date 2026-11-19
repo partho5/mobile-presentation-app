@@ -201,7 +201,7 @@ Facts the server fixed that the cards must match exactly:
 | C5 | 2 | Pure paint plan from the new look blocks; thin Canvas translator; six looks unchanged | server S6 | ☑ |
 | C6 | 2 | Fonts (system families), case, letter spacing, generic for every script | C5 | ☑ |
 | C7 | 2 | Strict parse, capabilities by evidence, `text_features`, fail closed | C5, C6 | ☑ |
-| C8 | 2 | JVM conformance runner: `look_vectors` and the string matrix against the paint plan | C7, server S7 | ☐ |
+| C8 | 2 | JVM conformance runner: `look_vectors` and the string matrix against the paint plan | C7, server S7 | ☑ |
 | C9 | 2 | Debug sheet gains looks and pixel probes; owner runs it and ticks | C8 | ☐ |
 | C10 | 2 | Wire the new looks, 3 at a time after the owner ticks them | C9, server S8 | ☐ |
 
