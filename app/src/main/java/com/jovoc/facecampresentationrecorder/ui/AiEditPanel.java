@@ -219,6 +219,12 @@ final class AiEditPanel implements AiEditListener {
         if (released || !isMine(sourcePath)) return;
         String text;
         switch (stage) {
+            case QUEUED:
+                text = appContext.getString(R.string.ai_edit_notif_queued);
+                break;
+            case TRANSCRIBING:
+                text = appContext.getString(R.string.ai_edit_notif_transcribing);
+                break;
             case PLANNING:
                 text = appContext.getString(R.string.ai_edit_notif_planning);
                 break;

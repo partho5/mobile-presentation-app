@@ -36,6 +36,17 @@ public final class AiEditStatus {
         return READY.equals(status) || NO_SPEECH.equals(status) || FAILED.equals(status);
     }
 
+    /**
+     * The progress stage a server status stands for. A status that shows no progress (final or unknown ones) keeps
+     * {@code last}, so a new server word never makes the text jump back.
+     */
+    static AiEditListener.Stage stageFor(String status, AiEditListener.Stage last) {
+        if (PENDING.equals(status)) return AiEditListener.Stage.QUEUED;
+        if (TRANSCRIBING.equals(status)) return AiEditListener.Stage.TRANSCRIBING;
+        if (PLANNING.equals(status)) return AiEditListener.Stage.PLANNING;
+        return last;
+    }
+
     static AiEditStatus parse(String body) throws JSONException {
         JSONObject o = new JSONObject(body);
         String id = o.optString("id", "");

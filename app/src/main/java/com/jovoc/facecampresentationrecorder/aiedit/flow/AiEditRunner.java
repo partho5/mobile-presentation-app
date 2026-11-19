@@ -293,12 +293,19 @@ final class AiEditRunner {
 
     private void awaitPlan(AiEditJob job, File source, AiEditApi api) throws AiEditException {
         long start = System.currentTimeMillis();
+        // Until the first answer the server has the job queued; a stage is reported only when it changes.
+        AiEditListener.Stage shown = AiEditListener.Stage.QUEUED;
+        listener.onProgress(job.sourcePath, job.level, shown, null, -1);
         while (true) {
             checkCancelled();
-            listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.PLANNING, null, -1);
             AiEditStatus ready = null;
             try {
                 AiEditStatus st = api.get(job.editId, job.workspaceId);
+                AiEditListener.Stage now = AiEditStatus.stageFor(st.status, shown);
+                if (now != shown) {
+                    shown = now;
+                    listener.onProgress(job.sourcePath, job.level, shown, null, -1);
+                }
                 if (AiEditStatus.READY.equals(st.status)) {
                     ready = st;
                 }

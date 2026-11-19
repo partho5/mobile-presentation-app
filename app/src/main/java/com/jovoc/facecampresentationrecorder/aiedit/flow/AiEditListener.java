@@ -12,7 +12,11 @@ public interface AiEditListener {
     enum Stage {
         /** Sending the audio and proxy pieces and creating the job. */
         UPLOADING,
-        /** Waiting for the server's plan. */
+        /** The server has the job but has not started on it (status PENDING). */
+        QUEUED,
+        /** The server is turning the speech into text (status TRANSCRIBING). */
+        TRANSCRIBING,
+        /** The server is planning the edit (status PLANNING). */
         PLANNING,
         /** Rendering the outputs on the phone. */
         RENDERING

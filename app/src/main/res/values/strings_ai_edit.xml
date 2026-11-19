@@ -3,7 +3,9 @@
     <!-- AI edit job notification (aiedit/flow/AiEditService) -->
     <string name="ai_edit_channel_name">AI edit</string>
     <string name="ai_edit_notif_uploading">Uploading…</string>
-    <string name="ai_edit_notif_planning">Planning…</string>
+    <string name="ai_edit_notif_queued">Starting…</string>
+    <string name="ai_edit_notif_transcribing">Transcribing…</string>
+    <string name="ai_edit_notif_planning">Planning the edit…</string>
     <string name="ai_edit_notif_rendering">Rendering %1$s…</string>
     <string name="ai_edit_notif_done">Done</string>
     <string name="ai_edit_notif_done_text">Your AI edit is ready</string>

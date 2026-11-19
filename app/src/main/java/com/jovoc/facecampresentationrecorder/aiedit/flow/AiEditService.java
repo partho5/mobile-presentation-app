@@ -305,6 +305,12 @@ public class AiEditService extends Service {
                                final String ratio, final int percent) {
             String text;
             switch (stage) {
+                case QUEUED:
+                    text = getString(R.string.ai_edit_notif_queued);
+                    break;
+                case TRANSCRIBING:
+                    text = getString(R.string.ai_edit_notif_transcribing);
+                    break;
                 case PLANNING:
                     text = getString(R.string.ai_edit_notif_planning);
                     break;
