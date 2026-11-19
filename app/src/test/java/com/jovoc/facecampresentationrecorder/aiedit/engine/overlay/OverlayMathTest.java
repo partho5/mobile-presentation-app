@@ -18,7 +18,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Asset file names, the Lottie fit, and the icon scale pop: pure maths, no Android classes. */
+/** Asset file names, the clip fit, and the icon scale pop: pure maths, no Android classes. */
 public class OverlayMathTest {
 
     private EngineContract contract;
@@ -66,25 +66,36 @@ public class OverlayMathTest {
     }
 
     @Test
-    public void lottieFactorIsOneUnlessSpedUpAndCapped() {
-        assertEquals(1.0, LottieFit.factor("native", 2.0, 3.0), 1e-9);
-        assertEquals(1.0, LottieFit.factor(null, 2.0, 3.0), 1e-9);
-        assertEquals(2.0, LottieFit.factor("speed_up", 2.0, 3.0), 1e-9);
-        assertEquals(3.0, LottieFit.factor("speed_up", 5.0, 3.0), 1e-9);
-        assertEquals(1.0, LottieFit.factor("speed_up", 0.5, 3.0), 1e-9);
+    public void clipFactorIsOneUnlessSpedUpAndCapped() {
+        assertEquals(1.0, ClipFit.factor("native", 2.0, 3.0), 1e-9);
+        assertEquals(1.0, ClipFit.factor(null, 2.0, 3.0), 1e-9);
+        assertEquals(2.0, ClipFit.factor("speed_up", 2.0, 3.0), 1e-9);
+        assertEquals(3.0, ClipFit.factor("speed_up", 5.0, 3.0), 1e-9);
+        assertEquals(1.0, ClipFit.factor("speed_up", 0.5, 3.0), 1e-9);
     }
 
     @Test
-    public void lottieProgressFollowsTimeTimesFactorAndHoldsTheLastFrame() {
-        assertEquals(0.0, LottieFit.progress(0, 1000, 1), 1e-9);
-        assertEquals(0.5, LottieFit.progress(500, 1000, 1), 1e-9);
+    public void clipProgressFollowsTimeTimesFactorAndHoldsTheLastFrame() {
+        assertEquals(0.0, ClipFit.progress(0, 1000, 1), 1e-9);
+        assertEquals(0.5, ClipFit.progress(500, 1000, 1), 1e-9);
         // Sped up 2x: half the time reaches the end
-        assertEquals(1.0, LottieFit.progress(500, 1000, 2), 1e-9);
+        assertEquals(1.0, ClipFit.progress(500, 1000, 2), 1e-9);
         // A longer slot holds the last frame, never slows down
-        assertEquals(1.0, LottieFit.progress(5000, 1000, 1), 1e-9);
+        assertEquals(1.0, ClipFit.progress(5000, 1000, 1), 1e-9);
         // Never slower than native even for a factor below 1
-        assertEquals(0.5, LottieFit.progress(500, 1000, 0.25), 1e-9);
-        assertEquals(0.0, LottieFit.progress(500, 0, 1), 1e-9);
+        assertEquals(0.5, ClipFit.progress(500, 1000, 0.25), 1e-9);
+        assertEquals(0.0, ClipFit.progress(500, 0, 1), 1e-9);
+    }
+
+    @Test
+    public void clipFrameFollowsProgressAndHoldsTheLastFrame() {
+        // 24 frames at 24 fps = a 1 s clip
+        assertEquals(0, ClipFit.frameIndex(0, 24, 24, 1));
+        assertEquals(12, ClipFit.frameIndex(500, 24, 24, 1));
+        assertEquals(23, ClipFit.frameIndex(5000, 24, 24, 1));
+        // Sped up 2x: half the time reaches the last frame
+        assertEquals(23, ClipFit.frameIndex(500, 24, 24, 2));
+        assertEquals(0, ClipFit.frameIndex(500, 0, 24, 1));
     }
 
     @Test

@@ -15,9 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Draws the icon items of a plan ({@code i_scale_pop}): each file is loaded when its item first appears,
- * placed in its zone inside the safe rectangle and off the facecam, animated by {@link IconAnimator}, and freed when
- * the item ends. An item whose file is missing or unreadable, or that fits nowhere clear of the facecam, is left
+ * Draws the icon items of a plan ({@code i_scale_pop}): each icon image or mp4 clip (its keyed frames) is loaded
+ * when its item first appears, placed in its zone inside the safe rectangle and off the facecam, animated by
+ * {@link IconAnimator}, and freed when the item ends. An item whose file is missing or unreadable, or that fits nowhere clear of the facecam, is left
  * out; the rest of the edit is unaffected. Nothing is allocated per frame.
  */
 public final class IconOverlayPainter implements CaptionPainter {
@@ -31,6 +31,7 @@ public final class IconOverlayPainter implements CaptionPainter {
     /** One icon item: its animation, and the layer and position once it has been built. */
     private static final class Overlay {
         final PlanItem item;
+        /** The icon image file, or the folder of keyed frames of an mp4 clip. */
         final File file;
         final IconAnimator animator;
         OverlayLayer layer;
@@ -76,9 +77,10 @@ public final class IconOverlayPainter implements CaptionPainter {
         PlanComponent c = item.component;
         if (c == null || c.isText() || c.assetId == null || item.endMs <= item.startMs) return;
         if (!SCALE_POP.equals(item.effect)) return;
-        // An mp4 icon clip is rendered from A3; until then the item is left out
-        if (PlanComponent.ICON_VIDEO.equals(c.type)) return;
-        File file = AssetFiles.existing(assetsDir, c.assetId);
+        boolean clip = PlanComponent.ICON_VIDEO.equals(c.type);
+        File file = clip
+                ? AssetFiles.existingFrames(assetsDir, c.assetId)
+                : AssetFiles.existing(assetsDir, c.assetId);
         if (file == null || plan.asset(c.assetId) == null) return;
         overlays.add(new Overlay(item, file,
                 new IconAnimator(item, contract.effect(item.effect), contract.getSpeed())));
@@ -124,7 +126,11 @@ public final class IconOverlayPainter implements CaptionPainter {
     private void build(Overlay o) {
         o.built = true;
         int side = Math.max(1, Math.round(SIZE_SHARE * outW));
-        o.layer = IconLayer.load(o.file, side);
+        PlanComponent c = o.item.component;
+        o.layer = PlanComponent.ICON_VIDEO.equals(c.type)
+                ? FrameSequenceLayer.load(o.file,
+                        ClipFit.factor(c.fitMode, c.fitFactor, contract.getSpeed().clipMaxFactor))
+                : IconLayer.load(o.file, side);
         if (o.layer == null) {
             o.skipped = true;
             return;
