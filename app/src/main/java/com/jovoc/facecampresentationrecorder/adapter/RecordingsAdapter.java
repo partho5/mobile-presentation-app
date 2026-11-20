@@ -199,7 +199,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     /** Status line (and upload bar) for a recording that has been sent to channels. */
     private void bindPublishStatus(RecordingViewHolder holder, RecordingItem item) {
         PublishJob job = item.isReady() ? item.getPublishJob() : null;
-        String text = PublishLabels.status(context, job);
+        String text = PublishLabels.listStatus(context, job);
         if (text == null) {
             holder.tvPublishStatus.setVisibility(View.GONE);
             holder.pbPublish.setVisibility(View.GONE);

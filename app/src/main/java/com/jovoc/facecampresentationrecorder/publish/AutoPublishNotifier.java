@@ -11,6 +11,9 @@ import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
+import com.jovoc.facecampresentationrecorder.account.BrandLabel;
+import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.ui.AccountActivity;
 import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
@@ -28,8 +31,15 @@ public final class AutoPublishNotifier {
 
     private AutoPublishNotifier() {}
 
-    /** The one line shown for a finished (DONE or FAILED) auto-publish job. */
+    /**
+     * The one line shown for a finished (DONE or FAILED) auto-publish job. With several brands it names the
+     * job's own brand; with one brand it is the same line as before.
+     */
     public static String message(Context c, PublishJob job) {
+        return BrandLabel.withBrand(baseMessage(c, job), PublishLabels.brandNameFor(c, job));
+    }
+
+    private static String baseMessage(Context c, PublishJob job) {
         if (PublishJob.DONE.equals(job.status)) {
             // The post is live either way; a second line says how its captions were written, or why
             // the user's own text went out (the card carries the same line).
@@ -60,7 +70,12 @@ public final class AutoPublishNotifier {
                     context.getString(R.string.auto_notif_channel_name),
                     NotificationManager.IMPORTANCE_DEFAULT));
         }
-        Intent open = PublishLabels.needsPlan(job)
+        // A job made in another brand must not open a screen of the brand in use (its plan, its set-up,
+        // its credits): its notification opens My Videos, where the job's own status is, and the
+        // actions that would open such a screen are left out.
+        TokenStore store = SessionManager.get(context).repository().store();
+        boolean otherBrand = BrandLabel.isOtherBrand(job.workspaceId, store.workspaceId());
+        Intent open = PublishLabels.needsPlan(job) && !otherBrand
                 ? AutoPublishActivity.upgradeIntent(context)
                 : new Intent(context, SavedRecordingsActivity.class)
                         .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -72,7 +87,7 @@ public final class AutoPublishNotifier {
                 .setContentIntent(PendingIntent.getActivity(context, id, open,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true);
-        if ("AUTO_NOT_CONFIGURED".equals(job.errorKind)) {
+        if (!otherBrand && "AUTO_NOT_CONFIGURED".equals(job.errorKind)) {
             // "Set up" opens the Auto upload screen (it sends a signed-out user to sign-in first).
             Intent setUp = new Intent(context, AutoPublishActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -80,7 +95,7 @@ public final class AutoPublishNotifier {
                     PendingIntent.getActivity(context, id + 1000, setUp,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
-        if (creditsSkipped(job)) {
+        if (!otherBrand && creditsSkipped(job)) {
             // Captions were skipped for lack of credits: one tap to the credits screen.
             Intent topUp = new Intent(context, AccountActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

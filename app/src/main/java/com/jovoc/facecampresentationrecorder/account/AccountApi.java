@@ -43,15 +43,20 @@ public class AccountApi {
 
     /**
      * GET /user/organizations. Sent without the picked workspace: the list must stay reachable
-     * even when the pick is stale.
+     * even when the pick is stale. The list is also stored on the device, so screens can name the
+     * brand of a message without the network.
      */
     public List<Workspace> listWorkspaces() throws AccountException {
+        String session = repo.store().sessionId();
         ApiResponse r = authed("GET", PATH_WORKSPACES, false);
+        List<Workspace> list;
         try {
-            return Workspace.parseList(r.body);
+            list = Workspace.parseList(r.body);
         } catch (JSONException e) {
             throw new AccountException(AccountException.Kind.SERVER);
         }
+        repo.store().saveBrands(session, list);
+        return list;
     }
 
     /** GET /user/self: the id of the workspace the server resolves for this device right now. */

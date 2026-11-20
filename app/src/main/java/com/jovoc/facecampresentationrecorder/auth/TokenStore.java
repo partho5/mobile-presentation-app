@@ -1,9 +1,17 @@
 package com.jovoc.facecampresentationrecorder.auth;
 
+import com.jovoc.facecampresentationrecorder.account.Workspace;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-/** The device's session: token pair, session id, email, device name and the picked brand. */
+/** The device's session: token pair, session id, email, device name, the picked brand and the brand list. */
 public class TokenStore {
 
     /** Access tokens are renewed this long before they expire. */
@@ -18,11 +26,14 @@ public class TokenStore {
     private static final String K_WORKSPACE = "workspace_id";
     private static final String K_WORKSPACE_NAME = "workspace_name";
     private static final String K_WORKSPACE_LOST = "workspace_access_lost";
+    private static final String K_BRANDS = "workspace_list";
 
     private final KeyValueStore kv;
     private final Object lock = new Object();
     private volatile Runnable sessionListener;
     private volatile Runnable brandListener;
+    /** The brand list read from the store, so screens that name brands do not decode it on every card. */
+    private volatile List<Workspace> brandsCache;
 
     public TokenStore(KeyValueStore kv) {
         this.kv = kv;
@@ -64,6 +75,8 @@ public class TokenStore {
                 m.put(K_WORKSPACE, null);
                 m.put(K_WORKSPACE_NAME, null);
                 m.put(K_WORKSPACE_LOST, null);
+                m.put(K_BRANDS, null);
+                brandsCache = null;
             }
             kv.putAll(m);
         }
@@ -150,6 +163,58 @@ public class TokenStore {
         notifyBrandChanged();
     }
 
+    /**
+     * Stores the brands this account belongs to (id and name), as the server listed them. Only written while
+     * {@code sessionId} is still the session held, so a list that arrives after a sign-out is dropped.
+     */
+    public void saveBrands(String sessionId, List<Workspace> brands) {
+        synchronized (lock) {
+            String current = kv.get(K_SESSION);
+            if (sessionId == null || !sessionId.equals(current)) return;
+            JSONArray arr = new JSONArray();
+            List<Workspace> kept = new ArrayList<>();
+            for (Workspace w : brands) {
+                if (w == null || w.id == null || w.id.isEmpty()) continue;
+                String name = w.name == null ? "" : w.name;
+                try {
+                    arr.put(new JSONObject().put("id", w.id).put("name", name));
+                } catch (JSONException e) {
+                    continue;
+                }
+                kept.add(new Workspace(w.id, name, ""));
+            }
+            Map<String, String> m = new HashMap<>();
+            m.put(K_BRANDS, arr.toString());
+            kv.putAll(m);
+            brandsCache = List.copyOf(kept);
+        }
+    }
+
+    /** The brands stored by {@link #saveBrands}; empty when none were stored (for example, never fetched). */
+    public List<Workspace> brands() {
+        synchronized (lock) {
+            List<Workspace> cached = brandsCache;
+            if (cached != null) return cached;
+            List<Workspace> out = new ArrayList<>();
+            String raw = kv.get(K_BRANDS);
+            if (raw != null) {
+                try {
+                    JSONArray arr = new JSONArray(raw);
+                    for (int i = 0; i < arr.length(); i++) {
+                        JSONObject o = arr.optJSONObject(i);
+                        if (o == null) continue;
+                        String id = o.optString("id", "");
+                        if (!id.isEmpty()) out.add(new Workspace(id, o.optString("name", ""), ""));
+                    }
+                } catch (JSONException ignored) {
+                    // A damaged list reads as none; the next listing rewrites it.
+                }
+            }
+            brandsCache = List.copyOf(out);
+            return brandsCache;
+        }
+    }
+
     public long accessExpiresAtMs() {
         String v = read(K_EXPIRES);
         if (v == null) return 0L;
@@ -169,6 +234,7 @@ public class TokenStore {
     public void clear() {
         synchronized (lock) {
             kv.clear();
+            brandsCache = null;
         }
         notifySessionChanged();
         notifyBrandChanged();

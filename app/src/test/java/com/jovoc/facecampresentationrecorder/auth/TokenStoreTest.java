@@ -158,4 +158,32 @@ public class TokenStoreTest {
         assertEquals(0L, store.accessExpiresAtMs());
         assertTrue(store.accessNeedsRefresh(1));
     }
+
+    @Test
+    public void storesTheBrandListForTheSessionAndForgetsItOnANewOne() {
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveBrands("sid", java.util.Arrays.asList(
+                new com.jovoc.facecampresentationrecorder.account.Workspace("w1", "Acme", "ADMIN"),
+                new com.jovoc.facecampresentationrecorder.account.Workspace("w2", "", "USER")));
+        assertEquals(2, store.brands().size());
+        assertEquals("Acme", store.brands().get(0).name);
+        assertEquals("w2", store.brands().get(1).id);
+
+        // A list for an earlier session, arriving late, is dropped.
+        store.saveBrands("old", java.util.Collections.singletonList(
+                new com.jovoc.facecampresentationrecorder.account.Workspace("w9", "Old", "")));
+        assertEquals(2, store.brands().size());
+
+        // A new session forgets the list; it is fetched again at sign-in.
+        store.saveTokens("acc2", "ref2", "sid2", 900, 0);
+        assertTrue(store.brands().isEmpty());
+    }
+
+    @Test
+    public void aStoredListSurvivesAFreshStoreOnTheSameKeyValues() {
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveBrands("sid", java.util.Collections.singletonList(
+                new com.jovoc.facecampresentationrecorder.account.Workspace("w1", "Acme", "")));
+        assertEquals("Acme", new TokenStore(kv).brands().get(0).name);
+    }
 }

@@ -102,6 +102,12 @@ public final class SessionManager {
                 boolean hadPick = repo.store().workspaceId() != null;
                 String brand = resolveBrand(atSignIn);
                 PublishManager.get(appContext).pinDefaultWorkspace(brand);
+                // The stored brand list names brands in messages: keep it current (one call, in the background).
+                try {
+                    new AccountApi(repo).listWorkspaces();
+                } catch (AccountException ignored) {
+                    // Offline: the list stays as it was; the next start or the picker refreshes it.
+                }
                 // The plan is asked for a brand only when this pinned a new one (sign-in, or a first pick).
                 if (atSignIn || !hadPick) EntitlementsRefresher.refreshNow();
             } catch (AuthException | RuntimeException ignored) {

@@ -3,6 +3,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 import android.content.Context;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.account.BrandLabel;
 import com.jovoc.facecampresentationrecorder.account.BrandPin;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
@@ -19,6 +20,29 @@ public final class PublishLabels {
     /** One line for a recording card, or null when the recording has no publish history. */
     public static String status(Context c, PublishJob job) {
         return status(c, job, System.currentTimeMillis());
+    }
+
+    /**
+     * The status line of a card in My Videos. With several brands it names the job's own brand (after
+     * the first line, or in the countdown); with one brand it is exactly {@link #status(Context, PublishJob)}.
+     */
+    public static String listStatus(Context c, PublishJob job) {
+        long now = System.currentTimeMillis();
+        String brand = brandNameFor(c, job);
+        if (brand == null) return status(c, job, now);
+        int undoLeft = AutoPublishUndo.secondsLeft(job, now);
+        if (undoLeft > 0) return c.getString(R.string.status_auto_undo_brand, brand, undoLeft);
+        return BrandLabel.withBrand(status(c, job, now), brand);
+    }
+
+    /**
+     * The name of the brand a job was made in, when the person has several brands and the name is known;
+     * null otherwise (one brand, an unknown brand, or no name). Reads the stored brand list only.
+     */
+    public static String brandNameFor(Context c, PublishJob job) {
+        if (job == null) return null;
+        TokenStore store = SessionManager.get(c).repository().store();
+        return BrandLabel.brandName(store.brands(), job.workspaceId);
     }
 
     /** Same with an explicit clock; an auto job inside its undo window reads "Publishing in N s". */

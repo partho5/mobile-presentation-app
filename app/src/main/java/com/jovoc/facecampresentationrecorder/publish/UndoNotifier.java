@@ -43,7 +43,7 @@ public final class UndoNotifier {
         Notification n = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(context.getString(R.string.undo_notif_title))
-                .setContentText(context.getString(R.string.undo_notif_text, job.fileName))
+                .setContentText(undoText(context, job))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 // Live countdown that ticks without the app updating the notification.
@@ -58,6 +58,14 @@ public final class UndoNotifier {
                                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .build();
         nm.notify(id, n);
+    }
+
+    /** "clip will be published unless you cancel", naming the job's brand when the person has several. */
+    private static String undoText(Context context, PublishJob job) {
+        String brand = PublishLabels.brandNameFor(context, job);
+        return brand == null
+                ? context.getString(R.string.undo_notif_text, job.fileName)
+                : context.getString(R.string.undo_notif_text_brand, job.fileName, brand);
     }
 
     public static void cancel(Context context, long jobId) {

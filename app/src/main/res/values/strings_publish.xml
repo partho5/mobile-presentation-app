@@ -66,6 +66,7 @@
     <string name="status_deleted_web">Deleted on web</string>
     <string name="status_auto_waiting">Auto-publish: waiting for processing</string>
     <string name="status_auto_undo">Publishing in %1$d s · Tap to cancel</string>
+    <string name="status_auto_undo_brand">Publishing to %1$s in %2$d s · Tap to cancel</string>
     <string name="status_scheduled_slot">Scheduled for the next free slot</string>
 
     <!-- Failure reasons -->
@@ -111,6 +112,7 @@
     <!-- Undo window notification -->
     <string name="undo_notif_title">Publishing soon</string>
     <string name="undo_notif_text">%1$s will be published unless you cancel</string>
+    <string name="undo_notif_text_brand">%1$s will be published to %2$s unless you cancel</string>
 
     <!-- Auto-publish result notification -->
     <string name="auto_notif_channel_name">Auto-publish results</string>
