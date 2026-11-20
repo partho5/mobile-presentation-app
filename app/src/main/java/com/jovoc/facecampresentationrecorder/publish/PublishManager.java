@@ -13,7 +13,9 @@ import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.jovoc.facecampresentationrecorder.account.BrandPin;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.db.AppDatabase;
 import com.jovoc.facecampresentationrecorder.db.AudioSessionStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
@@ -88,8 +90,11 @@ public final class PublishManager {
         io.execute(() -> {
             PublishJob existing = dao.latestFor(job.filePath);
             if (existing == null || !existing.isActive()) {
-                // The job stays in the brand picked now, even if the user switches later.
-                String brand = job.workspaceId != null ? job.workspaceId : SessionManager.get(app).brandForNewJob();
+                // The job stays in the brand picked now, even if the user switches later. Runs on io, so a
+                // brand that is not stored yet may be resolved over the network here.
+                String brand = BrandPin.jobBrand(job.workspaceId,
+                        SessionManager.get(app).repository().store().workspaceId());
+                if (brand == null) brand = SessionManager.get(app).brandForNewJob();
                 if (brand == null) {
                     if (onFailed != null) onFailed.run();
                     return;
@@ -182,7 +187,8 @@ public final class PublishManager {
      * is signed in, saves an auto-publish job that waits for the post-processing. Call this BEFORE
      * {@link BgReplaceService#enqueue}, and {@link #onRecordingStopped} after it: the row is
      * durable first, so a process death right after the recording stops cannot lose the job (the
-     * startup sweep publishes it). Waits briefly for the insert; the workspace is pinned now.
+     * startup sweep publishes it). Waits briefly for the insert, so it never uses the network: the job takes
+     * the stored brand, and with none stored the job is skipped (the recording is kept) while the brand is asked for.
      */
     public void beginAuto(File video) {
         // The plan this recording started with (read here: the io thread may run after it ended).
@@ -193,14 +199,18 @@ public final class PublishManager {
             boolean on = allowed && app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
                     .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
             if (!on || !SessionManager.get(app).hasSession()) return;
-            // Auto-publish stays off while the picked brand has no access; the recording itself is kept.
-            if (SessionManager.get(app).repository().store().workspaceAccessLost()) return;
+            // The stored pick only: the caller waits for this (see below), so nothing here may use the network.
+            TokenStore store = SessionManager.get(app).repository().store();
+            // Auto-publish stays off while no brand is picked or the picked brand has no access; the recording
+            // itself is kept. With no pick yet, the pick is asked for in the background for the next recording.
+            String brand = BrandPin.autoPublishBrand(store.workspaceId(), store.workspaceAccessLost());
+            if (brand == null) {
+                if (store.workspaceId() == null) SessionManager.get(app).pinBrandInBackground(false);
+                return;
+            }
             String path = video.getAbsolutePath();
             PublishJob existing = dao.latestFor(path);
             if (existing != null && existing.isActive()) return;
-            // No brand, no job: the recording is kept and the startup sweep finds nothing to publish.
-            String brand = SessionManager.get(app).brandForNewJob();
-            if (brand == null) return;
 
             long now = System.currentTimeMillis();
             PublishJob job = new PublishJob();

@@ -64,6 +64,8 @@ public class AiEditService extends Service {
         /** The server heard no speech in this recording; asking again gets the same answer. */
         NO_SPEECH,
         NOT_SIGNED_IN,
+        /** No brand can be had now (offline, first use): nothing is saved or charged; try again later. */
+        NO_BRAND,
         /** The file is missing, or the level is unknown. */
         INVALID
     }
@@ -95,7 +97,11 @@ public class AiEditService extends Service {
             if (isQueuedOrRunning(path, level)) return StartResult.ALREADY_RUNNING;
         }
         if (job == null) {
-            job = newJob(app, store, source, level);
+            // The job is made in the brand picked now. Called off the main thread (the panel's executor), so a
+            // brand not stored yet may be resolved here; without one, nothing is saved or charged.
+            String brand = SessionManager.get(app).brandForNewJob();
+            if (brand == null) return StartResult.NO_BRAND;
+            job = newJob(app, store, source, level, brand);
         } else if (AiEditException.NO_SPEECH.equals(job.error)) {
             return StartResult.NO_SPEECH;
         } else if (AiEditJob.STAGE_DONE.equals(job.stage)) {
@@ -148,7 +154,7 @@ public class AiEditService extends Service {
         return master.isFile() ? master : video;
     }
 
-    private static AiEditJob newJob(Context app, AiEditStore store, File source, String level) {
+    private static AiEditJob newJob(Context app, AiEditStore store, File source, String level, String brand) {
         String path = source.getAbsolutePath();
         List<String> ratios = new ArrayList<>();
         for (int[] r : RecordSettings.autoCropRatios(app, null)) ratios.add(r[0] + ":" + r[1]);
@@ -160,7 +166,7 @@ public class AiEditService extends Service {
             if (log != null) fromLog = log.sessionId;
         }
         AiEditJob job = new AiEditJob(path, level, store.sessionFor(path, fromLog),
-                SessionManager.get(app).repository().store().workspaceId(), ratios,
+                brand, ratios,
                 AiEditSettings.textColors(app), AiEditSettings.soundEffects(app));
         // The caption is used only once its words are on the phone (it is READY); else the audio is sent.
         if (SubtitleCache.loadForVideo(app.getCacheDir(), source) != null) {

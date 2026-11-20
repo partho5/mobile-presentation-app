@@ -36,6 +36,34 @@ public final class BrandPin {
     }
 
     /**
+     * The brand a job is made in, from what is stored and without the network: the job's own brand when
+     * it has one (a job keeps its brand after a switch), else the stored pick. Null when neither is set:
+     * the brand must then be resolved off the main thread before the job is saved, or the job is not saved.
+     */
+    public static String jobBrand(String ownBrand, String storedPick) {
+        if (!isEmpty(ownBrand)) return ownBrand;
+        return isEmpty(storedPick) ? null : storedPick;
+    }
+
+    /**
+     * The brand an auto-publish job of a new recording is made in, or null when it must not start: no
+     * brand is picked yet, or the picked brand has lost access. Auto-publish stays off until a brand is chosen.
+     */
+    public static String autoPublishBrand(String storedPick, boolean accessLost) {
+        if (accessLost || isEmpty(storedPick)) return null;
+        return storedPick;
+    }
+
+    /**
+     * The brand name to show for a job that failed because its brand lost access: the name when that brand is
+     * the one in use and has a name, else null (the reason then reads without a name).
+     */
+    public static String lostBrandName(String jobBrand, String pickedId, String pickedName) {
+        if (isEmpty(jobBrand) || !jobBrand.equals(pickedId)) return null;
+        return isEmpty(pickedName) || pickedName.trim().isEmpty() ? null : pickedName;
+    }
+
+    /**
      * Returns the brand in use and, when {@link #shouldPin} says so, saves the server's default as the
      * pick first. Nothing is saved when the default cannot be read, so the pick stays as it was.
      * Blocking; never called from the main thread.

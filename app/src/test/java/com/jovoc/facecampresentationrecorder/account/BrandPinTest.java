@@ -82,6 +82,44 @@ public class BrandPinTest {
         assertEquals("", BrandPin.nameOf(Collections.emptyList(), "w1"));
     }
 
+    @Test
+    public void aNewJobKeepsItsOwnBrandOrTheStoredPick() {
+        // A job keeps the brand it was made in after a switch: its own brand wins over the pick.
+        assertEquals("w1", BrandPin.jobBrand("w1", "w2"));
+        assertEquals("w2", BrandPin.jobBrand(null, "w2"));
+        assertEquals("w2", BrandPin.jobBrand("", "w2"));
+    }
+
+    @Test
+    public void aNewJobWithNoBrandStoredIsNeverSavedWithANullOrEmptyBrand() {
+        // Null means "resolve it first"; the caller must not save the job with it.
+        assertNull(BrandPin.jobBrand(null, null));
+        assertNull(BrandPin.jobBrand("", ""));
+        assertNull(BrandPin.jobBrand(null, ""));
+    }
+
+    @Test
+    public void autoPublishStaysOffUntilABrandIsPickedAndKeepsItsAccess() {
+        assertEquals("w1", BrandPin.autoPublishBrand("w1", false));
+        // No pick yet: nothing starts (the recording is kept, the pick is asked for).
+        assertNull(BrandPin.autoPublishBrand(null, false));
+        assertNull(BrandPin.autoPublishBrand("", false));
+        // The picked brand lost access: auto-publish stays off even with a pick.
+        assertNull(BrandPin.autoPublishBrand("w1", true));
+    }
+
+    @Test
+    public void lostAccessNamesOnlyTheBrandInUse() {
+        assertEquals("Acme", BrandPin.lostBrandName("w1", "w1", "Acme"));
+        // A job for another brand gets the unnamed wording.
+        assertNull(BrandPin.lostBrandName("w2", "w1", "Acme"));
+        // No name to show (missing, blank, or no job brand): no name.
+        assertNull(BrandPin.lostBrandName("w1", "w1", null));
+        assertNull(BrandPin.lostBrandName("w1", "w1", "   "));
+        assertNull(BrandPin.lostBrandName(null, "w1", "Acme"));
+        assertNull(BrandPin.lostBrandName("w1", null, "Acme"));
+    }
+
     // ---- the blocking pin ----
 
     @Test

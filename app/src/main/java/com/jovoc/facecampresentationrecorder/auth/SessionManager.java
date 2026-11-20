@@ -79,7 +79,8 @@ public final class SessionManager {
 
     /**
      * The brand a new job is made in: the pick, or the server's default pinned now. Null when none can
-     * be had (offline, first use): the job must then not be saved.
+     * be had (offline, first use): the job must then not be saved. With no pick stored this waits on the
+     * network, so it is never called on the main thread or where a screen waits for it.
      */
     public String brandForNewJob() {
         try {

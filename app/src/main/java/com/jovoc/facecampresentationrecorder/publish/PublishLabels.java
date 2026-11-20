@@ -3,6 +3,7 @@ package com.jovoc.facecampresentationrecorder.publish;
 import android.content.Context;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.account.BrandPin;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
@@ -173,11 +174,8 @@ public final class PublishLabels {
     public static String reasonFor(Context c, PublishJob job) {
         if ("WORKSPACE_FORBIDDEN".equals(job.errorKind)) {
             TokenStore store = SessionManager.get(c).repository().store();
-            String name = job.workspaceId != null && job.workspaceId.equals(store.workspaceId())
-                    ? store.workspaceName() : null;
-            if (name != null && !name.trim().isEmpty()) {
-                return c.getString(R.string.pub_err_workspace_named, name);
-            }
+            String name = BrandPin.lostBrandName(job.workspaceId, store.workspaceId(), store.workspaceName());
+            if (name != null) return c.getString(R.string.pub_err_workspace_named, name);
         }
         return reason(c, job.errorKind, job.errorDetail);
     }

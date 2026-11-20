@@ -447,7 +447,9 @@ final class AiEditPanel implements AiEditListener {
     private AiEditApi.Quote loadQuote(File src) {
         SessionManager session = SessionManager.get(appContext);
         if (!session.hasSession()) return null;
-        final String workspace = session.repository().store().workspaceId();
+        // The price is asked for the brand in use; with none (offline, first use) no price is asked for.
+        final String workspace = session.brandForNewJob();
+        if (workspace == null) return null;
         long seconds = secondsOf(src);
         try {
             return AiQuoteCache.shared().get(seconds, workspace,

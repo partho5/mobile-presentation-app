@@ -10,6 +10,8 @@ import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
 import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Tells the server when a transcript (AI caption) is used or thrown away, so its credits are held until then:
@@ -28,6 +30,15 @@ public final class CaptionUsage {
 
     private static final Object LOCK = new Object();
     private static boolean flushing;
+    /**
+     * Resolves the brand and stores the call off the caller's thread (often the main thread), so no screen waits
+     * on the network. A call is only ever stored with the brand in use, never an empty one.
+     */
+    private static final ExecutorService BRAND_IO = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "caption-usage-brand");
+        t.setDaemon(true);
+        return t;
+    });
 
     private CaptionUsage() {}
 
@@ -35,15 +46,10 @@ public final class CaptionUsage {
     public static void useFor(Context context, File video) {
         try {
             Context app = context.getApplicationContext();
+            // Read here, before the caller may change the subtitle record.
             String id = SubtitleEmbedStore.getCaptionId(app, video);
             if (id == null) return;
-            SharedPreferences prefs = prefs(app);
-            synchronized (LOCK) {
-                if (prefs.getBoolean(PREFIX_USED + id, false)) return;
-                prefs.edit().putBoolean(PREFIX_USED + id, true).apply();
-                add(prefs, USE, id, workspaceId(app));
-            }
-            flush(app);
+            BRAND_IO.execute(() -> record(app, USE, id));
         } catch (Exception ignored) {
             // credits are settled by the server anyway; never disturb the embed
         }
@@ -58,14 +64,10 @@ public final class CaptionUsage {
         try {
             Context app = context.getApplicationContext();
             if (recording == null || !isMasterAlone(recording)) return;
+            // Read here, before the caller removes the subtitle record.
             String id = SubtitleEmbedStore.getCaptionId(app, recording);
             if (id == null) return;
-            SharedPreferences prefs = prefs(app);
-            synchronized (LOCK) {
-                if (prefs.getBoolean(PREFIX_USED + id, false)) return;
-                add(prefs, RELEASE, id, workspaceId(app));
-            }
-            flush(app);
+            BRAND_IO.execute(() -> record(app, RELEASE, id));
         } catch (Exception ignored) {
             // the server frees an unused hold by itself after a day
         }
@@ -150,9 +152,24 @@ public final class CaptionUsage {
         return true;
     }
 
-    private static String workspaceId(Context app) {
-        String ws = SessionManager.get(app).repository().store().workspaceId();
-        return ws == null ? "" : ws;
+    /**
+     * Stores one pending call in the brand in use, then sends it. Nothing is stored when no brand can be had now:
+     * the call is not sent without one, and the next use or release of this recording asks again.
+     */
+    private static void record(Context app, String op, String id) {
+        try {
+            String brand = SessionManager.get(app).brandForNewJob();
+            if (brand == null) return;
+            SharedPreferences prefs = prefs(app);
+            synchronized (LOCK) {
+                if (prefs.getBoolean(PREFIX_USED + id, false)) return;
+                if (USE.equals(op)) prefs.edit().putBoolean(PREFIX_USED + id, true).apply();
+                add(prefs, op, id, brand);
+            }
+            flush(app);
+        } catch (Exception ignored) {
+            // credits are settled by the server anyway; never disturb the caller
+        }
     }
 
     private static SharedPreferences prefs(Context app) {

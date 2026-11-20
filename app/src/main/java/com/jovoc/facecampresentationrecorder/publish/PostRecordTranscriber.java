@@ -184,7 +184,10 @@ public final class PostRecordTranscriber {
             }
 
             AuthRepository repo = SessionManager.get(context).repository();
-            String workspaceId = repo.store().workspaceId();
+            // This thread may wait on the network: the brand in use is resolved here. With none, nothing is
+            // sent or charged, and the run ends as a failure (the next recording asks again).
+            String workspaceId = SessionManager.get(context).brandForNewJob();
+            if (workspaceId == null) return;
             PublishApi api = new PublishApi(repo);
 
             // Reuse any existing aiCaptionId so we never call POST /ai-captions or charge credits twice.
