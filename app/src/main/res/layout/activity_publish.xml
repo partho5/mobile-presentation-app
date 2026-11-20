@@ -59,6 +59,13 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
+            <include
+                android:id="@+id/row_brand"
+                layout="@layout/view_brand_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

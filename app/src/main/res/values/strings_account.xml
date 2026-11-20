@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="acct_workspace_label">Workspace</string>
-    <string name="acct_workspace_default">Default workspace</string>
+    <string name="acct_workspace_label">Brand</string>
+    <string name="brand_change">Change</string>
+    <string name="brand_posting_to">Posting to</string>
+    <string name="brand_locked_note">You can change the brand after the recording</string>
+    <string name="acct_workspace_default">Default brand</string>
     <string name="acct_credits_label">Credits</string>
     <string name="acct_credits_loading">Loading…</string>
     <string name="acct_credits_available">%1$s available</string>
@@ -17,24 +20,24 @@
     <string name="acct_delete_yes">Delete permanently</string>
     <string name="acct_delete_done">Your account was deleted.</string>
     <string name="acct_delete_unavailable">Account deletion is not available yet, so nothing was deleted. Please try again later.</string>
-    <string name="acct_delete_blocked">Your account could not be deleted. If other people share one of your workspaces, remove them on the website first; if you have a subscription, make sure it can be cancelled, then try again.</string>
+    <string name="acct_delete_blocked">Your account could not be deleted. If other people share one of your brands, remove them on the website first; if you have a subscription, make sure it can be cancelled, then try again.</string>
     <string name="acct_privacy">Privacy policy</string>
     <string name="acct_terms">Terms of service</string>
     <string name="web_no_browser">No browser app found to open this page.</string>
     <string name="session_ended_toast">Your publishing session ended. Click Auto upload to social media to sign in again.</string>
     <string name="acct_err_signed_out">You were signed out. Please sign in again.</string>
-    <string name="acct_err_workspace">You no longer have access to that workspace. Switched back to your default workspace.</string>
+    <string name="acct_err_workspace">You no longer have access to that brand. Switched back to your default brand.</string>
     <string name="acct_err_gone">That item no longer exists. The list was refreshed.</string>
     <string name="acct_retry">Retry</string>
 
-    <string name="ws_title">Workspace</string>
-    <string name="ws_hint">Posts, channels and credits belong to the workspace you pick. This choice is only for this phone.</string>
-    <string name="ws_empty">You are not a member of any workspace yet. Create or join one on the web.</string>
+    <string name="ws_title">Brand</string>
+    <string name="ws_hint">Posts, channels and credits belong to the brand you pick. Brands are created on the website. This choice is only for this phone.</string>
+    <string name="ws_empty">You are not a member of any brand yet. Create or join one on the web.</string>
     <string name="ws_current">Current</string>
     <string name="ws_role_admin">Admin</string>
     <string name="ws_role_owner">Owner</string>
     <string name="ws_role_member">Member</string>
-    <string name="ws_switched">Workspace: %1$s</string>
+    <string name="ws_switched">Brand: %1$s</string>
 
     <string name="dev_title">Devices</string>
     <string name="dev_hint">Every phone and browser signed in to your account.</string>

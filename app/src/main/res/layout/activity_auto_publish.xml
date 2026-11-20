@@ -51,6 +51,13 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <include
+            android:id="@+id/row_brand"
+            layout="@layout/view_brand_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp" />
+
         <!-- Next-step card: exactly one of its three steps shows (AutoPublishActivity.onPlatformsLoaded). -->
         <LinearLayout
             android:id="@+id/card_next_step"

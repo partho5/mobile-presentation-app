@@ -21,7 +21,6 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.CreditBalance;
-import com.jovoc.facecampresentationrecorder.account.Workspace;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
@@ -45,7 +44,7 @@ public class AccountActivity extends AppCompatActivity {
     private Button btnSignOut;
     private Button btnDelete;
     private ProgressBar progress;
-    private TextView tvWorkspace;
+    private BrandRowBinder brandRow;
     private TextView tvPlan;
     private TextView tvCredits;
     private final Entitlements.Listener planListener = this::showPlan;
@@ -74,16 +73,13 @@ public class AccountActivity extends AppCompatActivity {
         ((ImageButton) findViewById(R.id.btn_back)).setOnClickListener(v -> finish());
         ((TextView) findViewById(R.id.tv_account_email)).setText(session.email());
         ((TextView) findViewById(R.id.tv_account_device)).setText(session.deviceName());
-        tvWorkspace = findViewById(R.id.tv_account_workspace);
+        brandRow = new BrandRowBinder(this, findViewById(R.id.row_brand), io,
+                getString(R.string.acct_workspace_label));
         tvPlan = findViewById(R.id.tv_account_plan);
         tvCredits = findViewById(R.id.tv_account_credits);
         progress = findViewById(R.id.progress_account);
         btnSignOut = findViewById(R.id.btn_sign_out);
 
-        findViewById(R.id.row_workspace).setOnClickListener(v -> {
-            ActivityLog.log("account_row", "item", "workspace");
-            startActivity(new Intent(this, WorkspaceActivity.class));
-        });
         findViewById(R.id.row_plan).setOnClickListener(v -> {
             ActivityLog.log("account_row", "item", "plan");
             PlansSheet.show(this);
@@ -117,8 +113,11 @@ public class AccountActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // The workspace may have changed on the picker screen, and the balance with it.
-        if (created && session.hasSession()) refresh(false);
+        // The brand may have changed on the picker screen, and the balance with it.
+        if (created && session.hasSession()) {
+            brandRow.refresh();
+            refresh(false);
+        }
         if (created) {
             showPlan();
             Entitlements.addListener(planListener);
@@ -144,23 +143,12 @@ public class AccountActivity extends AppCompatActivity {
         io.shutdownNow();
     }
 
-    // ---- workspace + balance ----
+    // ---- balance ----
 
     private void refresh(boolean afterForbidden) {
         final int mine = ++generation;
         tvCredits.setText(R.string.acct_credits_loading);
-        String picked = session.repository().store().workspaceName();
-        if (session.repository().store().workspaceId() != null && picked != null && !picked.isEmpty()) {
-            tvWorkspace.setText(picked);
-        } else {
-            tvWorkspace.setText(R.string.acct_workspace_default);
-        }
         io.execute(() -> {
-            final String name = resolveDefaultName();
-            main.post(() -> {
-                if (mine == generation && name != null) tvWorkspace.setText(name);
-            });
-
             CreditBalance balance = null;
             AccountException error = null;
             try {
@@ -185,23 +173,6 @@ public class AccountActivity extends AppCompatActivity {
                 }
             });
         });
-    }
-
-    /**
-     * Name of the workspace the server uses when none is picked; null when a pick exists (its
-     * name is stored) or the lookup failed (the placeholder stays).
-     */
-    private String resolveDefaultName() {
-        if (session.repository().store().workspaceId() != null) return null;
-        try {
-            String id = api.currentWorkspaceId();
-            for (Workspace w : api.listWorkspaces()) {
-                if (w.id.equals(id)) return w.name;
-            }
-        } catch (AccountException ignored) {
-            // the balance call below reports connection problems
-        }
-        return null;
     }
 
     private String describe(CreditBalance b) {

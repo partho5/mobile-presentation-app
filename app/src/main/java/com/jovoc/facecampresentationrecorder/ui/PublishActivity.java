@@ -81,6 +81,7 @@ public class PublishActivity extends AppCompatActivity {
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private PublishApi api;
+    private BrandRowBinder brandRow;
     private File file;
 
     private ProgressBar progressChannels;
@@ -154,6 +155,8 @@ public class PublishActivity extends AppCompatActivity {
             return;
         }
         api = new PublishApi(session.repository());
+        brandRow = new BrandRowBinder(this, findViewById(R.id.row_brand), io,
+                getString(R.string.brand_posting_to));
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
@@ -248,6 +251,8 @@ public class PublishActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // The brand may have changed on the picker; recording may have started or stopped.
+        if (brandRow != null) brandRow.refresh();
         // Back from Auto upload after connecting a platform: look again without a manual refresh.
         if (showingNoChannels && api != null) loadChannels();
         // The plan may have changed (upgrade sheet, billing page).

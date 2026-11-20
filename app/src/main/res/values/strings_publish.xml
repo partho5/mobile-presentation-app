@@ -73,7 +73,7 @@
     <string name="pub_err_signed_out">please sign in again</string>
     <string name="pub_err_credits">not enough credits</string>
     <string name="pub_err_rejected">the server rejected the post</string>
-    <string name="pub_err_workspace">you no longer have access to that workspace</string>
+    <string name="pub_err_workspace">you no longer have access to that brand</string>
     <string name="pub_err_too_large">video is over the 1 GB limit</string>
     <string name="pub_err_rate_limited">too many requests, try again soon</string>
     <string name="pub_err_busy">still being processed, try again</string>
@@ -141,7 +141,7 @@
     <string name="ap_paused">Paused</string>
     <string name="ap_channel_switch_cd">Auto publish to %1$s</string>
     <string name="ap_preset_note">Using your web preset “%1$s”</string>
-    <string name="ap_ask_owner">Ask your workspace owner to add %1$s keys.</string>
+    <string name="ap_ask_owner">Ask your brand owner to add %1$s keys.</string>
     <string name="ap_ok">OK</string>
     <string name="ap_save_failed">Couldn\'t save. Try again.</string>
     <string name="ap_link_failed">Couldn\'t open %1$s. Try again.</string>

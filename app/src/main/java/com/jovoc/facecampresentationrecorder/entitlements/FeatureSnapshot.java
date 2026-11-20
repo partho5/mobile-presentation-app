@@ -55,6 +55,11 @@ public final class FeatureSnapshot {
         recording = null;
     }
 
+    /** True from {@link #beginRecording} until {@link #endRecording}. */
+    public static boolean recordingNow() {
+        return recording != null;
+    }
+
     /** The running recording's snapshot while one runs, otherwise the plan as it is now. */
     public static boolean allows(String feature) {
         FeatureSnapshot s = recording;

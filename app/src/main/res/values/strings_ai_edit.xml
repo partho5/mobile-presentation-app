@@ -66,7 +66,7 @@
     <string name="set_ai_edit_colors_header">Text colours</string>
     <string name="set_ai_edit_colors_multi">Multi colour</string>
     <string name="set_ai_edit_colors_brand">Brand colour</string>
-    <string name="set_ai_edit_colors_hint">Brand colour uses your workspace colour for the text in the edit.</string>
+    <string name="set_ai_edit_colors_hint">Brand colour uses the colour of your brand for the text in the edit.</string>
     <string name="set_ai_edit_sound_checkbox">Sound effects</string>
     <string name="set_ai_edit_sound_hint">Adds short sounds to the edit where they fit.</string>
 </resources>

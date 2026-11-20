@@ -123,6 +123,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     private TextView tvError;
     private TextView tvPresetNote;
     private TextView tvEmail;
+    private BrandRowBinder brandRow;
     private boolean created;
 
     /** The last list the server sent; null until the first load succeeds. */
@@ -173,6 +174,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         errorBox = findViewById(R.id.auto_publish_error_box);
         tvError = findViewById(R.id.tv_auto_publish_error);
         tvEmail = findViewById(R.id.tv_auto_publish_email);
+        brandRow = new BrandRowBinder(this, findViewById(R.id.row_brand), io,
+                getString(R.string.acct_workspace_label));
 
         findViewById(R.id.btn_auto_publish_retry).setOnClickListener(v -> refresh());
         findViewById(R.id.row_account).setOnClickListener(
@@ -194,6 +197,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
             return;
         }
         tvEmail.setText(session.email());
+        // The brand may have changed on the picker, and recording may have started or stopped.
+        brandRow.refresh();
         // The plan may have changed while away (billing page); also follows changes while open.
         syncMasterGate();
         Entitlements.addListener(planListener);
