@@ -284,7 +284,7 @@ final class LookConformance {
     private void runCombo(EngineContract contract, String id, TextLook look, JSONArray facts, JSONObject probe,
                           PaletteResolver colors, int slot, String ratio, float wanted, int maxW,
                           Set<String> out) throws JSONException {
-        // The phone's own rule (Title Case for case:upper, see textDrawnOverride), not the server's text_drawn
+        // The phone's own rule (Title Case for case:upper); the vectors' text_drawn is Title Case too and is compared in the case fact
         String shown = LookTypography.shownText(probe.getString("text"), "upper".equals(look.caseMode),
                 probe.getString("language"));
         LookPaintPlan.Room room;
@@ -648,9 +648,8 @@ final class LookConformance {
                 c.expect(f.getString("mode").equals("upper") == c.plan.upper, "case mode");
                 String shown = LookTypography.shownText(c.probe.getString("text"), c.plan.upper, c.probe.getString("language"));
                 String vectors = c.probe.getString("text_drawn");
-                String why = textDrawnOverride(shown, vectors, c.plan.upper, c.probe.getString("language"));
-                c.expect(why == null, "text drawn for " + c.probe.getString("probe") + " is " + shown + ", the vectors say "
-                        + vectors + (why == null ? "" : " (" + why + ")"));
+                c.expect(shown.equals(vectors), "text drawn for " + c.probe.getString("probe") + " is " + shown
+                        + ", the vectors say " + vectors);
             }
         });
         l.add(new FactCheck("letter_spacing", "letter_spacing") {
@@ -663,23 +662,6 @@ final class LookConformance {
             }
         });
         return l;
-    }
-
-    /**
-     * OWNER OVERRIDE of gate 5 (2026-11-20, card C11): the server's {@code look_vectors} still say {@code text_drawn} is
-     * the text in capitals for {@code case: upper}, but the owner chose Title Case on the phone. The contract and the
-     * vectors are NOT edited (server follow-up: make {@code text_drawn} Title Case for {@code case: upper}). Until then
-     * this is the one place the runner accepts a difference: for {@code case: upper} on a text with cased letters, the
-     * phone's text must be the Title Case rule's output and must equal the vectors' text apart from letter case
-     * (compared in the plan language). Everything else (as written, uncased scripts) is compared exactly.
-     *
-     * @return null when the phone's text is accepted, else the reason it is not
-     */
-    static String textDrawnOverride(String shown, String vectors, boolean upper, String language) {
-        if (!(upper && LookTypography.hasCase(vectors))) return shown.equals(vectors) ? null : "differs";
-        java.util.Locale l = LookTypography.localeOf(language);
-        if (!shown.toUpperCase(l).equals(vectors.toUpperCase(l))) return "differs by more than letter case";
-        return shown.equals(LookTypography.titleCase(vectors, l)) ? null : "not Title Case";
     }
 
     // ---- shared helpers ----

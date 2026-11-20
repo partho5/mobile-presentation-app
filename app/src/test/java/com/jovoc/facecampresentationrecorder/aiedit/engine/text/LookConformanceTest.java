@@ -239,19 +239,19 @@ public class LookConformanceTest {
     public void aWrongProbeFails() throws Exception {
         JSONArray v = vectors();
         JSONArray probes = vectorOf(v, "sticker").getJSONArray("probes");
-        // Turkish: 'i' must become the dotted capital
+        // Turkish: the dotted capital I with dot is needed
         for (int i = 0; i < probes.length(); i++) {
-            if ("turkish_i".equals(probes.getJSONObject(i).getString("probe"))) probes.getJSONObject(i).put("text_drawn", "IĞDIR ISIK");
+            if ("turkish_i".equals(probes.getJSONObject(i).getString("probe"))) probes.getJSONObject(i).put("text_drawn", "Iğdir Isık");
         }
         assertFails("locale blind case", run(LookConformance.standard(), TestContract.json(), v), "text drawn for turkish_i");
     }
 
     @Test
-    public void turkishDottedIIsUppercasedWithTheLanguageInTheRealVectors() throws Exception {
+    public void turkishDottedIIsTitleCasedWithTheLanguageInTheRealVectors() throws Exception {
         JSONArray probes = vectorOf(vectors(), "sticker").getJSONArray("probes");
         for (int i = 0; i < probes.length(); i++) {
             JSONObject p = probes.getJSONObject(i);
-            if ("turkish_i".equals(p.getString("probe"))) assertEquals("İĞDIR IŞIK", p.getString("text_drawn"));
+            if ("turkish_i".equals(p.getString("probe"))) assertEquals("İğdır Işık", p.getString("text_drawn"));
             if ("bengali_conjunct".equals(p.getString("probe"))) assertEquals(p.getString("text"), p.getString("text_drawn"));
         }
     }
@@ -295,21 +295,6 @@ public class LookConformanceTest {
         latinZero.add("one_word");
         assertFails("no spacing on Latin", run(LookConformance.standard(), root.toString(), spacedVectors(0.08, latinZero)),
                 "letter spacing drawn for one_word");
-    }
-
-    @Test
-    public void theTitleCaseOverrideAcceptsOnlyTitleCaseOfTheVectorsCapitals() {
-        // owner override (C11): vectors say capitals, the phone draws Title Case for case:upper
-        assertEquals(null, LookConformance.textDrawnOverride("Save Time Now", "SAVE TIME NOW", true, "en"));
-        assertEquals(null, LookConformance.textDrawnOverride("A", "A", true, "en"));
-        assertEquals(null, LookConformance.textDrawnOverride("İğdır Işık", "İĞDIR IŞIK", true, "tr"));
-        assertNotNull(LookConformance.textDrawnOverride("SAVE TIME NOW", "SAVE TIME NOW", true, "en"));
-        assertNotNull(LookConformance.textDrawnOverride("save time now", "SAVE TIME NOW", true, "en"));
-        assertNotNull(LookConformance.textDrawnOverride("Save Time", "SAVE TIME NOW", true, "en"));
-        // everything else is still compared exactly
-        assertEquals(null, LookConformance.textDrawnOverride("Save", "Save", false, "en"));
-        assertNotNull(LookConformance.textDrawnOverride("Save", "SAVE", false, "en"));
-        assertEquals(null, LookConformance.textDrawnOverride("শ্রেষ্ঠ", "শ্রেষ্ঠ", true, "bn"));
     }
 
     private interface Edit {
