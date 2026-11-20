@@ -22,6 +22,13 @@ import java.util.Set;
 public class MotionSheetGridTest {
 
     @Test
+    public void theTickedMotionsOfTheBuildAreEveryNonLegacyMotionOfTheSheetInGridOrder() {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (MotionSheetGrid.Motion m : MotionSheetGrid.MOTIONS) if (!m.legacy) ids.add(m.serverId());
+        assertEquals(ids, com.jovoc.facecampresentationrecorder.aiedit.engine.contract.Capabilities.DEVICE_PASSED_TEXT_MOTIONS);
+    }
+
+    @Test
     public void theSheetStringsAreTheTestMatrixExactly() {
         assertEquals(TestStrings.ALL.size(), MotionSheetStrings.ALL.size());
         for (int i = 0; i < TestStrings.ALL.size(); i++) {

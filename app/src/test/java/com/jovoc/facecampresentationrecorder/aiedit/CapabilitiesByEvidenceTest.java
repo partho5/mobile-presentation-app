@@ -44,14 +44,20 @@ public class CapabilitiesByEvidenceTest {
     }
 
     @Test
-    public void todayTheAppListsTheShippedSixAndNoFeature() throws Exception {
+    public void todayTheAppListsAllSixteenLooksAndTheirSevenFeatures() throws Exception {
         EngineContract c = TestContract.load();
         Capabilities caps = Capabilities.current(c);
-        assertEquals(SIX, new ArrayList<>(caps.getTextStyles()));
-        assertTrue(caps.getTextFeatures().isEmpty());
-        assertEquals(0, caps.toJson().getJSONArray("text_features").length());
-        assertEquals(6, caps.toJson().getJSONArray("text_styles").length());
+        assertEquals(all(c), new ArrayList<>(caps.getTextStyles()));
+        assertEquals(SIX, new ArrayList<>(caps.getTextStyles()).subList(0, 6));
+        assertEquals(Arrays.asList("box_gradient", "box_border", "box_border_ring", "box_glow", "font_family",
+                "font_weight", "case_as_written"), new ArrayList<>(caps.getTextFeatures()));
+        assertEquals(7, caps.toJson().getJSONArray("text_features").length());
+        assertEquals(16, caps.toJson().getJSONArray("text_styles").length());
         assertTrue(caps.knownTo(c));
+        for (String id : Arrays.asList("neon_box", "pill_ring", "gradient_block", "tilt_sticker", "solid_round",
+                "pastel_pill", "flat_rect", "yellow_bold", "dark_accent", "coral_pill")) {
+            assertTrue(id, caps.canStyle(id));
+        }
     }
 
     @Test
@@ -103,9 +109,35 @@ public class CapabilitiesByEvidenceTest {
     }
 
     @Test
-    public void theTickedListsOfTheBuildAreSafe() throws Exception {
-        assertEquals(SIX, Capabilities.DEVICE_PASSED_TEXT_LOOKS);
-        assertTrue(Capabilities.DEVICE_PASSED_TEXT_FEATURES.isEmpty());
+    public void theTickedListsOfTheBuildAreTheSixPlusTheTenAndNeverDriftFromTheLooks() throws Exception {
+        EngineContract c = TestContract.load();
+        List<String> expectedLooks = new ArrayList<>(SIX);
+        expectedLooks.addAll(Arrays.asList("neon_box", "pill_ring", "gradient_block", "tilt_sticker", "solid_round",
+                "pastel_pill", "flat_rect", "yellow_bold", "dark_accent", "coral_pill"));
+        assertEquals(expectedLooks, Capabilities.DEVICE_PASSED_TEXT_LOOKS);
+        // the ticked features are exactly what the ticked looks need, derived (not typed twice)
+        java.util.Set<String> needed = new java.util.HashSet<>();
+        for (String id : Capabilities.DEVICE_PASSED_TEXT_LOOKS) {
+            needed.addAll(TextLookSupport.requiredFeatures(c.textLook(id)));
+        }
+        assertEquals(needed, new java.util.HashSet<>(Capabilities.DEVICE_PASSED_TEXT_FEATURES));
+        List<String> inPainterOrder = new ArrayList<>();
+        for (String f : TextLookSupport.IMPLEMENTED_FEATURES) if (needed.contains(f)) inPainterOrder.add(f);
+        assertEquals(inPainterOrder, Capabilities.DEVICE_PASSED_TEXT_FEATURES);
+        // the specific needs the owner named
+        assertTrue(TextLookSupport.requiredFeatures(c.textLook("neon_box")).contains("font_weight"));
+        assertTrue(TextLookSupport.requiredFeatures(c.textLook("dark_accent")).contains("font_family"));
+        assertTrue(TextLookSupport.requiredFeatures(c.textLook("coral_pill")).contains("font_family"));
+        assertTrue(TextLookSupport.requiredFeatures(c.textLook("tilt_sticker")).contains("box_border_ring"));
+        for (String id : expectedLooks.subList(6, 16)) {
+            assertTrue(id, TextLookSupport.requiredFeatures(c.textLook(id)).containsAll(
+                    Arrays.asList("box_border", "case_as_written")));
+        }
+        // every ticked look and feature is one the painter draws and the contract names
+        for (String id : Capabilities.DEVICE_PASSED_TEXT_LOOKS) assertTrue(id, TextLookSupport.drawable(c.textLook(id)));
+        for (String f : Capabilities.DEVICE_PASSED_TEXT_FEATURES) {
+            assertTrue(f, TextLookSupport.IMPLEMENTED_FEATURES.contains(f) && c.getTextFeatures().contains(f));
+        }
     }
 
     @Test

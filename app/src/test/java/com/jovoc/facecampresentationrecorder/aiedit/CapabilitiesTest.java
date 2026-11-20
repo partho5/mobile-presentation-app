@@ -36,8 +36,48 @@ public class CapabilitiesTest {
     public void nothingTickedSendsOnlyTheLegacyFive() throws Exception {
         assertEquals(Arrays.asList("pop", "stamp", "slide_up", "word_by_word", "sweep"), sent(Capabilities.current(
                 Arrays.<String>asList())));
-        assertTrue(Capabilities.DEVICE_PASSED_TEXT_MOTIONS.isEmpty());
-        assertEquals(Capabilities.LEGACY_TEXT_MOTIONS, sent(Capabilities.current()));
+    }
+
+    @Test
+    public void theBuildSendsTheLegacyFivePlusEveryTickedMotionOnce() throws Exception {
+        List<String> expected = new ArrayList<>(Capabilities.LEGACY_TEXT_MOTIONS);
+        expected.addAll(Capabilities.DEVICE_PASSED_TEXT_MOTIONS);
+        assertEquals(expected, sent(Capabilities.current()));
+        assertEquals(27, expected.size());
+        assertEquals(new java.util.HashSet<>(expected).size(), expected.size());
+        assertEquals(new java.util.HashSet<>(DRAWABLE), new java.util.HashSet<>(Capabilities.DEVICE_PASSED_TEXT_MOTIONS));
+    }
+
+    @Test
+    public void sentListsMatchWhatTheServerValidationAccepts() throws Exception {
+        Pattern name = Pattern.compile("^[a-z0-9_]{1,64}$");
+        Capabilities c = Capabilities.current(TestContract.load());
+        JSONObject j = c.toJson();
+        for (String key : new String[]{"text_motions", "text_features", "text_styles"}) {
+            JSONArray a = j.getJSONArray(key);
+            assertTrue(key, a.length() <= 50);
+            for (int i = 0; i < a.length(); i++) assertTrue(a.getString(i), name.matcher(a.getString(i)).matches());
+        }
+        assertEquals(27, j.getJSONArray("text_motions").length());
+        assertEquals(7, j.getJSONArray("text_features").length());
+        assertEquals(16, j.getJSONArray("text_styles").length());
+    }
+
+    @Test
+    public void aListLongerThanFiftyIsCutToTheFirstFiftyAndABadNameIsNeverSent() throws Exception {
+        List<String> many = new ArrayList<>();
+        for (int i = 0; i < 70; i++) many.add("m" + i);
+        List<String> withBad = new ArrayList<>(Arrays.asList("Bad-Name", "", "ok_id"));
+        withBad.addAll(many);
+        Capabilities c = new Capabilities(Arrays.<String>asList(), Arrays.<String>asList(), withBad,
+                Arrays.<String>asList());
+        List<String> out = sent(c);
+        assertEquals(50, out.size());
+        // legacy five first, then the ticked ids in order; the invalid names are skipped
+        assertEquals(Capabilities.LEGACY_TEXT_MOTIONS, out.subList(0, 5));
+        assertEquals("ok_id", out.get(5));
+        assertEquals("m0", out.get(6));
+        assertEquals("m43", out.get(49));
     }
 
     @Test

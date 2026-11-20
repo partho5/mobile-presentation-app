@@ -203,10 +203,20 @@ Facts the server fixed that the cards must match exactly:
 | C7 | 2 | Strict parse, capabilities by evidence, `text_features`, fail closed | C5, C6 | ☑ |
 | C8 | 2 | JVM conformance runner: `look_vectors` and the string matrix against the paint plan | C7, server S7 | ☑ |
 | C9 | 2 | Debug sheet gains looks and pixel probes; owner runs it and ticks | C8 | ☑ |
-| C10 | 2 | Wire the new looks, 3 at a time after the owner ticks them | C9, server S8 | ☐ |
+| C10 | 2 | Wire the new looks, 3 at a time after the owner ticks them | C9, server S8 | ☑ |
 | C11 | 2 | Owner device feedback fixes: Indic script optical size (Bengali too big), Title Case instead of forced capitals | C9 | ☑ |
 
-**Passed on a device (owner ticks, gate 1):** motions: none yet. looks: none yet.
+**Passed on a device (owner ticks, gate 1), ticked 2026-11-20 after running both debug sheets on a real device:**
+- motions (server naming; legacy `pop`, `stamp`, `slide_up`, `word_by_word`, `sweep` are always assumed): `fade`, `slide_left`,
+  `slide_right`, `slide_top`, `slide_bottom`, `typewriter`, `wipe`, `drop_bounce`, `blur_in`, `flip`, `glitch`, `hold_float`,
+  `hold_pulse`, `hold_shake`, `hold_shimmer`, `hold_neon_flicker`, `exit_fade`, `exit_slide_out`, `exit_shrink`, `exit_pop_out`,
+  `exit_typewriter_delete`, `exit_wipe_out`.
+- looks: the six shipped (`sticker`, `label_pill`, `3d`, `glow`, `gradient`, `highlighter`) plus `neon_box`, `pill_ring`,
+  `gradient_block`, `tilt_sticker`, `solid_round`, `pastel_pill`, `flat_rect`, `yellow_bold`, `dark_accent`, `coral_pill`
+  (`sans_condensed` confirmed for `dark_accent` and `coral_pill`). Only two defects were found, both fixed in C11 (Bengali
+  optical size; Title Case instead of capitals).
+- features (what the ten need, from `TextLookSupport.requiredFeatures`): `box_gradient`, `box_border`, `box_border_ring`,
+  `box_glow`, `font_family`, `font_weight`, `case_as_written`.
 
 ---
 

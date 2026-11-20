@@ -29,22 +29,41 @@ public final class Capabilities {
      * The motion ids the owner ticked under "Passed on a device" in {@code to-build/tasks.md} (gate 1), in the server's
      * naming: an entry as its name ({@code fade}, {@code slide_left}, ...), a hold as {@code hold_<id>}
      * ({@code hold_float}, ...) and an exit as {@code exit_<id>} ({@code exit_fade}, ...). Nothing is added by a card
-     * or by hand, only after the owner ticked the id there; empty until then.
+     * or by hand, only after the owner ticked the id there. The owner ticked every non-legacy motion of the debug motion sheet
+     * (22 ids; with the legacy five that is 27, under the server's limit of 50 per list); a test pins this list to the
+     * sheet's grid so the two cannot drift.
      */
-    public static final List<String> DEVICE_PASSED_TEXT_MOTIONS = Collections.unmodifiableList(Arrays.<String>asList());
+    public static final List<String> DEVICE_PASSED_TEXT_MOTIONS = Collections.unmodifiableList(Arrays.asList(
+            "fade", "slide_left", "slide_right", "slide_top", "slide_bottom", "typewriter", "wipe", "drop_bounce",
+            "blur_in", "flip", "glitch",
+            "hold_float", "hold_pulse", "hold_shake", "hold_shimmer", "hold_neon_flicker",
+            "exit_fade", "exit_slide_out", "exit_shrink", "exit_pop_out", "exit_typewriter_delete", "exit_wipe_out"));
+
+    /** The server's limit on the length of each {@code text_*} capability list in a request. */
+    public static final int MAX_LIST = 50;
 
     /**
      * The looks the owner ticked under "Passed on a device" in {@code to-build/tasks.md} (gate 1). The six shipped looks
      * are there by definition (installed phones always drew them); a new look is added only after the owner ticked it
-     * (card C10), never by hand or by a card before that.
+     * (card C10), never by hand or by a card before that. The owner ticked all ten new looks on the look sheet.
      */
-    public static final List<String> DEVICE_PASSED_TEXT_LOOKS = TextLookSupport.SHIPPED_LOOKS;
+    public static final List<String> DEVICE_PASSED_TEXT_LOOKS;
+
+    static {
+        List<String> looks = new ArrayList<>(TextLookSupport.SHIPPED_LOOKS);
+        looks.addAll(Arrays.asList("neon_box", "pill_ring", "gradient_block", "tilt_sticker", "solid_round",
+                "pastel_pill", "flat_rect", "yellow_bold", "dark_accent", "coral_pill"));
+        DEVICE_PASSED_TEXT_LOOKS = Collections.unmodifiableList(looks);
+    }
 
     /**
-     * The {@code text_features} ids the painter implements and the owner ticked (gate 1). The shipped looks need none, so
-     * this is empty until the owner ticks features with the new looks.
+     * The {@code text_features} ids the painter implements and the owner ticked (gate 1): the union of what the ticked
+     * looks need ({@link TextLookSupport#requiredFeatures}), in the painter's order. The shipped looks need none; a test
+     * derives the union from the bundled contract and pins this list to it so the two cannot drift.
      */
-    public static final List<String> DEVICE_PASSED_TEXT_FEATURES = Collections.unmodifiableList(Arrays.<String>asList());
+    public static final List<String> DEVICE_PASSED_TEXT_FEATURES = Collections.unmodifiableList(Arrays.asList(
+            "box_gradient", "box_border", "box_border_ring", "box_glow", "font_family", "font_weight",
+            "case_as_written"));
 
     private final Set<String> effects;
     private final Set<String> textStyles;
@@ -160,6 +179,16 @@ public final class Capabilities {
         return textStyles;
     }
 
+    /** The names the server's request validation accepts, at most {@link #MAX_LIST}, in order. */
+    static List<String> sendable(Collection<String> ids) {
+        List<String> out = new ArrayList<>();
+        for (String id : ids) {
+            if (out.size() >= MAX_LIST) break;
+            if (id != null && id.matches("^[a-z0-9_]{1,64}$")) out.add(id);
+        }
+        return out;
+    }
+
     /** Whether every id here exists in {@code contract} (a guard against a typo or an old contract). */
     public boolean knownTo(EngineContract contract) {
         for (String e : effects) if (contract.effect(e) == null) return false;
@@ -167,14 +196,20 @@ public final class Capabilities {
         return true;
     }
 
-    /** The request's {@code capabilities} object. */
+    /**
+     * The request's {@code capabilities} object. The server accepts at most {@link #MAX_LIST} names in each of
+     * {@code text_styles}, {@code text_motions} and {@code text_features}, each matching {@code ^[a-z0-9_]{1,64}$}. A
+     * longer list is cut to its first {@link #MAX_LIST}: the priority is the list order (legacy motions first, then the
+     * ticked ids in the order of the motion sheet; looks in contract order; features in the painter's order). A name the
+     * server would reject is never sent (it would fail the whole request); it is skipped.
+     */
     public JSONObject toJson() {
         try {
             return new JSONObject()
                     .put("effects", new JSONArray(effects))
-                    .put("text_styles", new JSONArray(textStyles))
-                    .put("text_motions", new JSONArray(textMotions))
-                    .put("text_features", new JSONArray(textFeatures));
+                    .put("text_styles", new JSONArray(sendable(textStyles)))
+                    .put("text_motions", new JSONArray(sendable(textMotions)))
+                    .put("text_features", new JSONArray(sendable(textFeatures)));
         } catch (JSONException e) {
             throw new IllegalStateException(e);
         }
