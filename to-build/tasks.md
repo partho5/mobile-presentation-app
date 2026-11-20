@@ -15,9 +15,8 @@ self-contained: read **Shared context** below, then the card's own "Read first" 
 
 # FaceCam app: switch brand with no friction and no leak (cards WS1-WS3)
 
-The web half and the reasons for each choice are in
-`/home/haku/projects/Next.js/Social-Media-Manager/WORKSPACE_SWITCH_PLAN.md`. These cards need **no server change**: every
-route they use already exists. The web cards are not required first.
+The web half is in `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (cards W1-W2). These cards need
+**no server change**: every route they use already exists. The web cards are not required first.
 
 The previous card set is kept in `to-build/tasks--ai-video-edit.md`.
 
