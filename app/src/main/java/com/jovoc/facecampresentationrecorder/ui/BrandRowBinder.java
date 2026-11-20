@@ -1,6 +1,5 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
-import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
@@ -89,7 +88,8 @@ public final class BrandRowBinder {
             Toast.makeText(activity.getApplicationContext(), R.string.brand_locked_note, Toast.LENGTH_SHORT).show();
             return;
         }
-        activity.startActivity(new Intent(activity, WorkspaceActivity.class));
+        // The picker returns to this screen, rebuilt from the intent it was started with, after a change.
+        activity.startActivity(WorkspaceActivity.open(activity, activity.getIntent()));
     }
 
     private void show(BrandRow row) {

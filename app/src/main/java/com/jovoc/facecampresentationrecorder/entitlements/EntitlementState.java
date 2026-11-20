@@ -43,23 +43,39 @@ final class EntitlementState {
     private final Map<String, String> keys;
     private final LongSupplier clockMs;
     private final Supplier<String> sessionId;
+    private final Supplier<String> brandId;
     private final Executor notifier;
     private final CopyOnWriteArrayList<Entitlements.Listener> listeners = new CopyOnWriteArrayList<>();
     private final Object lock = new Object();
     private volatile Snapshot snap;
 
+    /** Same as the full constructor with no brand: every token then belongs to the server's default. */
+    EntitlementState(EntitlementsPrefs prefs, Map<String, String> keys, LongSupplier clockMs,
+                     Supplier<String> sessionId, Executor notifier) {
+        this(prefs, keys, clockMs, sessionId, () -> null, notifier);
+    }
+
     /**
      * @param keys kid to base64 SPKI; empty makes every token invalid
      * @param sessionId the signed-in session's id, or null when signed out
+     * @param brandId the brand the phone works in now, or null for the server's default. A token
+     *                counts only for the brand it was fetched for, so one brand's plan never decides
+     *                what another brand may do.
      * @param notifier where listeners are called (the main thread in the app)
      */
     EntitlementState(EntitlementsPrefs prefs, Map<String, String> keys, LongSupplier clockMs,
-                     Supplier<String> sessionId, Executor notifier) {
+                     Supplier<String> sessionId, Supplier<String> brandId, Executor notifier) {
         this.prefs = prefs;
         this.keys = keys;
         this.clockMs = clockMs;
         this.sessionId = sessionId;
+        this.brandId = brandId;
         this.notifier = notifier;
+    }
+
+    /** The brand as the prefs store it: "" for the server's default, so a missing record stays distinguishable. */
+    private static String brandKey(String brand) {
+        return brand == null ? "" : brand;
     }
 
     boolean has(String feature) {
@@ -104,16 +120,25 @@ final class EntitlementState {
         return t != null ? t.exp : 0L;
     }
 
+    /** {@link #accept(String, String, String)} for the brand the phone works in right now. */
+    boolean accept(String jws, String catalogueJson) {
+        return accept(jws, catalogueJson, brandId.get());
+    }
+
     /**
      * Keeps a freshly fetched token if, and only if, it verifies for the current session and
-     * clock; a null catalogue (or one that is not a JSON object) leaves the stored one.
+     * clock, and was fetched for the brand the phone works in now (a reply that arrives after a
+     * brand change is dropped). A null catalogue (or one that is not a JSON object) leaves the
+     * stored one.
+     * @param fetchedFor the brand the request was sent for, or null for the server's default
      * @return true when the token was accepted
      */
-    boolean accept(String jws, String catalogueJson) {
+    boolean accept(String jws, String catalogueJson, String fetchedFor) {
         Snapshot before;
         Snapshot next;
         synchronized (lock) {
             before = loaded();
+            if (!brandKey(fetchedFor).equals(brandKey(brandId.get()))) return false;
             long nowMs = clockMs.getAsLong();
             EntitlementToken t;
             try {
@@ -123,12 +148,28 @@ final class EntitlementState {
             }
             if (t == null) return false;
             Catalogue fresh = Catalogue.parse(catalogueJson);
-            prefs.saveFetched(jws, fresh != null ? catalogueJson : null, nowMs, Math.max(prefs.maxIat(), t.iat));
+            prefs.saveFetched(jws, fresh != null ? catalogueJson : null, nowMs, Math.max(prefs.maxIat(), t.iat),
+                    brandKey(fetchedFor));
             next = new Snapshot(t, fresh != null ? fresh : before.catalogue);
             snap = next;
         }
         if (!next.sameAccess(before)) notifyChanged();
         return true;
+    }
+
+    /**
+     * The phone switched brand: the stored token counts only if it was fetched for the new one, so
+     * the old brand's plan stops at once. Listeners hear about it when the plan the user sees changes.
+     */
+    void brandChanged() {
+        Snapshot before;
+        Snapshot next;
+        synchronized (lock) {
+            before = snap;
+            next = read();
+            snap = next;
+        }
+        if (before != null && !before.sameAccess(next)) notifyChanged();
     }
 
     /** Forgets everything stored (sign-out, another session): back to the Free defaults. */
@@ -180,7 +221,9 @@ final class EntitlementState {
         EntitlementToken token = null;
         try {
             String jws = prefs.token();
-            if (jws != null) {
+            // Only a token fetched for the brand in use now counts. A token saved before brands were
+            // recorded has no brand (null) and is not trusted.
+            if (jws != null && Objects.equals(prefs.brand(), brandKey(brandId.get()))) {
                 token = EntitlementToken.verify(jws, keys, clockMs.getAsLong() / 1000, prefs.maxIat(),
                         sessionId.get());
             }

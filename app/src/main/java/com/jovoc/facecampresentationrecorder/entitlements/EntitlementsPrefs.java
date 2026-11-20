@@ -22,6 +22,7 @@ final class EntitlementsPrefs {
     private static final String K_CATALOGUE = "catalogue";
     private static final String K_LAST_FETCH_AT = "last_fetch_at";
     private static final String K_MAX_IAT = "max_iat";
+    private static final String K_BRAND = "brand";
 
     private final KeyValueStore kv;
 
@@ -42,9 +43,18 @@ final class EntitlementsPrefs {
         return kv.get(K_CATALOGUE);
     }
 
-    /** Wall-clock millis of the last verified 200, or 0. */
+    /** The brand the stored token was fetched for ("" for the server's default), or null when none was recorded. */
+    String brand() {
+        return kv.get(K_BRAND);
+    }
+
+    /**
+     * Wall-clock millis of the last verified 200, or 0. A token saved before brands were recorded is
+     * not trusted (see {@link EntitlementState}), so it counts as never fetched and the next
+     * foreground check fetches it again.
+     */
     long lastFetchAt() {
-        return readLong(K_LAST_FETCH_AT);
+        return brand() == null ? 0L : readLong(K_LAST_FETCH_AT);
     }
 
     /** Newest iat (epoch seconds) of any token accepted so far, or 0. */
@@ -52,13 +62,17 @@ final class EntitlementsPrefs {
         return readLong(K_MAX_IAT);
     }
 
-    /** Stores a verified token. A null catalogue keeps the one already stored. */
-    void saveFetched(String token, String catalogueJson, long fetchedAtMs, long maxIatSeconds) {
+    /**
+     * Stores a verified token and the brand it was fetched for ("" for the server's default). A null
+     * catalogue keeps the one already stored.
+     */
+    void saveFetched(String token, String catalogueJson, long fetchedAtMs, long maxIatSeconds, String brand) {
         Map<String, String> m = new HashMap<>();
         m.put(K_TOKEN, token);
         if (catalogueJson != null) m.put(K_CATALOGUE, catalogueJson);
         m.put(K_LAST_FETCH_AT, String.valueOf(fetchedAtMs));
         m.put(K_MAX_IAT, String.valueOf(maxIatSeconds));
+        m.put(K_BRAND, brand);
         kv.putAll(m);
     }
 

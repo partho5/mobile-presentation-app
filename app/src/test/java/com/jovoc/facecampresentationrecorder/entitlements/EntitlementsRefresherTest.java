@@ -50,7 +50,7 @@ public class EntitlementsRefresherTest {
     private final TokenStore tokens = new TokenStore(new TokenFixture.MemoryKv());
     private final AtomicLong nowMs = new AtomicLong(NOW * 1000);
     private final EntitlementState state = new EntitlementState(new EntitlementsPrefs(prefsKv), fx.keys(),
-            nowMs::get, tokens::sessionId, Runnable::run);
+            nowMs::get, tokens::sessionId, () -> EntitlementsApi.brandInUse(tokens), Runnable::run);
     private final List<String> changes = new CopyOnWriteArrayList<>();
     private final List<ExecutorService> workers = new ArrayList<>();
     private MockWebServer server;
@@ -88,8 +88,8 @@ public class EntitlementsRefresherTest {
         workers.add(worker);
         EntitlementsRefresher.PlanStore store = new EntitlementsRefresher.PlanStore() {
             @Override
-            public boolean accept(String token, String catalogueJson) {
-                return state.accept(token, catalogueJson);
+            public boolean accept(String token, String catalogueJson, String workspaceId) {
+                return state.accept(token, catalogueJson, workspaceId);
             }
 
             @Override

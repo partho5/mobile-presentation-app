@@ -36,6 +36,7 @@ public final class Entitlements {
                 EntitlementToken.parseKeys(BuildConfig.ENTITLEMENT_PUBLIC_KEYS),
                 System::currentTimeMillis,
                 () -> SessionManager.get(app).repository().store().sessionId(),
+                () -> EntitlementsApi.brandInUse(SessionManager.get(app).repository().store()),
                 main::post);
     }
 
@@ -70,13 +71,24 @@ public final class Entitlements {
 
     /**
      * Keeps a token fetched from the server if it verifies (right key, not expired, clock sane,
-     * this session); otherwise changes nothing. {@code catalogueJson} is the response's catalogue
-     * object, or null to keep the stored one. Blocks briefly; call off the main thread.
+     * this session) and was fetched for the brand the phone works in now; otherwise changes
+     * nothing. {@code catalogueJson} is the response's catalogue object, or null to keep the stored
+     * one. {@code workspaceId} is the brand the request was sent for, null for the server's default.
+     * Blocks briefly; call off the main thread.
      * @return true when the token was accepted
      */
-    public static boolean accept(String token, String catalogueJson) {
+    public static boolean accept(String token, String catalogueJson, String workspaceId) {
         EntitlementState s = state;
-        return s != null && s.accept(token, catalogueJson);
+        return s != null && s.accept(token, catalogueJson, workspaceId);
+    }
+
+    /**
+     * The phone switched brand: the plan of the previous brand stops counting at once, and the
+     * plan of the new one counts only once it has been fetched for it.
+     */
+    public static void brandChanged() {
+        EntitlementState s = state;
+        if (s != null) s.brandChanged();
     }
 
     /** Back to the Free defaults and an empty store: sign-out, or a different session. */

@@ -83,7 +83,7 @@ in the brand it was started in.
 | Card | Repo | What | Depends on | Status |
 |---|---|---|---|---|
 | WS1 | app | "Brand" wording; one brand row on Auto-publish, Publish and Account; locked while recording | - | ✅ |
-| WS2 | app | A change loads the new brand's plan, then restarts the screens back where you were; never while recording | WS1 | ⬜ |
+| WS2 | app | A change loads the new brand's plan, then restarts the screens back where you were; never while recording | WS1 | ✅ |
 | WS3 | app | Always one real brand: pinned at sign-in and on startup, jobs never unpinned, lost access asks instead of falling back | WS2 | ⬜ |
 | WS4 | app | Notifications, the undo countdown and My Videos name the job's brand when there is more than one | WS3 | ⬜ |
 

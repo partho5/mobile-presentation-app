@@ -297,4 +297,65 @@ public class EntitlementStateTest {
         assertEquals(0L, s.lastFetchAtMs());
         assertTrue(s.accept(pro(), CATALOGUE));
     }
+
+    /** A state whose brand is read from {@code brand[0]} each time, so a test can switch brands. */
+    private EntitlementState withBrand(String[] brand) {
+        EntitlementState s = new EntitlementState(new EntitlementsPrefs(kv), fx.keys(), nowMs::get,
+                () -> session, () -> brand[0], Runnable::run);
+        s.addListener(changes::incrementAndGet);
+        return s;
+    }
+
+    @Test
+    public void aTokenCountsOnlyForTheBrandItWasFetchedFor() {
+        String[] brand = {"b1"};
+        EntitlementState s = withBrand(brand);
+        assertTrue(s.accept(pro(), CATALOGUE));
+        assertTrue(s.has(Feature.BG_REPLACE));
+        assertEquals("b1", kv.data.get("brand"));
+        brand[0] = "b2";
+        s.brandChanged();
+        assertFalse(s.has(Feature.BG_REPLACE));
+        assertEquals("free", s.plan());
+        assertTrue(s.has(Feature.CROP_9_16));
+        assertEquals(2, changes.get());
+        // Back to b1 before b2 was fetched: b1's token still counts for b1.
+        brand[0] = "b1";
+        s.brandChanged();
+        assertTrue(s.has(Feature.BG_REPLACE));
+        assertEquals(3, changes.get());
+    }
+
+    @Test
+    public void aStoredTokenOfAnotherBrandIsIgnoredOnLoad() {
+        String[] brand = {"b1"};
+        assertTrue(withBrand(brand).accept(pro(), CATALOGUE));
+        brand[0] = "b2";
+        EntitlementState afterRestart = withBrand(brand);
+        assertFalse(afterRestart.has(Feature.BG_REPLACE));
+        assertEquals("free", afterRestart.plan());
+        brand[0] = null; // the server's default brand
+        assertFalse(withBrand(brand).has(Feature.BG_REPLACE));
+    }
+
+    @Test
+    public void aReplyFetchedForAnotherBrandIsDropped() {
+        String[] brand = {"b1"};
+        EntitlementState s = withBrand(brand);
+        brand[0] = "b2"; // switched while the request for b1 was on its way
+        assertFalse(s.accept(pro(), CATALOGUE, "b1"));
+        assertFalse(s.has(Feature.BG_REPLACE));
+        assertTrue(s.accept(fx.token("pro", "s1", "bg_replace"), CATALOGUE, "b2"));
+        assertTrue(s.has(Feature.BG_REPLACE));
+        assertEquals("b2", kv.data.get("brand"));
+    }
+
+    @Test
+    public void aTokenSavedBeforeBrandsWereRecordedIsNotTrusted() {
+        assertTrue(state().accept(pro(), CATALOGUE));
+        kv.data.remove("brand"); // as a build from before brands were recorded leaves it
+        EntitlementState s = state();
+        assertFalse(s.has(Feature.BG_REPLACE));
+        assertEquals(0L, s.lastFetchAtMs()); // so the next foreground check fetches again
+    }
 }

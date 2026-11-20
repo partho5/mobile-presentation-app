@@ -1,5 +1,6 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -13,19 +14,26 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.TaskStackBuilder;
+import androidx.core.content.IntentCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
+import com.jovoc.facecampresentationrecorder.account.BrandSwitch;
 import com.jovoc.facecampresentationrecorder.account.Workspace;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
+import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 
 import java.util.List;
@@ -33,10 +41,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Lists the user's workspaces and lets them pick the one this phone works in. The pick is sent as
- * {@code x-workspace-id} on every call and applies to publishing and credits.
+ * Lists the user's brands and lets them pick the one this phone works in. The pick is sent as
+ * {@code x-workspace-id} on every call and applies to publishing, credits and the plan.
+ *
+ * <p>A change restarts the app's screens on the new brand: the task is cleared, MainActivity starts,
+ * then the screen the picker was opened from ({@link #EXTRA_RETURN_TO}), rebuilt from the intent it
+ * was started with. Running uploads and AI edits are services and keep going.
  */
 public class WorkspaceActivity extends AppCompatActivity {
+
+    /** The screen to return to after a change: the intent the launching screen was started with. */
+    public static final String EXTRA_RETURN_TO = "return_to";
+    /** How long a change waits for the new brand's plan; slower or offline, it goes on without it. */
+    static final long PLAN_WAIT_MS = 2000L;
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -47,8 +64,19 @@ public class WorkspaceActivity extends AppCompatActivity {
     private View messageBox;
     private TextView tvMessage;
     private LinearLayout container;
-    /** The workspace the server resolves for this phone while no pick is stored; may be null. */
+    /** The brand the server resolves for this phone while no pick is stored; may be null. */
     private String serverDefaultId;
+    /** The screen to return to after a change, or null: then MainActivity alone. */
+    private Intent returnTo;
+    /** True from a change until the screens restart: taps and Back do nothing meanwhile. */
+    private boolean switching;
+
+    /** The picker, opened from a screen that passes its own intent so a change can return there. */
+    public static Intent open(Context context, Intent returnTo) {
+        Intent intent = new Intent(context, WorkspaceActivity.class);
+        if (returnTo != null) intent.putExtra(EXTRA_RETURN_TO, new Intent(returnTo));
+        return intent;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,13 +89,24 @@ public class WorkspaceActivity extends AppCompatActivity {
             return;
         }
         api = new AccountApi(session.repository());
+        returnTo = IntentCompat.getParcelableExtra(getIntent(), EXTRA_RETURN_TO, Intent.class);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
-        ((ImageButton) findViewById(R.id.btn_back)).setOnClickListener(v -> finish());
+        ((ImageButton) findViewById(R.id.btn_back)).setOnClickListener(v -> {
+            if (!switching) finish();
+        });
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (switching) return;
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
         progress = findViewById(R.id.progress_workspaces);
         messageBox = findViewById(R.id.workspaces_message_box);
         tvMessage = findViewById(R.id.tv_workspaces_message);
@@ -79,7 +118,8 @@ public class WorkspaceActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        main.removeCallbacksAndMessages(null);
+        // A change in progress still restarts the screens when its wait ends, so its callback stays.
+        if (!switching) main.removeCallbacksAndMessages(null);
         io.shutdownNow();
     }
 
@@ -138,7 +178,7 @@ public class WorkspaceActivity extends AppCompatActivity {
             role.setVisibility(roleText.isEmpty() ? View.GONE : View.VISIBLE);
             boolean isCurrent = w.id.equals(currentId);
             row.findViewById(R.id.tv_workspace_current).setVisibility(isCurrent ? View.VISIBLE : View.GONE);
-            row.setOnClickListener(v -> pick(w, isCurrent));
+            row.setOnClickListener(v -> pick(w, row));
             container.addView(row);
         }
     }
@@ -156,21 +196,55 @@ public class WorkspaceActivity extends AppCompatActivity {
         }
     }
 
-    private void pick(Workspace w, boolean isCurrent) {
+    private void pick(Workspace w, View row) {
+        if (switching) return;
         TokenStore store = session.repository().store();
-        if (!isCurrent || store.workspaceId() == null) {
-            ActivityLog.log("workspace_switch");
-            // Jobs queued under the server's default must not follow the switch.
-            if (store.workspaceId() == null && serverDefaultId != null) {
-                PublishManager.get(this).pinDefaultWorkspace(serverDefaultId);
-            }
-            store.saveWorkspace(w.id, w.name);
-            // Each workspace has its own plan.
-            EntitlementsRefresher.refreshNow();
-            Toast.makeText(getApplicationContext(), getString(R.string.ws_switched, w.name),
-                    Toast.LENGTH_SHORT).show();
+        String stored = store.workspaceId();
+        BrandSwitch.Outcome outcome = BrandSwitch.decide(stored, w.id, serverDefaultId,
+                FeatureSnapshot.recordingNow());
+        if (outcome == BrandSwitch.Outcome.BLOCKED_RECORDING) {
+            Toast.makeText(getApplicationContext(), R.string.brand_locked_note, Toast.LENGTH_SHORT).show();
+            return;
         }
-        setResult(RESULT_OK);
-        finish();
+        // Jobs queued under the server's default must not follow the switch.
+        if (stored == null && serverDefaultId != null) {
+            PublishManager.get(this).pinDefaultWorkspace(serverDefaultId);
+        }
+        if (outcome == BrandSwitch.Outcome.SAME) {
+            if (stored == null) {
+                // The same brand under a new name: its plan token was kept for the default, so fetch it again.
+                store.saveWorkspace(w.id, w.name);
+                EntitlementsRefresher.refreshNow();
+            }
+            setResult(RESULT_OK);
+            finish();
+            return;
+        }
+
+        switching = true;
+        TextView current = row.findViewById(R.id.tv_workspace_current);
+        current.setText(R.string.ws_switching);
+        current.setVisibility(View.VISIBLE);
+        ActivityLog.log("workspace_switch");
+        store.saveWorkspace(w.id, w.name);
+        // The old brand's plan stops counting now; the new brand's counts once it has been fetched.
+        Entitlements.brandChanged();
+        io.execute(() -> {
+            EntitlementsRefresher.refreshAndWait(PLAN_WAIT_MS);
+            main.post(() -> {
+                Toast.makeText(getApplicationContext(), getString(R.string.ws_switched, w.name),
+                        Toast.LENGTH_SHORT).show();
+                restart();
+            });
+        });
+    }
+
+    /** Clears the task, then starts MainActivity and the screen to return to, rebuilt from its own intent. */
+    private void restart() {
+        Intent home = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        TaskStackBuilder stack = TaskStackBuilder.create(getApplicationContext()).addNextIntent(home);
+        if (returnTo != null) stack.addNextIntent(returnTo);
+        stack.startActivities();
     }
 }

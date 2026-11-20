@@ -7,6 +7,7 @@ import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.auth.ApiResponse;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -25,14 +26,19 @@ final class EntitlementsApi {
 
     static final String PATH = "/entitlements";
 
-    /** A 200 answer: the token as sent (not yet verified) and the catalogue object as JSON text, or null. */
+    /**
+     * A 200 answer: the token as sent (not yet verified), the catalogue object as JSON text or null,
+     * and the brand the request was sent for (null: none picked, the server's default).
+     */
     static final class Fetched {
         final String token;
         final String catalogueJson;
+        final String workspaceId;
 
-        Fetched(String token, String catalogueJson) {
+        Fetched(String token, String catalogueJson, String workspaceId) {
             this.token = token;
             this.catalogueJson = catalogueJson;
+            this.workspaceId = workspaceId;
         }
     }
 
@@ -43,6 +49,14 @@ final class EntitlementsApi {
     EntitlementsApi(ApiClient client, AuthRepository auth) {
         this.client = client;
         this.auth = auth;
+    }
+
+    /**
+     * The brand a plan request is sent for, and the brand a token must have been fetched for: the
+     * stored pick while signed in, else null (an anonymous call carries no brand).
+     */
+    static String brandInUse(TokenStore store) {
+        return store.hasSession() ? store.workspaceId() : null;
     }
 
     static EntitlementsApi create(Context context) {
@@ -74,7 +88,8 @@ final class EntitlementsApi {
                     && workspace.equals(auth.store().workspaceId())) {
                 auth.store().clearWorkspace();
             }
-            return parse(r);
+            Fetched f = parse(r);
+            return f == null ? null : new Fetched(f.token, f.catalogueJson, workspace);
         } catch (IOException e) {
             return null;
         }
@@ -87,7 +102,7 @@ final class EntitlementsApi {
             Object token = j.opt("token");
             if (!(token instanceof String) || ((String) token).isEmpty()) return null;
             JSONObject catalogue = j.optJSONObject("catalogue");
-            return new Fetched((String) token, catalogue == null ? null : catalogue.toString());
+            return new Fetched((String) token, catalogue == null ? null : catalogue.toString(), null);
         } catch (JSONException e) {
             return null;
         }

@@ -4,11 +4,13 @@ import android.content.Context;
 
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
@@ -32,7 +34,7 @@ public final class EntitlementsRefresher {
 
     /** What the refresher needs from the stored plan: the {@link Entitlements} facade in the app. */
     interface PlanStore {
-        boolean accept(String token, String catalogueJson);
+        boolean accept(String token, String catalogueJson, String workspaceId);
 
         String plan();
 
@@ -54,8 +56,8 @@ public final class EntitlementsRefresher {
 
     private static final PlanStore FACADE = new PlanStore() {
         @Override
-        public boolean accept(String token, String catalogueJson) {
-            return Entitlements.accept(token, catalogueJson);
+        public boolean accept(String token, String catalogueJson, String workspaceId) {
+            return Entitlements.accept(token, catalogueJson, workspaceId);
         }
 
         @Override
@@ -145,6 +147,21 @@ public final class EntitlementsRefresher {
     }
 
     /**
+     * Fetch the token now and wait for the answer, at most {@code timeoutMs}. For a brand change, so
+     * the next screen opens with the new brand's plan. Blocks the calling thread; never throws.
+     * @return true when the fetch finished in time (whether or not its token was kept)
+     */
+    public static boolean refreshAndWait(long timeoutMs) {
+        EntitlementsRefresher r = instance;
+        if (r == null) return false;
+        try {
+            return r.awaitFetch(timeoutMs);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
      * For the return from the billing page: fetch now, again after 3 s and after 10 s, stopping as
      * soon as the plan differs from what it was when this was called.
      */
@@ -180,6 +197,19 @@ public final class EntitlementsRefresher {
             return true;
         } catch (RejectedExecutionException e) {
             queued.set(false);
+            return false;
+        }
+    }
+
+    /** Queues a fetch behind any running one and waits for it; false when it did not finish in time. */
+    boolean awaitFetch(long timeoutMs) {
+        try {
+            worker.submit(this::fetchOnce).get(timeoutMs, TimeUnit.MILLISECONDS);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (ExecutionException | TimeoutException | RejectedExecutionException e) {
             return false;
         }
     }
@@ -227,7 +257,7 @@ public final class EntitlementsRefresher {
             EntitlementsApi.Fetched fetched = api.fetch();
             if (fetched == null) return;
             String from = store.plan();
-            if (!store.accept(fetched.token, fetched.catalogueJson)) return;
+            if (!store.accept(fetched.token, fetched.catalogueJson, fetched.workspaceId)) return;
             String to = store.plan();
             if (!from.equals(to)) planChanged.accept(from, to);
         } catch (RuntimeException e) {

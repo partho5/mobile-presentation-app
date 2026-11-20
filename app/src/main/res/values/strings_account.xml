@@ -37,7 +37,8 @@
     <string name="ws_role_admin">Admin</string>
     <string name="ws_role_owner">Owner</string>
     <string name="ws_role_member">Member</string>
-    <string name="ws_switched">Brand: %1$s</string>
+    <string name="ws_switched">Switched to %1$s</string>
+    <string name="ws_switching">Switching…</string>
 
     <string name="dev_title">Devices</string>
     <string name="dev_hint">Every phone and browser signed in to your account.</string>
