@@ -204,6 +204,7 @@ Facts the server fixed that the cards must match exactly:
 | C8 | 2 | JVM conformance runner: `look_vectors` and the string matrix against the paint plan | C7, server S7 | ☑ |
 | C9 | 2 | Debug sheet gains looks and pixel probes; owner runs it and ticks | C8 | ☑ |
 | C10 | 2 | Wire the new looks, 3 at a time after the owner ticks them | C9, server S8 | ☐ |
+| C11 | 2 | Owner device feedback fixes: Indic script optical size (Bengali too big), Title Case instead of forced capitals | C9 | ☑ |
 
 **Passed on a device (owner ticks, gate 1):** motions: none yet. looks: none yet.
 
@@ -308,3 +309,20 @@ box contains text plus padding; nothing clipped at the safe-rectangle edge) and 
 **Build:** refresh `contract.json` from the server; no per-look code; add the ticked look ids (and the features they need) to
 `Capabilities.current()`; update `TestContract`. Repeat per batch of 3.
 **Tests:** C8 green for the new looks; capabilities remain a subset of the ticked list.
+
+## C11 - Owner device feedback fixes [slice 2]
+**Goal:** the two defects the owner found running the C4/C9 sheets (every motion and look passed otherwise).
+**Build:** (1) `LookTypography.scriptSizeFactor(text, measurer)` is the one owner of the optical size of a script: one table of
+tall scripts (the ten Indic ones, each with a short consonant-virama-consonant sample), measured Latin ink height ("Hg") divided
+by the script's ink height through the new `TextMeasurer.inkHeight` seam (default 0 = unknown = 1), clamped to 0.6..1, averaged
+over the letters of a mixed text; 1 for Latin and every other script. `TextLayoutPolicy.fit` multiplies the wanted size by it
+before the rule, so `Result.size`, the paint plan, the box padding and the sprite all follow the one drawn size, and it is not
+a `text_shrunk`. (2) `case: upper` (and so the shipped looks) draws Title Case, `LookTypography.titleCase(text, locale)`:
+word `BreakIterator`, first letter via `toUpperCase(locale)`, rest `toLowerCase(locale)`, a hyphen starts a new word, a letter
+after an in-word apostrophe stays lower, uncased words untouched; an all-caps word the writer typed is lowered too (NASA gives
+Nasa; deterministic, no acronym guess). **Owner override of gate 5** for this one change (shipped looks' uppercase becomes Title
+Case); Latin size is unchanged. `LookConformance.textDrawnOverride` accepts the phone's Title Case against the server vectors'
+capitals; the contract and vectors are not edited. Server follow-up: `text_drawn` for `case: upper` must become Title Case.
+**Tests:** `LookTypographyTest` (title case incl. Turkish, apostrophe, hyphen, uncased scripts, idempotent; size factor: Latin and
+untabled scripts 1, Indic by the measured ratio, floor, ceiling, unmeasurable, mixed average; fit applies it, not shrunk),
+`LookConformanceTest` (override accepts only Title Case of the vectors' capitals). Device-only: the real ratio on the owner's font.

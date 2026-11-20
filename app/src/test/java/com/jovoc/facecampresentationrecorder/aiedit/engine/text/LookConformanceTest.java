@@ -297,6 +297,21 @@ public class LookConformanceTest {
                 "letter spacing drawn for one_word");
     }
 
+    @Test
+    public void theTitleCaseOverrideAcceptsOnlyTitleCaseOfTheVectorsCapitals() {
+        // owner override (C11): vectors say capitals, the phone draws Title Case for case:upper
+        assertEquals(null, LookConformance.textDrawnOverride("Save Time Now", "SAVE TIME NOW", true, "en"));
+        assertEquals(null, LookConformance.textDrawnOverride("A", "A", true, "en"));
+        assertEquals(null, LookConformance.textDrawnOverride("İğdır Işık", "İĞDIR IŞIK", true, "tr"));
+        assertNotNull(LookConformance.textDrawnOverride("SAVE TIME NOW", "SAVE TIME NOW", true, "en"));
+        assertNotNull(LookConformance.textDrawnOverride("save time now", "SAVE TIME NOW", true, "en"));
+        assertNotNull(LookConformance.textDrawnOverride("Save Time", "SAVE TIME NOW", true, "en"));
+        // everything else is still compared exactly
+        assertEquals(null, LookConformance.textDrawnOverride("Save", "Save", false, "en"));
+        assertNotNull(LookConformance.textDrawnOverride("Save", "SAVE", false, "en"));
+        assertEquals(null, LookConformance.textDrawnOverride("শ্রেষ্ঠ", "শ্রেষ্ঠ", true, "bn"));
+    }
+
     private interface Edit {
         void apply(JSONObject fact) throws Exception;
     }

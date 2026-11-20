@@ -197,6 +197,14 @@ public final class TextLookRenderer {
         public float available(float size) {
             return availableWidth(room, size, maxWidthPx);
         }
+
+        @Override
+        public float inkHeight(String sample, float size) {
+            paint.setTextSize(size);
+            android.graphics.Rect bounds = new android.graphics.Rect();
+            paint.getTextBounds(sample, 0, sample.length(), bounds);
+            return bounds.height();
+        }
     }
 
     /** The width the lines may use: the block limit less the box padding and border and the room kept for effects. */

@@ -288,7 +288,7 @@ public final class LookPaintPlan {
     public final double effect;
     /** Opacity of the whole overlay, 0..1. */
     public final double opacity;
-    /** True when the text is drawn in capitals ({@code case: upper}); false for as written. */
+    /** True for {@code case: upper}, drawn in Title Case ({@link LookTypography#titleCase}, the owner's choice over capitals); false for as written. */
     public final boolean upper;
     public final String fontFamily;
     public final int fontWeight;

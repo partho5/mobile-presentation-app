@@ -15,6 +15,11 @@ import java.util.Locale;
  * boundary (so never inside a letter cluster, a conjunct or an emoji sequence, and in a spaced script only between
  * words); the first size that fits wins. When nothing fits, the overlay is skipped. There is never an ellipsis.
  * Paragraph direction comes from the text ({@link Bidi}); alignment is centred, so direction does not change a size.
+ *
+ * <p>Before the rule runs, the wanted size is multiplied by {@link LookTypography#scriptSizeFactor} (1 for Latin and
+ * every script the table does not list), so a script with tall glyphs is drawn optically the same size as Latin. The
+ * rule (minimum share, shrink steps, the shrunk flag) then works from that evened size, and {@link Result#size} is the
+ * size that is drawn; the box padding and every effect follow it, as the fit rule says.
  */
 public final class TextLayoutPolicy {
 
@@ -32,6 +37,16 @@ public final class TextLayoutPolicy {
 
         /** The width in pixels the lines may use at {@code size}: the block limit less padding and effect margin. */
         float available(float size);
+
+        /**
+         * The height in pixels of the ink of {@code sample} (a short run in one script) drawn on one line at
+         * {@code size}, by the real font; 0 or less when it cannot be measured. {@link LookTypography#scriptSizeFactor}
+         * compares it with Latin to even out the optical size of scripts whose glyphs are tall. The default (unknown)
+         * leaves every size as asked.
+         */
+        default float inkHeight(String sample, float size) {
+            return 0f;
+        }
     }
 
     /** What the rule decided. */
@@ -44,7 +59,7 @@ public final class TextLayoutPolicy {
         public final List<String> lines;
         /** True when the paragraph reads right to left. */
         public final boolean rtl;
-        /** True when {@link #size} is smaller than the wanted size. */
+        /** True when {@link #size} is smaller than the wanted size (after the script size factor, which is not a shrink). */
         public final boolean shrunk;
         /** True when the text is on two lines. */
         public final boolean wrapped;
@@ -81,16 +96,17 @@ public final class TextLayoutPolicy {
         boolean rtl = isRtl(clean);
         if (clean.isEmpty()) return new Result(true, sizePx, new ArrayList<String>(), rtl, false);
         int[] breaks = null;
-        float floor = sizePx * MIN_SIZE_SHARE;
-        float size = sizePx;
+        float wanted = sizePx * LookTypography.scriptSizeFactor(clean, measurer);
+        float floor = wanted * MIN_SIZE_SHARE;
+        float size = wanted;
         while (true) {
             float avail = measurer.available(size);
             if (measurer.width(clean, size) <= avail) {
-                return new Result(false, size, single(clean), rtl, size < sizePx);
+                return new Result(false, size, single(clean), rtl, size < wanted);
             }
             if (breaks == null) breaks = breakOffsets(clean);
             List<String> two = balanced(clean, breaks, size, avail, measurer);
-            if (two != null) return new Result(false, size, two, rtl, size < sizePx);
+            if (two != null) return new Result(false, size, two, rtl, size < wanted);
             if (size <= floor) break;
             size = Math.max(floor, size * SHRINK);
         }
