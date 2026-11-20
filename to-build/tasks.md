@@ -1,5 +1,5 @@
 <!-- runner-config
-REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder /home/haku/projects/Next.js/Social-Media-Manager
+REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder
 BRANCH=feat/ai-video-edit
 SCRATCH=test_audio.wav test_video.mp4 run.log
 -->
@@ -13,326 +13,140 @@ self-contained: read **Shared context** below, then the card's own "Read first" 
 
 -----------------
 
-# FaceCam app: AI edit text styles and animations, phone side (cards C1-C10)
+# FaceCam app: switch brand with no friction and no leak (cards WS1-WS3)
 
-The server half is in `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (cards S0-S9). Design input:
-`/home/haku/projects/Next.js/Social-Media-Manager/_planning/00_inputs/ai-edit-text-styles.md` (written before the decisions
-below, which win where they differ); the three reference sheets (images) are in
-`/home/haku/projects/Next.js/Social-Media-Manager/_planning/00_inputs/ai-edit-text-styles/`.
+The web half and the reasons for each choice are in
+`/home/haku/projects/Next.js/Social-Media-Manager/WORKSPACE_SWITCH_PLAN.md`. These cards need **no server change**: every
+route they use already exists. The web cards are not required first.
 
-**OWNER GATE:** `[ ]` ENGINE GO, in the server `tasks.md`. Every card waits until the owner ticks it there. Cards that need a
-server card name it in **Depends on**; do not start a card whose server card is not ticked.
-
-Earlier cards A1 (real server status text, commit `d820d7b`) and L6 (render receipt, commit `92006f5`) are done; read
-`git log --oneline -- to-build/tasks.md` for them. This file replaces them.
-
-## Owner decisions (2026-11-19)
-- **Two vertical slices.** Slice 1 = motion and fit (no change to the look format); slice 2 = looks.
-- **Any language in the world.** Nothing is specific to one language or script. No bundled font: system font families
-  (their fallback covers every script). Line breaks, graphemes, case and script behaviour come from Unicode data
-  (`java.text.BreakIterator`, `Character.UnicodeScript`, `Bidi`, `toUpperCase(Locale)`), never a per-language `if`.
-  Right-to-left text is in this round.
-- **Glass blur is out of this round.**
+The previous card set is kept in `to-build/tasks--ai-video-edit.md`.
 
 ## Shared context
 
 ### Goal
-Text overlays that look edited, not plain: many **animations** (entry, hold, exit, from any direction) and **looks** (box,
-border, gradient, shadows, fonts), chosen by the server's planner and **drawn completely by the phone for any text length in
-any script**. The phone measures and draws what the plan says; it never chooses a look or animation.
+A signed-in person with several brands always sees which brand the phone is publishing to, changes it in two taps from
+where they are, and after a change sees nothing of the old brand: no channels, preset, credits or plan of the old brand on
+any screen. A change is a **fresh restart of the app's screens** that brings the person back to the screen they changed it
+from (the phone's version of the web's full page reload). Work already started (uploads, publish jobs, AI edits) finishes
+in the brand it was started in.
 
-### Requirements from the owner (non-negotiable)
-1. A well edited video does not drop plain text on a background. Text appears with motion (typewriter at high speed, fade
-   in and out, slide in from left, right, top or bottom, and more) and is drawn in a deliberate style.
-2. Every style property below must be drawn. A missing shadow, stroke or left-to-right gradient is a defect, not a gap.
-3. A different character count (1 grapheme up to the longest allowed text, any script, either reading direction) must never
-   break the layout.
-4. Every micro decision has one owner function; nothing is left to "whoever draws it" by accident.
-5. No bug may ship silently: gates block release and the phone fails closed.
+### Owner decisions (2026-11-20)
+- The visible word is **Brand**, the same as the website. Class, field, route and header names keep "workspace".
+- The recording screen stays clean: no brand chip on the camera view. The brand shows where it matters, on the publishing
+  screens and in the drawer.
+- A change restarts the screens. Never kill the process: running uploads must keep going.
+- The choice stays per phone, as today. Syncing it with the website is out of scope.
+
+### What already exists (reuse, don't rebuild)
+- `auth/TokenStore`: `workspaceId()`, `workspaceName()`, `saveWorkspace(id, name)`, `clearWorkspace()`.
+- `auth/AuthRepository`: sends `x-workspace-id` on every authed call. A 403 `WORKSPACE_FORBIDDEN` clears the pick.
+- `account/AccountApi`: `listWorkspaces()` (`GET /user/organizations`) and `currentWorkspaceId()` (`GET /user/self`,
+  the server default when nothing is picked).
+- `ui/WorkspaceActivity`: the picker (list, current marked, loading, empty, error and retry). `pick()` pins default
+  jobs, saves the pick, refreshes the plan, shows a toast, then `finish()`es.
+- `ui/AccountActivity`: a "Workspace" row that opens the picker. It's reached from the Auto-publish screen's account row.
+- Pinned by brand already: `db/PublishJob.workspaceId`, `aiedit/flow/AiEditStore.PendingReceipt.workspaceId`,
+  `publish/CaptionUsage`, and `entitlements/LapseWatch` (scoped by session and brand).
+- Navigation: the drawer (`MainActivity.setupDrawer`, header `res/layout/nav_header.xml`). The `nav_account` item opens
+  `ui/AutoPublishActivity`. `ui/PublishActivity` takes `EXTRA_FILE_PATH`. `ui/StartupActivity` is the launcher and routes
+  to onboarding or `MainActivity`.
 
 ### App facts
-- App (Android, Java, minSdk 31), branch `feat/ai-video-edit`. Java paths are relative to
-  `app/src/main/java/com/jovoc/facecampresentationrecorder/`. Tests: `app/src/test/java/...` (JUnit 4, `org.json`; **no
-  Robolectric, no androidTest**, so JVM tests cannot use `Bitmap`, `Canvas`, `Paint` or `android.icu`; pixel checks are the
-  owner's on a device, cards C4 and C9).
-- Server plans (`aiedit/flow/AiEditRunner`, `AiEditApi`, `AiEditRequestBuilder`); the phone renders (`aiedit/engine/*`).
-- Text code today: `aiedit/engine/text/{TextLookRenderer (StaticLayout, at most 2 lines, shrinks by 0.92 down to 0.5 of the
-  size, then cuts with an ellipsis; `Typeface.DEFAULT_BOLD`), TextPlacement, TextAnimator (knows only `pop`, `stamp`,
-  `slide_up`, `word_by_word`, `sweep`; anything else silently becomes `pop`), TextOverlayPainter (tilt from a hash of the
-  item id; reads `params.tilt_deg` but keeps only its size and takes the sign from the hash), PaletteResolver}`;
-  `aiedit/engine/contract/{EngineContract (parses text_styles; a downloaded contract that fails to parse falls back to the
-  bundled one), TextLook (throws on a gradient other than `vertical`), Capabilities (hard-coded ids)}`;
-  `aiedit/engine/{RenderJob, RenderNotes, Engine}`; bundled contract `app/src/main/assets/aiedit/contract.json`; tests
-  `app/src/test/.../aiedit/engine/text/{PaletteResolverTest, TextPlacementTest, TextAnimatorTest}`, `aiedit/TestContract.java`.
-- **Old phones stay safe because the server only adds fields** (server "Compatibility facts"). This app's new reader reads
-  the new fields; it must still accept the old ones.
-- Commit per card: `feat(ai-edit): <card id> <what>` (or `fix(ai-edit): ...`), ending with the `Co-Authored-By` line the
+- Android, Java, minSdk 31. Java paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/`.
+  Tests are JUnit 4 under `app/src/test/java/...`, **with no Robolectric and no androidTest**. Logic that tests must reach
+  goes in a plain Java class with no Android types, as `account/Workspace` does. Activities are checked by the owner on a
+  device.
+- Commit per card: `feat(brand): <card id> <what>` (or `fix(brand): ...`), ending with the `Co-Authored-By` line the
   session gives. Never commit `test_audio.wav`, `test_video.mp4`, `run.log`.
-- Rules: engine code in `aiedit/engine/` imports only `aiedit/engine/*`, the Android SDK and `java.*`; flow glue in
-  `aiedit/flow/`; no new Gradle module. The master recording is never modified. **Never log transcript words, plan texts or
-  event log contents** (`ACTIVITY_LOG_PRIVACY.md`). Only video/* files may be created under DCIM (names end in `.mp4`);
-  other temp files go to `filesDir` / `cacheDir`. **Do not touch the subtitle code** (`subtitle/*`,
-  `aiedit/flow/SubtitleCaptionPainter`).
-- The six shipped looks (`sticker`, `label_pill`, `3d`, `glow`, `gradient`, `highlighter`) must draw exactly as before.
-
-### Animations (independent of look)
-| Group | Animations |
-|---|---|
-| Entry | `fade`, `pop` (scale overshoot), `slide_left`, `slide_right`, `slide_top`, `slide_bottom`, `typewriter` (about 30 ms a step, capped at about 450 ms), `word_by_word`, `wipe` (reveal in reading direction), `drop_bounce`, `blur_in`, `flip`, `stamp`, `glitch` |
-| During the hold | `float`, `pulse`, `shake`, `shimmer` (light sweep), `neon_flicker` |
-| Exit | `fade`, `slide_out`, `shrink`, `pop_out`, `typewriter_delete`, `wipe_out` |
-
-The server picks the animation (`params.entry`, `params.hold`, `params.exit`, `exit_dir`, `exit_ms`; server S3) and the slide
-direction (from the zone). The phone owns the reveal direction (the text's bidi direction: `typewriter`, `wipe`,
-`word_by_word` and their exits run right to left for right-to-left text) and the typewriter step (grapheme, or word for
-scripts whose letters join or reorder, from one `Character.UnicodeScript` table, so a half-drawn conjunct or a broken Arabic
-join is never shown). Entry is fast (120 to 300 ms).
-
-### Looks
-Axes: container (pill, rounded rectangle, sharp rectangle, tilted sticker, none); fill (solid, gradient, dark); border (thin,
-thick, double ring, neon glow border); shadow (hard offset block, soft, none); text colour; font (system family, weight,
-case). Colours are roles (`accent`, `accent_dark`, `accent_light` (new), `on_accent`, `ink`, `paper`) resolved by
-`PaletteResolver`. Sheets (examples, not a closed list) and the ten new looks (`neon_box`, `pill_ring`, `gradient_block`,
-`tilt_sticker`, `solid_round`, `pastel_pill`, `flat_rect`, `yellow_bold`, `dark_accent`, `coral_pill`): see the server file.
-A look is data (the contract JSON); the phone draws it through one generic painter, not one code path per look.
-
-### Properties the phone must never miss
-- Text: solid fill; gradient fill with direction (left-to-right, top-to-bottom, diagonal) and stops spanning the actual text
-  width; stroke (width, colour, round joins); text shadow (offset, blur, colour, alpha); glow; 3D extrude; opacity; font
-  family, weight, case; letter spacing (0 for joining scripts); line height for 2 lines; centred alignment of a wrapped text
-  in either reading direction.
-- Box: solid fill; gradient fill with direction; border (width, colour); double ring; corner radius (pill = fully round);
-  padding x and y; box shadow, soft and hard offset block; neon glow; opacity; highlighter bar.
-- Whole overlay: tilt; **layer order** box shadow, box fill, box border, text shadow, text stroke, text fill, glow; no
-  clipping of shadow, glow or tilt at the safe-rectangle edge; the same relative proportions in 9:16, 4:5, 1:1; animation
-  entry, hold and exit with direction, duration and easing.
-
-### Fit rule: any length, any script
-(1) Measure the real text with the real font. (2) Too wide: shrink down to a minimum scale, then wrap at a Unicode line-break
-opportunity (`BreakIterator.getLineInstance`: between words, or between characters in scripts without spaces) into at most 2
-balanced lines, never inside a grapheme cluster. (3) Still not fitting: skip the overlay and note `overlay_skipped_no_room`;
-never an ellipsis. (4) Box, border, gradient and shadow follow the measured text box, padding in text-size units.
-Paragraph direction comes from the text (`java.text.Bidi`), alignment is centred.
-
-### Gates (the definition of done)
-1. Nothing is enabled until it passes: a look, motion or feature id goes into `Capabilities.current()` only after its JVM
-   check passed and the owner ticked it in **Passed on a device** below.
-2. One source generates the tests: vectors come from the server (`look_vectors`); every `TextLook` field has a handler; a look
-   with a field the painter has no handler for is refused.
-3. Fail closed: a property the phone cannot draw means the whole overlay falls back to one known-good plain look, never
-   half-styled, and the receipt carries `property_not_drawn`.
-4. The server never sends a text that cannot lay out (its job); the phone still applies the fit rule.
-5. No silent change to a shipped look (the phone must not "fix" a look in place).
-6. **The string matrix** on every change (same list as the server's S1 fixture, copied into one JVM fixture
-   `aiedit/TestStrings.java` in C1): 1 grapheme; 1 word; the longest allowed text; all caps Latin; Bengali with a conjunct
-   (`শ্রেষ্ঠ`); Devanagari; Arabic; Hebrew; Chinese and Japanese (no spaces); Thai (no spaces); Cyrillic; Turkish dotted i in
-   caps; mixed left-to-right and right-to-left; descenders; an emoji inside text. Across 3 ratios and the zones.
-JVM caveat: the JVM's `BreakIterator` is not Android's ICU one, so JVM tests assert invariants (a break is a line-break
-opportunity, never inside a grapheme, balanced, deterministic), not exact break positions for Thai or Japanese.
-
-### Server API and where to read it (do not re-derive from the server code)
-The server half (cards S0-S9) is **built and committed** (server repo `feat/ai-video-edit`, last card commits
-`1faf7fc5` S6, `9eb9628b` S7, `55c3f8c8` + `fbf78bab` S8). Its written contract is the one file to read:
-`/home/haku/projects/Next.js/Social-Media-Manager/_planning/02_contracts/ai.video-editing.md`. Read only the sections a card
-needs: "Routes" (endpoints), "Motion params" (C2, C3), "Look format, additive" and "The ten new looks" (C5-C10), "Look
-vectors" (C8), "Fit rule" and "Text size `s` per ratio" (C1), "Decision register" (who owns what). No new endpoints exist;
-the phone's `AiEditApi` already calls all of these:
-| Route (`/public/v1`) | What the text-styles work changed |
-|---|---|
-| `GET /ai-edits/contract` | serves 16 looks (old fields + new blocks), plus new top-level keys `color_roles`, `text_layer_order`, `text_features`, `look_vectors`; `contract_version` stays 2 |
-| `POST /ai-edits` | `request.capabilities` accepts optional `text_motions: string[]` and `text_features: string[]` (names `^[a-z0-9_]{1,64}$`, at most 50 each); absent or null = legacy only |
-| `GET /ai-edits/:id` | the plan may carry `params.entry`, `hold`, `exit`, `exit_dir`, `exit_ms`, signed `tilt_deg` |
-| `POST /ai-edits/:id/render-report` | accepts warning codes `property_not_drawn`, `text_wrapped`, `layer_clipped` (code + item id only), beside the old ones |
-Facts the server fixed that the cards must match exactly:
-- **Capability ids.** `text_motions` lists entry ids plain (`fade`, `slide_left`, ...), hold ids as `hold_<id>` and exit ids as
-  `exit_<id>` (`fade` is both an entry and an exit). The still hold needs no id. Legacy five (always assumed): `pop`, `stamp`,
-  `slide_up`, `word_by_word`, `sweep`. Send only ids whose JVM check passed and the owner ticked.
-- **`text_features`** ids come from the contract's `text_features` list; a look is planned only if the phone lists the look in
-  `text_styles` AND every feature that look needs. The six shipped looks need none; all ten new looks need `box_border` and
-  `case_as_written`.
-- **Old fields stay.** Every look still carries the legacy `fill` (solid or `vertical` only), `stroke`, `shadow`, `glow`,
-  `extrude`, `background`, `bar`, `tilt_deg`; the new blocks (`text_fill`, `text_stroke`, `text_shadow`, `box`, `opacity`,
-  `font`, `case`, `letter_spacing`) sit beside them. New reader: read the new blocks when present, never reshape the old ones.
-- **Tilt.** The server writes a signed `params.tilt_deg` inside the look's range; the new code must use the sign as given
-  (today's painter ignores it and hashes the item id).
-- **Layer order vs glow.** The contract's layer order puts `glow` last; today's renderer draws the legacy glow behind the text.
-  The six shipped looks keep their legacy glow behind the text (they must draw as before); decide the new-look glow meaning in
-  C5 from the contract text and the S7 vectors, and record the decision in the C5 commit message.
-- **Letter spacing** is 0 for joining or reordering scripts: the server's list (`NO_SPACING_SCRIPTS` in
-  `contract/edit.vectors.ts`: Arabic, Syriac, Mongolian, N'Ko, the Indic scripts, Khmer, Myanmar, Thai, Lao) must match C2's
-  script table: compare them in C2 and C6 and report a difference in the commit message.
-- **Fonts.** `font.family` is one of `sans`, `sans_condensed`, `serif`, `mono`. Sheet 3 looks (`dark_accent`, `coral_pill`) use
-  `sans_condensed` (a guess): C9's device sheet is where the owner confirms it.
-- **Size.** The server estimates fit per look (box, border, ring, hard shadow, glow add size); the phone still measures for
-  real. `s` per ratio is in the contract's "Text size `s`" section (96 / 64 / 64 px at 20 sp for 9:16 / 4:5 / 1:1).
-- **`look_vectors`** (C8): per look `{look, facts, probes}`; facts are relative to the measured text box (fractions of `s`);
-  each fact lists the `TextLook` fields it exercises in `fields`; each probe has `direction`, `text_drawn` (case applied with
-  the plan's language) and `letter_spacing_s`.
-- **Server is not machine-run yet.** Its specs ran only through a light script, not `pnpm build` or jest. If the served
-  contract looks wrong against the contract doc, stop and report it at the top of the card's report; do not patch around it.
-
-### Context hints for every card (keep the session small)
-1. Read in this order and stop: this file's **Shared context** (once), the card's own block, the card's "Read first" files.
-   Do not read the whole server repo, the whole contract doc, other cards, or git history beyond what the card names.
-2. Open large files by range (`grep -n` the symbol first), never in full; `TextLookRenderer`, `TextOverlayPainter`,
-   `TextAnimator` are the only text files most cards touch.
-3. Write the pure logic first (layout policy, paint plan, motion math: no `Bitmap`, `Canvas`, `Paint`, `android.icu`), test it
-   on the JVM with the shared string matrix (`aiedit/TestStrings.java`, created in C1), and keep the Canvas side a thin
-   translator so the device-only part stays small.
-4. A card edits only the files it names; if it needs another file, add one line to the report and make the smallest change.
-   Never touch `subtitle/*`, the master recording, or the six shipped looks' drawn result.
-5. One gradle command at a time, only `./gradlew --offline :app:assembleDebug` and targeted `--tests '<pattern>'`. Run the
-   targeted test for the code you changed, not a suite. If a command would be heavy, stop and say so in the report.
-6. Commit with explicit paths (`git add <files>`, `git commit <files> -m ...`), never `git add -A`; never commit
-   `test_audio.wav`, `test_video.mp4`, `run.log`.
-7. The final report is short and fixed: files changed, decisions made where the card was silent, commit hash, what was not run,
-   anything the next card must know (one line each). The next card starts from the report and this file, not from your chat.
-8. Where a card needs the owner (C4, C9, C10: run the device sheet, tick **Passed on a device**), end the report with the exact
-   thing the owner must do and stop; the runner then asks the owner and continues after the tick.
+- Never log tokens, codes, brand names or ids in `ActivityLog`. Event names only (`ACTIVITY_LOG_PRIVACY.md`).
+- Do not touch `aiedit/engine/*`, `subtitle/*` or the recording pipeline.
 
 ## Progress
 
-| Card | Slice | What | Depends on | Status |
+| Card | Repo | What | Depends on | Status |
 |---|---|---|---|---|
-| C1 | 1 | Layout policy for any script: measure, shrink, wrap at most 2 lines, skip (no ellipsis), bidi; receipt notes | server S1, S2 | ☑ |
-| C2 | 1 | Entry motions, reveal direction, typewriter step, signed tilt | server S3, S4 | ☑ |
-| C3 | 1 | Hold effects and exits; send `text_motions` for ticked ids | C2 | ☑ |
-| C4 | 1 | Debug preview sheet: every motion x string matrix x 3 ratios; owner runs it and ticks | C1, C3 | ☑ |
-| C5 | 2 | Pure paint plan from the new look blocks; thin Canvas translator; six looks unchanged | server S6 | ☑ |
-| C6 | 2 | Fonts (system families), case, letter spacing, generic for every script | C5 | ☑ |
-| C7 | 2 | Strict parse, capabilities by evidence, `text_features`, fail closed | C5, C6 | ☑ |
-| C8 | 2 | JVM conformance runner: `look_vectors` and the string matrix against the paint plan | C7, server S7 | ☑ |
-| C9 | 2 | Debug sheet gains looks and pixel probes; owner runs it and ticks | C8 | ☑ |
-| C10 | 2 | Wire the new looks, 3 at a time after the owner ticks them | C9, server S8 | ☑ |
-| C11 | 2 | Owner device feedback fixes: Indic script optical size (Bengali too big), Title Case instead of forced capitals | C9 | ☑ |
+| WS1 | app | "Brand" wording; one brand row shown on Auto-publish, Publish and the drawer header, each opening the picker | - | ⬜ |
+| WS2 | app | A brand change restarts the screens and returns to the screen it came from; same brand just closes | WS1 | ⬜ |
+| WS3 | app | Brand-data audit: everything held for a brand is keyed by brand or dropped on change; tests | WS2 | ⬜ |
 
-**Passed on a device (owner ticks, gate 1), ticked 2026-11-20 after running both debug sheets on a real device:**
-- motions (server naming; legacy `pop`, `stamp`, `slide_up`, `word_by_word`, `sweep` are always assumed): `fade`, `slide_left`,
-  `slide_right`, `slide_top`, `slide_bottom`, `typewriter`, `wipe`, `drop_bounce`, `blur_in`, `flip`, `glitch`, `hold_float`,
-  `hold_pulse`, `hold_shake`, `hold_shimmer`, `hold_neon_flicker`, `exit_fade`, `exit_slide_out`, `exit_shrink`, `exit_pop_out`,
-  `exit_typewriter_delete`, `exit_wipe_out`.
-- looks: the six shipped (`sticker`, `label_pill`, `3d`, `glow`, `gradient`, `highlighter`) plus `neon_box`, `pill_ring`,
-  `gradient_block`, `tilt_sticker`, `solid_round`, `pastel_pill`, `flat_rect`, `yellow_bold`, `dark_accent`, `coral_pill`
-  (`sans_condensed` confirmed for `dark_accent` and `coral_pill`). Only two defects were found, both fixed in C11 (Bengali
-  optical size; Title Case instead of capitals).
-- features (what the ten need, from `TextLookSupport.requiredFeatures`): `box_gradient`, `box_border`, `box_border_ring`,
-  `box_glow`, `font_family`, `font_weight`, `case_as_written`.
+## WS1: Brand wording and a visible brand row
 
----
+**Read first:** `ui/WorkspaceActivity`, `ui/AccountActivity` (its workspace row and how it names the server default),
+`ui/AutoPublishActivity` (top of `onCreate`, `onResume`), `ui/PublishActivity` (header), `MainActivity.setupDrawer`,
+`res/layout/{nav_header,activity_auto_publish,activity_publish,item_workspace}.xml`, `res/values/strings_account.xml`.
 
-## C1 - Layout policy for any script [slice 1]
-**Goal:** a text of any length in any script lays out by one written rule, the same on every phone.
-**Read first:** Shared context (fit rule, JVM caveat); `TextLookRenderer.java` (`layout(...)`, `MIN_SIZE_SHARE`, `SHRINK`,
-`MAX_LINES`, the ellipsis cut), `TextPlacement.java`, `RenderNotes.java`, `flow/RenderReceipt.java`.
-**Build:** a pure `TextLayoutPolicy` with a `TextMeasurer` interface (the real one wraps `Paint`/`StaticLayout`): shrink to the
-minimum scale, then wrap at a line-break opportunity into at most 2 balanced lines, never inside a grapheme, then skip.
-Paragraph direction from `java.text.Bidi`. Replace the ellipsis cut: the overlay is skipped and `overlay_skipped_no_room` is
-noted; `text_shrunk` and `text_wrapped` are noted. Typeface stays `DEFAULT_BOLD` (C6 changes it). Add
-`aiedit/TestStrings.java` (the matrix).
-**Tests:** a fake measurer (one width per grapheme, wider for wide scripts) over the matrix: fits; wraps only at a
-line-break opportunity with balanced lines; never splits a grapheme; a Chinese sentence wraps without spaces; skips when
-nothing fits; same input, same result; right-to-left detected.
+**Do:**
+- Change every *visible* "Workspace" string to "Brand", for example "Brand", "Default brand", "You no longer have access
+  to that brand…", and the hint "Posts, channels and credits belong to the brand you pick…". Keep the string keys.
+- Add one small reusable brand row (layout plus a binder in `ui/`): an initials avatar, the brand name and a "Change"
+  affordance. The label comes from the same source the Account row uses: the picked name, or the server default's name
+  when nothing is picked, or nothing while loading. Signed out, the row is hidden.
+- Show the row:
+  - **Auto-publish screen:** at the top, above channels and preset.
+  - **Publish screen:** as "Posting to <Brand>", so the person sees where a manual post goes.
+  - **Drawer header:** as the subtitle when signed in, in place of "Features & Settings".
+- Tapping the row opens `WorkspaceActivity`. Refresh it in `onResume`.
+- With only one brand, the row still shows and opens the picker. The picker's hint already says brands are created on the
+  website.
+- Put the label choice (picked, server default, or none) in a plain class so a JVM test covers its three cases.
 
-## C2 - Entry motions [slice 1]
-**Goal:** every entry in the table is drawn, in the right direction, for any script.
-**Read first:** Shared context; `TextAnimator.java`, `TextAnimatorTest.java`, `TextOverlayPainter.java` (`tilt`), the server's
-S3 motion table in its contract doc.
-**Build:** `fade`, `typewriter`, `slide_left`, `slide_right`, `slide_top`, `slide_bottom`, `wipe`, `drop_bounce`, `blur_in`,
-`flip`, `glitch` from `params.entry` and `entry_ms`, clamped to the registry limits. One `revealUnits(text)` owns the
-typewriter step (graphemes, or words for scripts in the joining/reordering table) and one `readingDirection(text)` owns
-reveal direction. Blur is computed once on the cached sprite, not per frame. Tilt: use `params.tilt_deg` as given (sign
-included); the hash stays only as the fallback when it is absent. Unknown entry still falls back to `pop`.
-**Tests:** transform at t = 0, mid and end for each entry; start edge of each slide; right-to-left `wipe` reveals from the
-right; a Bengali conjunct and an Arabic word are never revealed half; no motion after the entry; signed tilt kept.
+**Done when:** the three places show the same brand name; the wording says Brand everywhere visible; the label test
+passes; `assembleDebug` passes.
 
-## C3 - Hold effects and exits [slice 1]
-**Goal:** `float`, `pulse`, `shake`, `shimmer`, `neon_flicker` while shown; exits `fade`, `slide_out`, `shrink`, `pop_out`,
-`typewriter_delete`, `wipe_out`.
-**Read first:** Shared context; `TextAnimator.java`, C2's code, `Capabilities.java`, `flow/AiEditRequestBuilder.java` (~line 78).
-**Build:** as C2, from `params.hold`, `params.exit`, `exit_dir`, `exit_ms`; an exit never runs past the item's end; exits that
-reveal follow the reading direction. `Capabilities` gains `text_motions` (sent in `toJson()`): the legacy five plus the ids in
-**Passed on a device**; nothing else.
-**Tests:** start, mid and end of each; the exit ends exactly at `end_ms`; `toJson()` carries only ticked motions.
+## WS2: A change is a fresh restart back to the same screen
 
-## C4 - Debug preview sheet [slice 1, owner runs]
-**Goal:** the owner sees every motion on a real device before users do.
-**Read first:** Shared context; an existing debug screen if any (else a debug-only activity, not in the release build).
-**Build:** a debug-only screen that plays each motion with each matrix string in 3 ratios through the real
-`TextOverlayPainter`, with a scrubber and a PASS/FAIL tick per motion that prints the id list to copy into **Passed on a
-device**. Agents build it and check with `./gradlew --offline :app:assembleDebug`; **agents do not run it**.
-**Tests:** a JVM test for the grid (which motion, string and ratio sit where).
+**Read first:** `ui/WorkspaceActivity.pick`, the WS1 binder, `ui/StartupActivity`, and how `AutoPublishActivity`,
+`PublishActivity` and `AccountActivity` read their intent.
 
-## C5 - Pure paint plan [slice 2]
-**Goal:** every property of a look becomes an explicit, testable draw operation.
-**Needs:** server S6 and the refreshed `contract.json`.
-**Read first:** Shared context; `TextLookRenderer.java`, `contract/TextLook.java`, `EngineContract.java` (~line 217),
-`PaletteResolver.java`.
-**Build:** `TextLook` reads the new blocks (`text_fill`, `text_stroke`, `text_shadow`, `box`, `opacity`, `font`, `case`,
-`letter_spacing`) and still accepts the old fields. A pure `LookPaintPlan` (no `Bitmap`, `Canvas` or `Paint`) takes a
-`TextLook`, the resolved colours and the C1 layout result and returns ordered ops in the layer order, numbers in text-size
-units; it throws `UnsupportedLookException` (a code, no text) for a field it has no handler for. `TextLookRenderer` becomes a
-thin translator from ops to `Canvas`. The six looks draw exactly as before.
-**Tests:** per property: the op exists with the right numbers for each of the six looks; layer order; unknown field throws;
-`ltr`, `ttb`, `diag` give different stops.
+**Do:**
+- Every screen that opens the picker passes its own intent along as the place to return to.
+- When the picked brand **differs** from the current one (or nothing was picked before):
+  1. Keep today's steps (pin default jobs, save, refresh the plan).
+  2. Clear the whole task.
+  3. Start the stack `MainActivity` → the screen to return to, rebuilt from its original intent, so `PublishActivity`
+     reopens the same recording. Android's task stack builder does exactly this.
+  4. Show "Switched to <Brand>" after the restart.
+  The process keeps running, so `PublishManager` and `AiEditService` work goes on.
+- When the **same** brand is picked: just close the picker, as today.
+- With no screen to return to (opened from somewhere new later), return to `MainActivity`.
+- Block a double tap while the change is being applied.
+- Put the restart decision (changed or not) in a plain class with a JVM test. Cover: same id, different id, none picked
+  before, and the server default picked explicitly.
 
-## C6 - Fonts, case, letter spacing [slice 2]
-**Goal:** `font`, `case` and `letter_spacing` are drawn, the same way for every script.
-**Read first:** Shared context; `TextLookRenderer.java` (`Typeface`), C5's code.
-**Build:** `font.family` (`sans`, `sans_condensed`, `serif`, `mono`) to the system families (`sans-serif`,
-`sans-serif-condensed`, `serif`, `monospace`) with `Typeface.create(family, weight, false)`; the system fallback draws every
-script. `case: upper` uses `toUpperCase(plan language locale)`; scripts without case are unchanged. `letter_spacing` as a
-fraction of the text size, forced to 0 for the joining/reordering script table (C2's). An unknown family falls back to
-`sans` and notes `property_not_drawn`.
-**Tests:** family table; Turkish `i` uppercases to `İ`; Bengali and Chinese unchanged by `upper`; spacing 0 for Arabic and
-Bengali, kept for Latin.
+**Done when:** a change from Auto-publish comes back to a freshly loaded Auto-publish with the new brand's channels and
+preset; a change from Publish reopens the same recording; Back from there goes to the recording screen, never to a
+screen of the old brand; the tests pass; `assembleDebug` passes.
 
-## C7 - Strict parse, capabilities by evidence, fail closed [slice 2]
-**Goal:** the phone never lists a look it cannot draw completely, never ignores a field, never draws half a look.
-**Read first:** Shared context; `EngineContract.java`, `Capabilities.java`, `TextOverlayPainter.java`, `RenderNotes.java`,
-`aiedit/TestContract.java`.
-**Build:** a look with a field the painter has no handler for is not listed (log a code only); one bad look never drops the
-whole contract. `Capabilities` text styles = painter-supported and ticked looks; `text_features` = the feature ids the painter
-implements and the owner ticked. At draw time, an `UnsupportedLookException` or a missing feature draws the whole overlay in
-one built-in plain look (bold text with a stroke in the accent colour) and notes `property_not_drawn` with the item id.
-**Tests:** unknown field: look not listed, other looks still listed; capabilities are a subset of supported and ticked; an
-unsupported look gives the plain plan; a supported one never does; the note carries the item id only.
+## WS3: Brand-data audit
 
-## C8 - JVM conformance runner [slice 2]
-**Goal:** the server's generated vectors are checked against the paint plan.
-**Needs:** server S7 (`look_vectors` in the contract).
-**Build:** a JVM test that, for every listed look and every vector, builds the paint plan with the fake measurer and asserts
-the facts (layers and order, gradient direction, shadow offset, stroke width, box contains text plus padding), and that every
-`TextLook` field has a handler (gate 2).
-**Tests:** the runner itself; a look with a missing handler fails it.
+**Read first:** every `static` field and singleton in `publish/`, `entitlements/`, `account/`, `aiedit/flow/`, `ui/`,
+plus the `SharedPreferences` files those packages use (see `getSharedPreferences` call sites).
 
-## C9 - Look sheet with pixel probes [slice 2, owner runs]
-**Goal:** pixels checked on a real device, like the reference sheets.
-**Read first:** Shared context; the three sheet images; C4's screen.
-**Build:** C4's screen gains a looks tab: every look x matrix string x 3 ratios in a grid like the sheets, with pixel probes on
-the `Bitmap` (left and right gradient pixels differ; the shadow colour at the shadow offset; the stroke colour on the stroke;
-box contains text plus padding; nothing clipped at the safe-rectangle edge) and PASS/FAIL per look. Agents build it only.
-**Tests:** a JVM test for the probe geometry.
+**Do:**
+- List each value that belongs to a brand: channels, preset, credit balance, plan and entitlements, AI edit quotes and
+  contract, caption usage, upload sessions. For each one, confirm it is either keyed by brand id, re-read after the
+  restart, or cleared in `pick()`. Fix the ones that are none of these.
+- Work started in brand A must keep A: a queued `PublishJob`, a running `AiEditService` job and its receipt, and a direct
+  upload session. Confirm each sends its own pinned brand, never the current pick.
+- Device-level values stay as they are: device id, recording settings, onboarding, theme.
+- Write the audit result as a short table in the commit message body (value, where, how it is guarded).
+- Add JVM tests for any guard this card adds.
 
-## C10 - Wire the new looks [slice 2]
-**Goal:** the new looks reach users, 3 at a time.
-**Needs:** server S8; C9 passed for each look on a device.
-**Build:** refresh `contract.json` from the server; no per-look code; add the ticked look ids (and the features they need) to
-`Capabilities.current()`; update `TestContract`. Repeat per batch of 3.
-**Tests:** C8 green for the new looks; capabilities remain a subset of the ticked list.
+**Done when:** no value of the old brand can appear after a change; each fix has a test; `assembleDebug` passes.
 
-## C11 - Owner device feedback fixes [slice 2]
-**Goal:** the two defects the owner found running the C4/C9 sheets (every motion and look passed otherwise).
-**Build:** (1) `LookTypography.scriptSizeFactor(text, measurer)` is the one owner of the optical size of a script: one table of
-tall scripts (the ten Indic ones, each with a short consonant-virama-consonant sample), measured Latin ink height ("Hg") divided
-by the script's ink height through the new `TextMeasurer.inkHeight` seam (default 0 = unknown = 1), clamped to 0.6..1, averaged
-over the letters of a mixed text; 1 for Latin and every other script. `TextLayoutPolicy.fit` multiplies the wanted size by it
-before the rule, so `Result.size`, the paint plan, the box padding and the sprite all follow the one drawn size, and it is not
-a `text_shrunk`. (2) `case: upper` (and so the shipped looks) draws Title Case, `LookTypography.titleCase(text, locale)`:
-word `BreakIterator`, first letter via `toUpperCase(locale)`, rest `toLowerCase(locale)`, a hyphen starts a new word, a letter
-after an in-word apostrophe stays lower, uncased words untouched; an all-caps word the writer typed is lowered too (NASA gives
-Nasa; deterministic, no acronym guess). **Owner override of gate 5** for this one change (shipped looks' uppercase becomes Title
-Case); Latin size is unchanged. `LookConformance.textDrawnOverride` accepts the phone's Title Case against the server vectors'
-capitals; the contract and vectors are not edited. Server follow-up: `text_drawn` for `case: upper` must become Title Case.
-**Tests:** `LookTypographyTest` (title case incl. Turkish, apostrophe, hyphen, uncased scripts, idempotent; size factor: Latin and
-untabled scripts 1, Indic by the measured ratio, floor, ceiling, unmeasurable, mixed average; fit applies it, not shrunk),
-`LookConformanceTest` (override accepts only Title Case of the vectors' capitals). Device-only: the real ratio on the owner's font.
+## Owner device QA (after WS3)
+
+1. [ ] Signed in with three brands: the drawer subtitle, the Auto-publish top row and Publish's "Posting to" line all name
+   the same brand.
+2. [ ] Auto-publish → brand row → pick another: the app restarts, comes back to Auto-publish, and shows the new brand's
+   channels, preset and credits. The toast says "Switched to <Brand>".
+3. [ ] Publish (a recording) → brand row → pick another: the same recording reopens with the new brand's channels.
+   Back goes to the recording screen.
+4. [ ] Pick the brand that is already current: the picker just closes, with no restart.
+5. [ ] Queue a publish in A, switch to B before it runs: the post still goes to A.
+6. [ ] Start an AI edit in A, switch to B: the edit finishes and is charged in A.
+7. [ ] On the website, remove this user from the picked brand: the next screen says access was lost, and the brand row
+   shows the default brand.
+8. [ ] One brand only: the row shows its name, and the picker explains that brands are created on the website.
+9. [ ] Airplane mode: the row shows the last known name, and opening the picker shows the offline message and Retry.
+10. [ ] Every visible label says Brand, not Workspace.
