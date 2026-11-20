@@ -62,6 +62,26 @@ public final class PostRecordTranscriber {
         return false;
     }
 
+    /** Why the last run for a recording ended without words (in memory only); see {@link #lastFailureReason}. */
+    private static final java.util.Map<String, String> lastFailures = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String outcomeKey(String videoPath) {
+        File f = new File(videoPath);
+        String name = f.getName();
+        int dot = name.lastIndexOf('.');
+        String base = SubtitleCache.stripCropSuffix(dot > 0 ? name.substring(0, dot) : name);
+        return (f.getParent() != null ? f.getParent() + "/" : "") + base;
+    }
+
+    /**
+     * The {@code REASON_*} the last run for this recording (or its crops) failed with, or null when there is
+     * none or the last run succeeded. Lets a later feature tell "no speech" from "never transcribed" and so
+     * avoid transcribing again. Held in memory only, so it is gone after the process dies.
+     */
+    public static String lastFailureReason(String videoPath) {
+        return videoPath == null ? null : lastFailures.get(outcomeKey(videoPath));
+    }
+
     private PostRecordTranscriber() {}
 
     /**
@@ -145,6 +165,7 @@ public final class PostRecordTranscriber {
 
         final String videoPath = video.getAbsolutePath();
         activeTranscriptions.add(videoPath);
+        lastFailures.remove(outcomeKey(videoPath));
 
         // Deterministic job id derived from video path hash, no DB row needed
         final long VIDEO_ONLY_JOB_ID = Math.abs((long) video.getAbsolutePath().hashCode());
@@ -291,6 +312,9 @@ public final class PostRecordTranscriber {
                     wakeLock.release();
                 } catch (Exception ignored) {
                 }
+            }
+            if (!finishedReady) {
+                lastFailures.put(outcomeKey(videoPath), failReason);
             }
             activeTranscriptions.remove(videoPath);
             if (!finishedReady) {

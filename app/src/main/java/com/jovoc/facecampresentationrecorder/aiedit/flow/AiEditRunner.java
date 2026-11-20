@@ -33,6 +33,7 @@ import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.CompletedAudio;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploadApi;
 import com.jovoc.facecampresentationrecorder.publish.DirectUploader;
+import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
@@ -192,6 +193,10 @@ final class AiEditRunner {
     private void upload(AiEditJob job, File source, AuthRepository repo, AiEditApi api)
             throws AiEditException, JSONException {
         listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.UPLOADING, null, -1);
+        // Before any audio goes up: a recording already transcribed (or being transcribed) is never done again.
+        String captionBefore = job.aiCaptionId;
+        TranscriptResolver.resolve(job, transcriptEnv(job, source, repo));
+        if (!java.util.Objects.equals(captionBefore, job.aiCaptionId)) store.save(job, System.currentTimeMillis());
         refreshContract(api, job.workspaceId);
         EngineContract contract = loadContract();
         // A look this build could not read is not listed to the server; the log keeps its id (a code), never a text
@@ -229,6 +234,41 @@ final class AiEditRunner {
         job.editId = created.id;
         job.stage = AiEditJob.STAGE_PLAN;
         store.save(job, System.currentTimeMillis());
+    }
+
+    private TranscriptResolver.Env transcriptEnv(AiEditJob job, File source, AuthRepository repo) {
+        return new TranscriptResolver.Env() {
+            @Override public boolean isTranscribing() {
+                return PostRecordTranscriber.isTranscribing(source.getAbsolutePath());
+            }
+            @Override public String savedCaptionId() {
+                return SubtitleEmbedStore.getCaptionId(context, source);
+            }
+            @Override public boolean wordsCached() {
+                return SubtitleCache.loadForVideo(context.getCacheDir(), source) != null;
+            }
+            @Override public String lastFailure() {
+                return PostRecordTranscriber.lastFailureReason(source.getAbsolutePath());
+            }
+            @Override public AiCaptionStatus captionStatus(String captionId) throws PublishException {
+                return new PublishApi(repo).captionStatus(captionId, job.workspaceId);
+            }
+            @Override public void keepWords(String json) {
+                SubtitleCache.saveForVideo(context.getCacheDir(), source, json);
+            }
+            @Override public void forgetCaptionId() {
+                SubtitleEmbedStore.clearCaptionId(context, source);
+            }
+            @Override public void showTranscribing() {
+                listener.onProgress(job.sourcePath, job.level, AiEditListener.Stage.TRANSCRIBING, null, -1);
+            }
+            @Override public long now() {
+                return System.currentTimeMillis();
+            }
+            @Override public void sleep(long millis) throws AiEditException {
+                AiEditRunner.this.sleep(millis);
+            }
+        };
     }
 
     /** True when the words come from the speech audio: no READY caption of the recording to use. */
