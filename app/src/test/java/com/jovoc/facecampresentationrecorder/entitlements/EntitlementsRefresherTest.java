@@ -231,7 +231,7 @@ public class EntitlementsRefresherTest {
     }
 
     @Test
-    public void aWorkspaceTheAccountLostIsDroppedAndTheTokenKept() {
+    public void aWorkspaceTheAccountLostKeepsThePickAndItsPlanStopsCounting() {
         signIn();
         tokens.saveWorkspace("w1", "Team");
         assertTrue(state.accept(pro("s1"), CATALOGUE));
@@ -239,9 +239,13 @@ public class EntitlementsRefresherTest {
         server.enqueue(error(403, "WORKSPACE_FORBIDDEN"));
         refresher().fetchOnce();
 
-        assertNull("the next fetch uses the server's default", tokens.workspaceId());
+        // Nothing falls back to another brand: the pick stays, marked lost.
+        assertEquals("w1", tokens.workspaceId());
+        assertTrue(tokens.workspaceAccessLost());
         assertTrue(tokens.hasSession());
-        assertEquals("pro", state.plan());
+        // The app's brand listener calls brandChanged on a lost mark: the lost brand's plan no longer counts.
+        state.brandChanged();
+        assertEquals("free", state.plan());
         assertEquals(stored, prefsKv.data.get("token"));
     }
 

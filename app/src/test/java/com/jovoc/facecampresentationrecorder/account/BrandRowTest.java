@@ -9,7 +9,8 @@ import org.junit.Test;
 /** The brand row's label, avatar letters and locked rule. */
 public class BrandRowTest {
 
-    private static final String PLACEHOLDER = "Default brand";
+    private static final String PLACEHOLDER = "Brand";
+    private static final String CHOOSE = "Choose a brand";
 
     @Test
     public void aStoredPickIsShownBeforeTheServerDefault() {
@@ -31,6 +32,27 @@ public class BrandRowTest {
     public void aPickWithoutANameNeverShowsTheDefaultBrand() {
         assertEquals(PLACEHOLDER, BrandRow.label("id-1", null, "Other", PLACEHOLDER));
         assertEquals(PLACEHOLDER, BrandRow.label("id-1", "  ", "Other", PLACEHOLDER));
+    }
+
+    @Test
+    public void thePlaceholderIsNeutral_notDefaultBrand() {
+        assertEquals("Brand", PLACEHOLDER);
+        assertEquals("Brand", BrandRow.label("id-1", "", null, PLACEHOLDER));
+    }
+
+    @Test
+    public void aLostBrandAsksForAChoiceAndCanStillBeChangedWhenNoRecordingRuns() {
+        BrandRow row = BrandRow.lost(CHOOSE, false);
+        assertEquals(CHOOSE, row.name);
+        assertEquals("?", row.initials);
+        assertTrue(row.changeable);
+    }
+
+    @Test
+    public void aLostBrandIsLockedWhileARecordingRuns() {
+        BrandRow row = BrandRow.lost(CHOOSE, true);
+        assertEquals(CHOOSE, row.name);
+        assertFalse(row.changeable);
     }
 
     @Test

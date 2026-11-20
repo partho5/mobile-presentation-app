@@ -73,7 +73,8 @@
     <string name="pub_err_signed_out">please sign in again</string>
     <string name="pub_err_credits">not enough credits</string>
     <string name="pub_err_rejected">the server rejected the post</string>
-    <string name="pub_err_workspace">you no longer have access to that brand</string>
+    <string name="pub_err_workspace">no access to that brand anymore</string>
+    <string name="pub_err_workspace_named">no access to %1$s anymore</string>
     <string name="pub_err_too_large">video is over the 1 GB limit</string>
     <string name="pub_err_rate_limited">too many requests, try again soon</string>
     <string name="pub_err_busy">still being processed, try again</string>

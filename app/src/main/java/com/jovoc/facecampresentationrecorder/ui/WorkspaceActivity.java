@@ -70,12 +70,25 @@ public class WorkspaceActivity extends AppCompatActivity {
     private Intent returnTo;
     /** True from a change until the screens restart: taps and Back do nothing meanwhile. */
     private boolean switching;
+    private static final String STATE_SWITCHING = "switching";
 
     /** The picker, opened from a screen that passes its own intent so a change can return there. */
     public static Intent open(Context context, Intent returnTo) {
         Intent intent = new Intent(context, WorkspaceActivity.class);
         if (returnTo != null) intent.putExtra(EXTRA_RETURN_TO, new Intent(returnTo));
         return intent;
+    }
+
+    /**
+     * For a screen whose brand has refused this phone: opens the picker in place of the screen. After a
+     * choice the picker restarts the screens and this one comes back, rebuilt from its intent.
+     * @return true when the picker was opened (the caller must stop what it was doing)
+     */
+    public static boolean openIfAccessLost(AppCompatActivity activity) {
+        if (!SessionManager.get(activity).repository().store().workspaceAccessLost()) return false;
+        activity.startActivity(open(activity, activity.getIntent()));
+        activity.finish();
+        return true;
     }
 
     @Override
@@ -112,15 +125,26 @@ public class WorkspaceActivity extends AppCompatActivity {
         tvMessage = findViewById(R.id.tv_workspaces_message);
         container = findViewById(R.id.workspaces_container);
         ((Button) findViewById(R.id.btn_workspaces_retry)).setOnClickListener(v -> load());
-        load();
+        // A rotation during a change: the change's own restart still comes, so no second change may start.
+        switching = savedInstanceState != null && savedInstanceState.getBoolean(STATE_SWITCHING, false);
+        if (switching) progress.setVisibility(View.VISIBLE);
+        else load();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_SWITCHING, switching);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // A change in progress still restarts the screens when its wait ends, so its callback stays.
+        // A change in progress still restarts the screens when its wait ends, so its callback stays,
+        // and its wait is not cut short: shutdown lets the running task finish.
         if (!switching) main.removeCallbacksAndMessages(null);
-        io.shutdownNow();
+        if (switching) io.shutdown();
+        else io.shutdownNow();
     }
 
     private void load() {
@@ -156,7 +180,9 @@ public class WorkspaceActivity extends AppCompatActivity {
                 } else if (result.isEmpty()) {
                     showMessage(getString(R.string.ws_empty));
                 } else {
-                    showWorkspaces(result, current);
+                    // A brand that refused this phone is not "the one in use": no Current mark.
+                    boolean lost = session.repository().store().workspaceAccessLost();
+                    showWorkspaces(result, lost ? null : current);
                 }
             });
         });
@@ -201,7 +227,7 @@ public class WorkspaceActivity extends AppCompatActivity {
         TokenStore store = session.repository().store();
         String stored = store.workspaceId();
         BrandSwitch.Outcome outcome = BrandSwitch.decide(stored, w.id, serverDefaultId,
-                FeatureSnapshot.recordingNow());
+                FeatureSnapshot.recordingNow(), store.workspaceAccessLost());
         if (outcome == BrandSwitch.Outcome.BLOCKED_RECORDING) {
             Toast.makeText(getApplicationContext(), R.string.brand_locked_note, Toast.LENGTH_SHORT).show();
             return;

@@ -41,4 +41,23 @@ public class BrandSwitchTest {
         assertEquals(Outcome.BLOCKED_RECORDING, BrandSwitch.decide("b1", "b1", "b1", true));
         assertEquals(Outcome.BLOCKED_RECORDING, BrandSwitch.decide(null, "b1", null, true));
     }
+
+    @Test
+    public void aLostBrandIsNeverTheOneInUse_soPickingItAgainChanges() {
+        assertEquals(Outcome.CHANGED, BrandSwitch.decide("b1", "b1", "b1", false, true));
+        assertEquals(Outcome.CHANGED, BrandSwitch.decide("b1", "b2", "b1", false, true));
+    }
+
+    @Test
+    public void aLostBrandStillBlocksWhileARecordingRuns() {
+        assertEquals(Outcome.BLOCKED_RECORDING, BrandSwitch.decide("b1", "b2", "b1", true, true));
+    }
+
+    @Test
+    public void theFourArgumentFormIsTheSameAsNotLost() {
+        assertEquals(BrandSwitch.decide("b1", "b1", "b2", false),
+                BrandSwitch.decide("b1", "b1", "b2", false, false));
+        assertEquals(BrandSwitch.decide(null, "b1", "b1", false),
+                BrandSwitch.decide(null, "b1", "b1", false, false));
+    }
 }

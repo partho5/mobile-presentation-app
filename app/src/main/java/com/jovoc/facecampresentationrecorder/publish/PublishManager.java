@@ -79,16 +79,23 @@ public final class PublishManager {
         this.dao = AppDatabase.getInstance(app).publishJobDao();
     }
 
-    /** Saves the job and starts it. The job's fields other than the input are set here. */
-    public void enqueue(PublishJob job, Runnable onQueued) {
+    /**
+     * Saves the job and starts it. The job's fields other than the input are set here. A job is never
+     * saved without a brand: when none can be had now (offline, first use) the job is not saved and
+     * {@code onFailed} runs instead of {@code onQueued}.
+     */
+    public void enqueue(PublishJob job, Runnable onQueued, Runnable onFailed) {
         io.execute(() -> {
             PublishJob existing = dao.latestFor(job.filePath);
             if (existing == null || !existing.isActive()) {
-                long now = System.currentTimeMillis();
-                // The job stays in the workspace picked now, even if the user switches later.
-                if (job.workspaceId == null) {
-                    job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
+                // The job stays in the brand picked now, even if the user switches later.
+                String brand = job.workspaceId != null ? job.workspaceId : SessionManager.get(app).brandForNewJob();
+                if (brand == null) {
+                    if (onFailed != null) onFailed.run();
+                    return;
                 }
+                long now = System.currentTimeMillis();
+                job.workspaceId = brand;
                 job.status = PublishJob.QUEUED;
                 job.progress = 0;
                 job.idempotencyKey = PublishPipeline.newKey();
@@ -186,9 +193,14 @@ public final class PublishManager {
             boolean on = allowed && app.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE)
                     .getBoolean(RecordSettings.KEY_AUTO_PUBLISH, false);
             if (!on || !SessionManager.get(app).hasSession()) return;
+            // Auto-publish stays off while the picked brand has no access; the recording itself is kept.
+            if (SessionManager.get(app).repository().store().workspaceAccessLost()) return;
             String path = video.getAbsolutePath();
             PublishJob existing = dao.latestFor(path);
             if (existing != null && existing.isActive()) return;
+            // No brand, no job: the recording is kept and the startup sweep finds nothing to publish.
+            String brand = SessionManager.get(app).brandForNewJob();
+            if (brand == null) return;
 
             long now = System.currentTimeMillis();
             PublishJob job = new PublishJob();
@@ -202,7 +214,7 @@ public final class PublishManager {
                     ? PublishJob.AI_EXTRACTING : PublishJob.AI_OFF;
             job.status = PublishJob.WAITING_PROCESSING;
             job.idempotencyKey = PublishPipeline.newKey();
-            job.workspaceId = SessionManager.get(app).repository().store().workspaceId();
+            job.workspaceId = brand;
             job.createdAt = now;
             job.updatedAt = now;
             // Marked first: a sweep must not release the row before the processing is queued.

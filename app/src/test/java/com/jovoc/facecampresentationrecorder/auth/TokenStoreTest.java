@@ -69,12 +69,61 @@ public class TokenStoreTest {
         assertEquals("Acme", store.workspaceName());
         store.saveTokens("acc2", "ref2", "sid", 900, 0); // a refresh keeps the pick
         assertEquals("w1", store.workspaceId());
-        store.clearWorkspace();
-        assertNull(store.workspaceId());
-        assertTrue(store.hasSession());
         store.saveWorkspace("w2", "Beta");
+        assertEquals("w2", store.workspaceId());
         store.clear();
         assertNull(store.workspaceId());
+    }
+
+    @Test
+    public void aNewSessionForgetsThePickOfTheOldOne() {
+        store.saveTokens("acc", "ref", "sid-1", 900, 0);
+        store.saveWorkspace("w1", "Acme");
+        store.markWorkspaceAccessLost();
+        store.saveTokens("acc", "ref", "sid-2", 900, 0);
+        assertNull(store.workspaceId());
+        assertFalse(store.workspaceAccessLost());
+    }
+
+    @Test
+    public void aForbiddenBrandIsMarkedLostAndKeepsItsPick() {
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveWorkspace("w1", "Acme");
+        assertFalse(store.workspaceAccessLost());
+        store.markWorkspaceAccessLost();
+        assertTrue(store.workspaceAccessLost());
+        assertEquals("w1", store.workspaceId());
+        assertEquals("Acme", store.workspaceName());
+    }
+
+    @Test
+    public void markingWithNoPickDoesNothing() {
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.markWorkspaceAccessLost();
+        assertFalse(store.workspaceAccessLost());
+        assertNull(store.workspaceId());
+    }
+
+    @Test
+    public void choosingABrandClearsTheLostMark() {
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveWorkspace("w1", "Acme");
+        store.markWorkspaceAccessLost();
+        store.saveWorkspace("w2", "Beta");
+        assertFalse(store.workspaceAccessLost());
+        assertEquals("w2", store.workspaceId());
+    }
+
+    @Test
+    public void brandListenerHearsEveryPickAndLoss() {
+        int[] calls = {0};
+        store.setBrandListener(() -> calls[0]++);
+        store.saveTokens("acc", "ref", "sid", 900, 0);
+        store.saveWorkspace("w1", "Acme");
+        store.markWorkspaceAccessLost();
+        store.clear();
+        // new session, pick, loss, clear: one call each
+        assertEquals(4, calls[0]);
     }
 
     @Test

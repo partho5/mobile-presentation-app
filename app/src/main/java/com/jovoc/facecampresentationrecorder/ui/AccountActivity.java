@@ -90,7 +90,7 @@ public class AccountActivity extends AppCompatActivity {
         });
         findViewById(R.id.row_credits).setOnClickListener(v -> {
             ActivityLog.log("account_row", "item", "credits");
-            refresh(false);
+            refresh();
         });
 
         btnDelete = findViewById(R.id.btn_delete_account);
@@ -116,7 +116,7 @@ public class AccountActivity extends AppCompatActivity {
         // The brand may have changed on the picker screen, and the balance with it.
         if (created && session.hasSession()) {
             brandRow.refresh();
-            refresh(false);
+            refresh();
         }
         if (created) {
             showPlan();
@@ -145,7 +145,7 @@ public class AccountActivity extends AppCompatActivity {
 
     // ---- balance ----
 
-    private void refresh(boolean afterForbidden) {
+    private void refresh() {
         final int mine = ++generation;
         tvCredits.setText(R.string.acct_credits_loading);
         io.execute(() -> {
@@ -162,11 +162,12 @@ public class AccountActivity extends AppCompatActivity {
                 if (mine != generation || isFinishing() || isDestroyed()) return;
                 if (err == null) {
                     tvCredits.setText(describe(result));
-                } else if (err.kind == AccountException.Kind.WORKSPACE_FORBIDDEN && !afterForbidden) {
-                    // The pick was dropped by the client; say so, then show the default workspace.
+                } else if (err.kind == AccountException.Kind.WORKSPACE_FORBIDDEN) {
+                    // The brand refused this phone: the row now asks for a choice; nothing falls back.
+                    brandRow.refresh();
                     Toast.makeText(getApplicationContext(), ApiErrors.message(this, err),
                             Toast.LENGTH_LONG).show();
-                    refresh(true);
+                    tvCredits.setText(R.string.acct_credits_unavailable);
                 } else if (err.kind != AccountException.Kind.SIGNED_OUT) {
                     // SIGNED_OUT: the session manager is already opening the sign-in screen.
                     tvCredits.setText(R.string.acct_credits_unavailable);

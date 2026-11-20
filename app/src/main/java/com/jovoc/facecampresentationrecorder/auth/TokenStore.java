@@ -3,7 +3,7 @@ package com.jovoc.facecampresentationrecorder.auth;
 import java.util.HashMap;
 import java.util.Map;
 
-/** The device's session: token pair, session id, email and device name. */
+/** The device's session: token pair, session id, email, device name and the picked brand. */
 public class TokenStore {
 
     /** Access tokens are renewed this long before they expire. */
@@ -17,10 +17,12 @@ public class TokenStore {
     private static final String K_DEVICE = "device_name";
     private static final String K_WORKSPACE = "workspace_id";
     private static final String K_WORKSPACE_NAME = "workspace_name";
+    private static final String K_WORKSPACE_LOST = "workspace_access_lost";
 
     private final KeyValueStore kv;
     private final Object lock = new Object();
     private volatile Runnable sessionListener;
+    private volatile Runnable brandListener;
 
     public TokenStore(KeyValueStore kv) {
         this.kv = kv;
@@ -35,7 +37,18 @@ public class TokenStore {
         this.sessionListener = listener;
     }
 
-    /** Stores a freshly issued or rotated pair. Email/device name are kept unless given. */
+    /**
+     * Called (on the calling thread) when the brand in use may have changed: a brand is picked or
+     * saved, or its access is marked lost. Not called for a refresh of the same brand.
+     */
+    public void setBrandListener(Runnable listener) {
+        this.brandListener = listener;
+    }
+
+    /**
+     * Stores a freshly issued or rotated pair. Email/device name are kept unless given. A different
+     * session id also forgets the brand picked for the old session (the sign-in pins a new one).
+     */
     public void saveTokens(String access, String refresh, String sessionId, long expiresInSeconds,
                            long nowMs) {
         Map<String, String> m = new HashMap<>();
@@ -46,10 +59,18 @@ public class TokenStore {
         boolean newSession;
         synchronized (lock) {
             String previous = kv.get(K_SESSION);
-            kv.putAll(m);
             newSession = sessionId != null && !sessionId.isEmpty() && !sessionId.equals(previous);
+            if (newSession) {
+                m.put(K_WORKSPACE, null);
+                m.put(K_WORKSPACE_NAME, null);
+                m.put(K_WORKSPACE_LOST, null);
+            }
+            kv.putAll(m);
         }
-        if (newSession) notifySessionChanged();
+        if (newSession) {
+            notifySessionChanged();
+            notifyBrandChanged();
+        }
     }
 
     public void saveIdentity(String email, String deviceName) {
@@ -87,7 +108,7 @@ public class TokenStore {
         return read(K_DEVICE);
     }
 
-    /** The workspace picked on this device, or null for the server's default. */
+    /** The brand picked on this device, or null when none is stored yet. */
     public String workspaceId() {
         String v = read(K_WORKSPACE);
         return v == null || v.isEmpty() ? null : v;
@@ -97,23 +118,36 @@ public class TokenStore {
         return read(K_WORKSPACE_NAME);
     }
 
+    /**
+     * True when the server refused the picked brand (403 WORKSPACE_FORBIDDEN): this phone has no
+     * access to it any more. The pick itself stays; the person chooses a brand instead.
+     */
+    public boolean workspaceAccessLost() {
+        return "1".equals(read(K_WORKSPACE_LOST)) && workspaceId() != null;
+    }
+
+    /** Stores the brand picked on this device. A new pick clears any "access lost" mark. */
     public void saveWorkspace(String id, String name) {
         Map<String, String> m = new HashMap<>();
         m.put(K_WORKSPACE, id);
         m.put(K_WORKSPACE_NAME, name == null ? "" : name);
+        m.put(K_WORKSPACE_LOST, null);
         synchronized (lock) {
             kv.putAll(m);
         }
+        notifyBrandChanged();
     }
 
-    /** Back to the server's default workspace (a null value removes the key). */
-    public void clearWorkspace() {
-        Map<String, String> m = new HashMap<>();
-        m.put(K_WORKSPACE, null);
-        m.put(K_WORKSPACE_NAME, null);
+    /**
+     * Marks the picked brand as no longer accessible. Never clears the pick: nothing moves to another
+     * brand by itself. No-op when no brand is picked.
+     */
+    public void markWorkspaceAccessLost() {
+        if (workspaceId() == null) return;
         synchronized (lock) {
-            kv.putAll(m);
+            kv.putAll(Map.of(K_WORKSPACE_LOST, "1"));
         }
+        notifyBrandChanged();
     }
 
     public long accessExpiresAtMs() {
@@ -137,6 +171,7 @@ public class TokenStore {
             kv.clear();
         }
         notifySessionChanged();
+        notifyBrandChanged();
     }
 
     private void notifySessionChanged() {
@@ -146,6 +181,16 @@ public class TokenStore {
             l.run();
         } catch (RuntimeException ignored) {
             // Whatever hangs off the session must not stop it from starting or ending.
+        }
+    }
+
+    private void notifyBrandChanged() {
+        Runnable l = brandListener;
+        if (l == null) return;
+        try {
+            l.run();
+        } catch (RuntimeException ignored) {
+            // The plan follows the brand; a failing listener must not stop the store.
         }
     }
 

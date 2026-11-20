@@ -47,7 +47,7 @@ public final class AutoPublishNotifier {
                     c.getString(R.string.pub_err_media_purged_gone));
         }
         return c.getString(R.string.auto_notif_failed,
-                PublishLabels.reason(c, job.errorKind, job.errorDetail));
+                PublishLabels.reasonFor(c, job));
     }
 
     /** Shows the result of a job that has just ended; ignores jobs that are not auto-publish. */

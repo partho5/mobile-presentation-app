@@ -153,12 +153,25 @@ public class AccountApiTest {
     }
 
     @Test
-    public void workspaceForbidden_dropsThePick_andIsReported() throws Exception {
+    public void workspaceForbidden_marksAccessLost_keepsThePick_andIsReported() throws Exception {
         store.saveWorkspace("w-gone", "Gone");
         server.enqueue(json(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}"));
         assertEquals(AccountException.Kind.WORKSPACE_FORBIDDEN, kindOf(() -> api.balance()));
-        assertNull(store.workspaceId());
+        // Never falls back to another brand: the pick stays, marked as lost.
+        assertEquals("w-gone", store.workspaceId());
+        assertTrue(store.workspaceAccessLost());
         assertTrue(store.hasSession());
+    }
+
+    @Test
+    public void workspaceForbidden_thenTheNextCallStillGoesOnlyToTheLostBrand() throws Exception {
+        store.saveWorkspace("w-gone", "Gone");
+        server.enqueue(json(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}"));
+        assertEquals(AccountException.Kind.WORKSPACE_FORBIDDEN, kindOf(() -> api.balance()));
+        server.enqueue(json(403, "{\"statusCode\":403,\"code\":\"WORKSPACE_FORBIDDEN\"}"));
+        assertEquals(AccountException.Kind.WORKSPACE_FORBIDDEN, kindOf(() -> api.balance()));
+        server.takeRequest();
+        assertEquals("w-gone", server.takeRequest().getHeader("x-workspace-id"));
     }
 
     @Test

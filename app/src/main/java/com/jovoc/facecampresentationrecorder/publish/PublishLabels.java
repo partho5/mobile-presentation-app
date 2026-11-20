@@ -3,6 +3,8 @@ package com.jovoc.facecampresentationrecorder.publish;
 import android.content.Context;
 
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 
 import java.text.DateFormat;
@@ -59,7 +61,7 @@ public final class PublishLabels {
                     return c.getString(PurgedMedia.fileExists(job)
                             ? R.string.status_media_purged : R.string.status_media_purged_gone);
                 }
-                return c.getString(R.string.status_failed, reason(c, job.errorKind, job.errorDetail));
+                return c.getString(R.string.status_failed, reasonFor(c, job));
             default:
                 return null;
         }
@@ -162,6 +164,22 @@ public final class PublishLabels {
         if (job == null || !PublishJob.REMOTE_PUBLISHED.equals(job.remoteState)) return null;
         String u = job.remoteUrl;
         return u != null && (u.startsWith("https://") || u.startsWith("http://")) ? u : null;
+    }
+
+    /**
+     * The reason a job failed. A job whose brand has lost access names that brand when it is the one
+     * in use ("No access to Acme anymore"); a job for another brand gets the unnamed wording.
+     */
+    public static String reasonFor(Context c, PublishJob job) {
+        if ("WORKSPACE_FORBIDDEN".equals(job.errorKind)) {
+            TokenStore store = SessionManager.get(c).repository().store();
+            String name = job.workspaceId != null && job.workspaceId.equals(store.workspaceId())
+                    ? store.workspaceName() : null;
+            if (name != null && !name.trim().isEmpty()) {
+                return c.getString(R.string.pub_err_workspace_named, name);
+            }
+        }
+        return reason(c, job.errorKind, job.errorDetail);
     }
 
     /** A short human reason for a failure kind ({@link PublishException.Kind} name). */

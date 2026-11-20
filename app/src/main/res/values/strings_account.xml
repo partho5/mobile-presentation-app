@@ -4,7 +4,8 @@
     <string name="brand_change">Change</string>
     <string name="brand_posting_to">Posting to</string>
     <string name="brand_locked_note">You can change the brand after the recording</string>
-    <string name="acct_workspace_default">Default brand</string>
+    <string name="acct_workspace_default">Brand</string>
+    <string name="brand_choose">Choose a brand</string>
     <string name="acct_credits_label">Credits</string>
     <string name="acct_credits_loading">Loading…</string>
     <string name="acct_credits_available">%1$s available</string>
@@ -26,7 +27,7 @@
     <string name="web_no_browser">No browser app found to open this page.</string>
     <string name="session_ended_toast">Your publishing session ended. Click Auto upload to social media to sign in again.</string>
     <string name="acct_err_signed_out">You were signed out. Please sign in again.</string>
-    <string name="acct_err_workspace">You no longer have access to that brand. Switched back to your default brand.</string>
+    <string name="acct_err_workspace">You no longer have access to that brand. Choose a brand to continue.</string>
     <string name="acct_err_gone">That item no longer exists. The list was refreshed.</string>
     <string name="acct_retry">Retry</string>
 

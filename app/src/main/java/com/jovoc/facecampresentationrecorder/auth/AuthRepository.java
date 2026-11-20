@@ -35,6 +35,15 @@ public class AuthRepository {
     private final LongSupplier clock;
     private final Object refreshLock = new Object();
     private volatile Runnable forcedSignOutListener;
+    private volatile WorkspaceResolver workspaceResolver;
+
+    /**
+     * Gives the brand for an authed call when none is stored yet: the server's default, pinned as
+     * the pick. Throws (NETWORK) when it cannot be had; a call is then not sent without a brand.
+     */
+    public interface WorkspaceResolver {
+        String resolve() throws AuthException;
+    }
 
     public AuthRepository(ApiClient api, TokenStore store) {
         this(api, store, System::currentTimeMillis);
@@ -53,6 +62,27 @@ public class AuthRepository {
 
     public TokenStore store() {
         return store;
+    }
+
+    /** Set once at startup by the session manager; without one, a call with no pick goes without a brand (tests only). */
+    public void setWorkspaceResolver(WorkspaceResolver resolver) {
+        this.workspaceResolver = resolver;
+    }
+
+    /**
+     * The brand an authed call goes to: the pick stored on this device, or the server's default
+     * resolved and stored now when none is stored. Null when signed out (or no resolver is set).
+     * @throws AuthException NETWORK when no brand can be had now
+     */
+    public String brandForCall() throws AuthException {
+        if (!store.hasSession()) return null;
+        String stored = store.workspaceId();
+        if (stored != null) return stored;
+        WorkspaceResolver resolver = workspaceResolver;
+        if (resolver == null) return null;
+        String resolved = resolver.resolve();
+        if (resolved == null || resolved.isEmpty()) throw new AuthException(AuthException.Kind.NETWORK);
+        return resolved;
     }
 
     // ---- input rules (the backend lower-cases and trims; we do the same) ----
@@ -186,9 +216,9 @@ public class AuthRepository {
 
     /**
      * Like {@link #execute(String, String, String, Map)}. {@code withWorkspace} adds the
-     * {@code x-workspace-id} of the workspace picked on this device (unless {@code headers}
-     * already names one). A 403 WORKSPACE_FORBIDDEN for the stored workspace drops the pick, so
-     * the next call uses the server's default; the 403 is still returned to the caller.
+     * {@code x-workspace-id} of the brand picked on this device (unless {@code headers} already
+     * names one). A 403 WORKSPACE_FORBIDDEN for the stored brand marks its access as lost; the pick
+     * is kept and nothing falls back to another brand. The 403 is still returned to the caller.
      */
     public ApiResponse execute(String method, String path, String jsonBody, Map<String, String> headers,
                                boolean withWorkspace) throws AuthException {
@@ -257,18 +287,20 @@ public class AuthRepository {
         return noteWorkspaceResult(r, h);
     }
 
-    private Map<String, String> withWorkspaceHeader(Map<String, String> headers) {
+    private Map<String, String> withWorkspaceHeader(Map<String, String> headers) throws AuthException {
         Map<String, String> h = new HashMap<>();
         if (headers != null) h.putAll(headers);
-        String workspace = store.workspaceId();
-        if (workspace != null && !h.containsKey(HEADER_WORKSPACE)) h.put(HEADER_WORKSPACE, workspace);
+        if (!h.containsKey(HEADER_WORKSPACE)) {
+            String workspace = brandForCall();
+            if (workspace != null) h.put(HEADER_WORKSPACE, workspace);
+        }
         return h;
     }
 
     private ApiResponse noteWorkspaceResult(ApiResponse r, Map<String, String> sentHeaders) {
         if (r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)) {
             String sent = sentHeaders == null ? null : sentHeaders.get(HEADER_WORKSPACE);
-            if (sent != null && sent.equals(store.workspaceId())) store.clearWorkspace();
+            if (sent != null && sent.equals(store.workspaceId())) store.markWorkspaceAccessLost();
         }
         return r;
     }

@@ -154,6 +154,8 @@ public class PublishActivity extends AppCompatActivity {
             finish();
             return;
         }
+        // The brand has refused this phone: choose a brand first; this screen comes back rebuilt from its intent.
+        if (WorkspaceActivity.openIfAccessLost(this)) return;
         api = new PublishApi(session.repository());
         brandRow = new BrandRowBinder(this, findViewById(R.id.row_brand), io,
                 getString(R.string.brand_posting_to));
@@ -251,10 +253,14 @@ public class PublishActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Not set up (finished in onCreate): nothing to show here.
+        if (api == null) return;
+        // The brand has refused this phone since: the picker replaces this screen.
+        if (WorkspaceActivity.openIfAccessLost(this)) return;
         // The brand may have changed on the picker; recording may have started or stopped.
         if (brandRow != null) brandRow.refresh();
         // Back from Auto upload after connecting a platform: look again without a manual refresh.
-        if (showingNoChannels && api != null) loadChannels();
+        if (showingNoChannels) loadChannels();
         // The plan may have changed (upgrade sheet, billing page).
         if (aiSwitch != null && aiActive() != aiSwitch.isChecked()) {
             syncAiGate();
@@ -337,6 +343,8 @@ public class PublishActivity extends AppCompatActivity {
             final PublishException err = error;
             main.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
+                // The brand refused this phone just now: the picker replaces this screen.
+                if (err != null && WorkspaceActivity.openIfAccessLost(this)) return;
                 progressChannels.setVisibility(View.GONE);
                 textPlatforms.clear();
                 textPlatforms.addAll(nonVideo);
@@ -564,6 +572,8 @@ public class PublishActivity extends AppCompatActivity {
     }
 
     private void queueJob() {
+        // Nothing is queued to a brand that has refused this phone: the picker opens instead.
+        if (WorkspaceActivity.openIfAccessLost(this)) return;
         List<Channel> chosen = new ArrayList<>();
         for (String id : selected) {
             Channel c = channelsById.get(id);
@@ -593,6 +603,7 @@ public class PublishActivity extends AppCompatActivity {
         PublishManager.get(this).enqueue(job, () -> main.post(() -> {
             Toast.makeText(getApplicationContext(), R.string.publish_started, Toast.LENGTH_LONG).show();
             finish();
-        }));
+        }), () -> main.post(() ->
+                Toast.makeText(getApplicationContext(), R.string.err_offline, Toast.LENGTH_LONG).show()));
     }
 }

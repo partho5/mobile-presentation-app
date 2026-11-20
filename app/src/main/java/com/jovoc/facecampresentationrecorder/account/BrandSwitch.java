@@ -26,7 +26,19 @@ public final class BrandSwitch {
      * @param recordingNow    whether a recording is running
      */
     public static Outcome decide(String storedId, String pickedId, String serverDefaultId, boolean recordingNow) {
+        return decide(storedId, pickedId, serverDefaultId, recordingNow, false);
+    }
+
+    /**
+     * As above. A brand whose access is lost is never "the one in use": picking it again is a change,
+     * so the screens restart and the access is asked for again.
+     *
+     * @param accessLost whether the stored brand has refused this phone (403)
+     */
+    public static Outcome decide(String storedId, String pickedId, String serverDefaultId, boolean recordingNow,
+                                 boolean accessLost) {
         if (recordingNow) return Outcome.BLOCKED_RECORDING;
+        if (accessLost) return Outcome.CHANGED;
         String inUse = isEmpty(storedId) ? serverDefaultId : storedId;
         if (!isEmpty(inUse) && inUse.equals(pickedId)) return Outcome.SAME;
         return Outcome.CHANGED;

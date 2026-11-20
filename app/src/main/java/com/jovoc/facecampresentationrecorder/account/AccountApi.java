@@ -56,7 +56,18 @@ public class AccountApi {
 
     /** GET /user/self: the id of the workspace the server resolves for this device right now. */
     public String currentWorkspaceId() throws AccountException {
-        ApiResponse r = authed("GET", PATH_SELF, true);
+        return orgIdOf(authed("GET", PATH_SELF, true));
+    }
+
+    /**
+     * The server's default brand for this account, asked without any brand header (the discovery
+     * call that pins a brand, so it cannot itself wait for one).
+     */
+    public String serverDefaultWorkspaceId() throws AccountException {
+        return orgIdOf(authed("GET", PATH_SELF, false));
+    }
+
+    private static String orgIdOf(ApiResponse r) throws AccountException {
         try {
             String id = r.json().optString("orgId", "");
             if (id.isEmpty()) throw new JSONException("no orgId");

@@ -196,6 +196,8 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
             finish();
             return;
         }
+        // The brand has refused this phone: choose a brand first, then this screen comes back.
+        if (WorkspaceActivity.openIfAccessLost(this)) return;
         tvEmail.setText(session.email());
         // The brand may have changed on the picker, and recording may have started or stopped.
         brandRow.refresh();
@@ -263,6 +265,11 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     }
 
     private void onRefreshFailed(PublishException e) {
+        // The brand refused this phone just now: the picker replaces this screen.
+        if (WorkspaceActivity.openIfAccessLost(this)) {
+            refreshAgain = false;
+            return;
+        }
         if (e.kind == PublishException.Kind.SIGNED_OUT && !session.hasSession()) {
             refreshAgain = false;
             SessionManager.openSignIn(this, new Intent(this, AutoPublishActivity.class));

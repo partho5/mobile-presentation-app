@@ -11,9 +11,13 @@ import android.widget.Toast;
 import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
+import com.jovoc.facecampresentationrecorder.account.AccountApi;
+import com.jovoc.facecampresentationrecorder.account.AccountException;
+import com.jovoc.facecampresentationrecorder.account.BrandPin;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.publish.PublishManager;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -56,7 +60,11 @@ public final class SessionManager {
         TokenStore store = new TokenStore(new SecureKeyValueStore(appContext));
         // A token signed for the old session means nothing after sign-out, a dead session or a new sign-in.
         store.setSessionListener(Entitlements::clear);
+        // The plan follows the brand: a change of pick, or a lost brand, re-decides which plan counts.
+        store.setBrandListener(Entitlements::brandChanged);
         this.repo = new AuthRepository(api, store);
+        // A call with no brand picked yet pins the server's default first; it never goes out brandless.
+        repo.setWorkspaceResolver(() -> resolveBrand(false));
         repo.setForcedSignOutListener(() -> main.post(() -> {
             ActivityLog.log("session_ended");
             // Signing in is optional, so a dead session is not a wall: say so and go home.
@@ -67,6 +75,56 @@ public final class SessionManager {
 
     public AuthRepository repository() {
         return repo;
+    }
+
+    /**
+     * The brand a new job is made in: the pick, or the server's default pinned now. Null when none can
+     * be had (offline, first use): the job must then not be saved.
+     */
+    public String brandForNewJob() {
+        try {
+            return repo.brandForCall();
+        } catch (AuthException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Pins this phone's brand in the background: at sign-in ({@code atSignIn}, replacing any earlier pick),
+     * or at startup, where it only fills an empty pick. Then the plan is asked for the brand and jobs
+     * without a brand get this one. Never blocks the caller; a failure is retried by the next call.
+     */
+    public void pinBrandInBackground(boolean atSignIn) {
+        io.execute(() -> {
+            try {
+                if (!repo.store().hasSession()) return;
+                boolean hadPick = repo.store().workspaceId() != null;
+                String brand = resolveBrand(atSignIn);
+                PublishManager.get(appContext).pinDefaultWorkspace(brand);
+                // The plan is asked for a brand only when this pinned a new one (sign-in, or a first pick).
+                if (atSignIn || !hadPick) EntitlementsRefresher.refreshNow();
+            } catch (AuthException | RuntimeException ignored) {
+                // Offline or refused: the next authed call or startup asks again.
+            }
+        });
+    }
+
+    /** Blocking: see {@link BrandPin#resolve}. Maps the account failure onto the auth failure kinds. */
+    private String resolveBrand(boolean atSignIn) throws AuthException {
+        try {
+            return BrandPin.resolve(new AccountApi(repo), repo.store(), atSignIn);
+        } catch (AccountException e) {
+            switch (e.kind) {
+                case NETWORK:
+                    throw new AuthException(AuthException.Kind.NETWORK);
+                case RATE_LIMITED:
+                    throw new AuthException(AuthException.Kind.RATE_LIMITED, e.retryAfterSeconds, null);
+                case SIGNED_OUT:
+                    throw new AuthException(AuthException.Kind.NOT_SIGNED_IN);
+                default:
+                    throw new AuthException(AuthException.Kind.SERVER);
+            }
+        }
     }
 
     public boolean hasSession() {
@@ -113,6 +171,8 @@ public final class SessionManager {
                 ActivityLog.log("signin_success", "new_account", created);
                 // The wipe on the new session left Free; fetch this account's plan.
                 EntitlementsRefresher.refreshNow();
+                // This account's default brand becomes the pick, in the background (sign-in is not slowed).
+                pinBrandInBackground(true);
                 return created;
             } catch (AuthException e) {
                 logSignInFailure("code", e);

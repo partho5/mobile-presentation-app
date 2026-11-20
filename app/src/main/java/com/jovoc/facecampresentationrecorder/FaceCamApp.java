@@ -11,6 +11,7 @@ import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
 import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditReceipts;
+import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
@@ -42,6 +43,12 @@ public class FaceCamApp extends Application {
             BillingLink.init(this);
         } catch (Exception e) {
             // Plans must never stop the app from starting; every gate then reads as Free.
+        }
+        try {
+            // An install with no brand picked yet pins the server's default, and its unpinned jobs follow it.
+            SessionManager.get(this).pinBrandInBackground(false);
+        } catch (Exception e) {
+            // Pinning must never stop the app from starting; the next authed call pins instead.
         }
         try {
             CaptionUsage.flush(this); // retries a transcript use / release that could not be sent

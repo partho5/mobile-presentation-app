@@ -38,9 +38,18 @@ public final class BrandRow {
     }
 
     /**
+     * The row when the picked brand has refused this phone: it asks for a choice ({@code chooseLabel},
+     * "Choose a brand") and never names the old brand as if it were still in use.
+     */
+    public static BrandRow lost(String chooseLabel, boolean recordingNow) {
+        return new BrandRow(chooseLabel, "?", !recordingNow);
+    }
+
+    /**
      * The picked brand's name when one is stored. Without a stored pick, the server default's
      * name when it is known, else the placeholder. A stored pick never falls back to the
-     * default: the row must name the brand the phone really posts to.
+     * default: the row must name the brand the phone really posts to. A pick without a name
+     * shows the placeholder too, so the placeholder should be neutral ("Brand").
      */
     public static String label(String pickedId, String pickedName, String defaultName, String placeholder) {
         if (!isEmpty(pickedId)) {

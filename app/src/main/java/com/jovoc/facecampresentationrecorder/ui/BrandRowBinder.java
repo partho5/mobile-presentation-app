@@ -63,12 +63,20 @@ public final class BrandRowBinder {
         row.setOnClickListener(v -> onTap());
     }
 
-    /** Shows the stored pick and the recording state now; looks up the server default when no pick is stored. */
+    /**
+     * Shows the stored pick and the recording state now. A brand that refused this phone reads "Choose a
+     * brand". A pick is always stored once WS3 has pinned one, so the server default is only looked up
+     * while none is stored yet.
+     */
     public void refresh() {
         final int mine = ++generation;
         String pickedId = store.workspaceId();
-        show(BrandRow.of(pickedId, store.workspaceName(), null, placeholder(),
-                FeatureSnapshot.recordingNow()));
+        boolean recording = FeatureSnapshot.recordingNow();
+        if (store.workspaceAccessLost()) {
+            show(BrandRow.lost(activity.getString(R.string.brand_choose), recording));
+            return;
+        }
+        show(BrandRow.of(pickedId, store.workspaceName(), null, placeholder(), recording));
         if (pickedId != null) return;
         io.execute(() -> {
             final String defaultName = resolveDefaultName();

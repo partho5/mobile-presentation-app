@@ -5,6 +5,7 @@ import android.content.Context;
 import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.auth.ApiResponse;
+import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
@@ -51,12 +52,18 @@ final class EntitlementsApi {
         this.auth = auth;
     }
 
+    /** Stands for a brand that refused this phone: no token is ever fetched or kept for it. */
+    static final String LOST_BRAND = "!lost";
+
     /**
      * The brand a plan request is sent for, and the brand a token must have been fetched for: the
-     * stored pick while signed in, else null (an anonymous call carries no brand).
+     * stored pick while signed in, else null (an anonymous call carries no brand). A brand whose
+     * access is lost counts as {@link #LOST_BRAND}, so the plan it had no longer counts.
      */
     static String brandInUse(TokenStore store) {
-        return store.hasSession() ? store.workspaceId() : null;
+        if (!store.hasSession()) return null;
+        if (store.workspaceAccessLost()) return LOST_BRAND;
+        return store.workspaceId();
     }
 
     static EntitlementsApi create(Context context) {
@@ -75,18 +82,24 @@ final class EntitlementsApi {
         if (auth != null && auth.store().hasSession()) {
             String access = auth.quietAccessToken();
             if (access == null) return null;
+            // The brand in use (pinned now if none was yet). No call goes out without one, and a brand
+            // that has lost access asks for no plan: its plan stays off until a choice is made.
+            try {
+                workspace = auth.brandForCall();
+            } catch (AuthException e) {
+                return null;
+            }
+            if (auth.store().workspaceAccessLost()) return null;
             headers = new HashMap<>();
             headers.put("Authorization", "Bearer " + access);
-            workspace = auth.store().workspaceId();
             if (workspace != null) headers.put(AuthRepository.HEADER_WORKSPACE, workspace);
         }
         try {
             ApiResponse r = client.send("GET", PATH, null, headers);
-            // As in AuthRepository.execute: a workspace the account lost is dropped, or every later
-            // fetch would be refused the same way and the token would run out.
+            // As in AuthRepository.execute: a 403 for the picked brand marks its access lost; the pick stays.
             if (workspace != null && r.is(403, ApiResponse.WORKSPACE_FORBIDDEN)
                     && workspace.equals(auth.store().workspaceId())) {
-                auth.store().clearWorkspace();
+                auth.store().markWorkspaceAccessLost();
             }
             Fetched f = parse(r);
             return f == null ? null : new Fetched(f.token, f.catalogueJson, workspace);
