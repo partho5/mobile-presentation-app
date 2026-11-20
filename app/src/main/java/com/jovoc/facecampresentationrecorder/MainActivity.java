@@ -12,6 +12,7 @@ import com.jovoc.facecampresentationrecorder.ui.Gate;
 import com.jovoc.facecampresentationrecorder.ui.PremiumMark;
 import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
 import com.jovoc.facecampresentationrecorder.ui.SlideTransitionController;
+import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
 import com.jovoc.facecampresentationrecorder.ui.VideoPlayerDialog;
 import android.animation.ObjectAnimator;
@@ -209,6 +210,8 @@ public class MainActivity extends AppCompatActivity
     private DrawingBoardController drawingBoardController;
     private boolean boardTouchActive = false;
     private boolean isDrawingBoardVisible = false;
+    /** The slide whose board is loaded; the board opens or closes by itself when this changes. */
+    private int boardSlideId = SlideInkController.NO_SLIDE;
     private boolean isDrawingBoardAnimating = false;
     private static final long DRAWING_BOARD_ANIM_MS = 250L;
 
@@ -1414,15 +1417,46 @@ public class MainActivity extends AppCompatActivity
                 // No sheet while recording (it would end up in the video).
                 Gate.lockedWhileRecording(this, Feature.DRAWING_BOARD);
             } else {
-                Gate.run(this, Feature.DRAWING_BOARD, this::showDrawingBoard);
+                Gate.run(this, Feature.DRAWING_BOARD, this::userShowDrawingBoard);
             }
             return;
         }
         ActivityLog.log("drawing_board_toggle", "on", !isDrawingBoardVisible);
         if (isDrawingBoardVisible) {
+            rememberBoardShown(false);
             hideDrawingBoard(true);
         } else {
-            showDrawingBoard();
+            userShowDrawingBoard();
+        }
+    }
+
+    private void userShowDrawingBoard() {
+        showDrawingBoard();
+        if (isDrawingBoardVisible) rememberBoardShown(true);
+    }
+
+    /** Only the user's own toggle is remembered per slide; automatic hides (pen mode, recording reset) are not. */
+    private void rememberBoardShown(boolean shown) {
+        if (boardSlideId == SlideInkController.NO_SLIDE) return;
+        // A one-byte marker file: written right away so a quick swipe afterwards already sees it.
+        DrawingBoardStorage.setShownOnSlide(this, boardSlideId, shown);
+    }
+
+    /** A new slide starts: load its own board and open or close it as the user left it. */
+    private void applyBoardForSlide(int slideId) {
+        if (drawingBoardController == null || drawingBoardContainer == null || slideId == boardSlideId) return;
+        boardSlideId = slideId;
+        drawingBoardController.setSlide(slideId);
+        boolean want = slideId != SlideInkController.NO_SLIDE
+                && DrawingBoardStorage.isShownOnSlide(this, slideId)
+                && FeatureSnapshot.allows(Feature.DRAWING_BOARD);
+        if (want && !isDrawingBoardVisible) {
+            // After the slide has been laid out, so the board gets its square size.
+            drawingBoardContainer.post(() -> {
+                if (boardSlideId == slideId && !isDrawingBoardVisible) showDrawingBoard();
+            });
+        } else if (!want && isDrawingBoardVisible) {
+            hideDrawingBoard(true);
         }
     }
 
@@ -1435,6 +1469,7 @@ public class MainActivity extends AppCompatActivity
     private void showDrawingBoard() {
         // The plan this recording started with decides, whoever asks.
         if (!FeatureSnapshot.allows(Feature.DRAWING_BOARD)) return;
+        drawingBoardContainer.animate().cancel();
         if (slideInkController != null) slideInkController.setPenMode(false);
         sizeDrawingBoard();
         int side = drawingBoardContainer.getLayoutParams().height;
@@ -2006,7 +2041,7 @@ public class MainActivity extends AppCompatActivity
                 // Check if horizontal swipe is dominant and exceeds thresholds
                 if (Math.abs(diffX) > Math.abs(diffY)) {
                     if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
-                        if (isDrawingBoardVisible) hideDrawingBoard(true);
+                        // The new slide decides whether the board stays open (see applyBoardForSlide).
                         if (diffX > 0) {
                             // Swipe Right -> Previous Slide
                             markSwipeGestureDone(false);
@@ -2104,6 +2139,7 @@ public class MainActivity extends AppCompatActivity
                             int posToUpdate = targetSlidePosition;
                             // Marks belong to the old picture; they would sit on the wrong content.
                             if (slideInkController != null) slideInkController.discard(slideToSave.getId());
+                            if (drawingBoardController != null) drawingBoardController.discard(slideToSave.getId());
                             repository.update(slideToSave, () -> {
                                 Toast.makeText(this, "Image updated successfully", Toast.LENGTH_SHORT).show();
                                 if (slideAdapter != null && posToUpdate != -1) {
@@ -2147,6 +2183,7 @@ public class MainActivity extends AppCompatActivity
                             Slide slideToSave = slideToUpdateVideo;
                             int posToUpdate = targetSlidePosition;
                             if (slideInkController != null) slideInkController.discard(slideToSave.getId());
+                            if (drawingBoardController != null) drawingBoardController.discard(slideToSave.getId());
                             repository.update(slideToSave, () -> {
                                 Toast.makeText(this, "Video updated successfully", Toast.LENGTH_SHORT).show();
                                 if (slideAdapter != null && posToUpdate != -1) {
@@ -2529,6 +2566,7 @@ public class MainActivity extends AppCompatActivity
                 swipeRefreshWebSlide.setRefreshing(false);
             }
             if (slideInkController != null) slideInkController.setSlide(SlideInkController.NO_SLIDE);
+            applyBoardForSlide(SlideInkController.NO_SLIDE);
             if (slideInkView != null) slideInkView.setVisibility(View.GONE);
             onReady.run();
             return;
@@ -2539,6 +2577,7 @@ public class MainActivity extends AppCompatActivity
         displayedSlideId = slide.getId();
         resetAllSlideZoom();
         if (slideInkController != null) slideInkController.setSlide(slide.getId());
+        applyBoardForSlide(slide.getId());
         SlideLogger.log("RENDER", String.format(Locale.US,
                 "renderCurrentSlide: index=%d/%d, type=%s, id=%d, imagePath=%s, textContent=%s",
                 currentSlideIndex, slides.size(), slide.getType(), slide.getId(),
@@ -3572,6 +3611,7 @@ public class MainActivity extends AppCompatActivity
                         ActivityLog.log("topic_delete");
                         repository.delete(slide, () -> {
                             if (slideInkController != null) slideInkController.discard(slide.getId());
+                            if (drawingBoardController != null) drawingBoardController.discard(slide.getId());
                             slides.remove(position);
                             slideAdapter.setSlides(slides);
                             if (currentSlideIndex >= slides.size()) {
@@ -3609,6 +3649,9 @@ public class MainActivity extends AppCompatActivity
             stopVideoIfPlaying();
             if (slideInkController != null) {
                 for (Slide s : doomed) slideInkController.discard(s.getId());
+            }
+            if (drawingBoardController != null) {
+                for (Slide s : doomed) drawingBoardController.discard(s.getId());
             }
             slides.clear();
             currentSlideIndex = 0;

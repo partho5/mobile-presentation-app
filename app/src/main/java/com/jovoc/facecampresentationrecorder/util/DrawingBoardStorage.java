@@ -17,10 +17,15 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Saves the drawing board's strokes to {@code filesDir/drawing_board.json} and remembers the pen colour. */
+/**
+ * Saves the drawing board's strokes per slide to {@code filesDir/board_slides/<slideId>.json}, remembers per slide
+ * whether the user left the board open (marker file {@code <slideId>.shown}), and remembers the pen colour.
+ * The old single board ({@code filesDir/drawing_board.json}) is adopted once by the first slide that opens the board.
+ */
 public final class DrawingBoardStorage {
 
-    private static final String FILE_NAME = "drawing_board.json";
+    private static final String LEGACY_FILE_NAME = "drawing_board.json";
+    private static final String DIR_NAME = "board_slides";
     private static final String PREFS = "drawing_board_prefs";
     private static final String KEY_PEN_COLOR = "pen_color";
     private static final String KEY_TEXT_COLOR = "text_color";
@@ -29,16 +34,90 @@ public final class DrawingBoardStorage {
 
     private DrawingBoardStorage() {}
 
-    private static File file(Context context) {
-        return new File(context.getFilesDir(), FILE_NAME);
+    private static File strokesFile(File filesDir, int slideId) {
+        File dir = new File(filesDir, DIR_NAME);
+        if (!dir.exists()) dir.mkdirs();
+        return new File(dir, slideId + ".json");
     }
 
-    public static synchronized void save(Context context, List<DrawingBoardView.Stroke> strokes) {
-        writeStrokes(file(context), strokes);
+    private static File shownFile(File filesDir, int slideId) {
+        return new File(strokesFile(filesDir, slideId).getParentFile(), slideId + ".shown");
     }
 
-    public static synchronized List<DrawingBoardView.Stroke> load(Context context) {
-        return readStrokes(file(context));
+    /** Saves this slide's board; an empty board removes the file so cleared slides leave nothing behind. */
+    public static synchronized void saveSlide(Context context, int slideId, List<DrawingBoardView.Stroke> strokes) {
+        saveSlide(context.getFilesDir(), slideId, strokes);
+    }
+
+    static synchronized void saveSlide(File filesDir, int slideId, List<DrawingBoardView.Stroke> strokes) {
+        File target = strokesFile(filesDir, slideId);
+        if (strokes == null || strokes.isEmpty()) {
+            target.delete();
+        } else {
+            writeStrokes(target, strokes);
+        }
+    }
+
+    public static synchronized List<DrawingBoardView.Stroke> loadSlide(Context context, int slideId) {
+        return loadSlide(context.getFilesDir(), slideId);
+    }
+
+    static synchronized List<DrawingBoardView.Stroke> loadSlide(File filesDir, int slideId) {
+        return readStrokes(strokesFile(filesDir, slideId));
+    }
+
+    /** True when the user left the board open on this slide, so it opens by itself when the slide starts. */
+    public static synchronized boolean isShownOnSlide(Context context, int slideId) {
+        return isShownOnSlide(context.getFilesDir(), slideId);
+    }
+
+    static synchronized boolean isShownOnSlide(File filesDir, int slideId) {
+        return shownFile(filesDir, slideId).exists();
+    }
+
+    /** Remember the user's own choice (toggle), never an automatic hide. */
+    public static synchronized void setShownOnSlide(Context context, int slideId, boolean shown) {
+        setShownOnSlide(context.getFilesDir(), slideId, shown);
+    }
+
+    static synchronized void setShownOnSlide(File filesDir, int slideId, boolean shown) {
+        File f = shownFile(filesDir, slideId);
+        try {
+            if (shown) {
+                f.createNewFile();
+            } else {
+                f.delete();
+            }
+        } catch (IOException ignored) {
+            // Losing the "open by itself" hint is harmless; never crash the recorder over it.
+        }
+    }
+
+    /** Forgets the board of a deleted slide, or of a slide whose content was replaced. */
+    public static synchronized void deleteSlide(Context context, int slideId) {
+        deleteSlide(context.getFilesDir(), slideId);
+    }
+
+    static synchronized void deleteSlide(File filesDir, int slideId) {
+        strokesFile(filesDir, slideId).delete();
+        shownFile(filesDir, slideId).delete();
+    }
+
+    /**
+     * Moves the old single board drawing into this slide (first come, first served) and deletes the old file.
+     * Returns the strokes, or an empty list when there is nothing to adopt.
+     */
+    public static synchronized List<DrawingBoardView.Stroke> adoptLegacy(Context context, int slideId) {
+        return adoptLegacy(context.getFilesDir(), slideId);
+    }
+
+    static synchronized List<DrawingBoardView.Stroke> adoptLegacy(File filesDir, int slideId) {
+        File legacy = new File(filesDir, LEGACY_FILE_NAME);
+        if (!legacy.exists()) return new ArrayList<>();
+        List<DrawingBoardView.Stroke> strokes = readStrokes(legacy);
+        if (!strokes.isEmpty()) writeStrokes(strokesFile(filesDir, slideId), strokes);
+        legacy.delete();
+        return strokes;
     }
 
     /** Atomically writes the strokes as JSON (tmp file + rename). Also used by {@link SlideInkStorage}. */

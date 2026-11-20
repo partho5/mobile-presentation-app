@@ -16,7 +16,10 @@ platforms, the video is the **hook title written over a pre-designed image backg
   transcript (LLM), and a renderer path that takes a still background instead of a source video.
 - Text-only input (no voice) can use the same background + hook title path, without captions.
 
-## 1. Onboarding first page: name the target audience
+## 1. ✅ Onboarding first page: name the target audience
+
+Status: **built** (`onb_what_body` now reads "…make your face well known to your target audience and establish a strong
+personal brand."). Original notes kept below.
 
 After "makes your face well known", add "to your target audience" and continue the sentence (the rest of the sentence was cut
 off in the note: "and establish…").
@@ -54,7 +57,17 @@ The note says "9:16 for YouTube long video format"; YouTube long videos are 16:9
 - Remaining meaning to confirm: a large preview on top with the timeline below and the playhead synced (as in CapCut or
   Premiere), keeping every current control as it is.
 
-## 5. Drawing board remembers its state per slide
+## 5. ✅ Drawing board remembers its state per slide
+
+Status: **built**. `util/DrawingBoardStorage` keeps the board drawing per slide (`filesDir/board_slides/<id>.json`) plus a
+"left open" marker (`<id>.shown`); `MainActivity.applyBoardForSlide` loads the slide's board and opens or closes it on slide
+entry. Only the user's own toggle is remembered (pen mode, recording reset and slide swipes never change it). The old single
+`drawing_board.json` is adopted by the first slide that opens an empty board. A slide's board is deleted with the slide or when
+its image/video is replaced. Board show/hide events already go to the event log (`EventLog.boardShown`).
+
+- To verify on a device: open the board on slide A and draw, swipe to B (board closes), back to A (board opens with the
+  drawing); hide it on A by hand, leave and return (stays hidden, drawing kept).
+- Original notes kept below.
 
 Today the board must be opened manually after a slide change. Expected: if the user used the board on a slide, the board opens by
 itself (with that slide's drawing) when that slide starts. The user can still toggle it.
@@ -63,16 +76,6 @@ itself (with that slide's drawing) when that slide starts. The user can still to
 - Needed: board drawing and shown/hidden state saved per slide id (like `util/SlideInkStorage` already does for slide ink),
   restored on slide entry, during recording and presenting.
 - Also useful for AI editing: board show/hide events go into the event log.
-
-## 6. "Sub" button embeds subtitles without charging twice
-
-Status: **built** (commits 6ff4473, 249b153, dcedf5b). The preview has the "sub" button (`btn_embed_subtitles` in
-`ui/VideoPlayerDialog`); `subtitle/SubtitleEmbedStore` remembers burned files by fingerprint and reuses the caption id so the
-user is not charged again; all crop versions get the subtitles.
-
-- To verify on a device: tap "sub" twice, and on an already embedded video → no second burn, no second charge.
-- Related money issue (in the AI spec, section 5): auto transcription after recording charges caption credits even for takes
-  that are later discarded.
 
 ## 7. Auto move the face cam while the user draws (setting, default off)
 

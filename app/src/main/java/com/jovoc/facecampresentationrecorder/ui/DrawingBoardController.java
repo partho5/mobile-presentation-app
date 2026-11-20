@@ -84,6 +84,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
     private View paletteAnchor;
     private boolean updatingInput = false;
     private boolean dirty = false;
+    private int slideId = SlideInkController.NO_SLIDE;
     private final Runnable hidePalette = () -> showPalette(false);
     private final Runnable saveRunnable = this::saveInBackground;
 
@@ -144,7 +145,6 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
         buildSwatches();
         board.setListener(this);
         board.setTextListener(this);
-        board.importStrokes(DrawingBoardStorage.load(context));
         setPenColor(DrawingBoardStorage.loadPenColor(context));
         setTextColor(DrawingBoardStorage.loadTextColor(context));
         board.setTextSize(DrawingBoardStorage.loadTextSize(context));
@@ -248,15 +248,42 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
         for (int i = 0; i < swatches.size(); i++) styleSwatch(swatches.get(i), PALETTE[i] == color);
     }
 
+    /** Switches the board to this slide's own drawing (saving the previous slide's first). No-op for the same slide. */
+    public void setSlide(int id) {
+        if (id == slideId) return;
+        board.finishEditing();
+        flush();
+        slideId = id;
+        board.importStrokes(DrawingBoardStorage.loadSlide(context, id));
+    }
+
+    /** Drops the board of a slide for good (slide deleted, or its image/video replaced). */
+    public void discard(int id) {
+        if (id == slideId) {
+            handler.removeCallbacks(saveRunnable);
+            dirty = false;
+            board.importStrokes(null);
+        }
+        saver.execute(() -> DrawingBoardStorage.deleteSlide(context, id));
+    }
+
     /** Call when the board starts to slide in: the very first time, label it "Drawing Board". */
     public void onBoardShown() {
         EventLog.boardShown(true);
+        adoptLegacyDrawing();
         if (!DrawingBoardStorage.consumeIntro(context)) return;
         intro.animate().cancel();
         intro.setAlpha(1f);
         intro.setVisibility(View.VISIBLE);
         intro.animate().alpha(0f).setStartDelay(1800L).setDuration(500L)
                 .withEndAction(() -> intro.setVisibility(View.GONE)).start();
+    }
+
+    /** The old single board drawing moves into the first slide that opens an empty board. */
+    private void adoptLegacyDrawing() {
+        if (slideId == SlideInkController.NO_SLIDE || !board.exportStrokes().isEmpty()) return;
+        List<DrawingBoardView.Stroke> legacy = DrawingBoardStorage.adoptLegacy(context, slideId);
+        if (!legacy.isEmpty()) board.importStrokes(legacy);
     }
 
     /** Call when the board slides away: closes the palette and saves right away. */
@@ -276,7 +303,9 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
         handler.removeCallbacks(saveRunnable);
         if (!dirty) return;
         dirty = false;
-        DrawingBoardStorage.save(context, board.exportStrokes());
+        if (slideId != SlideInkController.NO_SLIDE) {
+            DrawingBoardStorage.saveSlide(context, slideId, board.exportStrokes());
+        }
     }
 
     // ---- palette ----
@@ -416,8 +445,10 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
     private void saveInBackground() {
         if (!dirty) return;
         dirty = false;
+        if (slideId == SlideInkController.NO_SLIDE) return;
+        int id = slideId;
         List<DrawingBoardView.Stroke> snapshot = board.exportStrokes();
-        saver.execute(() -> DrawingBoardStorage.save(context, snapshot));
+        saver.execute(() -> DrawingBoardStorage.saveSlide(context, id, snapshot));
     }
 
     @Override

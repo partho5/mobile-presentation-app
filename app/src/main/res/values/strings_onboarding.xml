@@ -13,7 +13,7 @@
     <string name="onb_progress_desc">Step %1$d of %2$d</string>
 
     <!-- %1$s is the app name (@string/app_name). -->
-    <string name="onb_what_body">%1$s helps you make your face well known and establish a strong personal brand.</string>
+    <string name="onb_what_body">%1$s helps you make your face well known to your target audience and establish a strong personal brand.</string>
     <!-- The phrase in onb_what_body that gets the brush underline. -->
     <string name="onb_what_brand_underline" translatable="false">personal brand</string>
 
