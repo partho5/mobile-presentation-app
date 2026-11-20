@@ -130,58 +130,59 @@ public class SoundTrackTest {
 
     @Test
     public void aCueIsMixedAtItsOutputTimeUnderTheVoice() throws Exception {
-        File dir = write("pop_1", wav(1000, 1, constant(100, (short) 32767)));
+        File dir = write("pop_1", wav(8000, 1, constant(800, (short) 32767)));
         Plan p = plan(Arrays.asList(soundItem("i1", 200, "pop_1", 0)), Arrays.asList(sound("pop_1")));
         SoundTrack track = SoundTrack.fromPlan(p, dir);
         assertNotNull(track);
         assertEquals(1, track.cueCount());
 
-        // 1 kHz output, mono: the cue covers output frames 200..299
-        float[] acc = new float[400];
-        acc[250] = 0.1f; // the voice
-        track.mixInto(acc, 0, 400, 1000, 1);
-        assertEquals(0f, acc[199], 1e-6f);
-        assertEquals(0f, acc[300], 1e-6f);
-        assertEquals(SoundTrack.GAIN + 0.1f, acc[250], 1e-3f);
-        assertTrue(acc[250] > 0.1f);
+        // 8 kHz output, mono: the 100 ms cue covers output frames 1600..2399
+        float[] acc = new float[3200];
+        acc[2000] = 0.1f; // the voice
+        track.mixInto(acc, 0, 3200, 8000, 1);
+        assertEquals(0f, acc[1599], 1e-6f);
+        assertEquals(0f, acc[2400], 1e-6f);
+        assertEquals(SoundTrack.GAIN + 0.1f, acc[2000], 1e-3f);
+        assertTrue(acc[2000] > 0.1f);
         // The first frame is faded in, not a hard edge
-        assertTrue(acc[200] < SoundTrack.GAIN * 0.8f);
+        assertTrue(acc[1600] < SoundTrack.GAIN * 0.8f);
     }
 
     @Test
     public void mixingInChunksGivesTheSameSoundAsOneBlock() throws Exception {
-        File dir = write("pop_1", wav(1000, 1, constant(100, (short) 20000)));
+        File dir = write("pop_1", wav(8000, 1, constant(800, (short) 20000)));
         Plan p = plan(Arrays.asList(soundItem("i1", 40, "pop_1", 0)), Arrays.asList(sound("pop_1")));
         SoundTrack track = SoundTrack.fromPlan(p, dir);
-        float[] whole = new float[300];
-        track.mixInto(whole, 0, 300, 1000, 1);
-        float[] parts = new float[300];
-        float[] chunk = new float[64];
-        for (int first = 0; first < 300; first += 64) {
-            int n = Math.min(64, 300 - first);
+        float[] whole = new float[2400];
+        track.mixInto(whole, 0, 2400, 8000, 1);
+        float[] parts = new float[2400];
+        float[] chunk = new float[512];
+        for (int first = 0; first < 2400; first += 512) {
+            int n = Math.min(512, 2400 - first);
             Arrays.fill(chunk, 0f);
-            track.mixInto(chunk, first, n, 1000, 1);
+            track.mixInto(chunk, first, n, 8000, 1);
             System.arraycopy(chunk, 0, parts, first, n);
         }
-        for (int i = 0; i < 300; i++) assertEquals(whole[i], parts[i], 1e-6f);
+        for (int i = 0; i < 2400; i++) assertEquals(whole[i], parts[i], 1e-6f);
     }
 
     @Test
     public void anOffsetMovesTheCueAndMonoPlaysOnBothChannels() throws Exception {
-        File dir = write("click", wav(1000, 1, constant(50, (short) 32767)));
+        File dir = write("click", wav(8000, 1, constant(400, (short) 32767)));
         Plan p = plan(Arrays.asList(soundItem("i1", 100, "click", 50)), Arrays.asList(sound("click")));
         SoundTrack track = SoundTrack.fromPlan(p, dir);
-        float[] acc = new float[2 * 300];
-        track.mixInto(acc, 0, 300, 1000, 2);
-        assertEquals(0f, acc[2 * 149], 1e-6f);
-        assertTrue(acc[2 * 170] > 0.3f);
-        assertEquals(acc[2 * 170], acc[2 * 170 + 1], 1e-6f);
-        assertEquals(0f, acc[2 * 200], 1e-6f);
+        // 8 kHz stereo: the 50 ms click starts at 150 ms, output frame 1200
+        float[] acc = new float[2 * 2400];
+        track.mixInto(acc, 0, 2400, 8000, 2);
+        assertEquals(0f, acc[2 * 1199], 1e-6f);
+        assertTrue(acc[2 * 1360] > 0.3f);
+        assertEquals(acc[2 * 1360], acc[2 * 1360 + 1], 1e-6f);
+        assertEquals(0f, acc[2 * 1600], 1e-6f);
     }
 
     @Test
     public void soundsWithoutAFileAnAssetOrAFolderAreLeftOut() throws Exception {
-        File dir = write("pop_1", wav(1000, 1, constant(100, (short) 1000)));
+        File dir = write("pop_1", wav(8000, 1, constant(800, (short) 1000)));
         List<PlanItem> items = new ArrayList<>();
         items.add(soundItem("i1", 0, "missing", 0));
         items.add(soundItem("i2", 0, "pop_1", 0));

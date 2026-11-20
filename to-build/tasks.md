@@ -1,8 +1,3 @@
-<!-- runner-config
-REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder
-BRANCH=feat/ai-video-edit
-SCRATCH=test_audio.wav test_video.mp4 run.log
--->
 
 RULE: this PC hangs under load. Run at most one gradle command at a time, only `./gradlew --offline :app:assembleDebug`
 and targeted unit tests (`--tests '<pattern>'`). No emulator, no whole-suite runs. 5 tests in `EngineContractTest` /
