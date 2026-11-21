@@ -15,6 +15,8 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerScheduler;
 import com.jovoc.facecampresentationrecorder.ui.BillingLink;
 import com.jovoc.facecampresentationrecorder.ui.PlanNotice;
 import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
@@ -59,6 +61,14 @@ public class FaceCamApp extends Application {
             AiEditReceipts.flushAsync(this); // retries an AI edit render receipt that could not be sent
         } catch (Exception e) {
             // A receipt must never stop the app from starting.
+        }
+        try {
+            // The activity tracker: silent, batched upload. Must never stop the app from starting.
+            ActivityTracker.init(this);
+            ActivityTracker.onStored(new TrackerScheduler(this));
+            TrackerScheduler.schedulePeriodic(this);
+        } catch (Throwable ignored) {
+            // Tracking must never stop the app from starting.
         }
         try {
             ActivityLog.init(this);

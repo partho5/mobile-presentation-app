@@ -1,12 +1,15 @@
 package com.jovoc.facecampresentationrecorder.auth;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.zip.GZIPOutputStream;
 
 import okhttp3.ConnectionSpec;
 import okhttp3.HttpUrl;
@@ -97,6 +100,30 @@ public class ApiClient {
 
     public ApiResponse postJson(String path, String jsonBody) throws IOException {
         return send("POST", path, jsonBody, null);
+    }
+
+    /**
+     * POSTs {@code json} gzip-compressed with {@code Content-Encoding: gzip}. Used by the activity
+     * tracker's batch upload. An IOException means the server was not reached.
+     */
+    public ApiResponse sendGzipJson(String path, String json, Map<String, String> headers) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gz = new GZIPOutputStream(bos)) {
+            gz.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+        Request.Builder rb = new Request.Builder().url(baseUrl + path)
+                .header("Accept", "application/json")
+                .header("Content-Encoding", "gzip");
+        if (headers != null) {
+            for (Map.Entry<String, String> h : headers.entrySet()) rb.header(h.getKey(), h.getValue());
+        }
+        rb.post(RequestBody.create(bos.toByteArray(), JSON));
+        try (Response r = http.newCall(rb.build()).execute()) {
+            String text = r.body() == null ? "" : r.body().string();
+            return new ApiResponse(r.code(), text,
+                    ApiResponse.parseRetryAfter(r.header("Retry-After")),
+                    "true".equalsIgnoreCase(r.header("onboarding")));
+        }
     }
 
     /** Bytes sent so far out of the total, called from the uploading thread. */
