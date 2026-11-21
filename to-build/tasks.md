@@ -1,208 +1,520 @@
 
 RULE: this PC hangs under load. Run at most one gradle command at a time, only `./gradlew --offline :app:assembleDebug`
-and targeted unit tests (`--tests '<pattern>'`). No emulator, no whole-suite runs. 5 tests in `EngineContractTest` /
-`SoundTrackTest` fail on a clean HEAD; they are not yours.
-
+and targeted unit tests (`--tests '<pattern>'`). No emulator, no whole-suite runs. 
 One task card = one session (one sub-agent). Build exactly one card, tick it in **Progress**, commit, stop. A card is
 self-contained: read **Shared context** below, then the card's own "Read first" list.
 
 -----------------
 
-# FaceCam app: switch brand seamlessly, never post to the wrong brand (cards WS1-WS4)
+# Activity Tracker — app (cards A1–A5)
 
-The web half is in `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (cards W1-W2). These cards need
-**no server change**: every route they use already exists. The web cards are not required first.
+Owner gate: plan confirmed 2026-11-21. Build the cards **in order** (A1, A2, A3, A4a, A4b, A4c, A4d, A4e, A5), one card per session.
+Plan: `ACTIVITY_TRACKER_APP_PLAN.md`. Backend cards B1–B6: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md`.
 
-The previous card set is kept in `to-build/tasks--ai-video-edit.md`.
-
-## Shared context
+## Shared context (read before any card)
 
 ### Goal
-A signed-in person with several brands always sees which brand the phone is posting to, changes it in two taps from
-where they are, and after a change sees nothing of the old brand anywhere. **Nothing is ever posted to a brand the person
-did not choose:** no floating default, no silent fallback, and no switch during a recording. Work already started finishes
-in the brand it was started in.
-
-### Owner decisions (2026-11-20)
-- **Seamless UX is the top priority.** No confirm dialogs, no extra taps, no new screens. People with one brand see
-  nothing new except its name on the publishing screens. Being offline never blocks seeing or keeping the brand.
-- **Never switch brand during a recording.** While a recording runs, the brand row shows the name but cannot change it.
-- **Don't touch the recording screen.** No edits to `MainActivity`, `res/layout/activity_main.xml`,
-  `res/layout/nav_header.xml`, `res/menu/drawer_menu.xml` or `service/*`.
-- The visible word is **Brand**, as on the website. Class, field, route and header names keep "workspace".
-- A change restarts the app's other screens and brings you back where you were. Never kill the process: running uploads
-  and AI edits must keep going.
-- The choice stays per phone. Syncing it with the website is out of scope.
-
-### Safety rules every card keeps
-1. **The phone always holds a real brand id.** No job, request or screen ever relies on "the server's default".
-2. **Losing access fails closed.** The phone never moves to another brand by itself. It asks the person to choose.
-3. **A job keeps the brand it was made in**: publish jobs, AI edits, caption usage and upload sessions.
-4. **The plan follows the brand.** One brand's plan never decides what another brand may do.
-5. **Anything outside a screen that is about a job names its brand,** when the person has more than one: notifications,
-   the undo countdown and history.
-
-### What already exists (reuse, don't rebuild)
-- `auth/TokenStore`: `workspaceId()`, `workspaceName()`, `saveWorkspace(id, name)`, `clearWorkspace()`.
-- `auth/AuthRepository`: sends `x-workspace-id` on every authed call. On a 403 `WORKSPACE_FORBIDDEN` for the stored
-  brand, `noteWorkspaceResult` clears the pick, so later calls go to the server default. That breaks rule 2 and is
-  fixed in WS3.
-- `account/AccountApi`: `listWorkspaces()` (`GET /user/organizations`) and `currentWorkspaceId()` (`GET /user/self`).
-- `ui/WorkspaceActivity`: the picker. `pick()` pins default jobs, saves, calls `EntitlementsRefresher.refreshNow()`, shows
-  a toast, then `finish()`es. `ui/AccountActivity` has a "Workspace" row that opens it.
-- Pinned already: `db/PublishJob.workspaceId`, set in `PublishManager.beginAuto` at recording stop, but it can be
-  **null**, which means the server default. Also `aiedit/flow/AiEditStore.PendingReceipt.workspaceId` (the runner
-  sends the job's own id), `publish/CaptionUsage`, `PublishManager.pinDefaultWorkspace` / `PublishJobDao.pinUnpinned`, and
-  `publish/PostStatusSync` (groups jobs by brand, null = default).
-- Plan: `entitlements/Entitlements` builds `EntitlementState` with a scope supplier that returns only `sessionId()`, not
-  the brand. That breaks rule 4 and is fixed in WS2. `FeatureSnapshot.beginRecording()` / `endRecording()` mark a
-  recording in progress: its private static `recording` is non-null meanwhile. This is the one read-only signal for
-  "recording now"; add a small public getter on `FeatureSnapshot` if needed. That file is not recording code.
-- Screens that show a brand: `ui/AutoPublishActivity` (opened from the drawer item `nav_account`),
-  `ui/PublishActivity` (`EXTRA_FILE_PATH`), `ui/AccountActivity`. Messages outside screens:
-  `publish/AutoPublishNotifier`, `publish/AutoPublishUndo`, `publish/PublishLabels`, `SavedRecordingsActivity` and
-  `adapter/RecordingsAdapter` (My Videos; not the recording screen).
+Record every user activity and error, so the backend can replay each device's journey step by step (what was opened or tapped,
+when, how long, what broke) and show which features are really used. Records are stored as JSON in Room and uploaded in batches
+**every 5 days**, or sooner once **more than 20** are waiting, over **any** validated internet. **The user must never notice**:
+no UI, no toast, no dialog, no notification, no jank, no exception escapes. Every failure is swallowed and retried later.
 
 ### App facts
-- Android, Java, minSdk 31. Java paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/`.
-  Tests are JUnit 4 under `app/src/test/java/...`, **with no Robolectric and no androidTest**. Logic that tests must reach
-  goes in a plain Java class with no Android types, as `account/Workspace` does. Activities are checked by the owner on a
-  device.
-- Commit per card: `feat(brand): <card id> <what>` (or `fix(brand): ...`), ending with the `Co-Authored-By` line the
-  session gives. Never commit `test_audio.wav`, `test_video.mp4`, `run.log`.
-- Never log tokens, codes, brand names or ids in `ActivityLog`. Event names only (`ACTIVITY_LOG_PRIVACY.md`).
-- Do not touch `aiedit/engine/*`, `subtitle/*`, the recording screen or the recording pipeline.
+- Java only (no Kotlin, no Compose). minSdk 31, targetSdk 36. Base package `com.jovoc.facecampresentationrecorder` →
+  path `app/src/main/java/com/jovoc/facecampresentationrecorder/` (written `P/` below). Tests: `app/src/test/java/com/jovoc/facecampresentationrecorder/` (`T/`).
+- Tests are JUnit 4 + `org.json` + OkHttp MockWebServer. **No Robolectric, no Mockito.** `android.*` classes do not work in unit
+  tests (no `returnDefaultValues`), so all logic under test lives in **pure Java classes** that never touch `android.*`
+  (not even `android.util.Log`). Android glue stays thin and untested.
+- Room 2.6.1 at `P/db/AppDatabase.java` (now version 8, hand-written `Migration` objects in `MIGRATIONS[]`, `exportSchema = false`).
+  Migrations are tested in `T/db/AppDatabaseMigrationTest.java` with a Proxy that records `execSQL`.
+- HTTP: `P/auth/ApiClient.java` (OkHttp 4.12), `send(method, path, json, headers)` → `ApiResponse` (`status`, `isSuccess()`).
+  Base URL `BuildConfig.API_BASE_URL` (`https://social.nanybot.com/api`). Optional token: `SessionManager.get(ctx).repository().quietAccessToken()`
+  (never prompts, never signs out; null when signed out).
+- WorkManager 2.9.1. Application class: `P/FaceCamApp.java`. Launcher: `P/ui/StartupActivity.java`.
+- Build rule (top of this file): one gradle command at a time, only `./gradlew --offline :app:assembleDebug` or `./gradlew --offline :app:testDebugUnitTest --tests '<pattern>'`.
+- Commit per card: `feat(tracker): A<n> <what>`, a short body, and the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+  Tick the card in **Progress** (bottom) and in the plan's Status table, in the same commit. Never stage `app/src/debug/AndroidManifest.xml`.
 
-## Progress
+### Code rules for the tracker
+1. **Every public `ActivityTracker` method** body is `try { … } catch (Throwable ignored) { }`. It never throws and never returns null
+   (`start()` returns `Tracked.NOOP` when it can't track).
+2. Callers **never wait**. All disk and DB work runs on one single-thread executor `tracker` (daemon, `Thread.MIN_PRIORITY`,
+   bounded queue `QUEUE_CAP`, `DiscardPolicy`). The only exception is `fatal()` (crash), which waits ≤ `CRASH_WAIT_MS`.
+3. Nothing is shown to the user. Debug builds only: `if (BuildConfig.DEBUG) Log.d("ActivityTracker", json)` in the Android glue.
+4. Null/empty safe everywhere: null name → the record is dropped; null description/meta → omitted; an empty list → nothing sent.
 
-| Card | Repo | What | Depends on | Status |
-|---|---|---|---|---|
-| WS1 | app | "Brand" wording; one brand row on Auto-publish, Publish and Account; locked while recording | - | ✅ |
-| WS2 | app | A change loads the new brand's plan, then restarts the screens back where you were; never while recording | WS1 | ✅ |
-| WS3 | app | Always one real brand: pinned at sign-in and on startup, jobs never unpinned, lost access asks instead of falling back | WS2 | ✅ |
-| WS4 | app | Notifications, the undo countdown and My Videos name the job's brand when there is more than one | WS3 | ✅ |
+### Constants — `P/tracker/TrackerConfig.java` (all tunable here only)
+```java
+public final class TrackerConfig {
+    public static final int  SEND_EVERY_DAYS = 5;          // time rule
+    public static final int  SEND_WHEN_MORE_THAN = 20;     // volume rule: send when pending > this
+    public static final long MIN_GAP_MS = 15L * 60 * 1000; // volume rule fires at most every 15 min (0 = no limit)
+    public static final int  BATCH_SIZE = 50;              // records per request (backend max 50)
+    public static final int  MAX_BATCHES_PER_RUN = 10;     // then a follow-up run
+    public static final int  LOCAL_MAX_ROWS = 3000;        // device buffer cap
+    public static final int  TRIM_CHUNK = 100;             // rows dropped at once when full
+    public static final int  QUEUE_CAP = 500;              // writer queue
+    public static final long CRASH_WAIT_MS = 500;
+    public static final long SESSION_GAP_MS = 30L * 60 * 1000;
+    public static final int  MAX_UPLOAD_ATTEMPTS = 6;
+    private TrackerConfig() { }
+}
+```
 
-## WS1: Brand wording and a visible brand row
+### Contract (frozen copy of `Social-Media-Manager/_planning/02_contracts/api.activity-tracker.md`)
+`POST {API_BASE_URL}/tracker/batches`. Headers: `Content-Type: application/json`, `Content-Encoding: gzip`, and when signed in `Authorization: Bearer <access>`.
+```jsonc
+{ "batchId": "<uuid>", "deviceId": "<uuid>", "sentAt": 1763712000000,
+  "app": { "version": "1.0", "build": 4, "package": "com.jovoc.facecampresentationrecorder" },
+  "device": { "os": "Android 14", "sdk": 34, "manufacturer": "Google", "model": "Pixel 7", "locale": "en-US" },
+  "activities": [ {
+     "id": "<uuid>", "seq": 1042, "session": "a1b2c3d4", "kind": "activity",   // or "error"
+     "name": "click", "description": "edit topics",
+     "startedAt": 1763711990000, "endedAt": 1763711992500,                     // endedAt null = instant
+     "tz": 360, "appBuild": 4, "screen": "MainActivity", "source": "button",
+     "meta": { "count": 3, "on": true },
+     "error": { "type": "java.lang.NullPointerException", "message": "…", "stack": "…",
+                "causes": [ { "type": "…", "message": "…" } ], "thread": "main", "fatal": true,
+                "lastActivity": "click — record" } } ] }
+```
+Limits (the app cuts to these before storing): `name` `^[a-z0-9_]{1,40}$` · description 120 · screen 60 · source 40 · meta ≤ 20 keys `^[a-z0-9_]{1,32}$`,
+values String(≤ 200)/Number/Boolean · error.type 120 · message 1000 · stack 8000 · causes ≤ 5 (message 300) · thread 60 · lastActivity 120 ·
+session `^[A-Za-z0-9_-]{1,16}$` · activities per batch 1..50.
+Responses: **2xx** → delete the batch rows, `lastSentAt = now` · **400/413/422** → delete the rows (poison) · **401** → resend once without
+`Authorization` · **404/429/5xx/IOException** → keep the rows, retry later.
 
-**Read first:** `ui/WorkspaceActivity`, `ui/AccountActivity` (its workspace row), `ui/AutoPublishActivity` (top of
-`onCreate`, `onResume`), `ui/PublishActivity` (header), `entitlements/FeatureSnapshot`,
-`res/layout/{activity_auto_publish,activity_publish,activity_account,item_workspace}.xml`,
-`res/values/strings_account.xml`.
+### Activity vocabulary
+`app_open` (description `cold start`; source launcher/notification/recents/other; meta `first_run`, `notif`) · `app_foreground` (`came back`) ·
+`app_background` span (`minimized`) · `screen` span (description = Activity simple name) · `click` / `double_click` / `long_press` (description =
+what was tapped) · `toggle` (meta `on`) · `setting` (description = key, meta `value`) · `permission` (description = permission, meta `step`, `granted`) ·
+`record` span · `crash` (error, fatal) · `app_exit` (from ApplicationExitInfo) · `tracker_overflow`. Other names are free (`topic_add`, `publish`, …).
 
-**Do:**
-- Change every *visible* "Workspace" string to "Brand", for example "Brand", "You no longer have access to that brand",
-  and "Posts, channels and credits belong to the brand you pick". Keep the string keys.
-- Add one small reusable brand row (layout plus a binder in `ui/`): an initials avatar, the brand name and a "Change"
-  affordance.
-- Show the row:
-  - **Auto-publish:** at the top, above channels and preset.
-  - **Publish:** as "Posting to <Brand>".
-  - **Account:** replaces the existing workspace row.
-- Tapping the row opens `WorkspaceActivity`. Refresh it in `onResume`. With one brand, the row still shows and opens the
-  picker, whose hint says brands are created on the website.
-- **While a recording runs** (`FeatureSnapshot`): the row shows the name without "Change". A tap shows a one-line note,
-  "You can change the brand after the recording", and opens nothing.
-- The label comes from the stored pick. Until WS3 always stores one, an empty pick shows the server default's name, as
-  the Account row does today.
-- Put the label choice and the locked state in a plain class, with a JVM test for each case.
+### Old-call conversion table (used by A4a–A4d)
+Old form: `ActivityLog.log("<action>", k1, v1, k2, v2, …)`. New: `ActivityTracker.log(name, description, Meta.of(...))`.
+Import `com.jovoc.facecampresentationrecorder.tracker.ActivityTracker` and `…tracker.Meta`; remove the `…activitylog.ActivityLog` import.
+| old action (meta) | new call |
+|---|---|
+| `screen_view`, `app_open`, `app_crash` | **delete** (A3 records these automatically) |
+| `drawer_open` | `log("click", "drawer")` |
+| `drawer_item` (item) | `log("click", "drawer " + item)` |
+| `camera_flip` (to) | `log("click", "camera flip", Meta.of("to", to))` |
+| `drawing_board_toggle` (on) / `menu_toggle` (visible) | `log("toggle", "drawing board" / "menu bar", Meta.of("on", x))` |
+| `ai_captions_toggle`, `text_channel_toggle`, `channel_toggle`, `autopublish_toggle`, `topic_toggle` | `log("toggle", "<ai captions / text post channel / channel / auto publish / topic>", Meta.of(<same keys>))` |
+| `record_tap` | `log("click", "record")` |
+| `record_countdown_cancel` | `log("click", "cancel countdown")` |
+| `record_blocked` (reason, type) | `log("record_blocked", reason, Meta.of("type", type))` |
+| `record_start` (countdown_s, topics, …) in MainActivity | `log("click", "start recording", Meta.of(<same keys>))` (the `record` span itself lives in ScreenRecordService, see A4c) |
+| `record_stop` / `record_saved` | see A4c (they end the `record` span) |
+| `record_error` (kind[, type]) | `ActivityTracker.error("record", kind, <Throwable in scope or null>, Meta.of(<other keys>))` |
+| `permission_prompt` (perm) | `log("permission", perm, Meta.of("step", "prompt"))` |
+| `permission_rationale` (action[, perms]) | `log("permission", "rationale", Meta.of("step", action, "perms", perms))` |
+| `permission_result` (perm, granted) | `log("permission", perm, Meta.of("step", "result", "granted", granted))` |
+| `setting_change` (key, value) | `log("setting", key, Meta.of("value", value))` |
+| `topics_open` (count) | `log("click", "edit topics", Meta.of("count", count))` |
+| `topic_add` / `topic_edit` (type) | `log("topic_add" / "topic_edit", type)` |
+| `topic_delete` / `topics_delete_all` (count) | `log("topic_delete", null)` / `log("topic_delete_all", null, Meta.of("count", count))` |
+| `topic_move` (dir) | `log("topic_move", dir)` |
+| `topic_prev` / `topic_next` (recording) | `log("click", "previous topic" / "next topic", Meta.of("recording", r))` |
+| `bgreplace_start` / `bgreplace_done` / `bgreplace_cancel` in BgReplaceService | a `bg_replace` span, see A4c |
+| `bgreplace_cancel` in MainActivity | `log("click", "cancel background replace")` |
+| `player_action` (action, …) / `player_close` | `log("player", action, Meta.of(<rest>))` / `log("click", "close player")` |
+| `video_play` / `howto_video_play` | `log("click", "play video" / "how-to video", Meta.of(<same keys>))` |
+| `paywall_view` (feature, plan) | `log("paywall", "shown", Meta.of("feature", f, "plan", p))` |
+| `paywall_action` (action, feature) | `log("click", "paywall " + action, Meta.of("feature", feature))` |
+| `plans_view` | `log("sheet", "plans", Meta.of(<same keys>))` |
+| `drawing_tool` (tool) / `ink_tool` (tool[, on]) | `log("click", "drawing " + tool)` / `log("click", "ink " + tool, Meta.of("on", on))` |
+| `account_row` (item) | `log("click", "account " + item)` |
+| `publish_tap` (channels, mode) | `log("click", "publish", Meta.of("channels", c, "mode", m))` |
+| `publish_result` ok=true / ok=false (kind, mode) | `log("publish", "done", Meta.of("mode", m))` / `error("publish", kind, null, Meta.of("mode", m))` |
+| `ai_captions_result` (state, wait_ms, mode) | `log("ai_captions", state, Meta.of("wait_ms", w, "mode", m))` |
+| `undo_choice` (choice) | `log("click", "undo " + choice)` |
+| `signin_start` / `signin_code_requested` / `signin_success` | `log("signin", "start" / "code requested" / "success")` |
+| `signin_fail` (kind…) | `error("signin", "failed", <Throwable in scope or null>, Meta.of(<same keys>))` |
+| `signout` / `session_ended` (…) | `log("signout", null)` / `log("session_ended", <reason value or null>, Meta.of(<rest>))` |
+| `entitlement_change` (from, to) | `log("plan_change", from + " → " + to, Meta.of("from", from, "to", to))` |
+| `workspace_switch` / `brand_row` | `log("click", "switch brand" / "brand row", Meta.of(<same keys>))` |
+| `web_link` (host) | `log("click", "web link", Meta.of("host", host))` |
+| `device_revoke`, `contact_email`, `contact_copy`, `account_delete`, `onboarding_skip` | `log("click", "revoke device" / "contact email" / "copy contact" / "delete account" / "skip onboarding", Meta.of(<same keys>))` |
+| anything else | `log("<same action>", null, Meta.of(<same key/value pairs>))` |
+Extra rule: in every `catch` block of the converted file that already reports a failure to the user or to the old log (Toast, error dialog, `record_error`),
+make sure there is an `ActivityTracker.error("<area>", "<what failed>", e)` with the caught exception. **Never** add tracking inside tight loops
+(`onDraw`, touch-move, the per-frame render). Track the gesture's end instead.
 
-**Done when:** the three screens show the same brand; every visible label says Brand; the row is locked during a
-recording; the tests pass; `assembleDebug` passes; the recording screen files are unchanged.
+---
 
-## WS2: A change is a fresh restart, with the new brand's plan
+## A1 — Tracker core
 
-**Read first:** `ui/WorkspaceActivity.pick`, the WS1 binder, `entitlements/{Entitlements,EntitlementState,
-EntitlementsRefresher,FeatureSnapshot}`, `ui/StartupActivity`, and how `AutoPublishActivity`, `PublishActivity` and
-`AccountActivity` read their intent.
+**Read first:** Shared context; `P/db/AppDatabase.java`; `T/db/AppDatabaseMigrationTest.java`; `app/src/main/res/xml/data_extraction_rules.xml`.
 
-**Do:**
-- **The plan follows the brand:** the entitlement scope becomes session id plus brand id. After a change, the old brand's
-  plan token no longer counts. Until the new one arrives, gated features behave as "plan unknown", the same path as a
-  fresh install. Nothing runs under the old plan. Test it with a JVM test on `EntitlementState`.
-- **Every screen that opens the picker passes its own intent along** as the place to return to.
-- **When the picked brand differs from the current one:**
-  1. Mark that row "Switching…" and ignore further taps.
-  2. Keep today's steps (pin default jobs, save the pick).
-  3. Wait up to about 2 s for the new brand's plan. Slow or offline: go on anyway, because rule 4 already keeps the old
-     plan out.
-  4. Clear the whole task and start the stack `MainActivity` → the screen to return to, rebuilt from its original intent,
-     so Publish reopens the same recording. Use Android's task stack builder; `MainActivity` is only started, not edited.
-  5. Show "Switched to <Brand>".
-- **When the same brand is picked:** just close the picker.
-- **When a recording started meanwhile:** at the moment of picking, if a recording is running, do nothing and show the
-  WS1 note.
-- With no screen to return to, return to `MainActivity`.
-- Put the decision (changed, same, or blocked by a recording) in a plain class with a JVM test. Cover: same id,
-  different id, nothing stored, and recording running.
+**Create in `P/tracker/`:**
+1. `TrackerConfig.java`: exactly as in Shared context.
+2. `Meta.java` (pure):
+   ```java
+   public final class Meta {
+       final LinkedHashMap<String, Object> values = new LinkedHashMap<>();
+       /** Meta.of("count", 3, "on", true). Odd tail, null keys and null values are skipped. */
+       public static Meta of(Object... keyValues) { Meta m = new Meta(); if (keyValues != null) for (int i = 0; i + 1 < keyValues.length; i += 2) m.put(String.valueOf(keyValues[i]), keyValues[i + 1]); return m; }
+       public Meta put(String key, Object value) { /* k = TrackedRecord.cleanKey(key); skip null k / null value / when size == 20;
+           Boolean, Integer, Long, Double, Float kept (non-finite doubles → skipped); everything else → TrackedRecord.cut(String.valueOf(value), 200) */ return this; }
+       public Meta merge(Meta other) { /* put each entry of other (null-safe) */ return this; }
+       boolean isEmpty() { return values.isEmpty(); }
+       JSONObject toJson() throws JSONException { /* null when empty */ }
+   }
+   ```
+3. `ErrorInfo.java` (pure): `static ErrorInfo from(Throwable t, boolean fatal, String thread, String lastActivity)`. Fields `type`
+   (`t.getClass().getName()`, cut 120), `message` (`t.getMessage()` cut 1000, null allowed), `stack`, `causes`, `thread` (cut 60), `fatal`, `lastActivity` (cut 120).
+   Stack text, built **by hand** (never `android.util.Log.getStackTraceString`):
+   ```java
+   StringBuilder sb = new StringBuilder(); Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+   for (Throwable c = t; c != null && seen.add(c) && sb.length() < 8000; c = c.getCause()) {
+       if (c != t) sb.append("Caused by: ").append(c.getClass().getName()).append(": ").append(c.getMessage()).append('\n');
+       for (StackTraceElement f : c.getStackTrace()) { sb.append("at ").append(f).append('\n'); if (sb.length() >= 8000) break; }
+   }
+   stack = TrackedRecord.cut(sb.toString(), 8000);
+   ```
+   `causes`: up to 5 of `t.getCause()` chain (cycle-safe as above), each `{type, message cut 300}`. `JSONObject toJson()`. A null `t` → `from` returns null.
+4. `TrackedRecord.java` (pure, the record + its JSON):
+   - fields: `String id` (UUID), `long seq`, `String session`, `String kind` ("activity"|"error"), `String name`, `String description`,
+     `long startedAt`, `Long endedAt`, `int tz`, `int appBuild`, `String screen`, `String source`, `Meta meta`, `ErrorInfo error`.
+   - `static String cleanName(String raw)`: null → null; `raw.trim().toLowerCase(Locale.ROOT)`, `[\s\-]+` → `_`, remove `[^a-z0-9_]`, cut 40; empty → null.
+     (So callers may write `"double click"` → `double_click`, `"app open"` → `app_open`.)
+   - `static String cleanKey(String raw)`: the same but cut 32.
+   - `static String cut(String s, int max)`: null/blank → null, trim, then `substring(0, max)` when longer.
+   - `String toJson()`: the contract's activity object. Omit `endedAt`/`description`/`screen`/`source`/`meta`/`error` when null. Throws nothing (catch `JSONException` → return null).
+5. `SessionClock.java` (pure): `interface Store { String sessionId(); long lastActiveAt(); void save(String id, long at); }`.
+   `String current(long now)`: when `sessionId()` is null or `now − lastActiveAt() > SESSION_GAP_MS` (or `now < lastActiveAt()`), make a new id (8 hex chars from
+   `UUID.randomUUID()`). Then `save(id, now)` and return it. The constructor takes `Store` and a `Supplier<String>` for ids (tests pass a fixed one).
+6. `DeviceId.java`: `static String derive(byte[] raw)` (pure): SHA-256 of `"facecam-tracker-v1"` bytes + raw, first 16 bytes, then
+   `b[6] = (b[6] & 0x0f) | 0x50; b[8] = (b[8] & 0x3f) | 0x80;` and format as a UUID string. `static String get(Context)`: cached
+   `TrackerPrefs.deviceId()`; else read `new MediaDrm(new UUID(0xEDEF8BA979D64ACEL, 0xA3C827DCD51D21EDL)).getPropertyByteArray(MediaDrm.PROPERTY_DEVICE_UNIQUE_ID)`
+   in try/catch (`close()` it in `finally`); on any failure `UUID.randomUUID().toString()`. Save and return. Call it **only off the main thread** (worker / tracker thread).
+7. `TrackerPrefs.java`: SharedPreferences `tracker_prefs`. Getters/setters: `deviceId`, `lastSentAt` (when 0: set it to now and return now, so
+   the 5-day clock starts at first run), `nextSeq` (`long reserveSeq()` returns the value and stores value + 1 with `apply()`), `sessionId` + `lastActiveAt`
+   (implements `SessionClock.Store`), `lastExitCheck`, `backgroundSince`, `firstOpenDone`.
+8. `TrackerStore.java`: the writer thread + Room. `static void write(Context, TrackedRecord r, Runnable afterStored)` and
+   `static boolean writeAndWait(Context, TrackedRecord r, long maxWaitMs)`. On the thread: `json = r.toJson()`; if null, return. When
+   `dao.count() >= LOCAL_MAX_ROWS`, run `dao.deleteOldest(TRIM_CHUNK)` and insert a `tracker_overflow` record (meta `dropped`). Insert the row.
+   Notify the listener (`TrackerStore.Listener.onStored(int pending)`, set by A2). Catch `Throwable` around everything.
+9. `Tracked.java`: a span handle. `public static final Tracked NOOP`. `public void end()` and `public void end(Meta extra)`: the first call only
+   (`AtomicBoolean`) sets `endedAt = now`, merges `extra`, and hands the record to `ActivityTracker` to store. Later calls do nothing.
+10. `ActivityTracker.java`: the static facade.
+    ```java
+    public static void init(Context context)                       // once from FaceCamApp; safe to call again
+    public static void log(String name)                            // = log(name, null, null)
+    public static void log(String name, String description)
+    public static void log(String name, String description, Meta meta)
+    public static Tracked start(String name, String description)   // span; never null
+    public static Tracked start(String name, String description, Meta meta)
+    public static void error(String name, String description, Throwable t)
+    public static void error(String name, String description, Throwable t, Meta meta)
+    static void fatal(Throwable t, Thread thread)                  // A3 crash handler: also ends every open span (meta ended_by=crash), waits ≤ CRASH_WAIT_MS
+    static void setScreen(String screen)                           // A3: current screen, stamped on every record
+    static void setEntry(String source, String notif)              // A3: pending source for the next app_open / app_foreground
+    static void onStored(TrackerStore.Listener l)                  // A2
+    ```
+    Building a record: `id = UUID`, `seq = prefs.reserveSeq()`, `session = clock.current(now)`, `startedAt = now`,
+    `tz = TimeZone.getDefault().getOffset(now) / 60000`, `appBuild = BuildConfig.VERSION_CODE`, `screen = currentScreen`,
+    `kind = "activity"` (or `"error"` with `ErrorInfo.from(t, false, Thread.currentThread().getName(), lastActivity)`. A null `t` still makes an error record without the `error` block).
+    Keep `volatile String lastActivity = name + (description == null ? "" : " — " + description)` for every non-`screen` record.
+    Keep open spans in `Collections.newSetFromMap(new ConcurrentHashMap<>())` so `fatal` can end them. Every public method follows Code rule 1.
+    Before `init`, every method is a no-op and `start` returns `Tracked.NOOP`.
 
-**Done when:** a change from Auto-publish comes back to a freshly loaded Auto-publish with the new brand's channels,
-preset, credits and plan; a change from Publish reopens the same recording; Back never shows a screen of the old brand;
-a pick during a recording does nothing; the tests pass; `assembleDebug` passes.
+**Room:**
+- `P/db/TrackedActivity.java`: `@Entity(tableName = "tracked_activities")`, fields `@PrimaryKey @NonNull public String id;`,
+  `public long seq;`, `@ColumnInfo(name = "created_at") public long createdAt;`, `@NonNull public String json;`, `@ColumnInfo(name = "batch_id") public String batchId;`.
+- `P/db/TrackedActivityDao.java`:
+  ```java
+  @Insert(onConflict = OnConflictStrategy.IGNORE) void insert(TrackedActivity row);
+  @Query("SELECT COUNT(*) FROM tracked_activities") int count();
+  @Query("DELETE FROM tracked_activities WHERE id IN (SELECT id FROM tracked_activities WHERE batch_id IS NULL ORDER BY created_at LIMIT :n)") int deleteOldest(int n);
+  @Query("SELECT batch_id FROM tracked_activities WHERE batch_id IS NOT NULL LIMIT 1") String openBatchId();
+  @Query("UPDATE tracked_activities SET batch_id = :batchId WHERE id IN (SELECT id FROM tracked_activities WHERE batch_id IS NULL ORDER BY created_at LIMIT :n)") int assignBatch(String batchId, int n);
+  @Query("SELECT * FROM tracked_activities WHERE batch_id = :batchId ORDER BY created_at") List<TrackedActivity> inBatch(String batchId);
+  @Query("DELETE FROM tracked_activities WHERE batch_id = :batchId") int deleteBatch(String batchId);
+  ```
+- `AppDatabase`: add `TrackedActivity.class` to `entities`, `public abstract TrackedActivityDao trackedActivityDao();`, version **9**, and
+  ```java
+  /** The table of {@link TrackedActivity}; kept as text so a test can check what a migration runs. */
+  static final String CREATE_TRACKED_ACTIVITIES = "CREATE TABLE IF NOT EXISTS `tracked_activities` ("
+          + "`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, "
+          + "`json` TEXT NOT NULL, `batch_id` TEXT, PRIMARY KEY(`id`))";
+  // Activity tracker buffer; every other table is untouched.
+  static final Migration MIGRATION_8_9 = new Migration(8, 9) { public void migrate(@NonNull SupportSQLiteDatabase db) { db.execSQL(CREATE_TRACKED_ACTIVITIES); } };
+  ```
+  Append it to `MIGRATIONS`. **Do not touch** the old `activity_events` entity/table yet (A4e removes it).
+- `data_extraction_rules.xml`: add `<exclude domain="sharedpref" path="tracker_prefs.xml" />` in **both** sections (next to the existing excludes), with a comment saying
+  the device id must not travel to another phone.
 
-## WS3: Always one real brand, and lost access asks
+**Tests** (`T/tracker/`, pure JUnit):
+- `MetaTest`: `of("a",1,"b")` keeps only a. Null value skipped. A 300-char string cut to 200. The 21st key ignored. Key `"Topic Type"` → `topic_type`. A nested object → its String form. `NaN` skipped.
+- `TrackedRecordTest`: `cleanName("double click")` = `double_click`; `"  App-Open "` = `app_open`; `"!!!"` → null; 50 chars → 40. `toJson` of an instant record has no `endedAt`.
+  A span has both times. `kind` error with an `ErrorInfo` has an `error` object.
+- `ErrorInfoTest`: an `IllegalStateException` wrapping an `IOException` → type = the full class name, 1 cause, the stack contains `Caused by: java.io.IOException`.
+  A 5000-char message cut to 1000. A self-referencing cause chain terminates. A null throwable → null.
+- `SessionClockTest`: same id within 30 min, a new id after 30 min + 1 ms, a new id when the clock goes back.
+- `DeviceIdTest`: `derive` is deterministic, has version nibble `5` and variant `8..b`, and gives different ids for different raw bytes.
+- `T/db/AppDatabaseMigrationTest`: update the version test to **9 / 8 steps**. Add `migration8to9_createsTrackedActivitiesOnly` (1 statement, starts with
+  `CREATE TABLE IF NOT EXISTS \`tracked_activities\``, contains the 5 columns, no other table name).
 
-**Read first:** `auth/{TokenStore,AuthRepository,SessionManager}`, `account/AccountApi`, `ui/WorkspaceActivity`,
-`publish/{PublishManager,PostStatusSync}`, `db/PublishJobDao`, `entitlements/EntitlementsApi` (its own
-`WORKSPACE_FORBIDDEN` handling), and the WS1 binder.
+**Done when:** `./gradlew --offline :app:testDebugUnitTest --tests '*tracker*'`, then `--tests '*AppDatabaseMigrationTest*'`, then `:app:assembleDebug` all pass.
+Commit `feat(tracker): A1 tracker core, records and local buffer`.
 
-**Do:**
-- **Pin at sign-in.** Right after sign-in, read the server default (`currentWorkspaceId()` plus the list for its name)
-  and save it as the pick. Sign-in is not slowed: this runs in the background, and the publishing screens wait for it the
-  way they wait for channels today.
-- **Pin on startup for existing installs.** When a session exists but no pick is stored, do the same once on startup.
-  Then pin every unpinned job to that brand (`pinUnpinned`).
-- **Jobs never go unpinned.** When a job is created and no pick exists yet, resolve and pin first. A job is never saved
-  with a null brand.
-- **Lost access asks instead of falling back.** On 403 `WORKSPACE_FORBIDDEN` for the picked brand, mark it as "access
-  lost" rather than clearing it (in `AuthRepository` and `EntitlementsApi` alike).
-  - The brand row shows "Choose a brand"; tapping it opens the picker.
-  - Publish and Auto-publish open the picker in place of their content, and the person continues on the chosen brand
-    with no other step.
-  - Auto-publish of a new recording stays off until a brand is chosen. The recording itself is kept.
-  - Jobs pinned to the lost brand fail with "No access to <Brand> anymore".
-  - No call ever goes out without a brand id.
-- Put the rules (when to pin, what "access lost" blocks) in a plain class with JVM tests. Cover: sign-in pins; an
-  unpinned install is pinned once; a 403 marks access lost and never clears to the default; jobs are pinned at creation.
+---
 
-**Done when:** no code path sends a request without a brand id; a lost brand never turns into another brand by itself;
-the tests pass; `assembleDebug` passes.
+## A2 — Upload (pairs with backend B2)
 
-## WS4: Messages outside screens name the brand
+**Read first:** Shared context (Contract, Constants); `P/auth/ApiClient.java`; `P/auth/ApiResponse.java`; the A1 classes.
 
-**Read first:** `publish/{AutoPublishNotifier,AutoPublishUndo,PublishLabels}`, `SavedRecordingsActivity`,
-`adapter/RecordingsAdapter`, `res/values/strings_publish.xml`, and the WS1 label class.
+1. **`ApiClient.sendGzipJson(String path, String json, Map<String,String> headers) throws IOException`**: a new method next to `send`.
+   ```java
+   ByteArrayOutputStream bos = new ByteArrayOutputStream();
+   try (GZIPOutputStream gz = new GZIPOutputStream(bos)) { gz.write(json.getBytes(StandardCharsets.UTF_8)); }
+   Request.Builder rb = new Request.Builder().url(baseUrl + path).header("Accept", "application/json").header("Content-Encoding", "gzip");
+   if (headers != null) for (Map.Entry<String,String> h : headers.entrySet()) rb.header(h.getKey(), h.getValue());
+   rb.post(RequestBody.create(bos.toByteArray(), JSON));
+   try (Response r = http.newCall(rb.build()).execute()) { /* build ApiResponse exactly like send() does */ }
+   ```
+2. **`P/tracker/UploadPolicy.java`** (pure):
+   ```java
+   static final long DAY_MS = 24L * 60 * 60 * 1000;
+   /** Whether a send is due now. pending ≤ 0 → never. */
+   static boolean isDue(int pending, long lastSentAt, long now) {
+       if (pending <= 0) return false;
+       long since = now - lastSentAt;
+       if (since < 0) return true;                                   // clock went back: send once, which resets it
+       if (pending > TrackerConfig.SEND_WHEN_MORE_THAN && since >= TrackerConfig.MIN_GAP_MS) return true;
+       return since >= TrackerConfig.SEND_EVERY_DAYS * DAY_MS;
+   }
+   /** ms to wait before the volume rule may fire (0 when it may fire now). */
+   static long delayForVolume(long lastSentAt, long now) { long w = lastSentAt + TrackerConfig.MIN_GAP_MS - now; return (w < 0 || w > TrackerConfig.MIN_GAP_MS) ? 0 : w; }
+   ```
+3. **`P/tracker/TrackerPayload.java`** (pure): `static String build(String batchId, String deviceId, long sentAt, AppInfo app, DeviceInfo device, List<String> rowJsons)`.
+   It parses each row's JSON with `new JSONObject(s)` and skips unreadable ones. When **none** remain, it returns null (the caller drops the batch). `AppInfo{version, build, pkg}` and
+   `DeviceInfo{os, sdk, manufacturer, model, locale}` are plain value classes filled by the worker from `BuildConfig`/`Build`/`Locale.getDefault().toLanguageTag()`.
+4. **`P/tracker/TrackerApi.java`**: `enum Outcome { SENT, DROP, RETRY }`, constructor `(ApiClient client, Supplier<String> token)`, and `Outcome send(String body)`:
+   ```java
+   String t = token == null ? null : token.get();
+   ApiResponse r = client.sendGzipJson(PATH, body, t == null ? null : Collections.singletonMap("Authorization", "Bearer " + t));
+   if (r.status == 401 && t != null) r = client.sendGzipJson(PATH, body, null);       // resend once anonymously
+   if (r.isSuccess()) return SENT;
+   if (r.status == 400 || r.status == 413 || r.status == 422) return DROP;
+   return RETRY;                                                                       // 404, 429, 5xx
+   ```
+   with `catch (IOException e) → RETRY` and `catch (RuntimeException e) → RETRY`. `PATH = "/tracker/batches"`.
+5. **`P/tracker/Connectivity.java`**: `static boolean hasInternet(Context c)`. `ConnectivityManager` → `getActiveNetwork()` → `getNetworkCapabilities(n)`.
+   True only when `NET_CAPABILITY_INTERNET` **and** `NET_CAPABILITY_VALIDATED` are present. Any exception → false. (The permission `ACCESS_NETWORK_STATE` is already in the manifest.)
+6. **`P/tracker/TrackerUploadWorker.java`** (`extends Worker`), `KEY_FORCE = "force"`:
+   ```java
+   public Result doWork() {
+     try {
+       Context c = getApplicationContext();
+       if (!Connectivity.hasInternet(c)) return again();                  // "check internet before sending"
+       TrackedActivityDao dao = AppDatabase.getInstance(c).trackedActivityDao();
+       TrackerPrefs prefs = new TrackerPrefs(c);
+       boolean force = getInputData().getBoolean(KEY_FORCE, false);
+       if (!force && !UploadPolicy.isDue(dao.count(), prefs.lastSentAt(), System.currentTimeMillis())) return Result.success();
+       TrackerApi api = new TrackerApi(new ApiClient(BuildConfig.API_BASE_URL, BuildConfig.DEBUG),
+               () -> SessionManager.get(c).repository().quietAccessToken());
+       String deviceId = DeviceId.get(c);
+       for (int i = 0; i < TrackerConfig.MAX_BATCHES_PER_RUN; i++) {
+         String batchId = dao.openBatchId();                                // an unconfirmed batch is resent unchanged
+         if (batchId == null) { batchId = UUID.randomUUID().toString(); if (dao.assignBatch(batchId, TrackerConfig.BATCH_SIZE) == 0) return Result.success(); }
+         List<TrackedActivity> rows = dao.inBatch(batchId);
+         if (rows == null || rows.isEmpty()) continue;
+         String body = TrackerPayload.build(batchId, deviceId, System.currentTimeMillis(), appInfo(), deviceInfo(), jsonsOf(rows));
+         if (body == null) { dao.deleteBatch(batchId); continue; }
+         switch (api.send(body)) {
+           case SENT: dao.deleteBatch(batchId); prefs.setLastSentAt(System.currentTimeMillis()); break;
+           case DROP: dao.deleteBatch(batchId); break;
+           default:   return again();
+         }
+       }
+       if (dao.count() > 0) TrackerScheduler.drainNow(c);                 // more left: a follow-up run
+       return Result.success();
+     } catch (Throwable t) { return again(); }
+   }
+   private Result again() { return getRunAttemptCount() >= TrackerConfig.MAX_UPLOAD_ATTEMPTS ? Result.success() : Result.retry(); }
+   ```
+   (`Result.success()` after the last attempt is on purpose: WorkManager stops retrying, and the next trigger or the daily job tries again.)
+7. **`P/tracker/TrackerScheduler.java`** implements `TrackerStore.Listener`:
+   - `static void schedulePeriodic(Context)`: `PeriodicWorkRequest` every **24 h**, `NetworkType.CONNECTED`, backoff exponential 10 min,
+     `enqueueUniquePeriodicWork("tracker-upload-periodic", KEEP, …)`. This carries the 5-day rule.
+   - `onStored(int pending)`: when `pending > SEND_WHEN_MORE_THAN` and the last check was ≥ 60 s ago, enqueue a one-time run with
+     `setInitialDelay(UploadPolicy.delayForVolume(lastSentAt, now))`, CONNECTED, unique `"tracker-upload-now"`, `ExistingWorkPolicy.KEEP`.
+   - `static void drainNow(Context)`: a one-time run, input `force = true`, unique `"tracker-upload-drain"`, `KEEP`, CONNECTED.
+   - Everything in try/catch (scheduling is best effort).
+8. **Wire it** in `FaceCamApp.onCreate`, inside a new `try { } catch (Throwable ignored) { }` block placed **before** the old activity-log block:
+   `ActivityTracker.init(this); ActivityTracker.onStored(new TrackerScheduler(this)); TrackerScheduler.schedulePeriodic(this);`
 
-**Do:**
-- When the person has **more than one brand**, every message about a job names the job's own brand (not the current
-  pick):
-  - the auto-publish notifications: scheduled, failed, needs plan, signed out
-  - the undo countdown, for example "Posting to Acme in 10 s · Undo"
-  - the publish status line in My Videos
-- With one brand, the messages stay exactly as they are today.
-- Brand names come from the stored list; a missing name shows nothing extra rather than an id.
-- Tapping a notification about a job in another brand opens that job's status without switching the brand.
-- Add a JVM test for the label rule: one brand gives no name; several brands give the job's brand; an unknown brand gives
-  no name.
+**Tests** (`T/tracker/`):
+- `UploadPolicyTest`: pending 0 → false at any time. 20 pending, 1 h after send → false. 21 pending, 1 h → true. 21 pending, 5 min → false (gap). 1 pending at
+  5 days − 1 ms → false, at exactly 5 days → true. A clock 1 h behind lastSentAt → true. `delayForVolume`: 5 min after send → 10 min; 20 min after → 0.
+- `TrackerPayloadTest`: 2 good + 1 broken row → `activities` has 2, the envelope fields are present, `sentAt` is set. All broken → null. An empty list → null.
+- `TrackerApiTest` (MockWebServer + `new ApiClient(server.url("/").toString(), new OkHttpClient(), true)`): 200 → SENT, and the request has
+  `Content-Encoding: gzip`, a gunzipped body equal to the input, and `Authorization: Bearer t`. 400, 413 and 422 → DROP. 401 then 200 → SENT, the second request has no
+  Authorization. 503 → RETRY. 404 → RETRY. Server shut down (IOException) → RETRY. Token supplier returns null → no Authorization header.
 
-**Done when:** a person with two brands can always tell which brand a message is about; one-brand users see no change;
-the tests pass; `assembleDebug` passes.
+**Done when:** these tests pass and `assembleDebug` succeeds. Manual check after B2 is deployed: see the plan's QA list.
+Commit `feat(tracker): A2 batched silent upload`.
 
-## Owner device QA (after WS4)
+---
 
-1. [ ] Three brands: Auto-publish, Publish ("Posting to …") and Account show the same brand.
-2. [ ] Auto-publish → brand row → pick another: the app restarts back into Auto-publish, which shows the new brand's
-   channels, preset, credits and plan; the toast says "Switched to <Brand>".
-3. [ ] Publish (a recording) → pick another brand: the same recording reopens with the new brand's channels; Back goes to
-   the recording screen.
-4. [ ] Pick the current brand: the picker just closes.
-5. [ ] During a recording, the brand row shows the name without "Change", and a tap shows the note. After the recording,
-   the switch works.
-6. [ ] Queue a publish in A, switch to B: the post still goes to A, and its notification says A.
-7. [ ] Start an AI edit in A, switch to B: the edit finishes and is charged in A.
-8. [ ] Fresh sign-in: a brand is shown at once; the first auto-publish goes to that brand.
-9. [ ] On the website, remove this user from the picked brand: the app shows "Choose a brand", never moves to another
-   brand by itself, and continues after one tap on the picker.
-10. [ ] B on a free plan, A paid: right after switching to B, no paid feature works for B.
-11. [ ] One brand only: no brand names in notifications or the countdown; the row still shows the name.
-12. [ ] Airplane mode: the row shows the last known brand; the picker shows the offline message and Retry.
-13. [ ] The recording screen looks and behaves exactly as before.
+## A3 — Auto-tracking: app open + source, foreground/background, screens, crash, exit reasons, notification entry
+
+**Read first:** Shared context; `P/FaceCamApp.java` (`ScreenTracker`); `P/ui/StartupActivity.java`; the A1/A2 classes;
+the notification builders: `P/service/ScreenRecordService.java` (≈ L168 and L194-200), `P/service/BgReplaceService.java` (≈ L486-491),
+`P/aiedit/flow/AiEditService.java` (≈ L403-408), `P/publish/AutoPublishNotifier.java` (≈ L78-103: the content intent + "Set up" + "Top up" actions).
+
+1. **`P/tracker/AppOpenSource.java`** (pure): `static String of(boolean fromNotification, String action, boolean hasLauncherCategory, int flags)`
+   gives `"notification"` | `"recents"` (when `(flags & 0x00100000) != 0`, i.e. `Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`. Use the literal in the pure class and
+   note it in a comment) | `"launcher"` (`"android.intent.action.MAIN"` + launcher category) | `"other"`.
+2. **`P/tracker/AutoTracker.java`** implements `Application.ActivityLifecycleCallbacks`. Register it in `FaceCamApp` right after `ActivityTracker.init`.
+   - Fields: `int started; boolean recreating; boolean processFirst = true; Tracked background; Tracked rotatingSpan; Map<Activity, Tracked> screens = new WeakHashMap<>()`.
+     All callbacks run on the main thread, so no locking is needed. Wrap each callback body in try/catch (Code rule 1).
+   - `onActivityStarted(a)`:
+     - If `recreating`: set it false, `started++`, `if (rotatingSpan != null) screens.put(a, rotatingSpan); rotatingSpan = null;`, return
+       (a rotation is the same visit: the span moves to the recreated Activity object).
+     - If `started++ == 0` (coming to the front):
+       - `source` = the pending entry from `ActivityTracker.setEntry` (then clear it), else `AppOpenSource.of(false, i.getAction(), i.hasCategory(Intent.CATEGORY_LAUNCHER), i.getFlags())` with `i = a.getIntent()` (null-safe).
+       - If `processFirst`: `log("app_open", "cold start", Meta.of("first_run", !prefs.firstOpenDone(), "notif", notif))` with `source` as the record's source
+         (add `static void logWithSource(String name, String description, String source, Meta m)` to ActivityTracker), then `prefs.setFirstOpenDone()` and `processFirst = false`.
+       - Else: `if (background != null) background.end(); background = null;` then `logWithSource("app_foreground", "came back", source, meta)`.
+       - Always `prefs.setBackgroundSince(0)`.
+     - If `a` is not `StartupActivity` or `NotificationEntryActivity`: `screens.put(a, ActivityTracker.start("screen", a.getClass().getSimpleName()))` and `ActivityTracker.setScreen(simpleName)`.
+   - `onActivityStopped(a)`:
+     - `started--`.
+     - If `a.isChangingConfigurations()`: `recreating = true; rotatingSpan = screens.remove(a);` and return (the span stays open).
+     - `Tracked s = screens.remove(a); if (s != null) s.end();`
+     - If `started == 0`: `background = ActivityTracker.start("app_background", "minimized"); prefs.setBackgroundSince(now)`.
+   - **Process-death case**, in `AutoTracker`'s constructor: when `prefs.backgroundSince() > 0`, store one `app_background` record with that start, `endedAt = null`
+     and meta `process_ended=true` (add a package-private `ActivityTracker.logAt(name, description, startedAt, Meta)`), then clear it.
+3. **Remove from `FaceCamApp.ScreenTracker`** only the `ActivityLog.*` calls (`appForeground`, `appBackground`, `screen_view`). Its other jobs (entitlement refresh,
+   billing, plan notice) stay. **Remove** the `ActivityLog.log("app_open", …)` line from `StartupActivity`.
+4. **`P/tracker/TrackerCrashHandler.java`**: `static void install()` wraps `Thread.getDefaultUncaughtExceptionHandler()`. In `uncaughtException(thread, e)`:
+   `try { ActivityTracker.fatal(e, thread); } catch (Throwable ignored) {}`, then `previous.uncaughtException(thread, e)` when previous is not null.
+   `fatal` makes the error record `name = "crash"`, `description = "uncaught"`, `ErrorInfo.from(e, true, thread.getName(), lastActivity)`, and ends open spans with
+   `Meta.of("ended_by", "crash")`, using `TrackerStore.writeAndWait(..., CRASH_WAIT_MS)`. Install it in `FaceCamApp` in the tracker block. Leave the old `CrashLogger.install()`
+   in place for now (A4e deletes it). Install the new handler **after** it, so ours runs first and then calls the old one.
+5. **`P/tracker/ExitReasons.java`**: `static void recordNew(Context c, TrackerPrefs prefs)`, run once on the tracker thread at init.
+   ```java
+   ActivityManager am = c.getSystemService(ActivityManager.class);
+   List<ApplicationExitInfo> list = am.getHistoricalProcessExitReasons(null, 0, 10);
+   long last = prefs.lastExitCheck();
+   if (last == 0) { prefs.setLastExitCheck(System.currentTimeMillis()); return; }   // first run: don't import old history
+   long newest = last;
+   for (ApplicationExitInfo x : list) {
+     if (x.getTimestamp() <= last) continue;
+     newest = Math.max(newest, x.getTimestamp());
+     String reason = reasonName(x.getReason());   // ANR, CRASH, CRASH_NATIVE, LOW_MEMORY, USER_REQUESTED, USER_STOPPED, EXIT_SELF, SIGNALED,
+                                                  // EXCESSIVE_RESOURCE_USAGE, INITIALIZATION_FAILURE, PERMISSION_CHANGE, DEPENDENCY_DIED, OTHER, UNKNOWN
+     Meta m = Meta.of("reason", reason, "status", x.getStatus(), "importance", x.getImportance(), "pss_kb", x.getPss(), "rss_kb", x.getRss(), "detail", x.getDescription());
+     boolean isError = reason.equals("ANR") || reason.equals("CRASH_NATIVE") || reason.equals("INITIALIZATION_FAILURE");
+     // ANR: read the first 8000 chars of x.getTraceInputStream() (may be null) as the error stack (ErrorInfo with type "ANR")
+     // store with startedAt = x.getTimestamp(), name "app_exit", description = reason, kind error/activity
+   }
+   prefs.setLastExitCheck(newest);
+   ```
+   Put `reasonName(int)` in a pure class `ExitReasonNames` with the `ApplicationExitInfo.REASON_*` int values as literals (they are fixed API constants: ANR 6,
+   CRASH 4, CRASH_NATIVE 5, DEPENDENCY_DIED 12, EXCESSIVE_RESOURCE_USAGE 9, EXIT_SELF 1, INITIALIZATION_FAILURE 7, LOW_MEMORY 3, OTHER 13, PERMISSION_CHANGE 8,
+   SIGNALED 2, UNKNOWN 0, USER_REQUESTED 10, USER_STOPPED 11) so it can be unit-tested.
+   Wrap everything in try/catch.
+6. **Notification entry.** `P/tracker/NotificationEntryActivity.java` (extends `Activity`, not AppCompat):
+   ```java
+   protected void onCreate(Bundle b) {
+     super.onCreate(b);
+     try {
+       ActivityTracker.setEntry("notification", getIntent().getStringExtra(EXTRA_NOTIF));
+       @SuppressWarnings("deprecation") Intent target = getIntent().getParcelableExtra(EXTRA_TARGET);
+       if (target != null) { target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(target); }   // the trampoline has its own task affinity
+     } catch (Throwable ignored) { }
+     finish();
+     overridePendingTransition(0, 0);
+   }
+   ```
+   Manifest: `<activity android:name=".tracker.NotificationEntryActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true"
+   android:taskAffinity="" android:theme="@android:style/Theme.Translucent.NoTitleBar" />`.
+   `P/tracker/TrackerNotifications.java`: `static Intent wrap(Context c, Intent target, String notif)` returns
+   `new Intent(c, NotificationEntryActivity.class).putExtra(EXTRA_TARGET, target).putExtra(EXTRA_NOTIF, notif).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)`.
+   A null target → return the target unchanged (null).
+   At each notification site, wrap the Intent passed to `PendingIntent.getActivity(...)`. **Keep the request codes and flags exactly as they are.** Names:
+   `ScreenRecordService` → `"recording"`, `BgReplaceService` → `"bg_replace"`, `AiEditService` → `"ai_edit"`, `AutoPublishNotifier` content → `"auto_publish"`,
+   its actions → `"auto_publish_setup"` / `"auto_publish_topup"`. Broadcast PendingIntents (Stop action, `UndoNotifier`) are **not** wrapped.
+   The trampoline's own start/stop must not count as a screen (step 2).
+
+**Tests:** `AppOpenSourceTest` (all four outcomes; notification wins over the flags) and `ExitReasonNamesTest` (6 → ANR, 5 → CRASH_NATIVE, 99 → UNKNOWN).
+**Done when:** the tests pass, `assembleDebug` succeeds, and a debug run shows (logcat tag `ActivityTracker`) app_open → screen → app_background → app_foreground with source.
+Commit `feat(tracker): A3 automatic app, screen, crash and exit tracking`.
+
+---
+
+## A4a — Convert calls in `MainActivity`
+**Read first:** Shared context → *Old-call conversion table*; `P/MainActivity.java` (≈ 38 calls; list them with `grep -n "ActivityLog" P/MainActivity.java`).
+Convert every call by the table. For `record_error` near L351 pass the caught `t`. Make sure every `catch` that shows a failure Toast also has an
+`ActivityTracker.error(...)` (Extra rule). Remove the `activitylog` import.
+**Done when:** `grep -n "ActivityLog" P/MainActivity.java` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4a MainActivity on ActivityTracker`.
+
+## A4b — Convert calls in `P/ui/*`
+Files (from `grep -rln "ActivityLog" P/ui`): SettingsActivity, VideoPlayerDialog, DrawingBoardController, AutoPublishActivity, PaywallSheet,
+PublishActivity, AccountActivity, SlideInkController, PlansSheet, OnboardingActivity, AiEditPanel, DevicesActivity, ContactActivity, YouTubeDialog,
+WorkspaceActivity, WebLinks, SignInActivity, EditorLauncher, BrandRowBinder (StartupActivity was done in A3). The same rules as A4a.
+**Done when:** `grep -rn "ActivityLog" P/ui` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4b screens on ActivityTracker`.
+
+## A4c — Convert calls in services, publish, adapter, SavedRecordings
+Files: `P/service/ScreenRecordService.java`, `P/service/BgReplaceService.java`, `P/publish/PublishPipeline.java`, `P/adapter/RecordingsAdapter.java`, `P/SavedRecordingsActivity.java`.
+- **`record` span** in `ScreenRecordService`: add the field `private Tracked recordSpan = Tracked.NOOP;`. Where the recorder actually starts (where the service's
+  recording state becomes true), set `recordSpan = ActivityTracker.start("record", "screen recording");`. At the old `record_stop` site (≈ L403) call
+  `recordSpan.end(Meta.of("stop_source", source))`. Make the old `record_saved` (≈ L411) `log("record_saved", "file saved", Meta.of("duration_ms", d, "size_mb", mb))`.
+  `record_error` → `error("record", kind, t or null)`, and also end the span with `Meta.of("failed", true)`.
+- **`bg_replace` span** in `BgReplaceService`: `start("bg_replace", "background replace")` at the old `bgreplace_start`. `end(Meta.of("ok", true))` at `bgreplace_done`,
+  `end(Meta.of("cancelled", true))` at `bgreplace_cancel`. The failure (`record_error` kind `bgreplace_failed`) → `error("bg_replace", "failed", <throwable if any>)` + `end(Meta.of("failed", true))`.
+- `PublishPipeline` (publish_result, ai_captions_result) and the adapter/SavedRecordings video actions go by the table.
+**Done when:** `grep -rn "ActivityLog" P/service P/publish P/adapter P/SavedRecordingsActivity.java` finds nothing and `assembleDebug` succeeds.
+Commit `feat(tracker): A4c services and publish on ActivityTracker`.
+
+## A4d — Convert calls in auth, entitlements, the rest
+Files: `P/auth/SessionManager.java` (signin_*, signout, session_ended), `P/entitlements/EntitlementsRefresher.java` (entitlement_change), and anything
+else `grep -rln "ActivityLog\.log" P | grep -v activitylog/` still lists. **Never** put the email, a token or a code into meta or description.
+**Done when:** that grep lists nothing outside `P/activitylog/` and `FaceCamApp.java`. Commit `feat(tracker): A4d sign-in and plans on ActivityTracker`.
+
+## A4e — Delete the old activity-log system
+1. Delete `P/activitylog/` (all files), `P/db/ActivityEvent.java`, `P/db/ActivityEventDao.java`, `T/activitylog/` (all files).
+2. `FaceCamApp`: remove the old block (`ActivityLog.init`, `setListener`, `ActivityLogScheduler.schedulePeriodic`, `CrashLogger.install`) and its imports. Fix the class comment.
+3. `ActivityTracker.init`: once per process, on the tracker thread:
+   `WorkManager.getInstance(c).cancelUniqueWork("activity-log-periodic")`, the same for `"activity-log-count"` and `"activity-log-drain"`, and
+   `c.deleteSharedPreferences("activity_log_prefs")`, each inside its own try/catch. (Otherwise WorkManager keeps trying to start the deleted worker class.)
+4. `AppDatabase`: remove `ActivityEvent.class` and `activityEventDao()`. Keep `MIGRATION_6_7` and `CREATE_ACTIVITY_EVENTS` (migration history), but change that
+   constant's javadoc `{@link ActivityEvent}` to plain text ("the old activity-log table, dropped in 9→10"). Add
+   `MIGRATION_9_10` → `db.execSQL("DROP TABLE IF EXISTS \`activity_events\`")`, version **10**, and append it to `MIGRATIONS`.
+5. `AppDatabaseMigrationTest`: version **10 / 9 steps**, plus `migration9to10_dropsOnlyTheOldActivityTable`.
+6. `data_extraction_rules.xml`: remove the two `activity_log_prefs.xml` excludes and their comment (the `tracker_prefs.xml` ones stay).
+7. `P/aiedit/capture/EventLog.java` L14 comment: `ActivityLog` → `ActivityTracker`.
+**Done when:** `grep -rn "activitylog\|ActivityLog\b\|ActivityEvent\|CrashLogger" app/src` finds nothing, and the migration test and `assembleDebug` pass.
+Commit `feat(tracker): A4e remove the old activity log`.
+
+## A5 — Privacy disclosure
+Delete `ACTIVITY_LOG_PRIVACY.md`. Write `ACTIVITY_TRACKER_PRIVACY.md` (for the privacy policy and the Play Data safety form). It must say:
+- **Collected:** in-app actions with start/end time and timezone (app opened and from where, screens and time on them, taps, toggles, settings,
+  permission prompts and answers, recording start/stop/size, topics added/edited/deleted (type only), publish taps and results, sign-in steps, plan changes,
+  paywall views), errors and crashes **including the error message and stack trace** (they may contain file names), why the app last closed (ANR, crash, low memory,
+  from Android), the device id (a SHA-256 of the MediaDrm id with an app salt, else random; not the advertising id), and device info
+  (Android version, SDK, manufacturer, model, locale, app version).
+- **Linked to the account** when signed in (the upload carries the sign-in token).
+- **Never collected:** email in the records, tokens, passwords, topic/caption text, drawings, file contents, contacts, location, screen/camera content.
+- **How:** stored on the phone first (≤ 3000 records), sent over HTTPS in gzip batches every 5 days or sooner when more than 20 are waiting, on any network,
+  in the background. The server keeps 90 days (the last 300 per device are kept longer). Account deletion deletes them. There is no opt-out switch in the app.
+- **Play Data safety:** App activity → App interactions (collected, linked when signed in, analytics, not shared); App info and performance →
+  Crash logs + Diagnostics (collected, not shared); Device or other IDs (collected, analytics, not shared); encrypted in transit.
+Commit `docs(tracker): A5 privacy disclosure`.
+
+---
+
+## Progress (Activity Tracker app)
+- [ ] A1 Tracker core
+- [ ] A2 Upload (needs B2 for the manual check)
+- [ ] A3 Auto-tracking
+- [ ] A4a MainActivity
+- [ ] A4b ui/*
+- [ ] A4c services, publish, adapter, SavedRecordings
+- [ ] A4d auth, entitlements, rest
+- [ ] A4e Remove the old system
+- [ ] A5 Privacy disclosure
