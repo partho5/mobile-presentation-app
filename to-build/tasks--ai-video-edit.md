@@ -70,7 +70,7 @@ any script**. The phone measures and draws what the plan says; it never chooses 
   session gives. Never commit `test_audio.wav`, `test_video.mp4`, `run.log`.
 - Rules: engine code in `aiedit/engine/` imports only `aiedit/engine/*`, the Android SDK and `java.*`; flow glue in
   `aiedit/flow/`; no new Gradle module. The master recording is never modified. **Never log transcript words, plan texts or
-  event log contents** (`ACTIVITY_LOG_PRIVACY.md`). Only video/* files may be created under DCIM (names end in `.mp4`);
+  event log contents** (`ACTIVITY_TRACKER_PRIVACY.md`). Only video/* files may be created under DCIM (names end in `.mp4`);
   other temp files go to `filesDir` / `cacheDir`. **Do not touch the subtitle code** (`subtitle/*`,
   `aiedit/flow/SubtitleCaptionPainter`).
 - The six shipped looks (`sticker`, `label_pill`, `3d`, `glow`, `gradient`, `highlighter`) must draw exactly as before.

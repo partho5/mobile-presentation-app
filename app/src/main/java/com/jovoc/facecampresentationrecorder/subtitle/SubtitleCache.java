@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Manages caching of subtitle tracks in app-private storage.
  *
- * <p>Privacy note (see ACTIVITY_LOG_PRIVACY.md): Subtitle words and transcript texts are private
+ * <p>Privacy note (see ACTIVITY_TRACKER_PRIVACY.md): Subtitle words and transcript texts are private
  * user data. This class must NEVER log spoken transcript, word text, or subtitle content.
  */
 public final class SubtitleCache {

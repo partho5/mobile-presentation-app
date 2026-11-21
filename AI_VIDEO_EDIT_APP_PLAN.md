@@ -20,7 +20,7 @@ Top rule, above every other rule: **frictionless, smooth UX that lowers the user
    - `aiedit/flow/` — API calls, uploads, job state, foreground service, and the glue to the UI.
 2. The master recording is never modified. Every output is a new file.
 3. Never log transcript words, plan texts or event log contents to `ActivityLog` or crash reports
-   (`ACTIVITY_LOG_PRIVACY.md`). Event logs stay in app-private storage.
+   (`ACTIVITY_TRACKER_PRIVACY.md`). Event logs stay in app-private storage.
 4. 9:16 always first wherever ratios are listed, rendered or shown.
 5. Match the existing code style (comment density, naming, Java idioms of the neighbouring classes).
 
