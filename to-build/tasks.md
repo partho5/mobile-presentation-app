@@ -525,7 +525,7 @@ Commit `docs(tracker): A5 privacy disclosure`.
 ## Progress (Activity Tracker app)
 | Card | Repo | What | Depends on | Status |
 |---|---|---|---|---|
-| A1 | app | Tracker core: API, records, Meta, Room table + migration 8→9, device id, prefs | - | ⬜ |
+| A1 | app | Tracker core: API, records, Meta, Room table + migration 8→9, device id, prefs | - | ✅ |
 | A2 | app | Silent batched upload (policy, worker, scheduler, gzip API) | A1 | ⬜ |
 | A3 | app | Auto-tracking: open source, fg/bg, screens, crash, exit reasons, notification entry | A2 | ⬜ |
 | A4.1 | app | Convert old calls: MainActivity | A3 | ⬜ |

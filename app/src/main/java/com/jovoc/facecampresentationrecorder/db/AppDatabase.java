@@ -10,8 +10,8 @@ import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(entities = {Slide.class, PublishJob.class, UploadSession.class, ActivityEvent.class,
-        AudioUploadSession.class},
-        version = 8, exportSchema = false)
+        AudioUploadSession.class, TrackedActivity.class},
+        version = 9, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -25,6 +25,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract ActivityEventDao activityEventDao();
 
     public abstract AudioUploadSessionDao audioUploadSessionDao();
+
+    public abstract TrackedActivityDao trackedActivityDao();
 
     static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -117,10 +119,23 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    /** The table of {@link TrackedActivity}; kept as text so a test can check what a migration runs. */
+    static final String CREATE_TRACKED_ACTIVITIES = "CREATE TABLE IF NOT EXISTS `tracked_activities` ("
+            + "`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, "
+            + "`json` TEXT NOT NULL, `batch_id` TEXT, PRIMARY KEY(`id`))";
+
+    // Activity tracker buffer; every other table is untouched.
+    static final Migration MIGRATION_8_9 = new Migration(8, 9) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(CREATE_TRACKED_ACTIVITIES);
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
     };
 
     public static AppDatabase getInstance(Context context) {

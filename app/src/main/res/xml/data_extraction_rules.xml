@@ -3,7 +3,9 @@
      auth_secure is the encrypted file; the __androidx_security_crypto_* files hold its keysets.
      activity_log_prefs holds this phone's activity-log device id: a restored or transferred copy
      would give two phones one id. entitlements_prefs holds the signed plan token of this phone's
-     session: a restored copy would carry another phone's session, and a new phone fetches its own. -->
+     session: a restored copy would carry another phone's session, and a new phone fetches its own.
+     tracker_prefs holds this phone's activity-tracker device id: a restored or transferred copy
+     would give two phones one id. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="auth_secure.xml" />
@@ -14,6 +16,7 @@
         <exclude domain="sharedpref" path="debug_settings.xml" />
         <exclude domain="sharedpref" path="activity_log_prefs.xml" />
         <exclude domain="sharedpref" path="entitlements_prefs.xml" />
+        <exclude domain="sharedpref" path="tracker_prefs.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="auth_secure.xml" />
@@ -24,5 +27,6 @@
         <exclude domain="sharedpref" path="debug_settings.xml" />
         <exclude domain="sharedpref" path="activity_log_prefs.xml" />
         <exclude domain="sharedpref" path="entitlements_prefs.xml" />
+        <exclude domain="sharedpref" path="tracker_prefs.xml" />
     </device-transfer>
 </data-extraction-rules>

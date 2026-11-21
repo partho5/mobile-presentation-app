@@ -37,14 +37,33 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsEightAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsNineAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(7, all.length);
+        assertEquals(8, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(8, all[all.length - 1].endVersion);
+        assertEquals(9, all[all.length - 1].endVersion);
+    }
+
+    @Test
+    public void migration8to9_createsTrackedActivitiesOnly() {
+        List<String> sql = run(AppDatabase.MIGRATION_8_9);
+        assertEquals(1, sql.size());
+        String s = sql.get(0);
+        assertTrue(s.startsWith("CREATE TABLE IF NOT EXISTS `tracked_activities`"));
+        String[] columns = {"`id` TEXT NOT NULL", "`seq` INTEGER NOT NULL", "`created_at` INTEGER NOT NULL",
+                "`json` TEXT NOT NULL", "`batch_id` TEXT", "PRIMARY KEY(`id`)"};
+        for (String c : columns) assertTrue("missing " + c, s.contains(c));
+        assertTrue(!s.contains("activity_events") && !s.contains("publish_jobs") && !s.contains("upload_sessions")
+                && !s.contains("slides") && !s.contains("audio_upload_sessions"));
+        // One column per entity field, none more.
+        int fields = 0;
+        for (java.lang.reflect.Field f : TrackedActivity.class.getDeclaredFields()) {
+            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) fields++;
+        }
+        assertEquals(fields, 5);
     }
 
     @Test
