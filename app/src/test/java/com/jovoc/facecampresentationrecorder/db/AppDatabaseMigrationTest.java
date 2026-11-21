@@ -85,7 +85,8 @@ public class AppDatabaseMigrationTest {
                 "`tz` INTEGER NOT NULL", "`session` TEXT", "`action` TEXT", "`meta_json` TEXT",
                 "`batch_id` TEXT"};
         for (String c : columns) assertTrue("missing " + c, s.contains(c));
-        assertEquals(7, columns.length);
+        // The SQL has one comma between column definitions and none elsewhere: 7 parts = 7 columns, no extras.
+        assertEquals(7, s.split(",").length);
     }
 
     @Test
