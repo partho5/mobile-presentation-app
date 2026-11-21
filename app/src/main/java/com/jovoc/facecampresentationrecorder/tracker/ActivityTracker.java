@@ -49,11 +49,19 @@ public final class ActivityTracker {
     }
 
     public static void log(String name) {
-        log(name, null, null);
+        try {
+            log(name, null, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
     }
 
     public static void log(String name, String description) {
-        log(name, description, null);
+        try {
+            log(name, description, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
     }
 
     public static void log(String name, String description, Meta meta) {
@@ -73,7 +81,11 @@ public final class ActivityTracker {
 
     /** Opens a span. Ends it with {@link Tracked#end()}. Never null. */
     public static Tracked start(String name, String description) {
-        return start(name, description, null);
+        try {
+            return start(name, description, null);
+        } catch (Throwable ignored) {
+            return Tracked.NOOP;
+        }
     }
 
     public static Tracked start(String name, String description, Meta meta) {
@@ -91,7 +103,11 @@ public final class ActivityTracker {
     }
 
     public static void error(String name, String description, Throwable t) {
-        error(name, description, t, null);
+        try {
+            error(name, description, t, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
     }
 
     public static void error(String name, String description, Throwable t, Meta meta) {
@@ -149,6 +165,7 @@ public final class ActivityTracker {
     /** The current screen, stamped on every record after this call. */
     static void setScreen(String screen) {
         try {
+            if (!ready) return;
             currentScreen = TrackedRecord.cut(screen, 60);
         } catch (Throwable ignored) {
             // silent
@@ -158,6 +175,7 @@ public final class ActivityTracker {
     /** The source of the next app_open or app_foreground (A3 reads it). */
     static void setEntry(String source, String notif) {
         try {
+            if (!ready) return;
             entrySource = TrackedRecord.cut(source, 40);
             entryNotif = TrackedRecord.cut(notif, 60);
         } catch (Throwable ignored) {
@@ -240,7 +258,9 @@ public final class ActivityTracker {
         });
     }
 
+    /** Remembers the last record for crash reports. Screen spans are not "what the user did", so they are skipped. */
     private static void remember(String name, String description) {
+        if ("screen".equals(name)) return;
         lastActivity = name + (description == null ? "" : " — " + description);
     }
 
