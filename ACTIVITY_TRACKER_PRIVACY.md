@@ -24,10 +24,11 @@ Backend: `https://social.nanybot.com/api`, `POST /tracker/batches`. Plan and eve
   - AI captions: switches turned on or off, and how a caption step ended (its state, how long the upload waited,
     the publish mode). Never the caption or transcript text;
   - the "text post" channel switch turned on or off;
-  - web links opened: only the website host, never the path or query.
+  - web links opened: only the website host, never the path or query (but see error messages below).
 - **Errors and crashes**: the error's type, its message, its stack trace (with the code locations), up to 5 nested
   causes, the thread name, the last action before the error, and whether it was fatal. **Messages and stack traces
-  can contain file names** and other text that the system or a library puts into an error message.
+  can contain file names, web addresses (with path and query, for example when no app can open a link)** and other
+  text that the system or a library puts into an error message.
 - **Why the app last closed**, as reported by Android since the last check: for example an unresponsive app (ANR),
   a crash, a native crash, low memory, or the user or system stopping it. Stored with the reason, a short system
   description of the exit, and the app's memory use at that time. For an ANR the system's thread dump (its first
@@ -48,18 +49,18 @@ Backend: `https://social.nanybot.com/api`, `POST /tracker/batches`. Plan and eve
 Email address in the records (the server adds the account email to the device record, see above), passwords,
 sign-in tokens or codes, topic text, caption or transcript text, drawings, file names or file contents (except
 inside error messages, see above), channel or account names, contacts, location, other apps, and screen or camera
-content. URLs are reduced to the website host.
+content. Web addresses are reduced to the website host, except inside error messages (see above).
 
 ## How it is sent and kept
 - **On the phone:** records are stored in the app's private database first, up to 3000 records. When the buffer is
-  full, the oldest 100 are dropped and one "buffer full" record notes how many were dropped.
+  full, the oldest 100 are dropped and one `tracker_overflow` record notes how many were dropped.
 - **When it is sent:** every 5 days, or sooner when more than 20 records are waiting (at most once every 15 minutes
   for this rule). The check runs about once a day in the background, and a waiting upload can run while the app is
   closed.
 - **Which network:** any network that Android has confirmed reaches the internet, including mobile data. It is
   not limited to Wi-Fi.
-- **How:** records are sent in batches of up to 50, as gzip-compressed JSON over HTTPS. Cleartext HTTP is not
-  permitted by the app's network configuration.
+- **How:** records are sent in batches of up to 50, as gzip-compressed JSON over HTTPS. Release builds do not permit
+  cleartext HTTP (the debug build allows it for a local test backend).
 - **Retries:** if a send fails because of the network or a server error, the records are kept and sent later.
   A batch the server rejects as invalid is deleted from the phone.
 - **Server:** records are kept for 90 days (by the time they happened). The newest 300 records of each device are
@@ -77,5 +78,5 @@ content. URLs are reduced to the website host.
   analytics, not shared.
 - **Collection is required**: the app has no opt-out.
 - **Data is encrypted in transit** (HTTPS).
-- **Deletion:** on account deletion. Records of phones without an account are removed after 90 days, except the
-  newest 300 per device.
+- **Deletion:** on account deletion the account's records are deleted. Other records follow the 90-day rule above
+  (the newest 300 per device are kept longer).
