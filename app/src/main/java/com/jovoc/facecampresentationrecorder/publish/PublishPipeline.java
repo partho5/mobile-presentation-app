@@ -1,11 +1,12 @@
 package com.jovoc.facecampresentationrecorder.publish;
 
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.auth.ApiClient;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.db.UploadSession;
 import com.jovoc.facecampresentationrecorder.db.UploadSessionDao;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 
 import java.io.File;
 import java.util.UUID;
@@ -205,8 +206,8 @@ public final class PublishPipeline {
         synchronized (job) {
             // Counts and states only, never caption or transcript text.
             if (caption != null) {
-                ActivityLog.log("ai_captions_result", "state", String.valueOf(job.aiCaptionState),
-                        "wait_ms", Math.max(0L, clock.getAsLong() - waitStart), "mode", job.mode);
+                ActivityTracker.log("ai_captions", String.valueOf(job.aiCaptionState),
+                        Meta.of("wait_ms", Math.max(0L, clock.getAsLong() - waitStart), "mode", job.mode));
             }
             if (job.aiCaptionId == null || job.aiCaptionId.isEmpty()) {
                 job.aiCaptionId = PublishJob.AI_CAPTION_NONE;
@@ -391,7 +392,7 @@ public final class PublishPipeline {
         job.remoteUrl = null;
         job.errorKind = null;
         job.errorDetail = null;
-        ActivityLog.log("publish_result", "ok", true, "mode", job.mode);
+        ActivityTracker.log("publish", "done", Meta.of("mode", job.mode));
         move(job, PublishJob.DONE);
     }
 
@@ -429,7 +430,7 @@ public final class PublishPipeline {
             PurgedMedia.forgetMedia(job);
             forgetUpload(job.id);
         }
-        ActivityLog.log("publish_result", "ok", false, "kind", e.kind.name(), "mode", job.mode);
+        ActivityTracker.error("publish", e.kind.name(), null, Meta.of("mode", job.mode));
         move(job, PublishJob.FAILED);
         return Outcome.FAILED;
     }

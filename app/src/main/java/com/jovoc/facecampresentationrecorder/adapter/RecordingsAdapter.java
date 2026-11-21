@@ -28,7 +28,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
@@ -252,6 +253,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             context.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (RuntimeException e) {
+            ActivityTracker.error("web_link", "open failed", e);
             Toast.makeText(context, R.string.publish_open_link_failed, Toast.LENGTH_SHORT).show();
         }
     }
@@ -319,7 +321,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
 
         popup.setOnMenuItemClickListener(menuItem -> {
             int id = menuItem.getItemId();
-            ActivityLog.log("video_menu", "item", menuItemName(id));
+            ActivityTracker.log("video_menu", null, Meta.of("item", menuItemName(id)));
             if (id == R.id.action_play) {
                 openVideo(item);
                 return true;
@@ -380,6 +382,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 url = new PublishApi(SessionManager.get(app).repository())
                         .webLink(PublishApi.LINK_AI_CAPTION, captionId);
             } catch (PublishException e) {
+                ActivityTracker.error("ai_captions", "link failed", e);
                 // Falls through to the toast.
             }
             final String link = url;
@@ -412,7 +415,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 new VideoRenameHelper.RenameCallback() {
                     @Override
                     public void onRenamed(File oldFile, File newFile) {
-                        ActivityLog.log("video_rename");
+                        ActivityTracker.log("video_rename");
                         PublishManager.get(context).onRenamed(oldFile, newFile);
                         item.setFile(newFile);
                         int pos = itemList.indexOf(item);
@@ -438,7 +441,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     }
 
     private void shareVideo(RecordingItem item) {
-        ActivityLog.log("video_share");
+        ActivityTracker.log("video_share");
         try {
             Uri uri = FileProvider.getUriForFile(
                     context,
@@ -450,6 +453,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
             shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             context.startActivity(Intent.createChooser(shareIntent, "Share Video Recording"));
         } catch (Exception e) {
+            ActivityTracker.error("video_share", "failed", e);
             Toast.makeText(context, "Unable to share video", Toast.LENGTH_SHORT).show();
         }
     }
@@ -460,7 +464,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 .setMessage("Delete \"" + item.getFileName() + "\"?")
                 .setPositiveButton("Delete", (d, w) -> {
                     if (deleteFile(item)) {
-                        ActivityLog.log("video_delete", "count", 1);
+                        ActivityTracker.log("video_delete", null, Meta.of("count", 1));
                         int pos = itemList.indexOf(item);
                         if (pos >= 0) {
                             itemList.remove(pos);
@@ -484,7 +488,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     }
 
     private void enterSelectionMode(int position) {
-        ActivityLog.log("video_select_mode");
+        ActivityTracker.log("video_select_mode");
         selectionMode = true;
         itemList.get(position).setSelected(true);
         notifyDataSetChanged();
@@ -582,7 +586,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
     }
 
     private void openVideo(RecordingItem item) {
-        ActivityLog.log("video_play");
+        ActivityTracker.log("click", "play video");
         try {
             File file = item.getFile();
             if (file == null || !file.exists()) {

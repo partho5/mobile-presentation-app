@@ -27,7 +27,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.adapter.RecordingsAdapter;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.model.RecordingItem;
@@ -301,7 +302,7 @@ public class SavedRecordingsActivity extends AppCompatActivity
                 .setTitle(count == 1 ? "Delete Recording" : "Delete " + count + " Recordings")
                 .setMessage(message)
                 .setPositiveButton("Delete", (d, w) -> {
-                    ActivityLog.log("video_delete", "count", count);
+                    ActivityTracker.log("video_delete", null, Meta.of("count", count));
                     adapter.deleteSelected();
                 })
                 .setNegativeButton("Cancel", null)
@@ -330,7 +331,7 @@ public class SavedRecordingsActivity extends AppCompatActivity
                 updateUI();
                 if (!listingLogged) {
                     listingLogged = true;
-                    ActivityLog.log("videos_open", "count", scanned.size());
+                    ActivityTracker.log("videos_open", null, Meta.of("count", scanned.size()));
                 }
                 if (fromSwipe) swipeRefresh.setRefreshing(false);
             });

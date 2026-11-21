@@ -22,12 +22,14 @@ import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
 import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
+import com.jovoc.facecampresentationrecorder.tracker.Tracked;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
@@ -335,7 +337,6 @@ public class BgReplaceService extends Service {
                 WarmUpProgress warmUp = new WarmUpProgress(OfflineBgProcessor.isWarmUpNeeded(this));
                 long startMs = SystemClock.elapsedRealtime();
                 replaceStartedAtMs = startMs;
-                ActivityLog.log("bgreplace_start");
                 synchronized (LOCK) {
                     replacing = job;
                 }
@@ -349,10 +350,16 @@ public class BgReplaceService extends Service {
                     }
                 };
                 if (warmUp.isEstimating()) MAIN.postDelayed(estimate, ESTIMATE_TICK_MS);
+                // Ended on every path below: ok, cancelled, failed, or an exception (rethrown).
+                Tracked span = ActivityTracker.start("bg_replace", "background replace");
                 boolean ok;
                 try {
                     ok = FaceBgReplaceTask.replace(this, video, job.track, job.features, job.cancelled,
                             percent -> setReplaceStage(job, warmUp.real(percent)));
+                } catch (Throwable t) {
+                    span.end(Meta.of("failed", true));
+                    ActivityTracker.error("bg_replace", "failed", t);
+                    throw t;
                 } finally {
                     MAIN.removeCallbacks(estimate);
                     synchronized (LOCK) {
@@ -361,9 +368,12 @@ public class BgReplaceService extends Service {
                     replaceStartedAtMs = 0;
                 }
                 if (ok) {
-                    ActivityLog.log("bgreplace_done", "duration_ms", SystemClock.elapsedRealtime() - startMs);
-                } else if (!job.cancelled.get()) {
-                    ActivityLog.log("record_error", "kind", "bgreplace_failed");
+                    span.end(Meta.of("ok", true));
+                } else if (job.cancelled.get()) {
+                    span.end(Meta.of("cancelled", true));
+                } else {
+                    span.end(Meta.of("failed", true));
+                    ActivityTracker.error("bg_replace", "failed", null);
                 }
                 if (!ok) {
                     toast(job.cancelled.get()

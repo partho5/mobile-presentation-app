@@ -35,7 +35,6 @@ import androidx.camera.core.CameraSelector;
 import androidx.core.app.NotificationCompat;
 
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
@@ -43,6 +42,9 @@ import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
+import com.jovoc.facecampresentationrecorder.tracker.Tracked;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
@@ -91,6 +93,8 @@ public class ScreenRecordService extends Service {
     private long recordStartedAt = 0;
     private String stopSource = "unknown";
     private String currentVideoPath = null;
+    /** The screen recording span: open from the moment the recorder runs until stop; NOOP otherwise. */
+    private Tracked recordSpan = Tracked.NOOP;
 
     public class LocalBinder extends Binder {
         public ScreenRecordService getService() {
@@ -344,13 +348,15 @@ public class ScreenRecordService extends Service {
                     features = FeatureSnapshot.beginRecording();
                     isRecording = true;
                     recordStartedAt = SystemClock.elapsedRealtime();
+                    recordSpan = ActivityTracker.start("record", "screen recording");
                     EventLog.begin(recordStartedAt, width, height);
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
                 }
             }
         } catch (Throwable t) {
             Log.e(TAG, "Fatal exception during startRecordingInternal", t);
-            ActivityLog.log("record_error", "kind", "start_failed", "type", t.getClass().getSimpleName());
+            ActivityTracker.error("record", "start_failed", t);
+            recordSpan.end(Meta.of("failed", true));
             Toast.makeText(this, "Failed to start recording: " + t.getMessage(), Toast.LENGTH_LONG).show();
             stopRecordingInternal();
         }
@@ -369,11 +375,14 @@ public class ScreenRecordService extends Service {
             return;
         }
 
-        boolean wasRecording = isRecording;
         long durationMs = recordStartedAt > 0 ? SystemClock.elapsedRealtime() - recordStartedAt : 0;
         String source = stopSource;
         recordStartedAt = 0;
         stopSource = "unknown";
+        // Ends the record span first, so a failure in the teardown below cannot leave it open.
+        Tracked span = recordSpan;
+        recordSpan = Tracked.NOOP;
+        span.end(Meta.of("stop_source", source));
 
         try {
             if (mediaRecorder != null) {
@@ -402,7 +411,6 @@ public class ScreenRecordService extends Service {
 
         isRecording = false;
         EventLog.end(this, currentVideoPath);
-        if (wasRecording) ActivityLog.log("record_stop", "duration_ms", durationMs, "source", source);
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);
         } catch (Exception ignored) {}
@@ -410,8 +418,8 @@ public class ScreenRecordService extends Service {
         if (currentVideoPath != null) {
             File file = new File(currentVideoPath);
             if (file.exists() && file.length() > 0) {
-                ActivityLog.log("record_saved", "duration_ms", durationMs,
-                        "size_mb", file.length() / (1024 * 1024));
+                ActivityTracker.log("record_saved", "file saved",
+                        Meta.of("duration_ms", durationMs, "size_mb", file.length() / (1024 * 1024)));
                 // Register with MediaStore for instant Camera / Gallery visibility
                 try {
                     ContentValues values = new ContentValues();
@@ -495,7 +503,7 @@ public class ScreenRecordService extends Service {
                 finishIntent.putExtra(EXTRA_PROCESSING, processing);
                 sendBroadcast(finishIntent);
             } else {
-                ActivityLog.log("record_error", "kind", "empty_file");
+                ActivityTracker.error("record", "empty_file", null);
                 Toast.makeText(this, "Recording file empty or unreadable", Toast.LENGTH_LONG).show();
             }
         }
