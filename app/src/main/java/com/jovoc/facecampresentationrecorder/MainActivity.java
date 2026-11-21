@@ -112,7 +112,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.adapter.SlideAdapter;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
@@ -790,7 +791,7 @@ public class MainActivity extends AppCompatActivity
 
         if (btnOpenDrawer != null) {
             btnOpenDrawer.setOnClickListener(v -> {
-                ActivityLog.log("drawer_open");
+                ActivityTracker.log("click", "drawer");
                 if (drawerLayout != null) {
                     drawerLayout.openDrawer(GravityCompat.START);
                 }
@@ -801,7 +802,7 @@ public class MainActivity extends AppCompatActivity
             tintDrawerIcons();
             navigationView.setNavigationItemSelectedListener(item -> {
                 int itemId = item.getItemId();
-                ActivityLog.log("drawer_item", "item", drawerItemName(itemId));
+                ActivityTracker.log("click", "drawer " + drawerItemName(itemId));
                 if (itemId == R.id.nav_edit_slides) {
                     openSlideManagerDialog();
                 } else if (itemId == R.id.nav_record_settings) {
@@ -950,7 +951,8 @@ public class MainActivity extends AppCompatActivity
         int next = getSavedLensFacing() == CameraSelector.LENS_FACING_FRONT
                 ? CameraSelector.LENS_FACING_BACK : CameraSelector.LENS_FACING_FRONT;
         getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putInt(KEY_CAM_LENS_FACING, next).apply();
-        ActivityLog.log("camera_flip", "to", next == CameraSelector.LENS_FACING_FRONT ? "front" : "back");
+        ActivityTracker.log("click", "camera flip",
+                Meta.of("to", next == CameraSelector.LENS_FACING_FRONT ? "front" : "back"));
 
         btnFlipCamera.animate().rotationBy(180f).setDuration(300).start();
 
@@ -1421,7 +1423,7 @@ public class MainActivity extends AppCompatActivity
             }
             return;
         }
-        ActivityLog.log("drawing_board_toggle", "on", !isDrawingBoardVisible);
+        ActivityTracker.log("toggle", "drawing board", Meta.of("on", !isDrawingBoardVisible));
         if (isDrawingBoardVisible) {
             rememberBoardShown(false);
             hideDrawingBoard(true);
@@ -1575,7 +1577,7 @@ public class MainActivity extends AppCompatActivity
 
     private void startRecordingFlow() {
         if (isRecording) return;
-        ActivityLog.log("record_tap");
+        ActivityTracker.log("click", "record");
 
         // Check for website/youtube slides requiring internet before proceeding
         for (int i = 0; i < slides.size(); i++) {
@@ -1583,13 +1585,13 @@ public class MainActivity extends AppCompatActivity
             if (s.isDisabled()) continue;
             if (Slide.TYPE_WEBSITE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    ActivityLog.log("record_blocked", "reason", "no_internet_for_topic", "type", "website");
+                    ActivityTracker.log("record_blocked", "no_internet_for_topic", Meta.of("type", "website"));
                     Toast.makeText(this, "Topic " + (i + 1) + " is website, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
             } else if (Slide.TYPE_YOUTUBE.equals(s.getType())) {
                 if (!isNetworkConnected()) {
-                    ActivityLog.log("record_blocked", "reason", "no_internet_for_topic", "type", "youtube");
+                    ActivityTracker.log("record_blocked", "no_internet_for_topic", Meta.of("type", "youtube"));
                     Toast.makeText(this, "Topic " + (i + 1) + " is YouTube video, so please turn ON the internet", Toast.LENGTH_LONG).show();
                     return;
                 }
@@ -1620,14 +1622,15 @@ public class MainActivity extends AppCompatActivity
                 } else {
                     captureIntent = projectionManager.createScreenCaptureIntent();
                 }
-                ActivityLog.log("permission_prompt", "perm", "screen_capture");
+                ActivityTracker.log("permission", "screen_capture", Meta.of("step", "prompt"));
                 screenCaptureLauncher.launch(captureIntent);
             }
         }
     }
 
     private void showPermissionRationaleDialog(List<String> missingPermissions) {
-        ActivityLog.log("permission_rationale", "action", "shown", "perms", permissionNames(missingPermissions));
+        ActivityTracker.log("permission", "rationale",
+                Meta.of("step", "shown", "perms", permissionNames(missingPermissions)));
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_permission_rationale, null);
         builder.setView(dialogView);
@@ -1669,7 +1672,7 @@ public class MainActivity extends AppCompatActivity
             btnGrant.setText("Open Settings");
             btnGrant.setOnClickListener(v -> {
                 dialog.dismiss();
-                ActivityLog.log("permission_rationale", "action", "open_settings");
+                ActivityTracker.log("permission", "rationale", Meta.of("step", "open_settings"));
                 openAppSettings();
             });
         } else {
@@ -1681,14 +1684,14 @@ public class MainActivity extends AppCompatActivity
                     editor.putBoolean("asked_perm_" + perm, true);
                 }
                 editor.apply();
-                ActivityLog.log("permission_rationale", "action", "ok");
-                ActivityLog.log("permission_prompt", "perm", permissionNames(missingPermissions));
+                ActivityTracker.log("permission", "rationale", Meta.of("step", "ok"));
+                ActivityTracker.log("permission", permissionNames(missingPermissions), Meta.of("step", "prompt"));
                 permissionLauncher.launch(missingPermissions.toArray(new String[0]));
             });
         }
 
         btnCancel.setOnClickListener(v -> {
-            ActivityLog.log("permission_rationale", "action", "cancel");
+            ActivityTracker.log("permission", "rationale", Meta.of("step", "cancel"));
             dialog.dismiss();
         });
 
@@ -1724,9 +1727,10 @@ public class MainActivity extends AppCompatActivity
 
     /** The recording is about to begin (after the countdown, when there is one). */
     private void logRecordStart(int countdownSeconds) {
-        ActivityLog.log("record_start", "countdown_s", countdownSeconds, "topics", activeTopicCount(),
+        ActivityTracker.log("click", "start recording", Meta.of("countdown_s", countdownSeconds,
+                "topics", activeTopicCount(),
                 "camera", ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                        == PackageManager.PERMISSION_GRANTED);
+                        == PackageManager.PERMISSION_GRANTED));
     }
 
     private static String drawerItemName(int itemId) {
@@ -1822,8 +1826,8 @@ public class MainActivity extends AppCompatActivity
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 result -> {
                     for (java.util.Map.Entry<String, Boolean> entry : result.entrySet()) {
-                        ActivityLog.log("permission_result", "perm", permissionName(entry.getKey()),
-                                "granted", Boolean.TRUE.equals(entry.getValue()));
+                        ActivityTracker.log("permission", permissionName(entry.getKey()),
+                                Meta.of("step", "result", "granted", Boolean.TRUE.equals(entry.getValue())));
                     }
                     boolean allGranted = true;
                     for (Boolean granted : result.values()) {
@@ -1847,8 +1851,8 @@ public class MainActivity extends AppCompatActivity
         screenCaptureLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    ActivityLog.log("permission_result", "perm", "screen_capture",
-                            "granted", result.getResultCode() == RESULT_OK && result.getData() != null);
+                    ActivityTracker.log("permission", "screen_capture", Meta.of("step", "result",
+                            "granted", result.getResultCode() == RESULT_OK && result.getData() != null));
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Intent serviceIntent = new Intent(this, ScreenRecordService.class);
                         serviceIntent.setAction(ScreenRecordService.ACTION_START);
@@ -2082,7 +2086,7 @@ public class MainActivity extends AppCompatActivity
 
     private void toggleMenuBarAndSystemBars() {
         isMenuBarVisible = !isMenuBarVisible;
-        ActivityLog.log("menu_toggle", "visible", isMenuBarVisible);
+        ActivityTracker.log("toggle", "menu bar", Meta.of("on", isMenuBarVisible));
         setPresentationMode(!isMenuBarVisible);
         updateUIState();
     }
@@ -2117,7 +2121,7 @@ public class MainActivity extends AppCompatActivity
                     if (uri != null) {
                         String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
                         if (localPath != null) {
-                            ActivityLog.log("topic_add", "type", "image");
+                            ActivityTracker.log("topic_add", "image");
                             Slide newSlide = new Slide(Slide.TYPE_IMAGE, slides.size(), null, localPath);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
@@ -2133,7 +2137,7 @@ public class MainActivity extends AppCompatActivity
                     if (uri != null && slideToUpdateImage != null) {
                         String localPath = ImageStorageHelper.saveImageToInternalStorage(this, uri);
                         if (localPath != null) {
-                            ActivityLog.log("topic_edit", "type", "image");
+                            ActivityTracker.log("topic_edit", "image");
                             slideToUpdateImage.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateImage;
                             int posToUpdate = targetSlidePosition;
@@ -2162,7 +2166,7 @@ public class MainActivity extends AppCompatActivity
                     if (uri != null) {
                         String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
                         if (localPath != null) {
-                            ActivityLog.log("topic_add", "type", "video");
+                            ActivityTracker.log("topic_add", "video");
                             Slide newSlide = new Slide(Slide.TYPE_VIDEO, slides.size(), null, localPath);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
@@ -2178,7 +2182,7 @@ public class MainActivity extends AppCompatActivity
                     if (uri != null && slideToUpdateVideo != null) {
                         String localPath = ImageStorageHelper.saveVideoToInternalStorage(this, uri);
                         if (localPath != null) {
-                            ActivityLog.log("topic_edit", "type", "video");
+                            ActivityTracker.log("topic_edit", "video");
                             slideToUpdateVideo.setImagePath(localPath);
                             Slide slideToSave = slideToUpdateVideo;
                             int posToUpdate = targetSlidePosition;
@@ -2899,7 +2903,7 @@ public class MainActivity extends AppCompatActivity
         for (int i = currentSlideIndex - 1; i >= 0; i--) {
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
-                ActivityLog.log("topic_prev", "recording", isRecording);
+                ActivityTracker.log("click", "previous topic", Meta.of("recording", isRecording));
                 EventLog.slideChanged();
                 SlideLogger.log("NAV", "Navigated to previous slide index: " + currentSlideIndex);
                 pendingNavDirection = -1;
@@ -2913,7 +2917,7 @@ public class MainActivity extends AppCompatActivity
         for (int i = currentSlideIndex + 1; i < slides.size(); i++) {
             if (!slides.get(i).isDisabled()) {
                 currentSlideIndex = i;
-                ActivityLog.log("topic_next", "recording", isRecording);
+                ActivityTracker.log("click", "next topic", Meta.of("recording", isRecording));
                 EventLog.slideChanged();
                 SlideLogger.log("NAV", "Navigated to next slide index: " + currentSlideIndex);
                 pendingNavDirection = 1;
@@ -3112,7 +3116,7 @@ public class MainActivity extends AppCompatActivity
     // --- Slide Manager Dialog ---
 
     private void openSlideManagerDialog() {
-        ActivityLog.log("topics_open", "count", slides == null ? 0 : slides.size());
+        ActivityTracker.log("click", "edit topics", Meta.of("count", slides == null ? 0 : slides.size()));
         managerDialog = new BottomSheetDialog(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_slide_manager, null);
         managerDialog.setContentView(dialogView);
@@ -3334,7 +3338,7 @@ public class MainActivity extends AppCompatActivity
             }
 
             if (slideToEdit != null) {
-                ActivityLog.log("topic_edit", "type", "text");
+                ActivityTracker.log("topic_edit", "text");
                 slideToEdit.setTextContent(text);
                 repository.update(slideToEdit, () -> {
                     dialog.dismiss();
@@ -3342,7 +3346,7 @@ public class MainActivity extends AppCompatActivity
                     renderCurrentSlide();
                 });
             } else {
-                ActivityLog.log("topic_add", "type", "text");
+                ActivityTracker.log("topic_add", "text");
                 Slide newSlide = new Slide(Slide.TYPE_TEXT, slides.size(), text, null);
                 repository.insert(newSlide, id -> {
                     dialog.dismiss();
@@ -3443,7 +3447,7 @@ public class MainActivity extends AppCompatActivity
                 }
 
                 if (slideToEdit != null) {
-                    ActivityLog.log("topic_edit", "type", "website");
+                    ActivityTracker.log("topic_edit", "website");
                     slideToEdit.setTextContent(inputUrl);
                     repository.update(slideToEdit, () -> {
                         dialog.dismiss();
@@ -3451,7 +3455,7 @@ public class MainActivity extends AppCompatActivity
                         renderCurrentSlide();
                     });
                 } else {
-                    ActivityLog.log("topic_add", "type", "website");
+                    ActivityTracker.log("topic_add", "website");
                     Slide newSlide = new Slide(Slide.TYPE_WEBSITE, slides.size(), inputUrl, null);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
@@ -3501,7 +3505,7 @@ public class MainActivity extends AppCompatActivity
                 }
 
                 if (slideToEdit != null) {
-                    ActivityLog.log("topic_edit", "type", "youtube");
+                    ActivityTracker.log("topic_edit", "youtube");
                     slideToEdit.setTextContent(input);
                     repository.update(slideToEdit, () -> {
                         dialog.dismiss();
@@ -3509,7 +3513,7 @@ public class MainActivity extends AppCompatActivity
                         renderCurrentSlide();
                     });
                 } else {
-                    ActivityLog.log("topic_add", "type", "youtube");
+                    ActivityTracker.log("topic_add", "youtube");
                     Slide newSlide = new Slide(Slide.TYPE_YOUTUBE, slides.size(), input, null);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
@@ -3532,7 +3536,7 @@ public class MainActivity extends AppCompatActivity
                     .setTitle("Item Disabled")
                     .setMessage("This item is currently disabled and hidden during presentation. Would you like to enable it?")
                     .setPositiveButton("Enable", (dialog, which) -> {
-                        ActivityLog.log("topic_toggle", "enabled", true);
+                        ActivityTracker.log("toggle", "topic", Meta.of("enabled", true));
                         slide.setDisabled(false);
                         repository.update(slide, () -> {
                             if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
@@ -3558,7 +3562,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onMoveUp(int position) {
         if (position > 0) {
-            ActivityLog.log("topic_move", "dir", "up");
+            ActivityTracker.log("topic_move", "up");
             Collections.swap(slides, position, position - 1);
             repository.updateAll(slides, () -> {
                 slideAdapter.setSlides(slides);
@@ -3572,7 +3576,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onMoveDown(int position) {
         if (position < slides.size() - 1) {
-            ActivityLog.log("topic_move", "dir", "down");
+            ActivityTracker.log("topic_move", "down");
             Collections.swap(slides, position, position + 1);
             repository.updateAll(slides, () -> {
                 slideAdapter.setSlides(slides);
@@ -3591,7 +3595,7 @@ public class MainActivity extends AppCompatActivity
                     .setTitle("Disable Item?")
                     .setMessage("This item will be hidden during presentation mode. You can re-enable it later.")
                     .setPositiveButton("Disable", (dialog, which) -> {
-                        ActivityLog.log("topic_toggle", "enabled", false);
+                        ActivityTracker.log("toggle", "topic", Meta.of("enabled", false));
                         slide.setDisabled(true);
                         repository.update(slide, () -> {
                             if (slideAdapter != null) slideAdapter.notifyDataSetChanged();
@@ -3608,7 +3612,7 @@ public class MainActivity extends AppCompatActivity
                     .setTitle("Permanently Delete?")
                     .setMessage("This item will be permanently deleted. This action cannot be undone.")
                     .setPositiveButton("Delete", (dialog, which) -> {
-                        ActivityLog.log("topic_delete");
+                        ActivityTracker.log("topic_delete", null);
                         repository.delete(slide, () -> {
                             if (slideInkController != null) slideInkController.discard(slide.getId());
                             if (drawingBoardController != null) drawingBoardController.discard(slide.getId());
@@ -3643,7 +3647,7 @@ public class MainActivity extends AppCompatActivity
 
     /** Removes every topic and its local files. Single place for a future server-sync hook. */
     private void deleteAllSlides() {
-        ActivityLog.log("topics_delete_all", "count", slides.size());
+        ActivityTracker.log("topic_delete_all", null, Meta.of("count", slides.size()));
         final List<Slide> doomed = new ArrayList<>(slides);
         repository.deleteAll(() -> {
             stopVideoIfPlaying();
@@ -3762,7 +3766,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void cancelCountdown() {
-        ActivityLog.log("record_countdown_cancel");
+        ActivityTracker.log("click", "cancel countdown");
         if (countDownTimer != null) {
             countDownTimer.cancel();
             countDownTimer = null;
@@ -3946,7 +3950,7 @@ public class MainActivity extends AppCompatActivity
                 .setMessage("Your recording will keep its original background.")
                 .setPositiveButton("Yes, cancel", (d, which) -> {
                     if (BgReplaceService.cancelReplace()) {
-                        ActivityLog.log("bgreplace_cancel");
+                        ActivityTracker.log("click", "cancel background replace");
                         showProcessingDialog(BgReplaceService.STAGE_CANCELLING, -1);
                     }
                 })
