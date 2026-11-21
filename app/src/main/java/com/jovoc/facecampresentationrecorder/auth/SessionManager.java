@@ -14,10 +14,11 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.BrandPin;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.ui.SignInActivity;
 
 import java.util.Locale;
@@ -66,7 +67,7 @@ public final class SessionManager {
         // A call with no brand picked yet pins the server's default first; it never goes out brandless.
         repo.setWorkspaceResolver(() -> resolveBrand(false));
         repo.setForcedSignOutListener(() -> main.post(() -> {
-            ActivityLog.log("session_ended");
+            ActivityTracker.log("session_ended", null);
             // Signing in is optional, so a dead session is not a wall: say so and go home.
             Toast.makeText(appContext, R.string.session_ended_toast, Toast.LENGTH_LONG).show();
             openHome(appContext);
@@ -165,7 +166,7 @@ public final class SessionManager {
                 logSignInFailure("email", e);
                 throw e;
             }
-            ActivityLog.log("signin_code_requested");
+            ActivityTracker.log("signin", "code requested");
             return null;
         }, cb);
     }
@@ -175,7 +176,7 @@ public final class SessionManager {
         async(() -> {
             try {
                 boolean created = repo.exchangeCode(email, code, defaultDeviceName());
-                ActivityLog.log("signin_success", "new_account", created);
+                ActivityTracker.log("signin", "success", Meta.of("new_account", created));
                 // The wipe on the new session left Free; fetch this account's plan.
                 EntitlementsRefresher.refreshNow();
                 // This account's default brand becomes the pick, in the background (sign-in is not slowed).
@@ -192,13 +193,14 @@ public final class SessionManager {
     public void signOut(Callback<Boolean> cb) {
         async(() -> {
             boolean confirmed = repo.signOut();
-            ActivityLog.log("signout", "server_confirmed", confirmed);
+            ActivityTracker.log("signout", null);
             return confirmed;
         }, cb);
     }
 
     private static void logSignInFailure(String step, AuthException e) {
-        ActivityLog.log("signin_fail", "step", step, "kind", e.kind.name().toLowerCase(Locale.ROOT));
+        ActivityTracker.error("signin", "failed", e,
+                Meta.of("step", step, "kind", e.kind.name().toLowerCase(Locale.ROOT)));
     }
 
     /**

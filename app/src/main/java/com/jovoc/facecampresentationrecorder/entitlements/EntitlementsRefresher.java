@@ -2,7 +2,8 @@ package com.jovoc.facecampresentationrecorder.entitlements;
 
 import android.content.Context;
 
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -118,7 +119,8 @@ public final class EntitlementsRefresher {
         Context app = context.getApplicationContext();
         instance = new EntitlementsRefresher(() -> EntitlementsApi.create(app), FACADE,
                 System::currentTimeMillis, newWorker(), BURST_DELAYS_MS,
-                (from, to) -> ActivityLog.log("entitlement_change", "from", from, "to", to));
+                (from, to) -> ActivityTracker.log("plan_change", from + " → " + to,
+                        Meta.of("from", from, "to", to)));
     }
 
     /**
