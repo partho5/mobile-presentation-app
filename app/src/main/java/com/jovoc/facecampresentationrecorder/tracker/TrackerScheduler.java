@@ -66,7 +66,9 @@ public final class TrackerScheduler implements TrackerStore.Listener {
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_MINUTES, TimeUnit.MINUTES)
                     .build();
             WorkManager.getInstance(context.getApplicationContext())
-                    .enqueueUniqueWork(UNIQUE_DRAIN, ExistingWorkPolicy.KEEP, request);
+                    // APPEND_OR_REPLACE, not KEEP: the worker calls this while it is still running, and KEEP
+                    // would drop the follow-up run. APPEND chains it after the running one.
+                    .enqueueUniqueWork(UNIQUE_DRAIN, ExistingWorkPolicy.APPEND_OR_REPLACE, request);
         } catch (Throwable ignored) {
             // best effort
         }
