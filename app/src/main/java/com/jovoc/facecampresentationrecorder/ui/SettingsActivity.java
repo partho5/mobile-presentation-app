@@ -1062,7 +1062,7 @@ public class SettingsActivity extends AppCompatActivity {
         permissionsHelp.setBlocks(help);
     }
 
-    /** Short name of a permission, for the activity log (null = the overlay special access). */
+    /** Short name of a permission, for the activity tracker (null = the overlay special access). */
     private static String permissionLogName(String permission) {
         if (permission == null) return "overlay";
         if (Manifest.permission.CAMERA.equals(permission)) return "camera";

@@ -11,7 +11,7 @@ import java.io.File;
  * on the recording's own clock. Outside a recording every call returns at once, so it costs nothing when
  * no AI edit is ever asked for. Calls are one-liners and carry no logic; this class does the screen maths.
  *
- * What is logged never goes to {@code ActivityLog} or a crash report: it is metadata about the user's
+ * What is logged never goes to {@code ActivityTracker} or a crash report: it is metadata about the user's
  * content and stays in {@link EventLogStore}'s private file.
  */
 public final class EventLog {

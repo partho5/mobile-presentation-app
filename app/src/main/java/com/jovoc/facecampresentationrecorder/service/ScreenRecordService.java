@@ -75,7 +75,7 @@ public class ScreenRecordService extends Service {
     public static final String EXTRA_VIDEO_PATH = "EXTRA_VIDEO_PATH";
     /** True when background replace is running; the UI waits for its result before showing the file. */
     public static final String EXTRA_PROCESSING = "EXTRA_PROCESSING";
-    /** Who asked to stop, for the activity log: button, notification, overlay, system, error, destroyed. */
+    /** Who asked to stop, for the activity tracker: button, notification, overlay, system, error, destroyed. */
     public static final String EXTRA_STOP_SOURCE = "EXTRA_STOP_SOURCE";
 
     private final IBinder binder = new LocalBinder();

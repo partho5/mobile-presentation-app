@@ -532,5 +532,5 @@ Commit `docs(tracker): A5 privacy disclosure`.
 | A4.2 | app | Convert old calls: ui/* | A3 | ✅ |
 | A4.3 | app | Convert old calls: services, publish, adapter, SavedRecordings | A3 | ✅ |
 | A4.4 | app | Convert old calls: auth, entitlements, rest | A3 | ✅ |
-| A4.5 | app | Delete the old activity-log system + migration 9→10 | A4.1 A4.2 A4.3 A4.4 | ⬜ |
+| A4.5 | app | Delete the old activity-log system + migration 9→10 | A4.1 A4.2 A4.3 A4.4 | ✅ |
 | A5 | app | Privacy disclosure doc | A4.5 | ⬜ |

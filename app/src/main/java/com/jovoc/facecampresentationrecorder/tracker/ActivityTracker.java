@@ -2,6 +2,8 @@ package com.jovoc.facecampresentationrecorder.tracker;
 
 import android.content.Context;
 
+import androidx.work.WorkManager;
+
 import com.jovoc.facecampresentationrecorder.BuildConfig;
 
 import java.util.ArrayList;
@@ -43,8 +45,32 @@ public final class ActivityTracker {
                 app = c != null ? c : context;
                 ready = true;
             }
+            TrackerStore.submit(() -> removeLeftovers(app));
         } catch (Throwable ignored) {
             // tracking stays off
+        }
+    }
+
+    /** Work names and the prefs file of the activity log this tracker replaced. */
+    private static final String[] OLD_WORK = {"activity-log-periodic", "activity-log-count", "activity-log-drain"};
+    private static final String OLD_PREFS = "activity_log_prefs";
+
+    /**
+     * Removes what the replaced activity log left behind. Otherwise WorkManager keeps retrying the deleted
+     * worker class. Runs on the tracker thread, once per process; each step is best effort.
+     */
+    private static void removeLeftovers(Context c) {
+        for (String name : OLD_WORK) {
+            try {
+                WorkManager.getInstance(c).cancelUniqueWork(name);
+            } catch (Throwable ignored) {
+                // best effort
+            }
+        }
+        try {
+            c.deleteSharedPreferences(OLD_PREFS);
+        } catch (Throwable ignored) {
+            // best effort
         }
     }
 

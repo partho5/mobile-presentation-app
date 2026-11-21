@@ -37,14 +37,22 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsNineAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsTenAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(8, all.length);
+        assertEquals(9, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(9, all[all.length - 1].endVersion);
+        assertEquals(10, all[all.length - 1].endVersion);
+    }
+
+    @Test
+    public void migration9to10_dropsOnlyTheOldActivityTable() {
+        List<String> sql = run(AppDatabase.MIGRATION_9_10);
+        assertEquals(1, sql.size());
+        assertEquals("DROP TABLE IF EXISTS `activity_events`", sql.get(0));
+        assertTrue(!sql.get(0).contains("tracked_activities") && !sql.get(0).contains("publish_jobs"));
     }
 
     @Test
@@ -77,11 +85,7 @@ public class AppDatabaseMigrationTest {
                 "`tz` INTEGER NOT NULL", "`session` TEXT", "`action` TEXT", "`meta_json` TEXT",
                 "`batch_id` TEXT"};
         for (String c : columns) assertTrue("missing " + c, s.contains(c));
-        int fields = 0;
-        for (java.lang.reflect.Field f : ActivityEvent.class.getDeclaredFields()) {
-            if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) fields++;
-        }
-        assertEquals(fields, columns.length);
+        assertEquals(7, columns.length);
     }
 
     @Test

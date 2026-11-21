@@ -1698,7 +1698,7 @@ public class MainActivity extends AppCompatActivity
         dialog.show();
     }
 
-    /** Short name of an Android permission, for the activity log. */
+    /** Short name of an Android permission, for the activity tracker. */
     private static String permissionName(String permission) {
         if (Manifest.permission.CAMERA.equals(permission)) return "camera";
         if (Manifest.permission.RECORD_AUDIO.equals(permission)) return "mic";

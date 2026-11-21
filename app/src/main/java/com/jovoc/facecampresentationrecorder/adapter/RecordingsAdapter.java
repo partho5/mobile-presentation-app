@@ -424,7 +424,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Re
                 });
     }
 
-    /** Short name of a card-menu action, for the activity log. */
+    /** Short name of a card-menu action, for the activity tracker. */
     private static String menuItemName(int id) {
         if (id == R.id.action_play) return "play";
         if (id == R.id.action_edit) return "edit";

@@ -7,9 +7,6 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLogScheduler;
-import com.jovoc.facecampresentationrecorder.activitylog.CrashLogger;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditReceipts;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
@@ -23,8 +20,8 @@ import com.jovoc.facecampresentationrecorder.ui.BillingLink;
 import com.jovoc.facecampresentationrecorder.ui.PlanNotice;
 
 /**
- * Starts the paid-feature checks and the activity log (what users do in the app) with its
- * background upload schedule.
+ * Starts the paid-feature checks and the activity tracker (what users do in the app, see
+ * {@link ActivityTracker} and {@link AutoTracker}) with its background upload schedule.
  */
 public class FaceCamApp extends Application {
 
@@ -73,16 +70,12 @@ public class FaceCamApp extends Application {
             // Tracking must never stop the app from starting.
         }
         try {
-            ActivityLog.init(this);
-            ActivityLog.setListener(new ActivityLogScheduler(this));
-            ActivityLogScheduler.schedulePeriodic(this);
-            CrashLogger.install();
             registerActivityLifecycleCallbacks(new ScreenTracker());
         } catch (Exception e) {
-            // Logging must never stop the app from starting.
+            // The plan checks must never stop the app from starting.
         }
         try {
-            // Installed after CrashLogger, so the tracker records the crash first and then the old handler runs.
+            // Wraps the default crash handler, so the tracker records the crash first and then the previous one runs.
             TrackerCrashHandler.install();
         } catch (Throwable ignored) {
             // Tracking must never stop the app from starting.

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Session tokens are bound to this device's Keystore; never back them up or transfer them.
      auth_secure is the encrypted file; the __androidx_security_crypto_* files hold its keysets.
-     activity_log_prefs holds this phone's activity-log device id: a restored or transferred copy
-     would give two phones one id. entitlements_prefs holds the signed plan token of this phone's
+     entitlements_prefs holds the signed plan token of this phone's
      session: a restored copy would carry another phone's session, and a new phone fetches its own.
      tracker_prefs holds this phone's activity-tracker device id: a restored or transferred copy
      would give two phones one id. -->
@@ -14,7 +13,6 @@
         <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_value_keyset__.xml" />
         <exclude domain="sharedpref" path="MasterKey" />
         <exclude domain="sharedpref" path="debug_settings.xml" />
-        <exclude domain="sharedpref" path="activity_log_prefs.xml" />
         <exclude domain="sharedpref" path="entitlements_prefs.xml" />
         <exclude domain="sharedpref" path="tracker_prefs.xml" />
     </cloud-backup>
@@ -25,7 +23,6 @@
         <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs_value_keyset__.xml" />
         <exclude domain="sharedpref" path="MasterKey" />
         <exclude domain="sharedpref" path="debug_settings.xml" />
-        <exclude domain="sharedpref" path="activity_log_prefs.xml" />
         <exclude domain="sharedpref" path="entitlements_prefs.xml" />
         <exclude domain="sharedpref" path="tracker_prefs.xml" />
     </device-transfer>

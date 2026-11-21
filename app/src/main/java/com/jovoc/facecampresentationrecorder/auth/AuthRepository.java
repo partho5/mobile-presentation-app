@@ -156,7 +156,7 @@ public class AuthRepository {
 
     /**
      * An access token that is valid now, for a background call that must not disturb the user
-     * (the activity log upload). Refreshes when needed, but a refresh the server refuses neither
+     * (the activity tracker upload). Refreshes when needed, but a refresh the server refuses neither
      * clears the session nor fires the forced-sign-out listener: the user's next real call does
      * that. Null when there is no session or no token could be had.
      */

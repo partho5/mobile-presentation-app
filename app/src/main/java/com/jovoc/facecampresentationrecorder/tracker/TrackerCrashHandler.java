@@ -1,8 +1,8 @@
 package com.jovoc.facecampresentationrecorder.tracker;
 
 /**
- * Records an uncaught exception before the previous handler runs. Installed after the old
- * CrashLogger, so this handler runs first and then calls the old one.
+ * Records an uncaught exception before the previous handler runs. It wraps the handler that was
+ * the default when it is installed, so this handler runs first and then calls that one.
  */
 public final class TrackerCrashHandler {
 

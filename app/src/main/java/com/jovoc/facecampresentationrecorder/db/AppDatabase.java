@@ -9,9 +9,9 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {Slide.class, PublishJob.class, UploadSession.class, ActivityEvent.class,
+@Database(entities = {Slide.class, PublishJob.class, UploadSession.class,
         AudioUploadSession.class, TrackedActivity.class},
-        version = 9, exportSchema = false)
+        version = 10, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -21,8 +21,6 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract PublishJobDao publishJobDao();
 
     public abstract UploadSessionDao uploadSessionDao();
-
-    public abstract ActivityEventDao activityEventDao();
 
     public abstract AudioUploadSessionDao audioUploadSessionDao();
 
@@ -85,7 +83,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    /** The table of {@link ActivityEvent}; kept as text so a test can check what a migration runs. */
+    /** The old activity-log table, dropped in 9→10; kept as text so a test can check what a migration ran. */
     static final String CREATE_ACTIVITY_EVENTS = "CREATE TABLE IF NOT EXISTS `activity_events` ("
             + "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ts` INTEGER NOT NULL, "
             + "`tz` INTEGER NOT NULL, `session` TEXT, `action` TEXT, `meta_json` TEXT, "
@@ -132,10 +130,18 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Drops the old activity-log table only; the activity tracker keeps its own table (tracked_activities).
+    static final Migration MIGRATION_9_10 = new Migration(9, 10) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("DROP TABLE IF EXISTS `activity_events`");
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
     };
 
     public static AppDatabase getInstance(Context context) {
