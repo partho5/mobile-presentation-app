@@ -17,7 +17,8 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.entitlements.Catalogue;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
@@ -84,7 +85,7 @@ public final class PlansSheet {
     }
 
     private void open() {
-        ActivityLog.log("plans_view", "plan", Entitlements.plan());
+        ActivityTracker.log("sheet", "plans", Meta.of("plan", Entitlements.plan()));
         Entitlements.addListener(listener);
         render();
         dialog.show();
@@ -195,7 +196,7 @@ public final class PlansSheet {
 
     private void onUpgrade(String planKey) {
         if (released || linkPending) return;
-        ActivityLog.log("paywall_action", "action", "upgrade", "feature", "plans");
+        ActivityTracker.log("click", "paywall upgrade", Meta.of("feature", "plans"));
         linkPending = true;
         render();
         BillingLink.open(host, planKey, () -> {
@@ -210,7 +211,7 @@ public final class PlansSheet {
 
     private void onRefresh() {
         if (released || checking) return;
-        ActivityLog.log("paywall_action", "action", "refresh", "feature", "plans");
+        ActivityTracker.log("click", "paywall refresh", Meta.of("feature", "plans"));
         EntitlementsRefresher.refreshBurst();
         startChecking();
     }

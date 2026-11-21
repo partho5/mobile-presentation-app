@@ -14,7 +14,8 @@ import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.BrandRow;
 import com.jovoc.facecampresentationrecorder.account.Workspace;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
@@ -91,7 +92,7 @@ public final class BrandRowBinder {
 
     private void onTap() {
         boolean recording = FeatureSnapshot.recordingNow();
-        ActivityLog.log("brand_row", "locked", recording);
+        ActivityTracker.log("click", "brand row", Meta.of("locked", recording));
         if (recording) {
             Toast.makeText(activity.getApplicationContext(), R.string.brand_locked_note, Toast.LENGTH_SHORT).show();
             return;

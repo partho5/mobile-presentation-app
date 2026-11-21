@@ -28,7 +28,7 @@ import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.BrandSwitch;
 import com.jovoc.facecampresentationrecorder.account.Workspace;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
@@ -168,6 +168,7 @@ public class WorkspaceActivity extends AppCompatActivity {
                 }
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("workspace", "list failed", e);
             }
             final List<Workspace> result = list;
             final String current = currentId;
@@ -251,7 +252,7 @@ public class WorkspaceActivity extends AppCompatActivity {
         TextView current = row.findViewById(R.id.tv_workspace_current);
         current.setText(R.string.ws_switching);
         current.setVisibility(View.VISIBLE);
-        ActivityLog.log("workspace_switch");
+        ActivityTracker.log("click", "switch brand");
         store.saveWorkspace(w.id, w.name);
         // The old brand's plan stops counting now; the new brand's counts once it has been fetched.
         Entitlements.brandChanged();

@@ -1,6 +1,7 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditSettings;
 import com.jovoc.facecampresentationrecorder.bgreplace.FaceBgReplaceTask;
 
@@ -176,8 +177,7 @@ public class SettingsActivity extends AppCompatActivity {
                 granted -> {
                     String permission = pendingPermission;
                     pendingPermission = null;
-                    ActivityLog.log("permission_result", "perm", permissionLogName(permission),
-                            "granted", granted);
+                    ActivityTracker.log("permission", permissionLogName(permission), Meta.of("step", "result", "granted", granted));
                     if (!granted && permission != null
                             && !ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
                         // Denied for good: the system dialog won't appear again, only app settings can help.
@@ -253,7 +253,7 @@ public class SettingsActivity extends AppCompatActivity {
                     : id == R.id.rb_countdown_10 ? 10
                     : 3;
             prefs.edit().putInt(KEY_COUNTDOWN_SECONDS, value).apply();
-            ActivityLog.log("setting_change", "key", "countdown_s", "value", value);
+            ActivityTracker.log("setting", "countdown_s", Meta.of("value", value));
         });
     }
 
@@ -269,7 +269,7 @@ public class SettingsActivity extends AppCompatActivity {
                     : id == R.id.rb_ai_level_heavy ? AiEditSettings.LEVEL_HEAVY
                     : AiEditSettings.LEVEL_STANDARD;
             AiEditSettings.setLevel(this, value);
-            ActivityLog.log("setting_change", "key", "ai_edit_level", "value", value);
+            ActivityTracker.log("setting", "ai_edit_level", Meta.of("value", value));
         });
 
         RadioGroup colors = findViewById(R.id.rg_ai_edit_colors);
@@ -278,14 +278,14 @@ public class SettingsActivity extends AppCompatActivity {
         colors.setOnCheckedChangeListener((g, id) -> {
             String value = id == R.id.rb_ai_colors_brand ? AiEditSettings.COLORS_BRAND : AiEditSettings.COLORS_MULTI;
             AiEditSettings.setTextColors(this, value);
-            ActivityLog.log("setting_change", "key", "ai_edit_text_colors", "value", value);
+            ActivityTracker.log("setting", "ai_edit_text_colors", Meta.of("value", value));
         });
 
         CheckBox sound = findViewById(R.id.cb_ai_edit_sound);
         sound.setChecked(AiEditSettings.soundEffects(this));
         sound.setOnCheckedChangeListener((b, checked) -> {
             AiEditSettings.setSoundEffects(this, checked);
-            ActivityLog.log("setting_change", "key", "ai_edit_sound_effects", "value", checked);
+            ActivityTracker.log("setting", "ai_edit_sound_effects", Meta.of("value", checked));
         });
     }
 
@@ -294,7 +294,7 @@ public class SettingsActivity extends AppCompatActivity {
         group.check(prefs.getBoolean(KEY_RECORD_AUDIO, true) ? R.id.rb_audio_mic : R.id.rb_audio_mute);
         group.setOnCheckedChangeListener((g, id) -> {
             prefs.edit().putBoolean(KEY_RECORD_AUDIO, id == R.id.rb_audio_mic).apply();
-            ActivityLog.log("setting_change", "key", "record_audio", "value", id == R.id.rb_audio_mic);
+            ActivityTracker.log("setting", "record_audio", Meta.of("value", id == R.id.rb_audio_mic));
             refreshAudioInputs();
         });
     }
@@ -324,8 +324,7 @@ public class SettingsActivity extends AppCompatActivity {
             View checked = g.findViewById(checkedId);
             if (checked == null) return;
             int deviceId = (Integer) checked.getTag();
-            ActivityLog.log("setting_change", "key", "mic_source",
-                    "value", deviceId == AudioInputSelection.PHONE_MIC ? "phone" : "external");
+            ActivityTracker.log("setting", "mic_source", Meta.of("value", deviceId == AudioInputSelection.PHONE_MIC ? "phone" : "external"));
             if (deviceId == AudioInputSelection.PHONE_MIC) {
                 AudioInputs.selectPhoneMic();
             } else {
@@ -426,7 +425,7 @@ public class SettingsActivity extends AppCompatActivity {
                 return;
             }
             target.edit().putBoolean(key, checked).apply();
-            ActivityLog.log("setting_change", "key", key, "value", checked);
+            ActivityTracker.log("setting", key, Meta.of("value", checked));
         });
         gated.sync();
     }
@@ -493,7 +492,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         cbBurnSubtitles.setOnCheckedChangeListener((b, checked) -> {
             RecordSettings.setSubtitlesEnabled(this, checked);
-            ActivityLog.log("setting_change", "key", "subtitles_enabled", "value", checked);
+            ActivityTracker.log("setting", "subtitles_enabled", Meta.of("value", checked));
             syncSubtitleControlsEnabled(checked);
         });
 
@@ -512,7 +511,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void selectSubtitleTemplate(String template) {
         RecordSettings.setSubtitleTemplate(this, template);
-        ActivityLog.log("setting_change", "key", "subtitle_template", "value", template);
+        ActivityTracker.log("setting", "subtitle_template", Meta.of("value", template));
         updateSubtitleSelectionUI(template);
         updateSubtitlePreview(template, true);
     }
@@ -619,7 +618,7 @@ public class SettingsActivity extends AppCompatActivity {
         box.setChecked(prefs.getBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, false));
         box.setOnCheckedChangeListener((b, checked) -> {
             prefs.edit().putBoolean(KEY_SHOW_EDITOR_AFTER_RECORDING, checked).apply();
-            ActivityLog.log("setting_change", "key", "show_editor_after_recording", "value", checked);
+            ActivityTracker.log("setting", "show_editor_after_recording", Meta.of("value", checked));
         });
     }
 
@@ -630,7 +629,7 @@ public class SettingsActivity extends AppCompatActivity {
         box.setOnCheckedChangeListener((b, checked) -> {
             // apply() updates the in-memory prefs at once, so the re-enqueue below reads the new value.
             prefs.edit().putBoolean(KEY_PUBLISH_WIFI_ONLY, checked).apply();
-            ActivityLog.log("setting_change", "key", "publish_wifi_only", "value", checked);
+            ActivityTracker.log("setting", "publish_wifi_only", Meta.of("value", checked));
             PublishManager.get(this).onWifiOnlyChanged();
         });
     }
@@ -656,7 +655,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         photoPicker = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
             if (uri != null) {
-                ActivityLog.log("background_add");
+                ActivityTracker.log("background_add");
                 // The plan may have ended while the picker was open: ask again rather than import
                 Gate.run(this, Feature.BG_CUSTOM, () -> importBackground(uri));
             }
@@ -777,8 +776,7 @@ public class SettingsActivity extends AppCompatActivity {
         card.setOnClickListener(v -> {
             Runnable select = () -> {
                 bgPrefs.edit().putString(KEY_BG_ASSET_PATH, path).apply();
-                ActivityLog.log("setting_change", "key", "background",
-                        "value", userFile != null ? "own_photo" : "built_in");
+                ActivityTracker.log("setting", "background", Meta.of("value", userFile != null ? "own_photo" : "built_in"));
                 markSelectedBackground(idx);
             };
             if (userFile != null) Gate.run(this, Feature.BG_CUSTOM, select);
@@ -903,6 +901,7 @@ public class SettingsActivity extends AppCompatActivity {
                 }
             } catch (IOException | RuntimeException e) {
                 Log.w(TAG, "Background import failed: " + uri, e);
+                ActivityTracker.error("background", "import failed", e);
             }
             final File result = imported;
             runOnUiThread(() -> {
@@ -927,7 +926,7 @@ public class SettingsActivity extends AppCompatActivity {
                 .setTitle(R.string.set_bg_delete_title)
                 .setMessage(R.string.set_bg_delete_message)
                 .setPositiveButton(R.string.set_bg_delete_yes, (d, w) -> {
-                    ActivityLog.log("background_delete");
+                    ActivityTracker.log("background_delete");
                     deleteBackground(file);
                 })
                 .setNegativeButton(R.string.set_bg_delete_no, null)
@@ -1073,7 +1072,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void requestMissingPermission(MissingPermission item) {
-        ActivityLog.log("permission_prompt", "perm", permissionLogName(item.runtimePermission), "source", "settings");
+        ActivityTracker.log("permission", permissionLogName(item.runtimePermission), Meta.of("step", "prompt"));
         if (item.runtimePermission == null) {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.fromParts("package", getPackageName(), null)));

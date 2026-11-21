@@ -18,7 +18,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 
@@ -108,7 +108,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
         intro = container.findViewById(R.id.drawing_board_intro);
 
         toolPen.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "pen");
+            ActivityTracker.log("click", "drawing pen");
             boolean wasPen = tool == TOOL_PEN;
             setTool(TOOL_PEN, true);
             paletteAnchor = toolPen;
@@ -116,29 +116,29 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
             showPalette(!wasPen || palette.getVisibility() != View.VISIBLE);
         });
         toolEraser.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "eraser");
+            ActivityTracker.log("click", "drawing eraser");
             setTool(TOOL_ERASER, true);
             showPalette(false);
         });
         toolText.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "text");
+            ActivityTracker.log("click", "drawing text");
             boolean wasText = tool == TOOL_TEXT;
             setTool(TOOL_TEXT, true);
             paletteAnchor = toolText;
             showPalette(!wasText || palette.getVisibility() != View.VISIBLE);
         });
         toolUndo.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "undo");
+            ActivityTracker.log("click", "drawing undo");
             board.undo();
             onActionCommitted();
         });
         toolRedo.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "redo");
+            ActivityTracker.log("click", "drawing redo");
             board.redo();
             onActionCommitted();
         });
         toolClear.setOnClickListener(v -> {
-            ActivityLog.log("drawing_tool", "tool", "clear");
+            ActivityTracker.log("click", "drawing clear");
             board.clearBoard();
         });
 

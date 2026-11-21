@@ -24,7 +24,8 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.DeviceSession;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 
 import java.util.List;
@@ -102,6 +103,7 @@ public class DevicesActivity extends AppCompatActivity {
                 list = api.listDevices();
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("devices", "list failed", e);
             }
             final List<DeviceSession> result = list;
             final AccountException err = error;
@@ -165,7 +167,7 @@ public class DevicesActivity extends AppCompatActivity {
     }
 
     private void revoke(DeviceSession d) {
-        ActivityLog.log("device_revoke", "scope", "one");
+        ActivityTracker.log("click", "revoke device", Meta.of("scope", "one"));
         setBusy(true);
         io.execute(() -> {
             AccountException error = null;
@@ -173,6 +175,7 @@ public class DevicesActivity extends AppCompatActivity {
                 api.revokeDevice(d.id);
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("devices", "revoke failed", e);
             }
             final AccountException err = error;
             main.post(() -> {
@@ -195,7 +198,7 @@ public class DevicesActivity extends AppCompatActivity {
     }
 
     private void revokeOthers() {
-        ActivityLog.log("device_revoke", "scope", "others");
+        ActivityTracker.log("click", "revoke device", Meta.of("scope", "others"));
         setBusy(true);
         io.execute(() -> {
             AccountException error = null;
@@ -203,6 +206,7 @@ public class DevicesActivity extends AppCompatActivity {
                 api.revokeOtherDevices();
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("devices", "revoke others failed", e);
             }
             final AccountException err = error;
             main.post(() -> {

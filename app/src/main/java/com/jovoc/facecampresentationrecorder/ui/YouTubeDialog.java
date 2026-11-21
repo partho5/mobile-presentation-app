@@ -10,7 +10,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 
 /**
  * Full-screen, in-app YouTube player. Reuses {@link YouTubeEmbedView}, so it gets the same
@@ -48,7 +48,7 @@ final class YouTubeDialog {
 
         dialog.setContentView(root);
         dialog.setOnShowListener(d -> {
-            ActivityLog.log("howto_video_play");
+            ActivityTracker.log("click", "how-to video");
             player.start();
         });
         dialog.setOnDismissListener(d -> player.stop());

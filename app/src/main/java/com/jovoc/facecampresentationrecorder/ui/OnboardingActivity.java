@@ -34,7 +34,8 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 
 /**
  * First-run onboarding: four swipeable screens on one shared skeleton. Shown once (see
@@ -132,13 +133,13 @@ public class OnboardingActivity extends AppCompatActivity {
 
             @Override
             public void onPageSelected(int position) {
-                ActivityLog.log("onboarding_page", "n", position + 1);
+                ActivityTracker.log("onboarding_page", null, Meta.of("n", position + 1));
                 showPage(position);
             }
         });
 
         skip.setOnClickListener(v -> {
-            ActivityLog.log("onboarding_skip");
+            ActivityTracker.log("click", "skip onboarding");
             finishOnboarding();
         });
         next.setOnClickListener(v -> {
@@ -193,7 +194,7 @@ public class OnboardingActivity extends AppCompatActivity {
     }
 
     private void finishOnboarding() {
-        ActivityLog.log("onboarding_done", "from_menu", getIntent().getBooleanExtra(EXTRA_FROM_MENU, false));
+        ActivityTracker.log("onboarding_done", null, Meta.of("from_menu", getIntent().getBooleanExtra(EXTRA_FROM_MENU, false)));
         if (getIntent().getBooleanExtra(EXTRA_FROM_MENU, false)) {
             finish();
             return;

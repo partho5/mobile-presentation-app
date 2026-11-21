@@ -27,7 +27,8 @@ import androidx.recyclerview.widget.SimpleItemAnimator;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
@@ -243,6 +244,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 result = api.platforms();
             } catch (PublishException e) {
                 error = e;
+                ActivityTracker.error("auto_publish", "platforms failed", e);
             }
             // Only for the card's cost line; the screen works without it.
             AutoPublishInfo summary = result == null ? null : loadInfo();
@@ -363,7 +365,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 return;
             }
             prefs.edit().putBoolean(RecordSettings.KEY_AUTO_PUBLISH, checked).apply();
-            ActivityLog.log("autopublish_toggle", "on", checked);
+            ActivityTracker.log("toggle", "auto publish", Meta.of("on", checked));
             showMasterState(checked);
         });
         // The whole row is the touch target, not just the small switch.
@@ -379,7 +381,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 return;
             }
             prefs.edit().putBoolean(RecordSettings.KEY_AI_CAPTIONS, checked).apply();
-            ActivityLog.log("ai_captions_toggle", "on", checked, "where", "auto_upload");
+            ActivityTracker.log("toggle", "ai captions", Meta.of("on", checked, "where", "auto_upload"));
         });
         findViewById(R.id.row_ai_captions).setOnClickListener(v -> aiSwitch.toggle());
 
@@ -395,7 +397,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                     : id == R.id.rb_ap_undo_60 ? AutoPublishUndo.MAX_SECONDS
                     : AutoPublishUndo.DEFAULT_SECONDS;
             prefs.edit().putInt(RecordSettings.KEY_AUTO_PUBLISH_UNDO_SECONDS, value).apply();
-            ActivityLog.log("undo_choice", "seconds", value);
+            ActivityTracker.log("click", "undo " + value);
         });
     }
 
@@ -586,7 +588,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     public void startPlatformAction(Platform platform) {
         if (platform == null || linkPending != null || isFinishing() || isDestroyed()) return;
         boolean credentials = platform.needsCredentials();
-        ActivityLog.log("platform_tap", "platform", platform.identifier, "state", platform.status);
+        ActivityTracker.log("platform_tap", null, Meta.of("platform", platform.identifier, "state", platform.status));
         if (credentials && loaded != null && !loaded.canManageCredentials) {
             new MaterialAlertDialogBuilder(this)
                     .setMessage(getString(R.string.ap_ask_owner, platform.name))
@@ -604,6 +606,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 url = api.webLink(target, platform.identifier);
             } catch (PublishException e) {
                 error = e;
+                ActivityTracker.error("auto_publish", "web link failed", e);
             }
             final String link = url;
             final PublishException err = error;
@@ -633,7 +636,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
     public void onChannelToggled(ChannelState channel, boolean enabled) {
         if (saving.containsKey(channel.id) || channel.autoPublish == enabled) return;
         channel.autoPublish = enabled;
-        ActivityLog.log("channel_toggle", "on", enabled);
+        ActivityTracker.log("toggle", "channel", Meta.of("on", enabled));
         saving.put(channel.id, enabled);
         adapter.notifyChannel(channel.id);
         String id = channel.id;
@@ -646,6 +649,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 ok = true;
             } catch (PublishException e) {
                 ok = false;
+                ActivityTracker.error("auto_publish", "save failed", e);
                 // 404: the channel was removed on the web.
                 gone = e.status == 404;
                 // 403 FEATURE_NOT_IN_PLAN: the server says the plan has no auto upload.
@@ -697,7 +701,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
         }
         if (channel.textPostOn == enabled) return;
         channel.textPostOn = enabled;
-        ActivityLog.log("text_channel_toggle", "enabled", enabled);
+        ActivityTracker.log("toggle", "text post channel", Meta.of("enabled", enabled));
         saving.put(channel.id, enabled);
         adapter.notifyChannel(channel.id);
         String id = channel.id;
@@ -710,6 +714,7 @@ public class AutoPublishActivity extends AppCompatActivity implements PlatformLi
                 ok = true;
             } catch (PublishException e) {
                 ok = false;
+                ActivityTracker.error("auto_publish", "text post save failed", e);
                 gone = e.status == 404;
                 noPlan = e.kind == PublishException.Kind.NEEDS_PLAN;
             }

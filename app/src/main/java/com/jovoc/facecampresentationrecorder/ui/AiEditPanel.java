@@ -14,7 +14,8 @@ import android.widget.Toast;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditApi;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditException;
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditJob;
@@ -143,7 +144,7 @@ final class AiEditPanel implements AiEditListener {
     private void startLevel(String level) {
         final File src = source();
         if (released || src == null || starting || runningLevel != null) return;
-        ActivityLog.log("player_action", "item", "ai_edit", "level", level);
+        ActivityTracker.log("player", "ai_edit", Meta.of("level", level));
         starting = true;
         shownFirstOutput = false;
         setRunning(level, appContext.getString(R.string.ai_edit_notif_uploading), -1);
@@ -185,7 +186,7 @@ final class AiEditPanel implements AiEditListener {
     private void showLevelSheet() {
         if (released || runningLevel != null || starting || source() == null) return;
         if (!(context instanceof Activity) || ((Activity) context).isFinishing()) return;
-        ActivityLog.log("player_action", "item", "ai_edit_levels");
+        ActivityTracker.log("player", "ai_edit_levels");
         View view = LayoutInflater.from(context).inflate(R.layout.dialog_ai_edit_levels, null);
         final BottomSheetDialog sheet = new BottomSheetDialog(context);
         sheet.setContentView(view);
@@ -345,7 +346,7 @@ final class AiEditPanel implements AiEditListener {
     private void topUp() {
         if (!(context instanceof Activity)) return;
         Activity activity = (Activity) context;
-        ActivityLog.log("player_action", "item", "ai_edit_top_up");
+        ActivityTracker.log("player", "ai_edit_top_up");
         if (BillingLink.enabled()) {
             BillingLink.open(activity, Entitlements.plan(), () -> { }, () -> { });
         } else {

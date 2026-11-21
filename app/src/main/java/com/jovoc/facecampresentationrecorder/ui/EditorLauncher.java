@@ -15,7 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.util.RecordingDeleter;
 import com.jovoc.facecampresentationrecorder.util.VideoGroupStore;
@@ -123,7 +124,7 @@ public final class EditorLauncher {
         for (String path : doomed) {
             if (!RecordingDeleter.deleteFile(app, new File(path))) failed++;
         }
-        ActivityLog.log("video_delete", "count", doomed.size() - failed);
+        ActivityTracker.log("video_delete", null, Meta.of("count", doomed.size() - failed));
         Toast.makeText(context, failed == 0 ? R.string.editor_original_deleted
                 : R.string.editor_original_delete_failed, Toast.LENGTH_SHORT).show();
         if (onDone != null) onDone.run();

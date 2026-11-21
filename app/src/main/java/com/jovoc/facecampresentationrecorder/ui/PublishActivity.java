@@ -33,7 +33,8 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.bumptech.glide.Glide;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
@@ -132,8 +133,7 @@ public class PublishActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String> notificationPermission =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(),
                     granted -> {
-                        ActivityLog.log("permission_result", "perm", "notifications",
-                                "granted", granted, "source", "publish");
+                        ActivityTracker.log("permission", "notifications", Meta.of("step", "result", "granted", granted));
                         queueJob(); // the upload runs either way; this only shows its notification
                     });
 
@@ -231,7 +231,7 @@ public class PublishActivity extends AppCompatActivity {
                 return;
             }
             prefs.edit().putBoolean(RecordSettings.KEY_AI_CAPTIONS, checked).apply();
-            ActivityLog.log("ai_captions_toggle", "on", checked, "where", "publish");
+            ActivityTracker.log("toggle", "ai captions", Meta.of("on", checked, "where", "publish"));
             showAi(checked);
             onAiChanged();
         });
@@ -327,6 +327,7 @@ public class PublishActivity extends AppCompatActivity {
                 list = api.listChannels();
             } catch (PublishException e) {
                 error = e;
+                ActivityTracker.error("publish", "channels failed", e);
             }
             // Which platforms are not video ones; best effort, the tag just stays hidden without it.
             Set<String> nonVideo = new HashSet<>();
@@ -463,6 +464,7 @@ public class PublishActivity extends AppCompatActivity {
                 aiAmount = (ai && existingCaptionId != null) ? 0 : preview.aiCaptions;
             } catch (PublishException e) {
                 ok = false;
+                ActivityTracker.error("publish", "cost preview failed", e);
             }
             final int a = amount;
             final int aiA = aiAmount;
@@ -557,14 +559,13 @@ public class PublishActivity extends AppCompatActivity {
 
     private void onPublishClicked() {
         if (submitting || selected.isEmpty()) return;
-        ActivityLog.log("publish_tap", "channels", selected.size(),
-                "mode", isScheduled() ? "schedule" : "now");
+        ActivityTracker.log("click", "publish", Meta.of("channels", selected.size(), "mode", isScheduled() ? "schedule" : "now"));
         submitting = true;
         refreshConfirm();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-            ActivityLog.log("permission_prompt", "perm", "notifications", "source", "publish");
+            ActivityTracker.log("permission", "notifications", Meta.of("step", "prompt"));
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
         } else {
             queueJob();

@@ -21,7 +21,7 @@ import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.account.AccountApi;
 import com.jovoc.facecampresentationrecorder.account.AccountException;
 import com.jovoc.facecampresentationrecorder.account.CreditBalance;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
@@ -81,15 +81,15 @@ public class AccountActivity extends AppCompatActivity {
         btnSignOut = findViewById(R.id.btn_sign_out);
 
         findViewById(R.id.row_plan).setOnClickListener(v -> {
-            ActivityLog.log("account_row", "item", "plan");
+            ActivityTracker.log("click", "account plan");
             PlansSheet.show(this);
         });
         findViewById(R.id.row_devices).setOnClickListener(v -> {
-            ActivityLog.log("account_row", "item", "devices");
+            ActivityTracker.log("click", "account devices");
             startActivity(new Intent(this, DevicesActivity.class));
         });
         findViewById(R.id.row_credits).setOnClickListener(v -> {
-            ActivityLog.log("account_row", "item", "credits");
+            ActivityTracker.log("click", "account credits");
             refresh();
         });
 
@@ -155,6 +155,7 @@ public class AccountActivity extends AppCompatActivity {
                 balance = api.balance();
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("account", "credits failed", e);
             }
             final CreditBalance result = balance;
             final AccountException err = error;
@@ -198,7 +199,7 @@ public class AccountActivity extends AppCompatActivity {
     // ---- delete account ----
 
     private void deleteAccount() {
-        ActivityLog.log("account_delete");
+        ActivityTracker.log("click", "delete account");
         btnSignOut.setEnabled(false);
         btnDelete.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
@@ -208,6 +209,7 @@ public class AccountActivity extends AppCompatActivity {
                 api.deleteAccount();
             } catch (AccountException e) {
                 error = e;
+                ActivityTracker.error("account", "delete failed", e);
             }
             final AccountException err = error;
             main.post(() -> {

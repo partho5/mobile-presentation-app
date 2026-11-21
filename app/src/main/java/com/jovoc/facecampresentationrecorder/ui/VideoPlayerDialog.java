@@ -43,7 +43,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.SavedRecordingsActivity;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.edit.EditProject;
@@ -362,7 +362,7 @@ public class VideoPlayerDialog {
                 Toast.makeText(context, R.string.player_sub_busy, Toast.LENGTH_SHORT).show();
                 return;
             }
-            ActivityLog.log("player_action", "item", "rename");
+            ActivityTracker.log("player", "rename");
             Version current = findVersion(playingPath);
             if (current == null) return;
             VideoRenameHelper.promptRename(context, current.file,
@@ -402,7 +402,7 @@ public class VideoPlayerDialog {
                 Toast.makeText(context, R.string.player_sub_busy, Toast.LENGTH_SHORT).show();
                 return;
             }
-            ActivityLog.log("player_action", "item", "delete");
+            ActivityTracker.log("player", "delete");
             Version current = findVersion(playingPath);
             if (current == null) return;
             // No confirm dialog: the preview closes and "Recording discarded · Undo" shows for a few seconds
@@ -420,7 +420,7 @@ public class VideoPlayerDialog {
         TextView btnRecordAgain = dialog.findViewById(R.id.btn_record_again);
         if (context instanceof MainActivity) {
             btnRecordAgain.setOnClickListener(v -> {
-                ActivityLog.log("player_action", "item", "record_again");
+                ActivityTracker.log("player", "record_again");
                 dialog.dismiss();
             });
         } else {
@@ -429,7 +429,7 @@ public class VideoPlayerDialog {
 
         // Share Action — always the version in the centre
         btnShare.setOnClickListener(v -> {
-            ActivityLog.log("player_action", "item", "share");
+            ActivityTracker.log("player", "share");
             Version current = findVersion(playingPath);
             if (current == null) return;
             try {
@@ -445,6 +445,7 @@ public class VideoPlayerDialog {
                 context.startActivity(Intent.createChooser(shareIntent, "Share Video Recording"));
             } catch (Exception e) {
                 Log.e(TAG, "Error sharing video", e);
+                ActivityTracker.error("player", "share failed", e);
                 Toast.makeText(context, "Unable to share video: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
@@ -454,7 +455,7 @@ public class VideoPlayerDialog {
             btnAllVideos.setVisibility(View.GONE);
         } else {
             btnAllVideos.setOnClickListener(v -> {
-                ActivityLog.log("player_action", "item", "all_videos");
+                ActivityTracker.log("player", "all_videos");
                 dialog.dismiss();
                 context.startActivity(new Intent(context, SavedRecordingsActivity.class));
             });
@@ -462,7 +463,7 @@ public class VideoPlayerDialog {
 
         // Edit: the editor always works on the group's master and saves a new group
         btnEdit.setOnClickListener(v -> {
-            ActivityLog.log("player_action", "item", "edit");
+            ActivityTracker.log("player", "edit");
             String master = masterPath;
             if (master == null) return;
             if (BgReplaceService.isReplacePending(master)) {
@@ -478,7 +479,7 @@ public class VideoPlayerDialog {
         // auto-publish is on (the 9:16 is already queued).
         btnPublish.setVisibility(EditorGate.showPublishButton(context) ? View.VISIBLE : View.GONE);
         btnPublish.setOnClickListener(v -> {
-            ActivityLog.log("player_action", "item", "publish");
+            ActivityTracker.log("player", "publish");
             Version current = findVersion(playingPath);
             if (current == null) return;
             PublishLauncher.publish(context, current.file);
@@ -615,7 +616,7 @@ public class VideoPlayerDialog {
         // Cleanup on dismiss
         final long openedAt = android.os.SystemClock.elapsedRealtime();
         dialog.setOnDismissListener(d -> {
-            ActivityLog.log("player_close", "open_ms", android.os.SystemClock.elapsedRealtime() - openedAt);
+            ActivityTracker.log("click", "close player");
             dismissed = true;
             if (aiPanel != null) aiPanel.release();
             if (burnCancelFlag != null) {
@@ -1391,7 +1392,7 @@ public class VideoPlayerDialog {
             return;
         }
 
-        ActivityLog.log("player_action", "item", "sub_embed");
+        ActivityTracker.log("player", "sub_embed");
 
         // 1. Reuse already-cached subtitle track (from current file, variant, or master)
         SubtitleTrack track = SubtitleCache.loadForVideo(appContext.getCacheDir(), current.file);

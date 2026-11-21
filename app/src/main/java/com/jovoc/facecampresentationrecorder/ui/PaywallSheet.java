@@ -13,7 +13,8 @@ import android.widget.TextView;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.activitylog.ActivityLog;
+import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.Meta;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
@@ -101,7 +102,7 @@ public final class PaywallSheet {
         dialog = new BottomSheetDialog(host);
         dialog.setContentView(root);
         // Cancel = back, a tap outside, or "Not now"; a dismiss we cause ourselves is not a close.
-        dialog.setOnCancelListener(d -> ActivityLog.log("paywall_action", "action", "close", "feature", feature));
+        dialog.setOnCancelListener(d -> ActivityTracker.log("click", "paywall close", Meta.of("feature", feature)));
         dialog.setOnDismissListener(d -> release());
         dialog.setOnShowListener(d -> expand());
 
@@ -113,7 +114,7 @@ public final class PaywallSheet {
     }
 
     private void open() {
-        ActivityLog.log("paywall_view", "feature", feature, "plan", Entitlements.plan());
+        ActivityTracker.log("paywall", "shown", Meta.of("feature", feature, "plan", Entitlements.plan()));
         Entitlements.addListener(listener);
         render();
         dialog.show();
@@ -185,11 +186,11 @@ public final class PaywallSheet {
     private void onPrimary() {
         if (finished || checking || linkPending) return;
         if (primary == Primary.SIGN_IN) {
-            ActivityLog.log("paywall_action", "action", "signin", "feature", feature);
+            ActivityTracker.log("click", "paywall signin", Meta.of("feature", feature));
             awaiting = Await.SIGN_IN;
             SessionManager.openSignIn(host, null);
         } else if (primary == Primary.UPGRADE) {
-            ActivityLog.log("paywall_action", "action", "upgrade", "feature", feature);
+            ActivityTracker.log("click", "paywall upgrade", Meta.of("feature", feature));
             linkPending = true;
             notice = null;
             render();
@@ -206,7 +207,7 @@ public final class PaywallSheet {
 
     private void onRefresh() {
         if (finished || checking) return;
-        ActivityLog.log("paywall_action", "action", "refresh", "feature", feature);
+        ActivityTracker.log("click", "paywall refresh", Meta.of("feature", feature));
         // The user is looking at the sheet, so nobody is away in the browser (split-screen: no resume came).
         awaiting = Await.NONE;
         if (Entitlements.has(feature)) {
