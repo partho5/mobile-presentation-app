@@ -7,9 +7,16 @@ self-contained: read **Shared context** below, then the card's own "Read first" 
 -----------------
 
 # Activity Tracker — app (cards A1–A5)
+<!-- runner-config
+REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder
+BRANCH=feat/ai-video-edit
+-->
 
-Owner gate: plan confirmed 2026-11-21. Build the cards **in order** (A1, A2, A3, A4a, A4b, A4c, A4d, A4e, A5), one card per session.
-Plan: `ACTIVITY_TRACKER_APP_PLAN.md`. Backend cards B1–B6: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md`.
+**How to run:** from `to-build/`: `MODEL=claude-haiku-5-5 ALLOWED_TOOLS="Read Write Edit Glob Grep Bash(git *) Bash(ls *) Bash(cat *) Bash(mkdir *) Bash(grep *) Bash(wc *) Bash(head *) Bash(tail *) Bash(sed *) Bash(python3 *) Bash(./gradlew *)" ./autonomous-agent-runner.sh`
+(the runner's default tool list has no gradle, and these cards need `./gradlew` for their tests), or tell any Claude session "run `to-build/agent-runner.md`".
+
+Owner gate: plan confirmed 2026-11-21. Build the cards **in order** (A1, A2, A3, A4.1 … A4.5, A5), one card per session.
+Backend cards B1–B6: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md`.
 
 ## Shared context (read before any card)
 
@@ -18,6 +25,13 @@ Record every user activity and error, so the backend can replay each device's jo
 when, how long, what broke) and show which features are really used. Records are stored as JSON in Room and uploaded in batches
 **every 5 days**, or sooner once **more than 20** are waiting, over **any** validated internet. **The user must never notice**:
 no UI, no toast, no dialog, no notification, no jank, no exception escapes. Every failure is swallowed and retried later.
+
+### Why this design
+- Chosen: own tracker → Room buffer → WorkManager batch upload. It has no UI, survives offline and process death, sends a few KB a few times a week, and we own the data.
+- Rejected: Firebase/PostHog/Mixpanel (no replay keyed by our device id, a third party), session-video SDKs (heavy, record the screen),
+  live per-event sends (battery/data, lost offline), sending from `onStop` (dies with the process).
+- Side effects accepted: light users show up up to 5 days late. Error messages/stacks may hold file names (disclosed in A5).
+  Disk is capped at 3000 rows. Crash write waits ≤ 500 ms. Old WorkManager jobs are cancelled in A4.5.
 
 ### App facts
 - Java only (no Kotlin, no Compose). minSdk 31, targetSdk 36. Base package `com.jovoc.facecampresentationrecorder` →
@@ -33,7 +47,7 @@ no UI, no toast, no dialog, no notification, no jank, no exception escapes. Ever
 - WorkManager 2.9.1. Application class: `P/FaceCamApp.java`. Launcher: `P/ui/StartupActivity.java`.
 - Build rule (top of this file): one gradle command at a time, only `./gradlew --offline :app:assembleDebug` or `./gradlew --offline :app:testDebugUnitTest --tests '<pattern>'`.
 - Commit per card: `feat(tracker): A<n> <what>`, a short body, and the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-  Tick the card in **Progress** (bottom) and in the plan's Status table, in the same commit. Never stage `app/src/debug/AndroidManifest.xml`.
+  Set the card's Status to ✅ in **Progress** (bottom) in the same commit. Never stage `app/src/debug/AndroidManifest.xml`.
 
 ### Code rules for the tracker
 1. **Every public `ActivityTracker` method** body is `try { … } catch (Throwable ignored) { }`. It never throws and never returns null
@@ -61,7 +75,7 @@ public final class TrackerConfig {
 }
 ```
 
-### Contract (frozen copy of `Social-Media-Manager/_planning/02_contracts/api.activity-tracker.md`)
+### Contract (identical copy in the backend repo's `to-build/tasks.md`)
 `POST {API_BASE_URL}/tracker/batches`. Headers: `Content-Type: application/json`, `Content-Encoding: gzip`, and when signed in `Authorization: Bearer <access>`.
 ```jsonc
 { "batchId": "<uuid>", "deviceId": "<uuid>", "sentAt": 1763712000000,
@@ -89,7 +103,7 @@ Responses: **2xx** → delete the batch rows, `lastSentAt = now` · **400/413/42
 what was tapped) · `toggle` (meta `on`) · `setting` (description = key, meta `value`) · `permission` (description = permission, meta `step`, `granted`) ·
 `record` span · `crash` (error, fatal) · `app_exit` (from ApplicationExitInfo) · `tracker_overflow`. Other names are free (`topic_add`, `publish`, …).
 
-### Old-call conversion table (used by A4a–A4d)
+### Old-call conversion table (used by A4.1–A4.4)
 Old form: `ActivityLog.log("<action>", k1, v1, k2, v2, …)`. New: `ActivityTracker.log(name, description, Meta.of(...))`.
 Import `com.jovoc.facecampresentationrecorder.tracker.ActivityTracker` and `…tracker.Meta`; remove the `…activitylog.ActivityLog` import.
 | old action (meta) | new call |
@@ -103,8 +117,8 @@ Import `com.jovoc.facecampresentationrecorder.tracker.ActivityTracker` and `…t
 | `record_tap` | `log("click", "record")` |
 | `record_countdown_cancel` | `log("click", "cancel countdown")` |
 | `record_blocked` (reason, type) | `log("record_blocked", reason, Meta.of("type", type))` |
-| `record_start` (countdown_s, topics, …) in MainActivity | `log("click", "start recording", Meta.of(<same keys>))` (the `record` span itself lives in ScreenRecordService, see A4c) |
-| `record_stop` / `record_saved` | see A4c (they end the `record` span) |
+| `record_start` (countdown_s, topics, …) in MainActivity | `log("click", "start recording", Meta.of(<same keys>))` (the `record` span itself lives in ScreenRecordService, see A4.3) |
+| `record_stop` / `record_saved` | see A4.3 (they end the `record` span) |
 | `record_error` (kind[, type]) | `ActivityTracker.error("record", kind, <Throwable in scope or null>, Meta.of(<other keys>))` |
 | `permission_prompt` (perm) | `log("permission", perm, Meta.of("step", "prompt"))` |
 | `permission_rationale` (action[, perms]) | `log("permission", "rationale", Meta.of("step", action, "perms", perms))` |
@@ -115,7 +129,7 @@ Import `com.jovoc.facecampresentationrecorder.tracker.ActivityTracker` and `…t
 | `topic_delete` / `topics_delete_all` (count) | `log("topic_delete", null)` / `log("topic_delete_all", null, Meta.of("count", count))` |
 | `topic_move` (dir) | `log("topic_move", dir)` |
 | `topic_prev` / `topic_next` (recording) | `log("click", "previous topic" / "next topic", Meta.of("recording", r))` |
-| `bgreplace_start` / `bgreplace_done` / `bgreplace_cancel` in BgReplaceService | a `bg_replace` span, see A4c |
+| `bgreplace_start` / `bgreplace_done` / `bgreplace_cancel` in BgReplaceService | a `bg_replace` span, see A4.3 |
 | `bgreplace_cancel` in MainActivity | `log("click", "cancel background replace")` |
 | `player_action` (action, …) / `player_close` | `log("player", action, Meta.of(<rest>))` / `log("click", "close player")` |
 | `video_play` / `howto_video_play` | `log("click", "play video" / "how-to video", Meta.of(<same keys>))` |
@@ -241,7 +255,7 @@ make sure there is an `ActivityTracker.error("<area>", "<what failed>", e)` with
   // Activity tracker buffer; every other table is untouched.
   static final Migration MIGRATION_8_9 = new Migration(8, 9) { public void migrate(@NonNull SupportSQLiteDatabase db) { db.execSQL(CREATE_TRACKED_ACTIVITIES); } };
   ```
-  Append it to `MIGRATIONS`. **Do not touch** the old `activity_events` entity/table yet (A4e removes it).
+  Append it to `MIGRATIONS`. **Do not touch** the old `activity_events` entity/table yet (A4.5 removes it).
 - `data_extraction_rules.xml`: add `<exclude domain="sharedpref" path="tracker_prefs.xml" />` in **both** sections (next to the existing excludes), with a comment saying
   the device id must not travel to another phone.
 
@@ -354,7 +368,7 @@ Commit `feat(tracker): A1 tracker core, records and local buffer`.
   `Content-Encoding: gzip`, a gunzipped body equal to the input, and `Authorization: Bearer t`. 400, 413 and 422 → DROP. 401 then 200 → SENT, the second request has no
   Authorization. 503 → RETRY. 404 → RETRY. Server shut down (IOException) → RETRY. Token supplier returns null → no Authorization header.
 
-**Done when:** these tests pass and `assembleDebug` succeeds. Manual check after B2 is deployed: see the plan's QA list.
+**Done when:** these tests pass and `assembleDebug` succeeds. Manual check after B2 is deployed: airplane mode, tap > 20 things, internet on → the batch appears in super-admin → Activity within minutes, with no UI on the phone.
 Commit `feat(tracker): A2 batched silent upload`.
 
 ---
@@ -394,7 +408,7 @@ the notification builders: `P/service/ScreenRecordService.java` (≈ L168 and L1
    `try { ActivityTracker.fatal(e, thread); } catch (Throwable ignored) {}`, then `previous.uncaughtException(thread, e)` when previous is not null.
    `fatal` makes the error record `name = "crash"`, `description = "uncaught"`, `ErrorInfo.from(e, true, thread.getName(), lastActivity)`, and ends open spans with
    `Meta.of("ended_by", "crash")`, using `TrackerStore.writeAndWait(..., CRASH_WAIT_MS)`. Install it in `FaceCamApp` in the tracker block. Leave the old `CrashLogger.install()`
-   in place for now (A4e deletes it). Install the new handler **after** it, so ours runs first and then calls the old one.
+   in place for now (A4.5 deletes it). Install the new handler **after** it, so ours runs first and then calls the old one.
 5. **`P/tracker/ExitReasons.java`**: `static void recordNew(Context c, TrackerPrefs prefs)`, run once on the tracker thread at init.
    ```java
    ActivityManager am = c.getSystemService(ActivityManager.class);
@@ -447,19 +461,19 @@ Commit `feat(tracker): A3 automatic app, screen, crash and exit tracking`.
 
 ---
 
-## A4a — Convert calls in `MainActivity`
+## A4.1 — Convert calls in `MainActivity`
 **Read first:** Shared context → *Old-call conversion table*; `P/MainActivity.java` (≈ 38 calls; list them with `grep -n "ActivityLog" P/MainActivity.java`).
 Convert every call by the table. For `record_error` near L351 pass the caught `t`. Make sure every `catch` that shows a failure Toast also has an
 `ActivityTracker.error(...)` (Extra rule). Remove the `activitylog` import.
-**Done when:** `grep -n "ActivityLog" P/MainActivity.java` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4a MainActivity on ActivityTracker`.
+**Done when:** `grep -n "ActivityLog" P/MainActivity.java` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4.1 MainActivity on ActivityTracker`.
 
-## A4b — Convert calls in `P/ui/*`
+## A4.2 — Convert calls in `P/ui/*`
 Files (from `grep -rln "ActivityLog" P/ui`): SettingsActivity, VideoPlayerDialog, DrawingBoardController, AutoPublishActivity, PaywallSheet,
 PublishActivity, AccountActivity, SlideInkController, PlansSheet, OnboardingActivity, AiEditPanel, DevicesActivity, ContactActivity, YouTubeDialog,
-WorkspaceActivity, WebLinks, SignInActivity, EditorLauncher, BrandRowBinder (StartupActivity was done in A3). The same rules as A4a.
-**Done when:** `grep -rn "ActivityLog" P/ui` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4b screens on ActivityTracker`.
+WorkspaceActivity, WebLinks, SignInActivity, EditorLauncher, BrandRowBinder (StartupActivity was done in A3). The same rules as A4.1.
+**Done when:** `grep -rn "ActivityLog" P/ui` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4.2 screens on ActivityTracker`.
 
-## A4c — Convert calls in services, publish, adapter, SavedRecordings
+## A4.3 — Convert calls in services, publish, adapter, SavedRecordings
 Files: `P/service/ScreenRecordService.java`, `P/service/BgReplaceService.java`, `P/publish/PublishPipeline.java`, `P/adapter/RecordingsAdapter.java`, `P/SavedRecordingsActivity.java`.
 - **`record` span** in `ScreenRecordService`: add the field `private Tracked recordSpan = Tracked.NOOP;`. Where the recorder actually starts (where the service's
   recording state becomes true), set `recordSpan = ActivityTracker.start("record", "screen recording");`. At the old `record_stop` site (≈ L403) call
@@ -469,15 +483,15 @@ Files: `P/service/ScreenRecordService.java`, `P/service/BgReplaceService.java`, 
   `end(Meta.of("cancelled", true))` at `bgreplace_cancel`. The failure (`record_error` kind `bgreplace_failed`) → `error("bg_replace", "failed", <throwable if any>)` + `end(Meta.of("failed", true))`.
 - `PublishPipeline` (publish_result, ai_captions_result) and the adapter/SavedRecordings video actions go by the table.
 **Done when:** `grep -rn "ActivityLog" P/service P/publish P/adapter P/SavedRecordingsActivity.java` finds nothing and `assembleDebug` succeeds.
-Commit `feat(tracker): A4c services and publish on ActivityTracker`.
+Commit `feat(tracker): A4.3 services and publish on ActivityTracker`.
 
-## A4d — Convert calls in auth, entitlements, the rest
+## A4.4 — Convert calls in auth, entitlements, the rest
 Files: `P/auth/SessionManager.java` (signin_*, signout, session_ended), `P/entitlements/EntitlementsRefresher.java` (entitlement_change), and anything
 else `grep -rln "ActivityLog\.log" P | grep -v activitylog/` still lists. **Never** put the email, a token or a code into meta or description.
-**Done when:** that grep lists nothing outside `P/activitylog/` and `FaceCamApp.java`. Commit `feat(tracker): A4d sign-in and plans on ActivityTracker`.
+**Done when:** that grep lists nothing outside `P/activitylog/` and `FaceCamApp.java`. Commit `feat(tracker): A4.4 sign-in and plans on ActivityTracker`.
 
-## A4e — Delete the old activity-log system
-1. Delete `P/activitylog/` (all files), `P/db/ActivityEvent.java`, `P/db/ActivityEventDao.java`, `T/activitylog/` (all files).
+## A4.5 — Delete the old activity-log system
+1. Delete with **`git rm`** (plain `rm` is blocked for runner sessions): `git rm -r P/activitylog T/activitylog P/db/ActivityEvent.java P/db/ActivityEventDao.java` (write the full paths).
 2. `FaceCamApp`: remove the old block (`ActivityLog.init`, `setListener`, `ActivityLogScheduler.schedulePeriodic`, `CrashLogger.install`) and its imports. Fix the class comment.
 3. `ActivityTracker.init`: once per process, on the tracker thread:
    `WorkManager.getInstance(c).cancelUniqueWork("activity-log-periodic")`, the same for `"activity-log-count"` and `"activity-log-drain"`, and
@@ -489,10 +503,10 @@ else `grep -rln "ActivityLog\.log" P | grep -v activitylog/` still lists. **Neve
 6. `data_extraction_rules.xml`: remove the two `activity_log_prefs.xml` excludes and their comment (the `tracker_prefs.xml` ones stay).
 7. `P/aiedit/capture/EventLog.java` L14 comment: `ActivityLog` → `ActivityTracker`.
 **Done when:** `grep -rn "activitylog\|ActivityLog\b\|ActivityEvent\|CrashLogger" app/src` finds nothing, and the migration test and `assembleDebug` pass.
-Commit `feat(tracker): A4e remove the old activity log`.
+Commit `feat(tracker): A4.5 remove the old activity log`.
 
 ## A5 — Privacy disclosure
-Delete `ACTIVITY_LOG_PRIVACY.md`. Write `ACTIVITY_TRACKER_PRIVACY.md` (for the privacy policy and the Play Data safety form). It must say:
+`git rm ACTIVITY_LOG_PRIVACY.md`. Write `ACTIVITY_TRACKER_PRIVACY.md` (for the privacy policy and the Play Data safety form). It must say:
 - **Collected:** in-app actions with start/end time and timezone (app opened and from where, screens and time on them, taps, toggles, settings,
   permission prompts and answers, recording start/stop/size, topics added/edited/deleted (type only), publish taps and results, sign-in steps, plan changes,
   paywall views), errors and crashes **including the error message and stack trace** (they may contain file names), why the app last closed (ANR, crash, low memory,
@@ -509,12 +523,14 @@ Commit `docs(tracker): A5 privacy disclosure`.
 ---
 
 ## Progress (Activity Tracker app)
-- [ ] A1 Tracker core
-- [ ] A2 Upload (needs B2 for the manual check)
-- [ ] A3 Auto-tracking
-- [ ] A4a MainActivity
-- [ ] A4b ui/*
-- [ ] A4c services, publish, adapter, SavedRecordings
-- [ ] A4d auth, entitlements, rest
-- [ ] A4e Remove the old system
-- [ ] A5 Privacy disclosure
+| Card | Repo | What | Depends on | Status |
+|---|---|---|---|---|
+| A1 | app | Tracker core: API, records, Meta, Room table + migration 8→9, device id, prefs | - | ⬜ |
+| A2 | app | Silent batched upload (policy, worker, scheduler, gzip API) | A1 | ⬜ |
+| A3 | app | Auto-tracking: open source, fg/bg, screens, crash, exit reasons, notification entry | A2 | ⬜ |
+| A4.1 | app | Convert old calls: MainActivity | A3 | ⬜ |
+| A4.2 | app | Convert old calls: ui/* | A3 | ⬜ |
+| A4.3 | app | Convert old calls: services, publish, adapter, SavedRecordings | A3 | ⬜ |
+| A4.4 | app | Convert old calls: auth, entitlements, rest | A3 | ⬜ |
+| A4.5 | app | Delete the old activity-log system + migration 9→10 | A4.1 A4.2 A4.3 A4.4 | ⬜ |
+| A5 | app | Privacy disclosure doc | A4.5 | ⬜ |
