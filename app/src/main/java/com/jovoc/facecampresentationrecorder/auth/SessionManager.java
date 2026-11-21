@@ -199,7 +199,11 @@ public final class SessionManager {
     }
 
     private static void logSignInFailure(String step, AuthException e) {
-        ActivityTracker.error("signin", "failed", e,
+        // The cause chain can echo a response body (a malformed token reply makes org.json quote it),
+        // so the error gets the kind and the stack only, never the cause.
+        AuthException safe = new AuthException(e.kind);
+        safe.setStackTrace(e.getStackTrace());
+        ActivityTracker.error("signin", "failed", safe,
                 Meta.of("step", step, "kind", e.kind.name().toLowerCase(Locale.ROOT)));
     }
 
