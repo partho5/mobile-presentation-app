@@ -103,6 +103,15 @@
             android:label="My Videos"
             android:parentActivityName=".MainActivity" />
 
+        <!-- Notification taps pass through here so the tracker can record the entry. Never a screen. -->
+        <activity
+            android:name=".tracker.NotificationEntryActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

@@ -15,6 +15,7 @@ import com.jovoc.facecampresentationrecorder.account.BrandLabel;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.auth.TokenStore;
 import com.jovoc.facecampresentationrecorder.db.PublishJob;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.ui.AccountActivity;
 import com.jovoc.facecampresentationrecorder.ui.AutoPublishActivity;
 
@@ -84,7 +85,8 @@ public final class AutoPublishNotifier {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(context.getString(R.string.auto_notif_title))
                 .setContentText(message(context, job))
-                .setContentIntent(PendingIntent.getActivity(context, id, open,
+                .setContentIntent(PendingIntent.getActivity(context, id,
+                        TrackerNotifications.wrap(context, open, "auto_publish"),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true);
         if (!otherBrand && "AUTO_NOT_CONFIGURED".equals(job.errorKind)) {
@@ -92,7 +94,8 @@ public final class AutoPublishNotifier {
             Intent setUp = new Intent(context, AutoPublishActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             b.addAction(0, context.getString(R.string.auto_notif_set_up_action),
-                    PendingIntent.getActivity(context, id + 1000, setUp,
+                    PendingIntent.getActivity(context, id + 1000,
+                            TrackerNotifications.wrap(context, setUp, "auto_publish_setup"),
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
         if (!otherBrand && creditsSkipped(job)) {
@@ -100,7 +103,8 @@ public final class AutoPublishNotifier {
             Intent topUp = new Intent(context, AccountActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             b.addAction(0, context.getString(R.string.auto_notif_top_up_action),
-                    PendingIntent.getActivity(context, id + 2000, topUp,
+                    PendingIntent.getActivity(context, id + 2000,
+                            TrackerNotifications.wrap(context, topUp, "auto_publish_topup"),
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
         // Two lines when captions need a word: the second must not be cut off.

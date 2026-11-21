@@ -84,6 +84,18 @@ public final class ErrorInfo {
                 TrackedRecord.cut(lastActivity, 120));
     }
 
+    /** An error with no Throwable behind it (ANR and native exit reasons from the system). No causes. */
+    static ErrorInfo of(String type, String message, String stack, String thread, boolean fatal, String lastActivity) {
+        return new ErrorInfo(
+                TrackedRecord.cut(type, 120),
+                TrackedRecord.cut(message, 1000),
+                TrackedRecord.cut(stack, MAX_STACK),
+                new ArrayList<Cause>(),
+                TrackedRecord.cut(thread, 60),
+                fatal,
+                TrackedRecord.cut(lastActivity, 120));
+    }
+
     JSONObject toJson() throws JSONException {
         JSONObject o = new JSONObject();
         putIfNotNull(o, "type", type);

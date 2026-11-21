@@ -43,6 +43,7 @@ import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
 import com.jovoc.facecampresentationrecorder.publish.PostRecordTranscriber;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.ui.FloatingCamOverlay;
 import com.jovoc.facecampresentationrecorder.util.AudioInputs;
 import com.jovoc.facecampresentationrecorder.util.RecordingStorage;
@@ -196,7 +197,8 @@ public class ScreenRecordService extends Service {
         PendingIntent contentIntent = null;
         if (launchIntent != null) {
             launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-            contentIntent = PendingIntent.getActivity(this, 0, launchIntent,
+            contentIntent = PendingIntent.getActivity(this, 0,
+                    TrackerNotifications.wrap(this, launchIntent, "recording"),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
 

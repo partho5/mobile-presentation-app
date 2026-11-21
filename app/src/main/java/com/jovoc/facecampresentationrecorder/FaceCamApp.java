@@ -16,10 +16,11 @@ import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.tracker.AutoTracker;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerCrashHandler;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerScheduler;
 import com.jovoc.facecampresentationrecorder.ui.BillingLink;
 import com.jovoc.facecampresentationrecorder.ui.PlanNotice;
-import com.jovoc.facecampresentationrecorder.ui.StartupActivity;
 
 /**
  * Starts the paid-feature checks and the activity log (what users do in the app) with its
@@ -65,6 +66,7 @@ public class FaceCamApp extends Application {
         try {
             // The activity tracker: silent, batched upload. Must never stop the app from starting.
             ActivityTracker.init(this);
+            registerActivityLifecycleCallbacks(new AutoTracker(this));
             ActivityTracker.onStored(new TrackerScheduler(this));
             TrackerScheduler.schedulePeriodic(this);
         } catch (Throwable ignored) {
@@ -79,11 +81,17 @@ public class FaceCamApp extends Application {
         } catch (Exception e) {
             // Logging must never stop the app from starting.
         }
+        try {
+            // Installed after CrashLogger, so the tracker records the crash first and then the old handler runs.
+            TrackerCrashHandler.install();
+        } catch (Throwable ignored) {
+            // Tracking must never stop the app from starting.
+        }
     }
 
     /**
-     * Logs which screen the user is on and when the app comes to the foreground or goes away. A
-     * rotation stops and restarts the screen; that is not a visit, so it is skipped.
+     * Foreground and background checks (plan refresh, billing, plan notice). Tracking of screens and
+     * app open/background lives in {@link AutoTracker}. A rotation is not a foreground change, so it is skipped.
      */
     private static final class ScreenTracker implements ActivityLifecycleCallbacks {
 
@@ -100,14 +108,9 @@ public class FaceCamApp extends Application {
                 return;
             }
             if (started++ == 0) {
-                ActivityLog.appForeground();
                 EntitlementsRefresher.refreshIfDue();
                 BillingLink.refreshIfPending(activity); // billing trip pending (maybe after a restart): fetch the plan again
                 noticeDue = true;
-            }
-            // The launcher entry only forwards to the first real screen.
-            if (!(activity instanceof StartupActivity)) {
-                ActivityLog.log("screen_view", "screen", activity.getClass().getSimpleName());
             }
         }
 
@@ -116,9 +119,7 @@ public class FaceCamApp extends Application {
             started--;
             if (activity.isChangingConfigurations()) {
                 recreating = true;
-                return;
             }
-            if (started == 0) ActivityLog.appBackground();
         }
 
         @Override

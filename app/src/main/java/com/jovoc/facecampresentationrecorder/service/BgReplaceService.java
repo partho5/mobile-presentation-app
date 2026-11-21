@@ -28,6 +28,7 @@ import com.jovoc.facecampresentationrecorder.bgreplace.OfflineBgProcessor;
 import com.jovoc.facecampresentationrecorder.bgreplace.WarmUpProgress;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.PublishManager;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 import com.jovoc.facecampresentationrecorder.util.VideoCropHelper;
 
@@ -487,7 +488,7 @@ public class BgReplaceService extends Service {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (launch == null) return null;
         launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        return PendingIntent.getActivity(this, 2, launch,
+        return PendingIntent.getActivity(this, 2, TrackerNotifications.wrap(this, launch, "bg_replace"),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

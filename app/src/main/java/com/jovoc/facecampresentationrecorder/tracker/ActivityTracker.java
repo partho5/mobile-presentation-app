@@ -183,6 +183,74 @@ public final class ActivityTracker {
         }
     }
 
+    /** The entry set by {@link #setEntry}, handed out once. Both fields are null when nothing was set. */
+    static final class Entry {
+        final String source;
+        final String notif;
+
+        Entry(String source, String notif) {
+            this.source = source;
+            this.notif = notif;
+        }
+    }
+
+    /** Returns the pending entry and clears it, so a stale entry never reaches a later open. Never null. */
+    static Entry takeEntry() {
+        try {
+            Entry e = new Entry(entrySource, entryNotif);
+            entrySource = null;
+            entryNotif = null;
+            return e;
+        } catch (Throwable ignored) {
+            return new Entry(null, null);
+        }
+    }
+
+    /** An instant activity record with a source (app_open, app_foreground). */
+    static void logWithSource(String name, String description, String source, Meta meta) {
+        try {
+            if (!ready) return;
+            String n = TrackedRecord.cleanName(name);
+            if (n == null) return;
+            long now = System.currentTimeMillis();
+            String desc = TrackedRecord.cut(description, 120);
+            TrackedRecord r = draft(TrackedRecord.KIND_ACTIVITY, n, desc, now, null, copy(meta), currentScreen,
+                    TrackedRecord.cut(source, 40));
+            remember(n, desc);
+            emit(r, now, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
+    }
+
+    /**
+     * An instant activity record stamped with an earlier time (a background period that ended with the
+     * process). The session is taken from now, so an old time never moves the session clock back.
+     */
+    static void logAt(String name, String description, long startedAt, Meta meta) {
+        try {
+            storeAt(TrackedRecord.KIND_ACTIVITY, name, description, startedAt, meta, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
+    }
+
+    /** Stores a record with an earlier start time, optionally with an error block (A3 exit reasons). */
+    static void storeAt(String kind, String name, String description, long startedAt, Meta meta, ErrorInfo error) {
+        try {
+            if (!ready) return;
+            String n = TrackedRecord.cleanName(name);
+            if (n == null) return;
+            long now = System.currentTimeMillis();
+            TrackedRecord r = draft(kind, n, TrackedRecord.cut(description, 120), startedAt, null, copy(meta),
+                    null, null);
+            r.error = error;
+            emit(r, now, null);
+        } catch (Throwable ignored) {
+            // silent
+        }
+    }
+
     public static void onStored(TrackerStore.Listener l) {
         try {
             TrackerStore.listener = l;

@@ -25,6 +25,7 @@ import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.edit.EditGroupMath;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleCache;
 import com.jovoc.facecampresentationrecorder.subtitle.SubtitleEmbedStore;
+import com.jovoc.facecampresentationrecorder.tracker.TrackerNotifications;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import java.io.File;
@@ -404,7 +405,7 @@ public class AiEditService extends Service {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (launch == null) return null;
         launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        return PendingIntent.getActivity(this, 3, launch,
+        return PendingIntent.getActivity(this, 3, TrackerNotifications.wrap(this, launch, "ai_edit"),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 }
