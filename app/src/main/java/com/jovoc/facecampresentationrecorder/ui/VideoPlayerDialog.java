@@ -1556,6 +1556,7 @@ public class VideoPlayerDialog {
                         }
                     } catch (Exception e) {
                         Log.w(TAG, "Subtitle burn-in failed for " + targetFile.getName(), e);
+                        ActivityTracker.error("player", "sub_embed failed", e);
                     } finally {
                         //noinspection ResultOfMethodCallIgnored
                         tempOut.delete();
