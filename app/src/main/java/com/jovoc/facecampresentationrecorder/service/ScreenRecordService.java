@@ -364,7 +364,9 @@ public class ScreenRecordService extends Service {
 
     private void stopRecordingInternal() {
         if (overlay != null) {
-            overlay.hide();
+            try {
+                overlay.hide();
+            } catch (Exception ignored) {}
             overlay = null;
         }
         if (!isRecording && mediaRecorder == null) {
@@ -379,11 +381,8 @@ public class ScreenRecordService extends Service {
         String source = stopSource;
         recordStartedAt = 0;
         stopSource = "unknown";
-        // Ends the record span first, so a failure in the teardown below cannot leave it open.
-        Tracked span = recordSpan;
-        recordSpan = Tracked.NOOP;
-        span.end(Meta.of("stop_source", source));
 
+        boolean stopFailed = false;
         try {
             if (mediaRecorder != null) {
                 mediaRecorder.stop();
@@ -392,6 +391,7 @@ public class ScreenRecordService extends Service {
                 mediaRecorder = null;
             }
         } catch (Exception e) {
+            stopFailed = true;
             Log.e(TAG, "Error stopping MediaRecorder", e);
         }
 
@@ -408,6 +408,14 @@ public class ScreenRecordService extends Service {
             } catch (Exception ignored) {}
             mediaProjection = null;
         }
+
+        // The outcome is known only now: a stop error, or no saved file, is a failed recording.
+        // Ended here, after the guarded teardown and before any code that could throw.
+        File recorded = currentVideoPath != null ? new File(currentVideoPath) : null;
+        boolean failed = stopFailed || recorded == null || !recorded.exists() || recorded.length() == 0;
+        Tracked span = recordSpan;
+        recordSpan = Tracked.NOOP;
+        span.end(failed ? Meta.of("stop_source", source, "failed", true) : Meta.of("stop_source", source));
 
         isRecording = false;
         EventLog.end(this, currentVideoPath);
