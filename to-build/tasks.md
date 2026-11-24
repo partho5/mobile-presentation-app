@@ -394,7 +394,7 @@ a device**):
 ## Progress (runner-maintained)
 | Card | What | Depends on | Status |
 |---|---|---|---|
-| P1 | API, model, cache, report queue | contract | ☐ |
+| P1 | API, model, cache, report queue | contract | ☑ |
 | P2 | Slide sets + migration 10→11 | — | ☐ |
 | P3 | Today's video card, Practice screen, week sheet | P1, P2, server B5 | ☐ |
 | P4 | Automatic "recorded" report | P1, P3, server B5 | ☐ |
