@@ -2,4 +2,53 @@
 <resources>
     <!-- MainActivity: switching topic sets (own topics / a content-plan day's topics) -->
     <string name="cplan_locked_recording">Finish recording first</string>
+
+    <!-- ContentPlanCard: the card on the recorder screen -->
+    <string name="cplan_today">Today\'s video</string>
+    <string name="cplan_next">Next video</string>
+    <string name="cplan_video">Video</string>
+    <string name="cplan_card_label">%1$s · %2$s</string>
+    <string name="cplan_setup_title">Plan your videos with AI</string>
+    <string name="cplan_setup_open">Set up on the web</string>
+    <string name="cplan_writing">Writing this week\'s videos…</string>
+    <string name="cplan_failed">This week\'s videos aren\'t ready yet</string>
+    <string name="cplan_stale">Go online to get this week\'s videos</string>
+    <string name="cplan_week_done">All videos for this week are done ✓</string>
+    <string name="cplan_use_topics">Use as topics</string>
+    <string name="cplan_back_topics">Back to my topics</string>
+    <string name="cplan_practice">Practice</string>
+    <string name="cplan_week">Week</string>
+    <string name="cplan_recorded">Recorded ✓</string>
+    <string name="cplan_more_today">+%d more today</string>
+    <string name="cplan_status_join">%1$s · %2$s</string>
+    <string name="cplan_your_idea">Your idea</string>
+    <string name="cplan_link_failed">Could not open the page. Try again.</string>
+
+    <!-- ContentPlanCard: the angle chip -->
+    <string name="cplan_angle_problem">Problem</string>
+    <string name="cplan_angle_mistake">Common mistake</string>
+    <string name="cplan_angle_story">Story</string>
+    <string name="cplan_angle_question">Question</string>
+    <string name="cplan_angle_comparison">Comparison</string>
+    <string name="cplan_angle_steps">Steps</string>
+    <string name="cplan_angle_fear_loss">What you could lose</string>
+    <string name="cplan_angle_behind_the_scenes">Behind the scenes</string>
+    <string name="cplan_angle_customer_voice">Customer voice</string>
+    <string name="cplan_angle_trend">Trend</string>
+
+    <!-- ContentPlanCard: the week sheet -->
+    <string name="cplan_week_title">This week</string>
+    <string name="cplan_day_today">Today</string>
+    <string name="cplan_day_missed">Missed</string>
+
+    <!-- ContentPlanPracticeActivity: the Practice screen -->
+    <string name="cplan_practice_title">Practice</string>
+    <string name="cplan_you_say">You say</string>
+    <string name="cplan_end_with">End with</string>
+    <string name="cplan_previous">Previous</string>
+    <string name="cplan_next_beat">Next</string>
+    <string name="cplan_step_count">%1$d / %2$d</string>
+    <string name="cplan_show_script">Show whole script</string>
+    <string name="cplan_hide_script">Hide whole script</string>
+    <string name="cplan_done">Done</string>
 </resources>

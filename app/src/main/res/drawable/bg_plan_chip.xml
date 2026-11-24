@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The angle chip of the content-plan card: a faint accent pill. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1A64B5F6" />
+    <corners android:radius="12dp" />
+</shape>

@@ -149,6 +149,7 @@ public class MainActivity extends AppCompatActivity
     private SlideRepository repository;
     // Which set of topics is shown: null = the user's own topics, "plan:<dayId>" = one content-plan day's topics.
     private String activeSetId;
+    private com.jovoc.facecampresentationrecorder.contentplan.ContentPlanCard contentPlanCard;
     private static final String KEY_ACTIVE_SLIDE_SET = "active_slide_set";
     private List<Slide> slides = new ArrayList<>();
     private int currentSlideIndex = 0;
@@ -356,6 +357,11 @@ public class MainActivity extends AppCompatActivity
         activeSetId = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getString(KEY_ACTIVE_SLIDE_SET, null);
 
         initViews();
+        View planCardView = findViewById(R.id.card_content_plan);
+        if (planCardView != null) {
+            contentPlanCard = new com.jovoc.facecampresentationrecorder.contentplan.ContentPlanCard(this,
+                    planCardView, com.jovoc.facecampresentationrecorder.contentplan.ContentPlanStore.get(this));
+        }
         applySystemBarInsets();
         setupDrawer();
         setupGestureDetector();
@@ -1822,6 +1828,8 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
+        // Never visible while recording: the screen is captured.
+        syncPlanCardVisibility();
         updateNavigationButtonsState();
     }
 
@@ -2362,6 +2370,7 @@ public class MainActivity extends AppCompatActivity
         }
         // Picks up crop ratios changed on the Settings screen.
         applyRecordSettings();
+        if (contentPlanCard != null) contentPlanCard.refresh(false);
     }
 
     @Override
@@ -3691,8 +3700,22 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
+    /** The set of topics on show: null = the user's own, "plan:<dayId>" = one plan day's. */
+    public String activeSetId() {
+        return activeSetId;
+    }
+
+    public SlideRepository slideRepository() {
+        return repository;
+    }
+
+    /** Shows the content-plan card only when the menu bar is open and nothing is recording (the screen is captured). */
+    public void syncPlanCardVisibility() {
+        if (contentPlanCard != null) contentPlanCard.setAllowed(!isRecording && isMenuBarVisible);
+    }
+
     /** Discards the ink and drawing-board data of topics that no longer exist. */
-    void discardSlideData(List<Integer> ids) {
+    public void discardSlideData(List<Integer> ids) {
         if (ids == null) return;
         if (slideInkController != null) {
             for (Integer id : ids) slideInkController.discard(id);
@@ -3703,7 +3726,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     /** Shows another set of topics: null = the user's own, "plan:<dayId>" = one plan day's. Not allowed while recording. */
-    void switchSlideSet(String setIdOrNull) {
+    public void switchSlideSet(String setIdOrNull) {
         if (isRecording) {
             Toast.makeText(this, R.string.cplan_locked_recording, Toast.LENGTH_SHORT).show();
             return;
@@ -4109,20 +4132,8 @@ public class MainActivity extends AppCompatActivity
 
     private void applyTextSlideFontScaling(TextView textView, String text) {
         if (textView == null || text == null) return;
-        int length = text.length();
-        float maxFontSizeSp = 26.0f;
-        float minFontSizeSp = 15.0f;
-
-        float fontSizeSp;
-        if (length <= 100) {
-            fontSizeSp = maxFontSizeSp;
-        } else if (length >= 200) {
-            fontSizeSp = minFontSizeSp;
-        } else {
-            float fraction = (length - 100) / 100.0f;
-            fontSizeSp = maxFontSizeSp - fraction * (maxFontSizeSp - minFontSizeSp);
-        }
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                com.jovoc.facecampresentationrecorder.ui.TextSlideSize.sizeSp(text.length()));
     }
 
     private boolean isSlideZoomed() {

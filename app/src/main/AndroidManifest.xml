@@ -97,6 +97,12 @@
             android:windowSoftInputMode="adjustNothing"
             android:screenOrientation="unspecified" />
 
+        <!-- Practice for a content-plan day: no camera and no recording. -->
+        <activity
+            android:name=".contentplan.ContentPlanPracticeActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
         <activity
             android:name=".SavedRecordingsActivity"
             android:exported="false"

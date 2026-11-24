@@ -231,6 +231,9 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Today's video from the AI content plan; hidden while recording (the screen is captured) -->
+        <include layout="@layout/view_content_plan_today" />
+
         <!-- Drawing board: square silver panel with a black canvas and a bottom tool bar.
              Declared before the camera wrapper so the face cam always draws above it; sized
              and slid in from the top in code. Stays hidden until the user taps the board button. -->
