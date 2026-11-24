@@ -1870,6 +1870,13 @@ public class MainActivity extends AppCompatActivity
                         serviceIntent.setAction(ScreenRecordService.ACTION_START);
                         serviceIntent.putExtra(ScreenRecordService.EXTRA_RESULT_CODE, result.getResultCode());
                         serviceIntent.putExtra(ScreenRecordService.EXTRA_RESULT_DATA, result.getData());
+                        if (activeSetId != null && activeSetId.startsWith(Slide.PLAN_SET_PREFIX)) {
+                            // Recording on a content plan day's topics: the service reports it recorded.
+                            serviceIntent.putExtra(ScreenRecordService.EXTRA_PLAN_DAY_ID,
+                                    activeSetId.substring(Slide.PLAN_SET_PREFIX.length()));
+                            serviceIntent.putExtra(ScreenRecordService.EXTRA_PLAN_BRAND_ID,
+                                    com.jovoc.facecampresentationrecorder.auth.SessionManager.get(this).repository().store().workspaceId());
+                        }
 
                         int countdown = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getInt(KEY_COUNTDOWN_SECONDS, 3);
                         if (countdown > 0) {
@@ -2370,7 +2377,10 @@ public class MainActivity extends AppCompatActivity
         }
         // Picks up crop ratios changed on the Settings screen.
         applyRecordSettings();
-        if (contentPlanCard != null) contentPlanCard.refresh(false);
+        if (contentPlanCard != null) {
+            contentPlanCard.rebind(); // shows Recorded from the local mark straight away
+            contentPlanCard.refresh(false);
+        }
     }
 
     @Override

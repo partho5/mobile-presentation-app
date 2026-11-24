@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 
 import com.jovoc.facecampresentationrecorder.aiedit.flow.AiEditReceipts;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
+import com.jovoc.facecampresentationrecorder.contentplan.ContentPlanReports;
 import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
@@ -59,6 +60,11 @@ public class FaceCamApp extends Application {
             AiEditReceipts.flushAsync(this); // retries an AI edit render receipt that could not be sent
         } catch (Exception e) {
             // A receipt must never stop the app from starting.
+        }
+        try {
+            ContentPlanReports.flushAsync(this); // retries a recorded report that could not be sent
+        } catch (Exception e) {
+            // A report must never stop the app from starting.
         }
         try {
             // The activity tracker: silent, batched upload. Must never stop the app from starting.

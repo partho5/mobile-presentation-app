@@ -37,6 +37,8 @@ import androidx.core.app.NotificationCompat;
 import com.jovoc.facecampresentationrecorder.R;
 import com.jovoc.facecampresentationrecorder.aiedit.capture.EventLog;
 import com.jovoc.facecampresentationrecorder.bgreplace.BubbleTrack;
+import com.jovoc.facecampresentationrecorder.contentplan.ContentPlanReports;
+import com.jovoc.facecampresentationrecorder.contentplan.ContentPlanStore;
 import com.jovoc.facecampresentationrecorder.entitlements.Feature;
 import com.jovoc.facecampresentationrecorder.entitlements.FeatureSnapshot;
 import com.jovoc.facecampresentationrecorder.publish.AudioExtractor;
@@ -77,6 +79,11 @@ public class ScreenRecordService extends Service {
     public static final String EXTRA_PROCESSING = "EXTRA_PROCESSING";
     /** Who asked to stop, for the activity tracker: button, notification, overlay, system, error, destroyed. */
     public static final String EXTRA_STOP_SOURCE = "EXTRA_STOP_SOURCE";
+    /** The content plan day whose topics this recording uses, and its brand; absent for the user's own topics. */
+    public static final String EXTRA_PLAN_DAY_ID = "EXTRA_PLAN_DAY_ID";
+    public static final String EXTRA_PLAN_BRAND_ID = "EXTRA_PLAN_BRAND_ID";
+    /** A recording shorter than this never marks a plan day (an accidental tap must not). */
+    private static final long PLAN_MIN_RECORDING_MS = 10_000L;
 
     private final IBinder binder = new LocalBinder();
 
@@ -92,6 +99,11 @@ public class ScreenRecordService extends Service {
     /** elapsedRealtime when the recording began; 0 when none runs. For the activity log. */
     private long recordStartedAt = 0;
     private String stopSource = "unknown";
+    /** The plan day and brand this recording was started for; null when it uses the user's own topics. */
+    private String planDayId = null;
+    private String planBrandId = null;
+    /** elapsedRealtime when the plan recording began. */
+    private long planStartMs = 0;
     private String currentVideoPath = null;
     /** The screen recording span: open from the moment the recorder runs until stop; NOOP otherwise. */
     private Tracked recordSpan = Tracked.NOOP;
@@ -120,6 +132,8 @@ public class ScreenRecordService extends Service {
             if (ACTION_START.equals(action)) {
                 int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
                 Intent resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+                planDayId = intent.getStringExtra(EXTRA_PLAN_DAY_ID);
+                planBrandId = intent.getStringExtra(EXTRA_PLAN_BRAND_ID);
                 if (resultCode != 0 && resultData != null) {
                     startRecordingInternal(resultCode, resultData);
                 }
@@ -348,6 +362,7 @@ public class ScreenRecordService extends Service {
                     features = FeatureSnapshot.beginRecording();
                     isRecording = true;
                     recordStartedAt = SystemClock.elapsedRealtime();
+                    planStartMs = recordStartedAt;
                     recordSpan = ActivityTracker.start("record", "screen recording");
                     EventLog.begin(recordStartedAt, width, height);
                     Log.d(TAG, "Recording started successfully: " + currentVideoPath);
@@ -505,6 +520,19 @@ public class ScreenRecordService extends Service {
                     }
                 }
 
+                // Report a content plan day as recorded; must never fail the recording.
+                try {
+                    if (planDayId != null && planStartMs > 0
+                            && SystemClock.elapsedRealtime() - planStartMs >= PLAN_MIN_RECORDING_MS) {
+                        ContentPlanStore planStore = ContentPlanStore.get(this);
+                        planStore.savePendingRecorded(planDayId, planBrandId, System.currentTimeMillis());
+                        planStore.markRecordedLocally(planDayId);
+                        ContentPlanReports.flushAsync(this);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not queue the plan recorded report", e);
+                }
+
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);
                 finishIntent.setPackage(getPackageName());
                 finishIntent.putExtra(EXTRA_VIDEO_PATH, currentVideoPath);
@@ -518,6 +546,9 @@ public class ScreenRecordService extends Service {
 
         // The queued job holds its own copy of the snapshot
         features = null;
+        planDayId = null;
+        planBrandId = null;
+        planStartMs = 0;
         FeatureSnapshot.endRecording();
         stopSelf();
     }
