@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MainActivity: switching topic sets (own topics / a content-plan day's topics) -->
+    <string name="cplan_locked_recording">Finish recording first</string>
+</resources>

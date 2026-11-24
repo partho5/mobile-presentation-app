@@ -14,6 +14,30 @@ public interface SlideDao {
     @Query("SELECT * FROM slides ORDER BY order_index ASC")
     List<Slide> getAllOrdered();
 
+    @Query("SELECT * FROM slides WHERE set_id IS NULL ORDER BY order_index ASC")
+    List<Slide> getOwnOrdered();
+
+    @Query("SELECT * FROM slides WHERE set_id = :setId ORDER BY order_index ASC")
+    List<Slide> getSetOrdered(String setId);
+
+    @Query("DELETE FROM slides WHERE set_id IS NULL")
+    void deleteOwn();
+
+    @Query("DELETE FROM slides WHERE set_id = :setId")
+    void deleteSet(String setId);
+
+    @Query("SELECT id FROM slides WHERE set_id = :setId")
+    List<Integer> idsOfSet(String setId);
+
+    @Query("SELECT id FROM slides WHERE set_id IS NULL")
+    List<Integer> idsOfOwn();
+
+    @Query("SELECT DISTINCT set_id FROM slides WHERE set_id LIKE 'plan:%'")
+    List<String> planSetIds();
+
+    @Insert
+    void insertAll(List<Slide> slides);
+
     @Insert
     long insert(Slide slide);
 

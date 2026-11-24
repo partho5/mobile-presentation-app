@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(entities = {Slide.class, PublishJob.class, UploadSession.class,
         AudioUploadSession.class, TrackedActivity.class},
-        version = 10, exportSchema = false)
+        version = 11, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -138,10 +138,19 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Adds the nullable set id to slides: NULL = the user's own topics (every existing row), "plan:<dayId>" = a plan day's topics.
+    static final Migration MIGRATION_10_11 = new Migration(10, 11) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE slides ADD COLUMN set_id TEXT");
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+            MIGRATION_10_11
     };
 
     public static AppDatabase getInstance(Context context) {

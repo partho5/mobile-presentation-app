@@ -37,14 +37,21 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsTenAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsElevenAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(9, all.length);
+        assertEquals(10, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(10, all[all.length - 1].endVersion);
+        assertEquals(11, all[all.length - 1].endVersion);
+    }
+
+    @Test
+    public void migration10to11_addsOnlyTheSetColumn() {
+        List<String> sql = run(AppDatabase.MIGRATION_10_11);
+        assertEquals(1, sql.size());
+        assertEquals("ALTER TABLE slides ADD COLUMN set_id TEXT", sql.get(0));
     }
 
     @Test

@@ -14,6 +14,14 @@ public class Slide {
     public static final String TYPE_WEBSITE = "WEBSITE";
     public static final String TYPE_YOUTUBE = "YOUTUBE";
 
+    /** Prefix of a set id that holds the topics of one content-plan day. */
+    public static final String PLAN_SET_PREFIX = "plan:";
+
+    /** The set id of one plan day's topics. A null set id means the user's own topics. */
+    public static String planSetId(String dayId) {
+        return PLAN_SET_PREFIX + dayId;
+    }
+
     @PrimaryKey(autoGenerate = true)
     private int id;
 
@@ -31,6 +39,10 @@ public class Slide {
 
     @ColumnInfo(name = "is_disabled")
     private boolean disabled;
+
+    /** Null = the user's own topics; "plan:&lt;dayId&gt;" = the topics of one plan day. */
+    @ColumnInfo(name = "set_id")
+    private String setId;
 
     public Slide() {
     }
@@ -89,5 +101,13 @@ public class Slide {
 
     public void setDisabled(boolean disabled) {
         this.disabled = disabled;
+    }
+
+    public String getSetId() {
+        return setId;
+    }
+
+    public void setSetId(String setId) {
+        this.setId = setId;
     }
 }

@@ -147,6 +147,9 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG = "MainActivity";
 
     private SlideRepository repository;
+    // Which set of topics is shown: null = the user's own topics, "plan:<dayId>" = one content-plan day's topics.
+    private String activeSetId;
+    private static final String KEY_ACTIVE_SLIDE_SET = "active_slide_set";
     private List<Slide> slides = new ArrayList<>();
     private int currentSlideIndex = 0;
 
@@ -350,6 +353,7 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
 
         repository = new SlideRepository(this);
+        activeSetId = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getString(KEY_ACTIVE_SLIDE_SET, null);
 
         initViews();
         applySystemBarInsets();
@@ -2123,6 +2127,7 @@ public class MainActivity extends AppCompatActivity
                         if (localPath != null) {
                             ActivityTracker.log("topic_add", "image");
                             Slide newSlide = new Slide(Slide.TYPE_IMAGE, slides.size(), null, localPath);
+                            newSlide.setSetId(activeSetId);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
                             Toast.makeText(this, "Failed to save image", Toast.LENGTH_SHORT).show();
@@ -2168,6 +2173,7 @@ public class MainActivity extends AppCompatActivity
                         if (localPath != null) {
                             ActivityTracker.log("topic_add", "video");
                             Slide newSlide = new Slide(Slide.TYPE_VIDEO, slides.size(), null, localPath);
+                            newSlide.setSetId(activeSetId);
                             repository.insert(newSlide, id -> loadSlidesFromDb(true));
                         } else {
                             Toast.makeText(this, "Failed to save video", Toast.LENGTH_SHORT).show();
@@ -2265,7 +2271,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void loadSlidesFromDb(boolean scrollToBottom) {
-        repository.getAllOrdered(result -> {
+        repository.getSet(activeSetId, result -> {
             slides = result;
             if (slideAdapter != null) {
                 slideAdapter.setSlides(new ArrayList<>(slides));
@@ -2278,7 +2284,7 @@ public class MainActivity extends AppCompatActivity
             int openedTimes = prefs.getInt(KEY_APP_OPENED_TIMES, 0);
 
             if (slides.isEmpty()) {
-                if (openedTimes <= 1 && !prefs.getBoolean(KEY_INITIAL_SLIDES_SEEDED, false)) {
+                if (activeSetId == null && openedTimes <= 1 && !prefs.getBoolean(KEY_INITIAL_SLIDES_SEEDED, false)) {
                     seedInitialSlides();
                     return;
                 }
@@ -2301,6 +2307,7 @@ public class MainActivity extends AppCompatActivity
 
     private void seedInitialSlides() {
         getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putBoolean(KEY_INITIAL_SLIDES_SEEDED, true).apply();
+        // Seeding is for the user's own set only (setId stays null).
         Slide textSlide = new Slide(Slide.TYPE_TEXT, 0, "(Example topic)\nHow to get rid of anxiety ?", null);
 
         // The example image ships in assets/ so the first run works offline. It is
@@ -3348,6 +3355,7 @@ public class MainActivity extends AppCompatActivity
             } else {
                 ActivityTracker.log("topic_add", "text");
                 Slide newSlide = new Slide(Slide.TYPE_TEXT, slides.size(), text, null);
+                newSlide.setSetId(activeSetId);
                 repository.insert(newSlide, id -> {
                     dialog.dismiss();
                     loadSlidesFromDb(true);
@@ -3457,6 +3465,7 @@ public class MainActivity extends AppCompatActivity
                 } else {
                     ActivityTracker.log("topic_add", "website");
                     Slide newSlide = new Slide(Slide.TYPE_WEBSITE, slides.size(), inputUrl, null);
+                    newSlide.setSetId(activeSetId);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
                         loadSlidesFromDb(true);
@@ -3515,6 +3524,7 @@ public class MainActivity extends AppCompatActivity
                 } else {
                     ActivityTracker.log("topic_add", "youtube");
                     Slide newSlide = new Slide(Slide.TYPE_YOUTUBE, slides.size(), input, null);
+                    newSlide.setSetId(activeSetId);
                     repository.insert(newSlide, id -> {
                         dialog.dismiss();
                         loadSlidesFromDb(true);
@@ -3645,23 +3655,20 @@ public class MainActivity extends AppCompatActivity
         if (yes != null) yes.setTextColor(0xFFE53935);
     }
 
-    /** Removes every topic and its local files. Single place for a future server-sync hook. */
+    /** Removes every topic of the active set and its local files. Single place for a future server-sync hook. */
     private void deleteAllSlides() {
         ActivityTracker.log("topic_delete_all", null, Meta.of("count", slides.size()));
         final List<Slide> doomed = new ArrayList<>(slides);
-        repository.deleteAll(() -> {
+        repository.deleteSetOrOwn(activeSetId, removedIds -> {
             stopVideoIfPlaying();
-            if (slideInkController != null) {
-                for (Slide s : doomed) slideInkController.discard(s.getId());
-            }
-            if (drawingBoardController != null) {
-                for (Slide s : doomed) drawingBoardController.discard(s.getId());
-            }
+            discardSlideData(removedIds);
             slides.clear();
             currentSlideIndex = 0;
             if (slideAdapter != null) slideAdapter.setSlides(new ArrayList<>());
             renderCurrentSlide();
-            getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putBoolean(KEY_INITIAL_SLIDES_SEEDED, true).apply();
+            if (activeSetId == null) {
+                getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit().putBoolean(KEY_INITIAL_SLIDES_SEEDED, true).apply();
+            }
 
             final File filesDir = getFilesDir();
             new Thread(() -> {
@@ -3682,6 +3689,35 @@ public class MainActivity extends AppCompatActivity
             }).start();
             Toast.makeText(this, "All topics deleted", Toast.LENGTH_SHORT).show();
         });
+    }
+
+    /** Discards the ink and drawing-board data of topics that no longer exist. */
+    void discardSlideData(List<Integer> ids) {
+        if (ids == null) return;
+        if (slideInkController != null) {
+            for (Integer id : ids) slideInkController.discard(id);
+        }
+        if (drawingBoardController != null) {
+            for (Integer id : ids) drawingBoardController.discard(id);
+        }
+    }
+
+    /** Shows another set of topics: null = the user's own, "plan:<dayId>" = one plan day's. Not allowed while recording. */
+    void switchSlideSet(String setIdOrNull) {
+        if (isRecording) {
+            Toast.makeText(this, R.string.cplan_locked_recording, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        SharedPreferences.Editor editor = getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit();
+        if (setIdOrNull == null) {
+            editor.remove(KEY_ACTIVE_SLIDE_SET);
+        } else {
+            editor.putString(KEY_ACTIVE_SLIDE_SET, setIdOrNull);
+        }
+        editor.apply();
+        activeSetId = setIdOrNull;
+        currentSlideIndex = 0;
+        loadSlidesFromDb(false);
     }
 
     /**

@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 
 public class SlideRepository {
 
+    private final AppDatabase db;
     private final SlideDao slideDao;
     private final ExecutorService executor;
     private final Handler mainHandler;
@@ -20,7 +21,7 @@ public class SlideRepository {
     }
 
     public SlideRepository(Context context) {
-        AppDatabase db = AppDatabase.getInstance(context);
+        this.db = AppDatabase.getInstance(context);
         this.slideDao = db.slideDao();
         this.executor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
@@ -30,6 +31,59 @@ public class SlideRepository {
         executor.execute(() -> {
             List<Slide> slides = slideDao.getAllOrdered();
             mainHandler.post(() -> callback.onResult(slides));
+        });
+    }
+
+    /** The topics of one set, in order; a null id is the user's own topics. */
+    public void getSet(String setIdOrNull, Callback<List<Slide>> callback) {
+        executor.execute(() -> {
+            List<Slide> slides = setIdOrNull == null
+                    ? slideDao.getOwnOrdered() : slideDao.getSetOrdered(setIdOrNull);
+            mainHandler.post(() -> callback.onResult(slides));
+        });
+    }
+
+    /** Swaps a whole set for new slides in one transaction; reports the ids that were removed. */
+    public void replaceSet(String setId, List<Slide> slides, Callback<List<Integer>> removedIds) {
+        List<Slide> copy = new ArrayList<>(slides);
+        executor.execute(() -> {
+            List<Integer> removed = new ArrayList<>();
+            db.runInTransaction(() -> {
+                removed.addAll(slideDao.idsOfSet(setId));
+                slideDao.deleteSet(setId);
+                for (Slide s : copy) s.setSetId(setId);
+                slideDao.insertAll(copy);
+            });
+            mainHandler.post(() -> {
+                if (removedIds != null) removedIds.onResult(removed);
+            });
+        });
+    }
+
+    /** Deletes one set (null = the user's own topics); reports the ids that were removed. */
+    public void deleteSetOrOwn(String setIdOrNull, Callback<List<Integer>> removedIds) {
+        executor.execute(() -> {
+            List<Integer> removed = new ArrayList<>();
+            db.runInTransaction(() -> {
+                if (setIdOrNull == null) {
+                    removed.addAll(slideDao.idsOfOwn());
+                    slideDao.deleteOwn();
+                } else {
+                    removed.addAll(slideDao.idsOfSet(setIdOrNull));
+                    slideDao.deleteSet(setIdOrNull);
+                }
+            });
+            mainHandler.post(() -> {
+                if (removedIds != null) removedIds.onResult(removed);
+            });
+        });
+    }
+
+    /** Ids of every plan set that has topics stored. */
+    public void planSetIds(Callback<List<String>> callback) {
+        executor.execute(() -> {
+            List<String> ids = slideDao.planSetIds();
+            mainHandler.post(() -> callback.onResult(ids));
         });
     }
 
