@@ -6,531 +6,395 @@ self-contained: read **Shared context** below, then the card's own "Read first" 
 
 -----------------
 
-# Activity Tracker — app (cards A1–A5)
 <!-- runner-config
-REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder
-BRANCH=feat/ai-video-edit
+REPOS=/home/haku/projects/AndroidStudioProjects/FaceCam-Presentation-Recorder /home/haku/projects/Next.js/Social-Media-Manager
+BRANCH=feat/content-plan
+SCRATCH=test_audio.wav test_video.mp4 run.log
 -->
 
-**How to run:** from `to-build/`: `MODEL=claude-haiku-5-5 ALLOWED_TOOLS="Read Write Edit Glob Grep Bash(git *) Bash(ls *) Bash(cat *) Bash(mkdir *) Bash(grep *) Bash(wc *) Bash(head *) Bash(tail *) Bash(sed *) Bash(python3 *) Bash(./gradlew *)" ./autonomous-agent-runner.sh`
-(the runner's default tool list has no gradle, and these cards need `./gradlew` for their tests), or tell any Claude session "run `to-build/agent-runner.md`".
+# FaceCam app: AI content plan, phone side (cards P1-P4, decided 2026-11-22)
 
-Owner gate: plan confirmed 2026-11-21. Build the cards **in order** (A1, A2, A3, A4.1 … A4.5, A5), one card per session.
-Backend cards B1–B6: `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md`.
+The server half is in `/home/haku/projects/Next.js/Social-Media-Manager/to-build/tasks.md` (cards B1-B7). It holds the full
+product flow; this file holds only what the phone needs. **The server card a phone card depends on must be ticked there
+first** (see **Depends on**). P1 and P2 only need the contract below, so they may be built before the server is deployed.
 
-## Shared context (read before any card)
+Branch `feat/content-plan` (create it from the current HEAD if it does not exist). Never commit `test_audio.wav`,
+`test_video.mp4`, `run.log`, `app/src/debug/AndroidManifest.xml` or `app/src/main/assets/seed_slide_deep_breath.webp` (they
+are the owner's uncommitted local changes). Commit with explicit paths.
+
+## Shared context
 
 ### Goal
-Record every user activity and error, so the backend can replay each device's journey step by step (what was opened or tapped,
-when, how long, what broke) and show which features are really used. Records are stored as JSON in Room and uploaded in batches
-**every 5 days**, or sooner once **more than 20** are waiting, over **any** validated internet. **The user must never notice**:
-no UI, no toast, no dialog, no notification, no jank, no exception escapes. Every failure is swallowed and retried later.
+The web plans the brand's videos: 1 to 7 videos a week (the owner's choice, on spread-out days), each with a title, an angle, a "why" line, 3-6 **beats** and a closing
+line. A beat is `{ hook, say }`: `hook` = the short hint shown on screen while recording; `say` = the script spoken while that
+hook shows. The phone **only consumes**:
+1. It shows *Today's video* on a card. A day can also be the owner's own idea (`kind` INSTANT_IDEA, added on the web with
+   "Add my own idea"): it comes in the same `days` list, is shown and recorded exactly like an AI day, and only differs by a
+   "Your idea" chip instead of the angle chip. A date can therefore hold two videos.
+2. One tap loads the hooks as the topics shown while recording, one slide per hook. They go into their own set and never
+   overwrite the user's own topics. **No script is ever shown while recording**: the screen is captured, so anything on it
+   ends up in the video.
+3. **Practice** (optional) is a separate screen with no facecam and no recording. It shows each hook the way it will look on
+   screen, with its `say` under it, one beat at a time, then the closing line. Practising each cue with its words means the
+   hook alone brings the words back while recording.
+4. It caches the week for offline use.
+5. When a recording made on that day's topics finishes, it reports "recorded" to the server automatically. The user never
+   marks anything.
 
-### Why this design
-- Chosen: own tracker → Room buffer → WorkManager batch upload. It has no UI, survives offline and process death, sends a few KB a few times a week, and we own the data.
-- Rejected: Firebase/PostHog/Mixpanel (no replay keyed by our device id, a third party), session-video SDKs (heavy, record the screen),
-  live per-event sends (battery/data, lost offline), sending from `onStop` (dies with the process).
-- Side effects accepted: light users show up up to 5 days late. Error messages/stacks may hold file names (disclosed in A5).
-  Disk is capped at 3000 rows. Crash write waits ≤ 500 ms. Old WorkManager jobs are cancelled in A4.5.
+The test for every choice: **trust, satisfaction, less cognitive effort**.
+
+### Naming trap (read this)
+In this app's UI a *slide* is called a **"Topic"** ("Edit Topics", "Topic Manager"). Keep that. The AI day is called
+**"Today's video"** in the UI and `PlanDay` in code. The Java package is **`contentplan`**. `aiedit/engine/plan/` already
+exists and is unrelated; do not touch it or reuse its classes.
 
 ### App facts
-- Java only (no Kotlin, no Compose). minSdk 31, targetSdk 36. Base package `com.jovoc.facecampresentationrecorder` →
-  path `app/src/main/java/com/jovoc/facecampresentationrecorder/` (written `P/` below). Tests: `app/src/test/java/com/jovoc/facecampresentationrecorder/` (`T/`).
-- Tests are JUnit 4 + `org.json` + OkHttp MockWebServer. **No Robolectric, no Mockito.** `android.*` classes do not work in unit
-  tests (no `returnDefaultValues`), so all logic under test lives in **pure Java classes** that never touch `android.*`
-  (not even `android.util.Log`). Android glue stays thin and untested.
-- Room 2.6.1 at `P/db/AppDatabase.java` (now version 8, hand-written `Migration` objects in `MIGRATIONS[]`, `exportSchema = false`).
-  Migrations are tested in `T/db/AppDatabaseMigrationTest.java` with a Proxy that records `execSQL`.
-- HTTP: `P/auth/ApiClient.java` (OkHttp 4.12), `send(method, path, json, headers)` → `ApiResponse` (`status`, `isSuccess()`).
-  Base URL `BuildConfig.API_BASE_URL` (`https://social.nanybot.com/api`). Optional token: `SessionManager.get(ctx).repository().quietAccessToken()`
-  (never prompts, never signs out; null when signed out).
-- WorkManager 2.9.1. Application class: `P/FaceCamApp.java`. Launcher: `P/ui/StartupActivity.java`.
-- Build rule (top of this file): one gradle command at a time, only `./gradlew --offline :app:assembleDebug` or `./gradlew --offline :app:testDebugUnitTest --tests '<pattern>'`.
-- Commit per card: `feat(tracker): A<n> <what>`, a short body, and the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-  Set the card's Status to ✅ in **Progress** (bottom) in the same commit. Never stage `app/src/debug/AndroidManifest.xml`.
+Java paths are relative to `app/src/main/java/com/jovoc/facecampresentationrecorder/` (`M/`); tests are in
+`app/src/test/java/com/jovoc/facecampresentationrecorder/` (`T/`); minSdk 31.
 
-### Code rules for the tracker
-1. **Every public `ActivityTracker` method** body is `try { … } catch (Throwable ignored) { }`. It never throws and never returns null
-   (`start()` returns `Tracked.NOOP` when it can't track).
-2. Callers **never wait**. All disk and DB work runs on one single-thread executor `tracker` (daemon, `Thread.MIN_PRIORITY`,
-   bounded queue `QUEUE_CAP`, `DiscardPolicy`). The only exception is `fatal()` (crash), which waits ≤ `CRASH_WAIT_MS`.
-3. Nothing is shown to the user. Debug builds only: `if (BuildConfig.DEBUG) Log.d("ActivityTracker", json)` in the Android glue.
-4. Null/empty safe everywhere: null name → the record is dropped; null description/meta → omitted; an empty list → nothing sent.
+**Tests**
+- JUnit 4 with `org.json`, plus `mockwebserver`.
+- There is no Robolectric and no androidTest, so JVM tests cannot use Context, SharedPreferences, Room or Views. Keep the
+  logic in pure classes with a `Store` interface (pattern `M/aiedit/flow/AiEditStore`).
 
-### Constants — `P/tracker/TrackerConfig.java` (all tunable here only)
-```java
-public final class TrackerConfig {
-    public static final int  SEND_EVERY_DAYS = 5;          // time rule
-    public static final int  SEND_WHEN_MORE_THAN = 20;     // volume rule: send when pending > this
-    public static final long MIN_GAP_MS = 15L * 60 * 1000; // volume rule fires at most every 15 min (0 = no limit)
-    public static final int  BATCH_SIZE = 50;              // records per request (backend max 50)
-    public static final int  MAX_BATCHES_PER_RUN = 10;     // then a follow-up run
-    public static final int  LOCAL_MAX_ROWS = 3000;        // device buffer cap
-    public static final int  TRIM_CHUNK = 100;             // rows dropped at once when full
-    public static final int  QUEUE_CAP = 500;              // writer queue
-    public static final long CRASH_WAIT_MS = 500;
-    public static final long SESSION_GAP_MS = 30L * 60 * 1000;
-    public static final int  MAX_UPLOAD_ATTEMPTS = 6;
-    private TrackerConfig() { }
-}
+**Network**
+- OkHttp through `M/auth/AuthRepository.execute(method, path, body, headers)`, obtained with
+  `SessionManager.get(ctx).repository()`.
+- The brand goes in the header `AuthRepository.HEADER_WORKSPACE` (`x-workspace-id`).
+- `SessionManager.brandForNewJob()` gives the brand for a call. It blocks, so never call it on the main thread.
+- The API class template is `M/aiedit/flow/AiEditApi.java` (`send(...)` maps `AuthException.Kind` to the class's own
+  exception).
+- JSON is `org.json` only.
+- Threading uses a single-thread `ExecutorService` plus `new Handler(Looper.getMainLooper())`.
+
+**Slides**
+- `M/db/Slide.java` (table `slides`), `SlideDao`, `SlideRepository` (executor + main handler + `Callback<T>`).
+- `M/db/AppDatabase.java` is **version 10**; migrations are `static final Migration MIGRATION_X_Y` fields collected in
+  `MIGRATIONS`.
+- Test: `T/db/AppDatabaseMigrationTest.java`.
+- Text slides are at most 200 characters (editor limit).
+
+**MainActivity** (`M/MainActivity.java`, about 4241 lines, so read it by line range)
+- `private List<Slide> slides` (line 150), `currentSlideIndex` (151), `isRecording` (315).
+- `loadSlidesFromDb(boolean)` (2267) loads **all** rows today.
+- `openSlideManagerDialog()` (3118), `deleteAllSlides()` (3649), `seedInitialSlides()` (prefs key `initialSlidesSeeded`).
+- Inserts: `showAddTextSlideDialog` (about 3347), the photo picker (about 2128), and the video, website and YouTube dialogs.
+- `updateUIState()` (1778) shows `top_menu_bar` only when `!isRecording && isMenuBarVisible`.
+- `screenCaptureLauncher` (about 1850) builds the `ScreenRecordService` `ACTION_START` intent.
+- Prefs `RecordSettings.PREF_NAME` (`"app_prefs"`).
+
+**Recording**
+- `M/service/ScreenRecordService.java`: `ACTION_START` handling (about line 120), `startRecordingInternal` (225),
+  `stopRecordingInternal` (365). Its success branch (`file.exists() && file.length() > 0`) runs even when MainActivity is
+  gone.
+- The screen itself is what is recorded (MediaProjection), so **anything visible while recording ends up in the video**.
+
+**Brand**
+- `TokenStore.workspaceId()` (`SessionManager.get(ctx).repository().store()`).
+- A brand switch restarts `MainActivity` (`WorkspaceActivity.restart()`).
+- Switching is blocked during recording (`FeatureSnapshot.recordingNow()`).
+
+**Web link**
+- `new PublishApi(repo).webLink(target, identifier)` (`M/publish/PublishApi.java` about line 191), opened with
+  `WebLinks.open(host, url)`.
+- Pattern: `M/ui/BillingLink.open`. Fallback URL: `BuildConfig.WEB_BASE_URL + "/plan"`.
+
+**Retry pattern**
+- `M/aiedit/flow/AiEditReceipts.java` (`flushAsync` on a daemon thread; `flush(store, api, now)` keeps retryable failures
+  and drops final ones).
+- It is started in `M/FaceCamApp.onCreate` inside try/catch.
+
+**UI style**
+- Dark: background `#121212`, card `#222222` with radius 12dp, accent `#64B5F6`, text `#FFFFFF`, secondary `#B3FFFFFF`.
+- `MaterialCardView`, `BottomSheetDialog`.
+- Strings go in a new `res/values/strings_content_plan.xml`, prefix `cplan_`, with an XML comment naming the class that
+  uses each group. No hard-coded UI text.
+
+**Privacy**
+- Never send titles, hooks, says or closing lines to `ActivityTracker` meta or any log. Ids only.
+
+**Any language in the world**
+- Texts come from the server in the brand's language. Never measure, cut or transform them per language.
+- Set `textDirection="locale"` / `TEXT_DIRECTION_FIRST_STRONG` on TextViews showing plan text, so right-to-left text reads
+  right.
+
+### API contract (copied from the server file; keep exact)
+```
+GET  /public/v1/content-plan/week                     (device token; header x-workspace-id)
+  200 { status: 'NONE'|'SETUP'|'PROPOSED'|'ACTIVE', today: 'YYYY-MM-DD', timezone: string,
+        week: null | { id, weekStart, weekEnd, idea, status: 'IDEA'|'GENERATING'|'READY'|'FAILED',
+                       days: [ { id, kind: 'PLANNED'|'INSTANT_IDEA', date, dayIndex: number|null, title, angle: string|null, why,
+                                 beats: [ { hook, say } ],      // 3-6, in speaking order
+                                 closingLine,
+                                 status: 'PLANNED'|'RECORDED'|'MISSED', version } ] } }
+  `days` is [] unless status is READY. `week` is the week containing `today`. `days` holds only the week's video days
+  (1-7), so today may have no day. An `INSTANT_IDEA` row has `dayIndex` null and `angle` null and may share its `date`
+  with an AI day, so one date can have two days (the AI day first). Rows of both kinds are shown and recorded the same way,
+  by `id`; the phone never branches on how a day was made, except for the chip label. A missing `kind` means `PLANNED`.
+  Instant-idea rows only appear once the server card B8 is live; until then every day is `PLANNED`.
+  Slides: exactly one TEXT slide per beat from `hook`, in order. The server already cleaned `hook` (plain text, no markdown,
+  list markers or line breaks; at most 200 characters, normally at most 100). `say` and `closingLine` are for Practice
+  only, never shown while recording.
+Example day:
+  { "id": "d7f1", "kind": "PLANNED", "date": "2026-11-23", "dayIndex": 0, "title": "One Idea Beats Ten Tips", "angle": "mistake",
+    "why": "Your viewers leave when a video tries to say everything.",
+    "beats": [ { "hook": "Pick one takeaway", "say": "Stop trying to say everything today. Choose one clear idea first." },
+               { "hook": "Talk to one person", "say": "Explain it the way you would explain it to a client." },
+               { "hook": "Stop at one idea",   "say": "One idea keeps it short. Save the next one for tomorrow." } ],
+    "closingLine": "Follow for a new tip tomorrow.", "status": "PLANNED", "version": 1 }
+POST /public/v1/content-plan/days/:id/recorded   {}   + Idempotency-Key
+  200 { id, status: 'RECORDED' }   (already recorded → the same 200)   404 DAY_NOT_FOUND
+Web link target: 'content-plan' (identifier null) → the web page /plan.
+angle ∈ problem | mistake | story | question | comparison | steps | fear_loss | behind_the_scenes | customer_voice | trend
 ```
 
-### Contract (identical copy in the backend repo's `to-build/tasks.md`)
-`POST {API_BASE_URL}/tracker/batches`. Headers: `Content-Type: application/json`, `Content-Encoding: gzip`, and when signed in `Authorization: Bearer <access>`.
-```jsonc
-{ "batchId": "<uuid>", "deviceId": "<uuid>", "sentAt": 1763712000000,
-  "app": { "version": "1.0", "build": 4, "package": "com.jovoc.facecampresentationrecorder" },
-  "device": { "os": "Android 14", "sdk": 34, "manufacturer": "Google", "model": "Pixel 7", "locale": "en-US" },
-  "activities": [ {
-     "id": "<uuid>", "seq": 1042, "session": "a1b2c3d4", "kind": "activity",   // or "error"
-     "name": "click", "description": "edit topics",
-     "startedAt": 1763711990000, "endedAt": 1763711992500,                     // endedAt null = instant
-     "tz": 360, "appBuild": 4, "screen": "MainActivity", "source": "button",
-     "meta": { "count": 3, "on": true },
-     "error": { "type": "java.lang.NullPointerException", "message": "…", "stack": "…",
-                "causes": [ { "type": "…", "message": "…" } ], "thread": "main", "fatal": true,
-                "lastActivity": "click — record" } } ] }
-```
-Limits (the app cuts to these before storing): `name` `^[a-z0-9_]{1,40}$` · description 120 · screen 60 · source 40 · meta ≤ 20 keys `^[a-z0-9_]{1,32}$`,
-values String(≤ 200)/Number/Boolean · error.type 120 · message 1000 · stack 8000 · causes ≤ 5 (message 300) · thread 60 · lastActivity 120 ·
-session `^[A-Za-z0-9_-]{1,16}$` · activities per batch 1..50.
-Responses: **2xx** → delete the batch rows, `lastSentAt = now` · **400/413/422** → delete the rows (poison) · **401** → resend once without
-`Authorization` · **404/429/5xx/IOException** → keep the rows, retry later.
-
-### Activity vocabulary
-`app_open` (description `cold start`; source launcher/notification/recents/other; meta `first_run`, `notif`) · `app_foreground` (`came back`) ·
-`app_background` span (`minimized`) · `screen` span (description = Activity simple name) · `click` / `double_click` / `long_press` (description =
-what was tapped) · `toggle` (meta `on`) · `setting` (description = key, meta `value`) · `permission` (description = permission, meta `step`, `granted`) ·
-`record` span · `crash` (error, fatal) · `app_exit` (from ApplicationExitInfo) · `tracker_overflow`. Other names are free (`topic_add`, `publish`, …).
-
-### Old-call conversion table (used by A4.1–A4.4)
-Old form: `ActivityLog.log("<action>", k1, v1, k2, v2, …)`. New: `ActivityTracker.log(name, description, Meta.of(...))`.
-Import `com.jovoc.facecampresentationrecorder.tracker.ActivityTracker` and `…tracker.Meta`; remove the `…activitylog.ActivityLog` import.
-| old action (meta) | new call |
-|---|---|
-| `screen_view`, `app_open`, `app_crash` | **delete** (A3 records these automatically) |
-| `drawer_open` | `log("click", "drawer")` |
-| `drawer_item` (item) | `log("click", "drawer " + item)` |
-| `camera_flip` (to) | `log("click", "camera flip", Meta.of("to", to))` |
-| `drawing_board_toggle` (on) / `menu_toggle` (visible) | `log("toggle", "drawing board" / "menu bar", Meta.of("on", x))` |
-| `ai_captions_toggle`, `text_channel_toggle`, `channel_toggle`, `autopublish_toggle`, `topic_toggle` | `log("toggle", "<ai captions / text post channel / channel / auto publish / topic>", Meta.of(<same keys>))` |
-| `record_tap` | `log("click", "record")` |
-| `record_countdown_cancel` | `log("click", "cancel countdown")` |
-| `record_blocked` (reason, type) | `log("record_blocked", reason, Meta.of("type", type))` |
-| `record_start` (countdown_s, topics, …) in MainActivity | `log("click", "start recording", Meta.of(<same keys>))` (the `record` span itself lives in ScreenRecordService, see A4.3) |
-| `record_stop` / `record_saved` | see A4.3 (they end the `record` span) |
-| `record_error` (kind[, type]) | `ActivityTracker.error("record", kind, <Throwable in scope or null>, Meta.of(<other keys>))` |
-| `permission_prompt` (perm) | `log("permission", perm, Meta.of("step", "prompt"))` |
-| `permission_rationale` (action[, perms]) | `log("permission", "rationale", Meta.of("step", action, "perms", perms))` |
-| `permission_result` (perm, granted) | `log("permission", perm, Meta.of("step", "result", "granted", granted))` |
-| `setting_change` (key, value) | `log("setting", key, Meta.of("value", value))` |
-| `topics_open` (count) | `log("click", "edit topics", Meta.of("count", count))` |
-| `topic_add` / `topic_edit` (type) | `log("topic_add" / "topic_edit", type)` |
-| `topic_delete` / `topics_delete_all` (count) | `log("topic_delete", null)` / `log("topic_delete_all", null, Meta.of("count", count))` |
-| `topic_move` (dir) | `log("topic_move", dir)` |
-| `topic_prev` / `topic_next` (recording) | `log("click", "previous topic" / "next topic", Meta.of("recording", r))` |
-| `bgreplace_start` / `bgreplace_done` / `bgreplace_cancel` in BgReplaceService | a `bg_replace` span, see A4.3 |
-| `bgreplace_cancel` in MainActivity | `log("click", "cancel background replace")` |
-| `player_action` (action, …) / `player_close` | `log("player", action, Meta.of(<rest>))` / `log("click", "close player")` |
-| `video_play` / `howto_video_play` | `log("click", "play video" / "how-to video", Meta.of(<same keys>))` |
-| `paywall_view` (feature, plan) | `log("paywall", "shown", Meta.of("feature", f, "plan", p))` |
-| `paywall_action` (action, feature) | `log("click", "paywall " + action, Meta.of("feature", feature))` |
-| `plans_view` | `log("sheet", "plans", Meta.of(<same keys>))` |
-| `drawing_tool` (tool) / `ink_tool` (tool[, on]) | `log("click", "drawing " + tool)` / `log("click", "ink " + tool, Meta.of("on", on))` |
-| `account_row` (item) | `log("click", "account " + item)` |
-| `publish_tap` (channels, mode) | `log("click", "publish", Meta.of("channels", c, "mode", m))` |
-| `publish_result` ok=true / ok=false (kind, mode) | `log("publish", "done", Meta.of("mode", m))` / `error("publish", kind, null, Meta.of("mode", m))` |
-| `ai_captions_result` (state, wait_ms, mode) | `log("ai_captions", state, Meta.of("wait_ms", w, "mode", m))` |
-| `undo_choice` (choice) | `log("click", "undo " + choice)` |
-| `signin_start` / `signin_code_requested` / `signin_success` | `log("signin", "start" / "code requested" / "success")` |
-| `signin_fail` (kind…) | `error("signin", "failed", <Throwable in scope or null>, Meta.of(<same keys>))` |
-| `signout` / `session_ended` (…) | `log("signout", null)` / `log("session_ended", <reason value or null>, Meta.of(<rest>))` |
-| `entitlement_change` (from, to) | `log("plan_change", from + " → " + to, Meta.of("from", from, "to", to))` |
-| `workspace_switch` / `brand_row` | `log("click", "switch brand" / "brand row", Meta.of(<same keys>))` |
-| `web_link` (host) | `log("click", "web link", Meta.of("host", host))` |
-| `device_revoke`, `contact_email`, `contact_copy`, `account_delete`, `onboarding_skip` | `log("click", "revoke device" / "contact email" / "copy contact" / "delete account" / "skip onboarding", Meta.of(<same keys>))` |
-| anything else | `log("<same action>", null, Meta.of(<same key/value pairs>))` |
-Extra rule: in every `catch` block of the converted file that already reports a failure to the user or to the old log (Toast, error dialog, `record_error`),
-make sure there is an `ActivityTracker.error("<area>", "<what failed>", e)` with the caught exception. **Never** add tracking inside tight loops
-(`onDraw`, touch-move, the per-frame render). Track the gesture's end instead.
+### Slide sets (decided)
+- New nullable column `slides.set_id TEXT`: **NULL = the user's own topics** (all existing rows), and `"plan:<dayId>"` = the
+  topics of one plan day.
+- The active set id is kept in prefs `"app_prefs"` under key `active_slide_set` (absent = own).
+- A plan set is one TEXT slide per beat, `text_content` = `hook`, in beat order. It is only cut to 200 characters as a
+  safety net; the phone adds no title slide and never rewrites the text. The day's
+  `version` is kept in prefs `cplan_set_version:<dayId>`. If the server's version is newer, the next tap rebuilds the set.
+- The user may edit a plan set in the Topic Manager like any topics. Inserts go to the active set.
 
 ---
 
-## A1 — Tracker core
+## P1 — Content plan API, model, cache and report queue (pure Java + tests)
+**Depends on:** nothing (contract above). **Read first:** `M/aiedit/flow/AiEditApi.java`, `AiEditException.java`,
+`AiEditStore.java`, `AiEditReceipts.java`; `M/auth/ApiResponse.java`; `T/account/AccountApiTest.java`,
+`T/account/AccountModelsTest.java`, `T/aiedit/flow/AiQuoteCacheTest.java`.
 
-**Read first:** Shared context; `P/db/AppDatabase.java`; `T/db/AppDatabaseMigrationTest.java`; `app/src/main/res/xml/data_extraction_rules.xml`.
+**Do**: new package `M/contentplan/`. Every new file starts with a short comment saying what it is for.
+1. `PlanWeek.java`: an immutable model plus `static PlanWeek parse(String json) throws JSONException`.
+   - Fields: `status`, `today`, `timezone`, and `week` (nullable `Week { id, weekStart, weekEnd, idea, status,
+     List<Day> days }`). `Day` has `{ id, kind, date, dayIndex, title, angle, why, List<Beat> beats, closingLine, status,
+     version }`, and `Beat` is `{ hook, say }`.
+   - Use `optString`/`optJSONArray`. Skip a day with no id. Drop a beat with an empty hook; a missing `say` becomes "".
+   - `kind` is `"INSTANT_IDEA"` only when the server says so; anything else, or missing, is `"PLANNED"`. `dayIndex` is -1
+     when null or missing. `angle` is "" when null or missing (use `isNull` before `optString`, because `optString` turns
+     a JSON null into the text "null"). Keep the server's order for days.
+   - Helpers:
+     - `List<Day> daysFor(String date)` (all days of that date in server order, so an AI day comes before an instant idea;
+       empty list when none)
+     - `boolean isInstantIdea()` on `Day`
+     - `boolean isActive()` (status ACTIVE)
+     - `boolean isReady()` (week non-null and READY)
+2. `ContentPlanException.java`: a copy of `AiEditException`'s shape, with codes `NETWORK`, `SIGNED_OUT`, `NOT_FOUND`,
+   `RATE_LIMITED`, `SERVER`, `retryable`, and `from(ApiResponse)` (404 → NOT_FOUND, not retryable).
+3. `ContentPlanApi.java` (copy the `AiEditApi` `send` pattern):
+   - `PATH_WEEK = "/public/v1/content-plan/week"`, `String week(String workspaceId)`, which returns the raw body so the
+     cache stores exactly what came.
+   - `void recorded(String dayId, String workspaceId)`, a POST to `"/public/v1/content-plan/days/" + dayId + "/recorded"`
+     with body `{}` and header `Idempotency-Key: "plan-recorded-" + dayId`.
+4. `ContentPlanStore.java` (pattern `AiEditStore`, a `Store` interface plus `get(Context)` on SharedPreferences
+   `"content_plan"`):
+   - `saveWeek(brandId, json, nowMs)`, `String weekJson(brandId)`, `long fetchedAt(brandId)`;
+   - `savePendingRecorded(dayId, brandId, nowMs)`, `List<PendingRecorded> pendingRecorded()`, `removePending(dayId)`;
+   - `markRecordedLocally(dayId)`, `boolean recordedLocally(dayId)` (kept 30 days, pruned on save).
+5. `ContentPlanReports.java` (pattern `AiEditReceipts`):
+   - `flushAsync(Context)`.
+   - `flush(store, api, nowMs)`: for each pending item call `recorded`. Success or `NOT_FOUND` → `removePending`.
+     Retryable → keep. A pending item older than 14 days → drop.
 
-**Create in `P/tracker/`:**
-1. `TrackerConfig.java`: exactly as in Shared context.
-2. `Meta.java` (pure):
-   ```java
-   public final class Meta {
-       final LinkedHashMap<String, Object> values = new LinkedHashMap<>();
-       /** Meta.of("count", 3, "on", true). Odd tail, null keys and null values are skipped. */
-       public static Meta of(Object... keyValues) { Meta m = new Meta(); if (keyValues != null) for (int i = 0; i + 1 < keyValues.length; i += 2) m.put(String.valueOf(keyValues[i]), keyValues[i + 1]); return m; }
-       public Meta put(String key, Object value) { /* k = TrackedRecord.cleanKey(key); skip null k / null value / when size == 20;
-           Boolean, Integer, Long, Double, Float kept (non-finite doubles → skipped); everything else → TrackedRecord.cut(String.valueOf(value), 200) */ return this; }
-       public Meta merge(Meta other) { /* put each entry of other (null-safe) */ return this; }
-       boolean isEmpty() { return values.isEmpty(); }
-       JSONObject toJson() throws JSONException { /* null when empty */ }
-   }
-   ```
-3. `ErrorInfo.java` (pure): `static ErrorInfo from(Throwable t, boolean fatal, String thread, String lastActivity)`. Fields `type`
-   (`t.getClass().getName()`, cut 120), `message` (`t.getMessage()` cut 1000, null allowed), `stack`, `causes`, `thread` (cut 60), `fatal`, `lastActivity` (cut 120).
-   Stack text, built **by hand** (never `android.util.Log.getStackTraceString`):
-   ```java
-   StringBuilder sb = new StringBuilder(); Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-   for (Throwable c = t; c != null && seen.add(c) && sb.length() < 8000; c = c.getCause()) {
-       if (c != t) sb.append("Caused by: ").append(c.getClass().getName()).append(": ").append(c.getMessage()).append('\n');
-       for (StackTraceElement f : c.getStackTrace()) { sb.append("at ").append(f).append('\n'); if (sb.length() >= 8000) break; }
-   }
-   stack = TrackedRecord.cut(sb.toString(), 8000);
-   ```
-   `causes`: up to 5 of `t.getCause()` chain (cycle-safe as above), each `{type, message cut 300}`. `JSONObject toJson()`. A null `t` → `from` returns null.
-4. `TrackedRecord.java` (pure, the record + its JSON):
-   - fields: `String id` (UUID), `long seq`, `String session`, `String kind` ("activity"|"error"), `String name`, `String description`,
-     `long startedAt`, `Long endedAt`, `int tz`, `int appBuild`, `String screen`, `String source`, `Meta meta`, `ErrorInfo error`.
-   - `static String cleanName(String raw)`: null → null; `raw.trim().toLowerCase(Locale.ROOT)`, `[\s\-]+` → `_`, remove `[^a-z0-9_]`, cut 40; empty → null.
-     (So callers may write `"double click"` → `double_click`, `"app open"` → `app_open`.)
-   - `static String cleanKey(String raw)`: the same but cut 32.
-   - `static String cut(String s, int max)`: null/blank → null, trim, then `substring(0, max)` when longer.
-   - `String toJson()`: the contract's activity object. Omit `endedAt`/`description`/`screen`/`source`/`meta`/`error` when null. Throws nothing (catch `JSONException` → return null).
-5. `SessionClock.java` (pure): `interface Store { String sessionId(); long lastActiveAt(); void save(String id, long at); }`.
-   `String current(long now)`: when `sessionId()` is null or `now − lastActiveAt() > SESSION_GAP_MS` (or `now < lastActiveAt()`), make a new id (8 hex chars from
-   `UUID.randomUUID()`). Then `save(id, now)` and return it. The constructor takes `Store` and a `Supplier<String>` for ids (tests pass a fixed one).
-6. `DeviceId.java`: `static String derive(byte[] raw)` (pure): SHA-256 of `"facecam-tracker-v1"` bytes + raw, first 16 bytes, then
-   `b[6] = (b[6] & 0x0f) | 0x50; b[8] = (b[8] & 0x3f) | 0x80;` and format as a UUID string. `static String get(Context)`: cached
-   `TrackerPrefs.deviceId()`; else read `new MediaDrm(new UUID(0xEDEF8BA979D64ACEL, 0xA3C827DCD51D21EDL)).getPropertyByteArray(MediaDrm.PROPERTY_DEVICE_UNIQUE_ID)`
-   in try/catch (`close()` it in `finally`); on any failure `UUID.randomUUID().toString()`. Save and return. Call it **only off the main thread** (worker / tracker thread).
-7. `TrackerPrefs.java`: SharedPreferences `tracker_prefs`. Getters/setters: `deviceId`, `lastSentAt` (when 0: set it to now and return now, so
-   the 5-day clock starts at first run), `nextSeq` (`long reserveSeq()` returns the value and stores value + 1 with `apply()`), `sessionId` + `lastActiveAt`
-   (implements `SessionClock.Store`), `lastExitCheck`, `backgroundSince`, `firstOpenDone`.
-8. `TrackerStore.java`: the writer thread + Room. `static void write(Context, TrackedRecord r, Runnable afterStored)` and
-   `static boolean writeAndWait(Context, TrackedRecord r, long maxWaitMs)`. On the thread: `json = r.toJson()`; if null, return. When
-   `dao.count() >= LOCAL_MAX_ROWS`, run `dao.deleteOldest(TRIM_CHUNK)` and insert a `tracker_overflow` record (meta `dropped`). Insert the row.
-   Notify the listener (`TrackerStore.Listener.onStored(int pending)`, set by A2). Catch `Throwable` around everything.
-9. `Tracked.java`: a span handle. `public static final Tracked NOOP`. `public void end()` and `public void end(Meta extra)`: the first call only
-   (`AtomicBoolean`) sets `endedAt = now`, merges `extra`, and hands the record to `ActivityTracker` to store. Later calls do nothing.
-10. `ActivityTracker.java`: the static facade.
-    ```java
-    public static void init(Context context)                       // once from FaceCamApp; safe to call again
-    public static void log(String name)                            // = log(name, null, null)
-    public static void log(String name, String description)
-    public static void log(String name, String description, Meta meta)
-    public static Tracked start(String name, String description)   // span; never null
-    public static Tracked start(String name, String description, Meta meta)
-    public static void error(String name, String description, Throwable t)
-    public static void error(String name, String description, Throwable t, Meta meta)
-    static void fatal(Throwable t, Thread thread)                  // A3 crash handler: also ends every open span (meta ended_by=crash), waits ≤ CRASH_WAIT_MS
-    static void setScreen(String screen)                           // A3: current screen, stamped on every record
-    static void setEntry(String source, String notif)              // A3: pending source for the next app_open / app_foreground
-    static void onStored(TrackerStore.Listener l)                  // A2
-    ```
-    Building a record: `id = UUID`, `seq = prefs.reserveSeq()`, `session = clock.current(now)`, `startedAt = now`,
-    `tz = TimeZone.getDefault().getOffset(now) / 60000`, `appBuild = BuildConfig.VERSION_CODE`, `screen = currentScreen`,
-    `kind = "activity"` (or `"error"` with `ErrorInfo.from(t, false, Thread.currentThread().getName(), lastActivity)`. A null `t` still makes an error record without the `error` block).
-    Keep `volatile String lastActivity = name + (description == null ? "" : " — " + description)` for every non-`screen` record.
-    Keep open spans in `Collections.newSetFromMap(new ConcurrentHashMap<>())` so `fatal` can end them. Every public method follows Code rule 1.
-    Before `init`, every method is a no-op and `start` returns `Tracked.NOOP`.
+**Tests (run only these, `--tests '*contentplan*'`)**:
+- `PlanWeekTest`: the contract sample parses; `days` is empty when not READY; a null week; a day without an id is skipped;
+  `daysFor`; an `INSTANT_IDEA` day with `dayIndex` and `angle` null parses (`dayIndex` -1, `angle` "", not the text
+  "null"); a day without `kind` is `PLANNED`; two days on one date come back in server order.
+- `ContentPlanStoreTest` (map store): a week per brand is kept apart; pending add and remove; local recorded prune.
+- `ContentPlanApiTest` (MockWebServer): path, `x-workspace-id`, Idempotency-Key, 404 → NOT_FOUND.
+- `ContentPlanReportsTest`: success removes; a network error keeps; a 404 removes; old items are dropped.
 
-**Room:**
-- `P/db/TrackedActivity.java`: `@Entity(tableName = "tracked_activities")`, fields `@PrimaryKey @NonNull public String id;`,
-  `public long seq;`, `@ColumnInfo(name = "created_at") public long createdAt;`, `@NonNull public String json;`, `@ColumnInfo(name = "batch_id") public String batchId;`.
-- `P/db/TrackedActivityDao.java`:
-  ```java
-  @Insert(onConflict = OnConflictStrategy.IGNORE) void insert(TrackedActivity row);
-  @Query("SELECT COUNT(*) FROM tracked_activities") int count();
-  @Query("DELETE FROM tracked_activities WHERE id IN (SELECT id FROM tracked_activities WHERE batch_id IS NULL ORDER BY created_at LIMIT :n)") int deleteOldest(int n);
-  @Query("SELECT batch_id FROM tracked_activities WHERE batch_id IS NOT NULL LIMIT 1") String openBatchId();
-  @Query("UPDATE tracked_activities SET batch_id = :batchId WHERE id IN (SELECT id FROM tracked_activities WHERE batch_id IS NULL ORDER BY created_at LIMIT :n)") int assignBatch(String batchId, int n);
-  @Query("SELECT * FROM tracked_activities WHERE batch_id = :batchId ORDER BY created_at") List<TrackedActivity> inBatch(String batchId);
-  @Query("DELETE FROM tracked_activities WHERE batch_id = :batchId") int deleteBatch(String batchId);
-  ```
-- `AppDatabase`: add `TrackedActivity.class` to `entities`, `public abstract TrackedActivityDao trackedActivityDao();`, version **9**, and
-  ```java
-  /** The table of {@link TrackedActivity}; kept as text so a test can check what a migration runs. */
-  static final String CREATE_TRACKED_ACTIVITIES = "CREATE TABLE IF NOT EXISTS `tracked_activities` ("
-          + "`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, "
-          + "`json` TEXT NOT NULL, `batch_id` TEXT, PRIMARY KEY(`id`))";
-  // Activity tracker buffer; every other table is untouched.
-  static final Migration MIGRATION_8_9 = new Migration(8, 9) { public void migrate(@NonNull SupportSQLiteDatabase db) { db.execSQL(CREATE_TRACKED_ACTIVITIES); } };
-  ```
-  Append it to `MIGRATIONS`. **Do not touch** the old `activity_events` entity/table yet (A4.5 removes it).
-- `data_extraction_rules.xml`: add `<exclude domain="sharedpref" path="tracker_prefs.xml" />` in **both** sections (next to the existing excludes), with a comment saying
-  the device id must not travel to another phone.
+## P2 — Slide sets (database, repository, MainActivity scoping)
+**Depends on:** nothing. **Read first:** `M/db/Slide.java`, `SlideDao.java`, `SlideRepository.java`, `AppDatabase.java`,
+`T/db/AppDatabaseMigrationTest.java`; `MainActivity` lines 2260-2300 (`loadSlidesFromDb`), the insert sites listed in
+App facts, 3640-3700 (`deleteAllSlides`), and `seedInitialSlides`.
 
-**Tests** (`T/tracker/`, pure JUnit):
-- `MetaTest`: `of("a",1,"b")` keeps only a. Null value skipped. A 300-char string cut to 200. The 21st key ignored. Key `"Topic Type"` → `topic_type`. A nested object → its String form. `NaN` skipped.
-- `TrackedRecordTest`: `cleanName("double click")` = `double_click`; `"  App-Open "` = `app_open`; `"!!!"` → null; 50 chars → 40. `toJson` of an instant record has no `endedAt`.
-  A span has both times. `kind` error with an `ErrorInfo` has an `error` object.
-- `ErrorInfoTest`: an `IllegalStateException` wrapping an `IOException` → type = the full class name, 1 cause, the stack contains `Caused by: java.io.IOException`.
-  A 5000-char message cut to 1000. A self-referencing cause chain terminates. A null throwable → null.
-- `SessionClockTest`: same id within 30 min, a new id after 30 min + 1 ms, a new id when the clock goes back.
-- `DeviceIdTest`: `derive` is deterministic, has version nibble `5` and variant `8..b`, and gives different ids for different raw bytes.
-- `T/db/AppDatabaseMigrationTest`: update the version test to **9 / 8 steps**. Add `migration8to9_createsTrackedActivitiesOnly` (1 statement, starts with
-  `CREATE TABLE IF NOT EXISTS \`tracked_activities\``, contains the 5 columns, no other table name).
+**Do**
+1. `Slide`: `@ColumnInfo(name = "set_id") private String setId;` (nullable) with a getter and setter. Leave the
+   `@Ignore` constructor as it is.
+   - Constants: `public static final String PLAN_SET_PREFIX = "plan:";` and
+     `public static String planSetId(String dayId) { return PLAN_SET_PREFIX + dayId; }`.
+2. `AppDatabase`:
+   - `version = 11`.
+   - `MIGRATION_10_11`: `database.execSQL("ALTER TABLE slides ADD COLUMN set_id TEXT")`, with a one-line comment (house
+     style). Append it to `MIGRATIONS`.
+   - Update the migration test: the count is now 10 steps and the end version 11. Add
+     `migration10to11_addsOnlyTheSetColumn` (exactly one statement, equal to the SQL above).
+3. `SlideDao`:
+   - `getOwnOrdered()` = `SELECT * FROM slides WHERE set_id IS NULL ORDER BY order_index ASC`
+   - `getSetOrdered(String setId)` = `... WHERE set_id = :setId ...`
+   - `deleteOwn()`, `deleteSet(String setId)`
+   - `List<Integer> idsOfSet(String setId)`, `List<Integer> idsOfOwn()`
+   - `List<String> planSetIds()` = `SELECT DISTINCT set_id FROM slides WHERE set_id LIKE 'plan:%'`
+   - `@Insert void insertAll(List<Slide>)`
+   - Keep `getAllOrdered()` and `deleteAll()` but leave no caller in MainActivity.
+4. `SlideRepository` (same executor and handler pattern):
+   - `getSet(String setIdOrNull, Callback<List<Slide>>)` (null → own)
+   - `replaceSet(String setId, List<Slide> slides, Callback<List<Integer>> removedIds)` (one transaction via
+     `db.runInTransaction`: ids of the old set, deleteSet, insertAll)
+   - `deleteSetOrOwn(String setIdOrNull, Callback<List<Integer>> removedIds)`
+   - `planSetIds(Callback<List<String>>)`
+5. `MainActivity`:
+   - Field `private String activeSetId`, read from prefs key `active_slide_set` in `onCreate` before the first
+     `loadSlidesFromDb`.
+   - `loadSlidesFromDb` uses `repository.getSet(activeSetId, …)`.
+   - Every insert site sets `slide.setSetId(activeSetId)`.
+   - `deleteAllSlides()` uses `deleteSetOrOwn(activeSetId, …)` and discards ink and board data for the **returned ids**
+     only. Image files are deleted only for slides of that set (keep the existing logic but limit it to `slides`, the
+     in-memory list of that set).
+   - `seedInitialSlides` checks and seeds only the own set (`setId` null).
+   - New method `void switchSlideSet(String setIdOrNull)`:
+     1. Save or remove the pref.
+     2. `currentSlideIndex = 0`.
+     3. `loadSlidesFromDb(false)`.
+     4. Do nothing while `isRecording` (show `R.string.cplan_locked_recording`).
+   - New method `void discardSlideData(List<Integer> ids)`: the same discard calls `deleteAllSlides` makes for ink and
+     board.
+   - Add `strings_content_plan.xml` with `cplan_locked_recording` ("Finish recording first").
 
-**Done when:** `./gradlew --offline :app:testDebugUnitTest --tests '*tracker*'`, then `--tests '*AppDatabaseMigrationTest*'`, then `:app:assembleDebug` all pass.
-Commit `feat(tracker): A1 tracker core, records and local buffer`.
+**Check**: `./gradlew --offline :app:assembleDebug` and `--tests '*AppDatabaseMigrationTest*'`. An existing user upgrading
+sees exactly their topics as before (every old row has `set_id` NULL).
 
----
+## P3 — Today's video card, Practice screen, week sheet, load as topics
+**Depends on:** P1, P2, and server **B5** ticked (routes live). **Read first:** P1 and P2 files; `activity_main.xml`
+(`root_layout`, `top_menu_bar`); `MainActivity` `onCreate` (find the view lookups), `onResume`, `updateUIState()` (1778),
+`openSlideManagerDialog()` (3118) for BottomSheetDialog style; `res/layout/item_recording_card.xml` (card style);
+`M/ui/BillingLink.java` (web link with fallback); `M/ui/AiEditPanel.java` (the `loadQuote` executor pattern).
 
-## A2 — Upload (pairs with backend B2)
+**Do**
+1. Layout `res/layout/view_content_plan_today.xml`:
+   - A `MaterialCardView` (`#222222`, radius 12dp, elevation 3dp, margin 12dp).
+   - Inside, a vertical stack:
+     - label `cplan_today` ("Today's video") + date, 12sp secondary;
+     - title, 17sp bold white, max 3 lines;
+     - angle chip (`#64B5F6` text on `#1A64B5F6`, 12sp, GONE for an unknown key). For an instant idea the same chip shows
+       `cplan_your_idea` ("Your idea") instead;
+     - why, 13sp secondary, max 2 lines;
+     - a button row of TextButtons: **Use as topics** / **Practice** / **Week**;
+     - a status line (Recorded ✓ / message).
+   - Include it in `activity_main.xml` inside `root_layout`, `layout_below="@id/top_menu_bar"`, initially `gone`.
+2. `M/contentplan/ContentPlanCard.java` (UI glue, so MainActivity stays small). Constructor
+   `(MainActivity host, View card, ContentPlanStore store)`.
+   - `refresh(boolean force)`:
+     - Runs on an executor and skips when the last fetch for this brand was under 10 minutes ago, unless `force` is true or
+       the local date changed.
+     - Flow: `SessionManager.hasSession()`, then `brandForNewJob()`, then `api.week`, then `store.saveWeek`, then `bind` on
+       the main thread.
+     - On any error it binds from the cache silently.
+     - No session or no brand → hidden.
+   - `bind(PlanWeek pw)`. States:
+     - `status` NONE, SETUP or PROPOSED → title `cplan_setup_title` ("Plan your videos with AI") and one button
+       `cplan_setup_open` ("Set up on the web"). The button opens the web link `content-plan` like `BillingLink.open`,
+       falling back to `WEB_BASE_URL + "/plan"`.
+     - ACTIVE with the week null, IDEA or GENERATING → `cplan_writing` ("Writing this week's videos…"), no buttons.
+     - FAILED → `cplan_failed` ("This week's videos aren't ready yet"), no buttons.
+     - READY → the selected day: by default the first day of `daysFor(localToday)` that is not recorded (server status or
+       `recordedLocally`), or the first one when all are recorded, where `localToday` is the device date in the server's
+       `timezone`, through `java.time.ZonedDateTime.now(ZoneId.of(tz))` (minSdk 31, so it is available) with a fallback to
+       the server's `today`.
+       - Today has no video day (the owner makes fewer than 7 a week) → select the first day after today that is not
+         recorded (any kind, in date order, an AI day before an instant idea on the same date) and label the card `cplan_next` ("Next video") with its date instead of "Today's video". If none is left
+         this week → `cplan_week_done` ("All videos for this week are done ✓"), with only the **Week** button.
+       - `localToday` is after the week's `weekEnd` (the week is over and the phone is offline) → `cplan_stale` ("Go
+         online to get this week's videos").
+       - The day is recorded (server status or `recordedLocally`) → status line `cplan_recorded` ("Recorded ✓").
+       - Today has more than one video (an AI day and an instant idea) and some other one is not recorded → the status line
+         shows `cplan_more_today` ("+1 more today", with the count). The other one is chosen in the **Week** sheet.
+   - **Use as topics**:
+     1. Build the slides (Shared context → Slide sets).
+     2. If the set does not exist or its version is older, `replaceSet` and then `host.discardSlideData(removedIds)`.
+     3. `host.switchSlideSet(planSetId)`.
+     4. The button becomes **Back to my topics**, which calls `host.switchSlideSet(null)`.
+   - **Practice**: starts `ContentPlanPracticeActivity` with the brand id and day id (step 5).
+   - **Week**: a `BottomSheetDialog` listing every day of the week (AI days and instant ideas, in the server's order):
+     weekday and date, title, and the status Today / Recorded ✓ / Missed. An instant idea also shows the small
+     `cplan_your_idea` label. Tapping a day selects it in the card, so a missed day can still be recorded.
+   - Cleanup after each successful fetch: every `planSetIds()` entry whose day id is not in the current week is deleted
+     (`deleteSetOrOwn`, then `discardSlideData`). If the active set was one of them, call `switchSlideSet(null)` first.
+   - Angle labels: `cplan_angle_problem` … `cplan_angle_trend` (all 10, plain English: "Problem", "Common mistake", "Story",
+     "Question", "Comparison", "Steps", "What you could lose", "Behind the scenes", "Customer voice", "Trend"), plus
+     `cplan_your_idea` ("Your idea") and `cplan_more_today` ("+%d more today").
+   - Nothing else depends on how a day was made: slide sets (`plan:<dayId>`), Practice, cleanup and the recorded report
+     all work from the day id, so they treat an instant idea exactly like an AI day.
+3. `MainActivity` wiring:
+   - Create the card in `onCreate`.
+   - `card.refresh(false)` in `onResume`.
+   - In `updateUIState()` the card is VISIBLE only when `!isRecording && isMenuBarVisible && card.hasContent()`, otherwise
+     GONE. **It must be GONE while recording** because the screen is captured.
+4. Privacy: no `SlideLogger`, `ActivityTracker` or `Log` call with plan texts.
+5. `M/contentplan/ContentPlanPracticeActivity.java` + `res/layout/activity_content_plan_practice.xml`. It is a separate
+   screen on purpose: it never starts the camera or MediaProjection, so no facecam and no recording can happen here, and
+   MainActivity's recording state is not touched.
+   - Register it in `AndroidManifest.xml` with the same theme and orientation as `MainActivity`.
+   - Read the day from `ContentPlanStore` (the cached week of the given brand). If it is missing, finish.
+   - Layout, top to bottom on a `#121212` background:
+     1. The same card header (title, angle chip, why).
+     2. A **stage** that looks like the recording slide: a dark box with the hook centred, `@font/bitter`, white, line
+        spacing 1.2, and the size from the same length rule as recording.
+     3. Under it, "You say" (12sp secondary) and the `say` text (18sp white, line spacing 1.3, selectable).
+     4. A row: **Previous** · "2 / 4" · **Next**. After the last beat, Next shows the closing line under the label
+        "End with".
+     5. A **Show whole script** toggle that lists every beat (hook in bold, say below) and the closing line in one
+        ScrollView.
+     6. Bottom buttons: **Use as topics** (does the same as on the card, then `finish()`, so the user is back on the
+        recorder with the slides loaded) and **Done**.
+   - Font-size rule: move the body of `MainActivity.applyTextSlideFontScaling` into
+     `M/ui/TextSlideSize.java` (`static float sizeSp(int length)`: 26sp up to 100 characters, linear down to 15sp at 200,
+     exactly the current numbers). MainActivity calls it, so recording looks the same as before. Add
+     `T/ui/TextSlideSizeTest` (0 → 26, 100 → 26, 150 → 20.5, 200 and more → 15).
+   - Plan text views use `textDirection` first-strong, so right-to-left text reads right.
 
-**Read first:** Shared context (Contract, Constants); `P/auth/ApiClient.java`; `P/auth/ApiResponse.java`; the A1 classes.
+**Check**: assembleDebug and `--tests '*TextSlideSizeTest*'`. Then the owner, on a device (record the result in **Passed on
+a device**):
+- No plan → the card shows "Set up on the web" and opens /plan.
+- Plan ready → today's title. Use as topics → the presentation shows one slide per hook (no script anywhere); Back to my
+  topics → the old topics are unchanged.
+- Practice → no camera light and no facecam; each hook appears as it will in the recording with its say under it; Next and
+  Previous work; the closing line shows after the last beat; Use as topics returns to the recorder with the slides loaded.
+- Recording → the card is not in the video.
+- Airplane mode + app restart → the card shows from the cache.
+- Brand switch → the other brand's day (or the setup card).
+- Once server B8 is live: add an instant idea for today on the web → the phone shows it ("Your idea" chip, "+1 more today"
+  on the card of the other video, both listed in **Week**); Use as topics and Practice work on it; recording it marks it
+  Recorded on the web.
 
-1. **`ApiClient.sendGzipJson(String path, String json, Map<String,String> headers) throws IOException`**: a new method next to `send`.
-   ```java
-   ByteArrayOutputStream bos = new ByteArrayOutputStream();
-   try (GZIPOutputStream gz = new GZIPOutputStream(bos)) { gz.write(json.getBytes(StandardCharsets.UTF_8)); }
-   Request.Builder rb = new Request.Builder().url(baseUrl + path).header("Accept", "application/json").header("Content-Encoding", "gzip");
-   if (headers != null) for (Map.Entry<String,String> h : headers.entrySet()) rb.header(h.getKey(), h.getValue());
-   rb.post(RequestBody.create(bos.toByteArray(), JSON));
-   try (Response r = http.newCall(rb.build()).execute()) { /* build ApiResponse exactly like send() does */ }
-   ```
-2. **`P/tracker/UploadPolicy.java`** (pure):
-   ```java
-   static final long DAY_MS = 24L * 60 * 60 * 1000;
-   /** Whether a send is due now. pending ≤ 0 → never. */
-   static boolean isDue(int pending, long lastSentAt, long now) {
-       if (pending <= 0) return false;
-       long since = now - lastSentAt;
-       if (since < 0) return true;                                   // clock went back: send once, which resets it
-       if (pending > TrackerConfig.SEND_WHEN_MORE_THAN && since >= TrackerConfig.MIN_GAP_MS) return true;
-       return since >= TrackerConfig.SEND_EVERY_DAYS * DAY_MS;
-   }
-   /** ms to wait before the volume rule may fire (0 when it may fire now). */
-   static long delayForVolume(long lastSentAt, long now) { long w = lastSentAt + TrackerConfig.MIN_GAP_MS - now; return (w < 0 || w > TrackerConfig.MIN_GAP_MS) ? 0 : w; }
-   ```
-3. **`P/tracker/TrackerPayload.java`** (pure): `static String build(String batchId, String deviceId, long sentAt, AppInfo app, DeviceInfo device, List<String> rowJsons)`.
-   It parses each row's JSON with `new JSONObject(s)` and skips unreadable ones. When **none** remain, it returns null (the caller drops the batch). `AppInfo{version, build, pkg}` and
-   `DeviceInfo{os, sdk, manufacturer, model, locale}` are plain value classes filled by the worker from `BuildConfig`/`Build`/`Locale.getDefault().toLanguageTag()`.
-4. **`P/tracker/TrackerApi.java`**: `enum Outcome { SENT, DROP, RETRY }`, constructor `(ApiClient client, Supplier<String> token)`, and `Outcome send(String body)`:
-   ```java
-   String t = token == null ? null : token.get();
-   ApiResponse r = client.sendGzipJson(PATH, body, t == null ? null : Collections.singletonMap("Authorization", "Bearer " + t));
-   if (r.status == 401 && t != null) r = client.sendGzipJson(PATH, body, null);       // resend once anonymously
-   if (r.isSuccess()) return SENT;
-   if (r.status == 400 || r.status == 413 || r.status == 422) return DROP;
-   return RETRY;                                                                       // 404, 429, 5xx
-   ```
-   with `catch (IOException e) → RETRY` and `catch (RuntimeException e) → RETRY`. `PATH = "/tracker/batches"`.
-5. **`P/tracker/Connectivity.java`**: `static boolean hasInternet(Context c)`. `ConnectivityManager` → `getActiveNetwork()` → `getNetworkCapabilities(n)`.
-   True only when `NET_CAPABILITY_INTERNET` **and** `NET_CAPABILITY_VALIDATED` are present. Any exception → false. (The permission `ACCESS_NETWORK_STATE` is already in the manifest.)
-6. **`P/tracker/TrackerUploadWorker.java`** (`extends Worker`), `KEY_FORCE = "force"`:
-   ```java
-   public Result doWork() {
-     try {
-       Context c = getApplicationContext();
-       if (!Connectivity.hasInternet(c)) return again();                  // "check internet before sending"
-       TrackedActivityDao dao = AppDatabase.getInstance(c).trackedActivityDao();
-       TrackerPrefs prefs = new TrackerPrefs(c);
-       boolean force = getInputData().getBoolean(KEY_FORCE, false);
-       if (!force && !UploadPolicy.isDue(dao.count(), prefs.lastSentAt(), System.currentTimeMillis())) return Result.success();
-       TrackerApi api = new TrackerApi(new ApiClient(BuildConfig.API_BASE_URL, BuildConfig.DEBUG),
-               () -> SessionManager.get(c).repository().quietAccessToken());
-       String deviceId = DeviceId.get(c);
-       for (int i = 0; i < TrackerConfig.MAX_BATCHES_PER_RUN; i++) {
-         String batchId = dao.openBatchId();                                // an unconfirmed batch is resent unchanged
-         if (batchId == null) { batchId = UUID.randomUUID().toString(); if (dao.assignBatch(batchId, TrackerConfig.BATCH_SIZE) == 0) return Result.success(); }
-         List<TrackedActivity> rows = dao.inBatch(batchId);
-         if (rows == null || rows.isEmpty()) continue;
-         String body = TrackerPayload.build(batchId, deviceId, System.currentTimeMillis(), appInfo(), deviceInfo(), jsonsOf(rows));
-         if (body == null) { dao.deleteBatch(batchId); continue; }
-         switch (api.send(body)) {
-           case SENT: dao.deleteBatch(batchId); prefs.setLastSentAt(System.currentTimeMillis()); break;
-           case DROP: dao.deleteBatch(batchId); break;
-           default:   return again();
-         }
-       }
-       if (dao.count() > 0) TrackerScheduler.drainNow(c);                 // more left: a follow-up run
-       return Result.success();
-     } catch (Throwable t) { return again(); }
-   }
-   private Result again() { return getRunAttemptCount() >= TrackerConfig.MAX_UPLOAD_ATTEMPTS ? Result.success() : Result.retry(); }
-   ```
-   (`Result.success()` after the last attempt is on purpose: WorkManager stops retrying, and the next trigger or the daily job tries again.)
-7. **`P/tracker/TrackerScheduler.java`** implements `TrackerStore.Listener`:
-   - `static void schedulePeriodic(Context)`: `PeriodicWorkRequest` every **24 h**, `NetworkType.CONNECTED`, backoff exponential 10 min,
-     `enqueueUniquePeriodicWork("tracker-upload-periodic", KEEP, …)`. This carries the 5-day rule.
-   - `onStored(int pending)`: when `pending > SEND_WHEN_MORE_THAN` and the last check was ≥ 60 s ago, enqueue a one-time run with
-     `setInitialDelay(UploadPolicy.delayForVolume(lastSentAt, now))`, CONNECTED, unique `"tracker-upload-now"`, `ExistingWorkPolicy.KEEP`.
-   - `static void drainNow(Context)`: a one-time run, input `force = true`, unique `"tracker-upload-drain"`, `KEEP`, CONNECTED.
-   - Everything in try/catch (scheduling is best effort).
-8. **Wire it** in `FaceCamApp.onCreate`, inside a new `try { } catch (Throwable ignored) { }` block placed **before** the old activity-log block:
-   `ActivityTracker.init(this); ActivityTracker.onStored(new TrackerScheduler(this)); TrackerScheduler.schedulePeriodic(this);`
+## P4 — Report "recorded" automatically
+**Depends on:** P1, P3, and server **B5**. **Read first:** `M/service/ScreenRecordService.java` lines 110-140
+(`ACTION_START`), 225-260 (`startRecordingInternal`) and 365-460 (`stopRecordingInternal`, success branch);
+`MainActivity` `screenCaptureLauncher` (about 1850); `M/FaceCamApp.java` `onCreate`; P1's `ContentPlanReports`.
 
-**Tests** (`T/tracker/`):
-- `UploadPolicyTest`: pending 0 → false at any time. 20 pending, 1 h after send → false. 21 pending, 1 h → true. 21 pending, 5 min → false (gap). 1 pending at
-  5 days − 1 ms → false, at exactly 5 days → true. A clock 1 h behind lastSentAt → true. `delayForVolume`: 5 min after send → 10 min; 20 min after → 0.
-- `TrackerPayloadTest`: 2 good + 1 broken row → `activities` has 2, the envelope fields are present, `sentAt` is set. All broken → null. An empty list → null.
-- `TrackerApiTest` (MockWebServer + `new ApiClient(server.url("/").toString(), new OkHttpClient(), true)`): 200 → SENT, and the request has
-  `Content-Encoding: gzip`, a gunzipped body equal to the input, and `Authorization: Bearer t`. 400, 413 and 422 → DROP. 401 then 200 → SENT, the second request has no
-  Authorization. 503 → RETRY. 404 → RETRY. Server shut down (IOException) → RETRY. Token supplier returns null → no Authorization header.
+**Do**
+1. `ScreenRecordService`:
+   - Constants `EXTRA_PLAN_DAY_ID`, `EXTRA_PLAN_BRAND_ID`.
+   - In `ACTION_START` read them into fields `planDayId` and `planBrandId` (null when absent).
+   - In `startRecordingInternal` store `planStartMs = SystemClock.elapsedRealtime()`.
+   - In the success branch of `stopRecordingInternal`, inside its own try/catch so a recording never fails because of this:
+     when `planDayId != null` and the recording lasted at least 10 s (an accidental tap must not mark the day),
+     `ContentPlanStore.get(this).savePendingRecorded(planDayId, planBrandId, now)`, then `markRecordedLocally(planDayId)`,
+     then `ContentPlanReports.flushAsync(this)`.
+   - Clear both fields at the end of stop, whatever happened.
+2. `MainActivity` `screenCaptureLauncher`: when `activeSetId` starts with `Slide.PLAN_SET_PREFIX`, put
+   `EXTRA_PLAN_DAY_ID = activeSetId.substring(prefix length)` and `EXTRA_PLAN_BRAND_ID =
+   SessionManager.get(this).repository().store().workspaceId()` on the start intent.
+3. `FaceCamApp.onCreate`: `try { ContentPlanReports.flushAsync(this); } catch (Exception e) { }`, with the comment "retries a
+   recorded report that could not be sent", next to the `AiEditReceipts` call.
+4. `ContentPlanCard`: on `onResume`, re-bind so "Recorded ✓" shows from the local mark straight away.
 
-**Done when:** these tests pass and `assembleDebug` succeeds. Manual check after B2 is deployed: airplane mode, tap > 20 things, internet on → the batch appears in super-admin → Activity within minutes, with no UI on the phone.
-Commit `feat(tracker): A2 batched silent upload`.
+**Tests**: extend `ContentPlanReportsTest` if anything changed. Check: assembleDebug. Owner on a device:
+- Use as topics → record 15 s → stop → the card shows Recorded ✓ and the web day card shows Recorded (same for an
+  instant idea, once server B8 is live).
+- A 5 s recording → not marked.
+- Recording with the own topics → not marked.
+- Airplane mode while stopping → it is marked after the next app start online.
 
----
+## Passed on a device (owner ticks)
+- [ ] P3 checks
+- [ ] P4 checks
 
-## A3 — Auto-tracking: app open + source, foreground/background, screens, crash, exit reasons, notification entry
-
-**Read first:** Shared context; `P/FaceCamApp.java` (`ScreenTracker`); `P/ui/StartupActivity.java`; the A1/A2 classes;
-the notification builders: `P/service/ScreenRecordService.java` (≈ L168 and L194-200), `P/service/BgReplaceService.java` (≈ L486-491),
-`P/aiedit/flow/AiEditService.java` (≈ L403-408), `P/publish/AutoPublishNotifier.java` (≈ L78-103: the content intent + "Set up" + "Top up" actions).
-
-1. **`P/tracker/AppOpenSource.java`** (pure): `static String of(boolean fromNotification, String action, boolean hasLauncherCategory, int flags)`
-   gives `"notification"` | `"recents"` (when `(flags & 0x00100000) != 0`, i.e. `Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`. Use the literal in the pure class and
-   note it in a comment) | `"launcher"` (`"android.intent.action.MAIN"` + launcher category) | `"other"`.
-2. **`P/tracker/AutoTracker.java`** implements `Application.ActivityLifecycleCallbacks`. Register it in `FaceCamApp` right after `ActivityTracker.init`.
-   - Fields: `int started; boolean recreating; boolean processFirst = true; Tracked background; Tracked rotatingSpan; Map<Activity, Tracked> screens = new WeakHashMap<>()`.
-     All callbacks run on the main thread, so no locking is needed. Wrap each callback body in try/catch (Code rule 1).
-   - `onActivityStarted(a)`:
-     - If `recreating`: set it false, `started++`, `if (rotatingSpan != null) screens.put(a, rotatingSpan); rotatingSpan = null;`, return
-       (a rotation is the same visit: the span moves to the recreated Activity object).
-     - If `started++ == 0` (coming to the front):
-       - `source` = the pending entry from `ActivityTracker.setEntry` (then clear it), else `AppOpenSource.of(false, i.getAction(), i.hasCategory(Intent.CATEGORY_LAUNCHER), i.getFlags())` with `i = a.getIntent()` (null-safe).
-       - If `processFirst`: `log("app_open", "cold start", Meta.of("first_run", !prefs.firstOpenDone(), "notif", notif))` with `source` as the record's source
-         (add `static void logWithSource(String name, String description, String source, Meta m)` to ActivityTracker), then `prefs.setFirstOpenDone()` and `processFirst = false`.
-       - Else: `if (background != null) background.end(); background = null;` then `logWithSource("app_foreground", "came back", source, meta)`.
-       - Always `prefs.setBackgroundSince(0)`.
-     - If `a` is not `StartupActivity` or `NotificationEntryActivity`: `screens.put(a, ActivityTracker.start("screen", a.getClass().getSimpleName()))` and `ActivityTracker.setScreen(simpleName)`.
-   - `onActivityStopped(a)`:
-     - `started--`.
-     - If `a.isChangingConfigurations()`: `recreating = true; rotatingSpan = screens.remove(a);` and return (the span stays open).
-     - `Tracked s = screens.remove(a); if (s != null) s.end();`
-     - If `started == 0`: `background = ActivityTracker.start("app_background", "minimized"); prefs.setBackgroundSince(now)`.
-   - **Process-death case**, in `AutoTracker`'s constructor: when `prefs.backgroundSince() > 0`, store one `app_background` record with that start, `endedAt = null`
-     and meta `process_ended=true` (add a package-private `ActivityTracker.logAt(name, description, startedAt, Meta)`), then clear it.
-3. **Remove from `FaceCamApp.ScreenTracker`** only the `ActivityLog.*` calls (`appForeground`, `appBackground`, `screen_view`). Its other jobs (entitlement refresh,
-   billing, plan notice) stay. **Remove** the `ActivityLog.log("app_open", …)` line from `StartupActivity`.
-4. **`P/tracker/TrackerCrashHandler.java`**: `static void install()` wraps `Thread.getDefaultUncaughtExceptionHandler()`. In `uncaughtException(thread, e)`:
-   `try { ActivityTracker.fatal(e, thread); } catch (Throwable ignored) {}`, then `previous.uncaughtException(thread, e)` when previous is not null.
-   `fatal` makes the error record `name = "crash"`, `description = "uncaught"`, `ErrorInfo.from(e, true, thread.getName(), lastActivity)`, and ends open spans with
-   `Meta.of("ended_by", "crash")`, using `TrackerStore.writeAndWait(..., CRASH_WAIT_MS)`. Install it in `FaceCamApp` in the tracker block. Leave the old `CrashLogger.install()`
-   in place for now (A4.5 deletes it). Install the new handler **after** it, so ours runs first and then calls the old one.
-5. **`P/tracker/ExitReasons.java`**: `static void recordNew(Context c, TrackerPrefs prefs)`, run once on the tracker thread at init.
-   ```java
-   ActivityManager am = c.getSystemService(ActivityManager.class);
-   List<ApplicationExitInfo> list = am.getHistoricalProcessExitReasons(null, 0, 10);
-   long last = prefs.lastExitCheck();
-   if (last == 0) { prefs.setLastExitCheck(System.currentTimeMillis()); return; }   // first run: don't import old history
-   long newest = last;
-   for (ApplicationExitInfo x : list) {
-     if (x.getTimestamp() <= last) continue;
-     newest = Math.max(newest, x.getTimestamp());
-     String reason = reasonName(x.getReason());   // ANR, CRASH, CRASH_NATIVE, LOW_MEMORY, USER_REQUESTED, USER_STOPPED, EXIT_SELF, SIGNALED,
-                                                  // EXCESSIVE_RESOURCE_USAGE, INITIALIZATION_FAILURE, PERMISSION_CHANGE, DEPENDENCY_DIED, OTHER, UNKNOWN
-     Meta m = Meta.of("reason", reason, "status", x.getStatus(), "importance", x.getImportance(), "pss_kb", x.getPss(), "rss_kb", x.getRss(), "detail", x.getDescription());
-     boolean isError = reason.equals("ANR") || reason.equals("CRASH_NATIVE") || reason.equals("INITIALIZATION_FAILURE");
-     // ANR: read the first 8000 chars of x.getTraceInputStream() (may be null) as the error stack (ErrorInfo with type "ANR")
-     // store with startedAt = x.getTimestamp(), name "app_exit", description = reason, kind error/activity
-   }
-   prefs.setLastExitCheck(newest);
-   ```
-   Put `reasonName(int)` in a pure class `ExitReasonNames` with the `ApplicationExitInfo.REASON_*` int values as literals (they are fixed API constants: ANR 6,
-   CRASH 4, CRASH_NATIVE 5, DEPENDENCY_DIED 12, EXCESSIVE_RESOURCE_USAGE 9, EXIT_SELF 1, INITIALIZATION_FAILURE 7, LOW_MEMORY 3, OTHER 13, PERMISSION_CHANGE 8,
-   SIGNALED 2, UNKNOWN 0, USER_REQUESTED 10, USER_STOPPED 11) so it can be unit-tested.
-   Wrap everything in try/catch.
-6. **Notification entry.** `P/tracker/NotificationEntryActivity.java` (extends `Activity`, not AppCompat):
-   ```java
-   protected void onCreate(Bundle b) {
-     super.onCreate(b);
-     try {
-       ActivityTracker.setEntry("notification", getIntent().getStringExtra(EXTRA_NOTIF));
-       @SuppressWarnings("deprecation") Intent target = getIntent().getParcelableExtra(EXTRA_TARGET);
-       if (target != null) { target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(target); }   // the trampoline has its own task affinity
-     } catch (Throwable ignored) { }
-     finish();
-     overridePendingTransition(0, 0);
-   }
-   ```
-   Manifest: `<activity android:name=".tracker.NotificationEntryActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true"
-   android:taskAffinity="" android:theme="@android:style/Theme.Translucent.NoTitleBar" />`.
-   `P/tracker/TrackerNotifications.java`: `static Intent wrap(Context c, Intent target, String notif)` returns
-   `new Intent(c, NotificationEntryActivity.class).putExtra(EXTRA_TARGET, target).putExtra(EXTRA_NOTIF, notif).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)`.
-   A null target → return the target unchanged (null).
-   At each notification site, wrap the Intent passed to `PendingIntent.getActivity(...)`. **Keep the request codes and flags exactly as they are.** Names:
-   `ScreenRecordService` → `"recording"`, `BgReplaceService` → `"bg_replace"`, `AiEditService` → `"ai_edit"`, `AutoPublishNotifier` content → `"auto_publish"`,
-   its actions → `"auto_publish_setup"` / `"auto_publish_topup"`. Broadcast PendingIntents (Stop action, `UndoNotifier`) are **not** wrapped.
-   The trampoline's own start/stop must not count as a screen (step 2).
-
-**Tests:** `AppOpenSourceTest` (all four outcomes; notification wins over the flags) and `ExitReasonNamesTest` (6 → ANR, 5 → CRASH_NATIVE, 99 → UNKNOWN).
-**Done when:** the tests pass, `assembleDebug` succeeds, and a debug run shows (logcat tag `ActivityTracker`) app_open → screen → app_background → app_foreground with source.
-Commit `feat(tracker): A3 automatic app, screen, crash and exit tracking`.
-
----
-
-## A4.1 — Convert calls in `MainActivity`
-**Read first:** Shared context → *Old-call conversion table*; `P/MainActivity.java` (≈ 38 calls; list them with `grep -n "ActivityLog" P/MainActivity.java`).
-Convert every call by the table. For `record_error` near L351 pass the caught `t`. Make sure every `catch` that shows a failure Toast also has an
-`ActivityTracker.error(...)` (Extra rule). Remove the `activitylog` import.
-**Done when:** `grep -n "ActivityLog" P/MainActivity.java` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4.1 MainActivity on ActivityTracker`.
-
-## A4.2 — Convert calls in `P/ui/*`
-Files (from `grep -rln "ActivityLog" P/ui`): SettingsActivity, VideoPlayerDialog, DrawingBoardController, AutoPublishActivity, PaywallSheet,
-PublishActivity, AccountActivity, SlideInkController, PlansSheet, OnboardingActivity, AiEditPanel, DevicesActivity, ContactActivity, YouTubeDialog,
-WorkspaceActivity, WebLinks, SignInActivity, EditorLauncher, BrandRowBinder (StartupActivity was done in A3). The same rules as A4.1.
-**Done when:** `grep -rn "ActivityLog" P/ui` finds nothing and `assembleDebug` succeeds. Commit `feat(tracker): A4.2 screens on ActivityTracker`.
-
-## A4.3 — Convert calls in services, publish, adapter, SavedRecordings
-Files: `P/service/ScreenRecordService.java`, `P/service/BgReplaceService.java`, `P/publish/PublishPipeline.java`, `P/adapter/RecordingsAdapter.java`, `P/SavedRecordingsActivity.java`.
-- **`record` span** in `ScreenRecordService`: add the field `private Tracked recordSpan = Tracked.NOOP;`. Where the recorder actually starts (where the service's
-  recording state becomes true), set `recordSpan = ActivityTracker.start("record", "screen recording");`. At the old `record_stop` site (≈ L403) call
-  `recordSpan.end(Meta.of("stop_source", source))`. Make the old `record_saved` (≈ L411) `log("record_saved", "file saved", Meta.of("duration_ms", d, "size_mb", mb))`.
-  `record_error` → `error("record", kind, t or null)`, and also end the span with `Meta.of("failed", true)`.
-- **`bg_replace` span** in `BgReplaceService`: `start("bg_replace", "background replace")` at the old `bgreplace_start`. `end(Meta.of("ok", true))` at `bgreplace_done`,
-  `end(Meta.of("cancelled", true))` at `bgreplace_cancel`. The failure (`record_error` kind `bgreplace_failed`) → `error("bg_replace", "failed", <throwable if any>)` + `end(Meta.of("failed", true))`.
-- `PublishPipeline` (publish_result, ai_captions_result) and the adapter/SavedRecordings video actions go by the table.
-**Done when:** `grep -rn "ActivityLog" P/service P/publish P/adapter P/SavedRecordingsActivity.java` finds nothing and `assembleDebug` succeeds.
-Commit `feat(tracker): A4.3 services and publish on ActivityTracker`.
-
-## A4.4 — Convert calls in auth, entitlements, the rest
-Files: `P/auth/SessionManager.java` (signin_*, signout, session_ended), `P/entitlements/EntitlementsRefresher.java` (entitlement_change), and anything
-else `grep -rln "ActivityLog\.log" P | grep -v activitylog/` still lists. **Never** put the email, a token or a code into meta or description.
-**Done when:** that grep lists nothing outside `P/activitylog/` and `FaceCamApp.java`. Commit `feat(tracker): A4.4 sign-in and plans on ActivityTracker`.
-
-## A4.5 — Delete the old activity-log system
-1. Delete with **`git rm`** (plain `rm` is blocked for runner sessions): `git rm -r P/activitylog T/activitylog P/db/ActivityEvent.java P/db/ActivityEventDao.java` (write the full paths).
-2. `FaceCamApp`: remove the old block (`ActivityLog.init`, `setListener`, `ActivityLogScheduler.schedulePeriodic`, `CrashLogger.install`) and its imports. Fix the class comment.
-3. `ActivityTracker.init`: once per process, on the tracker thread:
-   `WorkManager.getInstance(c).cancelUniqueWork("activity-log-periodic")`, the same for `"activity-log-count"` and `"activity-log-drain"`, and
-   `c.deleteSharedPreferences("activity_log_prefs")`, each inside its own try/catch. (Otherwise WorkManager keeps trying to start the deleted worker class.)
-4. `AppDatabase`: remove `ActivityEvent.class` and `activityEventDao()`. Keep `MIGRATION_6_7` and `CREATE_ACTIVITY_EVENTS` (migration history), but change that
-   constant's javadoc `{@link ActivityEvent}` to plain text ("the old activity-log table, dropped in 9→10"). Add
-   `MIGRATION_9_10` → `db.execSQL("DROP TABLE IF EXISTS \`activity_events\`")`, version **10**, and append it to `MIGRATIONS`.
-5. `AppDatabaseMigrationTest`: version **10 / 9 steps**, plus `migration9to10_dropsOnlyTheOldActivityTable`.
-6. `data_extraction_rules.xml`: remove the two `activity_log_prefs.xml` excludes and their comment (the `tracker_prefs.xml` ones stay).
-7. `P/aiedit/capture/EventLog.java` L14 comment: `ActivityLog` → `ActivityTracker`.
-**Done when:** `grep -rn "activitylog\|ActivityLog\b\|ActivityEvent\|CrashLogger" app/src` finds nothing, and the migration test and `assembleDebug` pass.
-Commit `feat(tracker): A4.5 remove the old activity log`.
-
-## A5 — Privacy disclosure
-`git rm ACTIVITY_LOG_PRIVACY.md`. Write `ACTIVITY_TRACKER_PRIVACY.md` (for the privacy policy and the Play Data safety form). It must say:
-- **Collected:** in-app actions with start/end time and timezone (app opened and from where, screens and time on them, taps, toggles, settings,
-  permission prompts and answers, recording start/stop/size, topics added/edited/deleted (type only), publish taps and results, sign-in steps, plan changes,
-  paywall views), errors and crashes **including the error message and stack trace** (they may contain file names), why the app last closed (ANR, crash, low memory,
-  from Android), the device id (a SHA-256 of the MediaDrm id with an app salt, else random; not the advertising id), and device info
-  (Android version, SDK, manufacturer, model, locale, app version).
-- **Linked to the account** when signed in (the upload carries the sign-in token).
-- **Never collected:** email in the records, tokens, passwords, topic/caption text, drawings, file contents, contacts, location, screen/camera content.
-- **How:** stored on the phone first (≤ 3000 records), sent over HTTPS in gzip batches every 5 days or sooner when more than 20 are waiting, on any network,
-  in the background. The server keeps 90 days (the last 300 per device are kept longer). Account deletion deletes them. There is no opt-out switch in the app.
-- **Play Data safety:** App activity → App interactions (collected, linked when signed in, analytics, not shared); App info and performance →
-  Crash logs + Diagnostics (collected, not shared); Device or other IDs (collected, analytics, not shared); encrypted in transit.
-Commit `docs(tracker): A5 privacy disclosure`.
-
----
-
-## Progress (Activity Tracker app)
-| Card | Repo | What | Depends on | Status |
-|---|---|---|---|---|
-| A1 | app | Tracker core: API, records, Meta, Room table + migration 8→9, device id, prefs | - | ✅ |
-| A2 | app | Silent batched upload (policy, worker, scheduler, gzip API) | A1 | ✅ |
-| A3 | app | Auto-tracking: open source, fg/bg, screens, crash, exit reasons, notification entry | A2 | ✅ |
-| A4.1 | app | Convert old calls: MainActivity | A3 | ✅ |
-| A4.2 | app | Convert old calls: ui/* | A3 | ✅ |
-| A4.3 | app | Convert old calls: services, publish, adapter, SavedRecordings | A3 | ✅ |
-| A4.4 | app | Convert old calls: auth, entitlements, rest | A3 | ✅ |
-| A4.5 | app | Delete the old activity-log system + migration 9→10 | A4.1 A4.2 A4.3 A4.4 | ✅ |
-| A5 | app | Privacy disclosure doc | A4.5 | ✅ |
+## Progress (runner-maintained)
+| Card | What | Depends on | Status |
+|---|---|---|---|
+| P1 | API, model, cache, report queue | contract | ☐ |
+| P2 | Slide sets + migration 10→11 | — | ☐ |
+| P3 | Today's video card, Practice screen, week sheet | P1, P2, server B5 | ☐ |
+| P4 | Automatic "recorded" report | P1, P3, server B5 | ☐ |
