@@ -7,29 +7,23 @@
             android:name="com.jovoc.facecampresentationrecorder.bgreplace.BgTestActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
-        <!-- Debug-only text motion sheet (AI edit, card C4): its own icon "Motion sheet" in the launcher.
-             Launch: adb shell am start -n com.jovoc.facecampresentationrecorder/.aiedit.debugsheet.MotionSheetActivity -->
+        <!-- Debug sheets (AI edit cards C4 and C9) are NOT installed. Their code stays in src/debug/java
+             (aiedit/debugsheet). To use one again for debugging, uncomment its activity below.
+             Then open it from the launcher (add the LAUNCHER intent-filter) or with
+             adb shell am start -n com.jovoc.facecampresentationrecorder/.aiedit.debugsheet.MotionSheetActivity
+
         <activity
             android:name="com.jovoc.facecampresentationrecorder.aiedit.debugsheet.MotionSheetActivity"
             android:exported="true"
             android:label="Motion sheet"
-            android:screenOrientation="portrait">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <!-- Debug-only text look sheet (AI edit, card C9): its own icon "Look sheet" in the launcher.
-             Launch: adb shell am start -n com.jovoc.facecampresentationrecorder/.aiedit.debugsheet.LookSheetActivity -->
+            android:screenOrientation="portrait" />
+
         <activity
             android:name="com.jovoc.facecampresentationrecorder.aiedit.debugsheet.LookSheetActivity"
             android:exported="true"
             android:label="Look sheet"
-            android:screenOrientation="portrait">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:screenOrientation="portrait" />
+        -->
+
     </application>
 </manifest>
