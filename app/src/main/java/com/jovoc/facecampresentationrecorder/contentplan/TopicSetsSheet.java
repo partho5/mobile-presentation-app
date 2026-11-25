@@ -126,8 +126,14 @@ public final class TopicSetsSheet {
         if (item.onScreen) {
             TextView on = new TextView(host);
             on.setText(R.string.cplan_on_screen);
-            on.setTextColor(ACCENT);
+            on.setTextColor(0xFF4CAF50);
             on.setTextSize(12);
+            on.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            on.setSingleLine(true);
+            on.setBackgroundResource(R.drawable.bg_plan_active);
+            on.setPadding(dp(host, 10), dp(host, 4), dp(host, 10), dp(host, 4));
+            on.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             text.addView(on);
         }
         row.addView(text);

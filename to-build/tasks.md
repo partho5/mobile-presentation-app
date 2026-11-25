@@ -331,6 +331,14 @@ then each other file above (look at what every Material3 widget is: button, text
 **Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: Practice screen buttons are large with visible
 backgrounds; dialogs (add text/website/YouTube, more slide types, slide manager) and main screen buttons look right.
 
+## S8 — "On screen" as a green capsule (owner request 2026-11-25)
+**Read first:** `TopicSetsSheet.java` (where `cplan_on_screen` is shown in accent colour), `res/drawable/bg_plan_chip.xml` (style reference).
+**Do**: the "On screen" label in the Topic sets sheet becomes a typical active indicator: green text `#4CAF50` on a faint green
+fill `#264CAF50`, 1dp `#4CAF50` stroke, fully rounded capsule (new drawable `bg_plan_active.xml`, radius 999dp), 12sp medium, padding
+10dp horizontal / 4dp vertical, single line. Only the colour/shape changes; no layout shift of the row, no new strings. If the
+chips row in the Topic Manager marks the set on screen, leave it as is.
+**Check**: `:app:assembleDebug`.
+
 ---
 
 ## Progress
@@ -341,6 +349,7 @@ backgrounds; dialogs (add text/website/YouTube, more slide types, slide manager)
 - [x] S5 Practice reachable on any day with a video left
 - [x] S6 sheet long-press delete, swipe in Practice
 - [x] S7 real buttons (Practice screen + all Material3 leftovers)
+- [x] S8 "On screen" green capsule
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
@@ -351,3 +360,4 @@ backgrounds; dialogs (add text/website/YouTube, more slide types, slide manager)
 | S5 | Practice reachable on any day with a video left | S4 | ☑ |
 | S6 | Sheet long-press delete, swipe in Practice | S5 | ☑ |
 | S7 | Real buttons everywhere (Practice screen + Material3 leftovers) | S6 | ☑ |
+| S8 | "On screen" green capsule in the sets sheet | S7 | ☑ |
