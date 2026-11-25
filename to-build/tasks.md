@@ -281,11 +281,11 @@ does not hide the topic text (if it does, reduce its margin, do not add more UI)
 - [x] S1 set index, signature, decisions (pure + tests)
 - [x] S2 automatic save of every video's set, once-per-video switch
 - [x] S3 set chips in the Topic Manager, topic sets sheet, drawer entry, first-recording flag
-- [ ] S4 slim strip, proper buttons
+- [x] S4 slim strip, proper buttons
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
 | S1 | Index, signature, planner, target policy | contract | ☑ |
 | S2 | Auto-save sets, auto-switch once per video | S1 | ☑ |
 | S3 | Manager chip row, sets sheet, drawer entry | S2 | ☑ |
-| S4 | Slim strip, buttons, string cleanup | S2, S3 | ☐ |
+| S4 | Slim strip, buttons, string cleanup | S2, S3 | ☑ |
