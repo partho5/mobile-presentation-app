@@ -37,11 +37,8 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,7 +51,7 @@ public final class ContentPlanCard {
 
     static final String LINK_TARGET = "content-plan";
     private static final long FRESH_MS = 10L * 60 * 1000;
-    private static final String PREF_VERSION_PREFIX = "cplan_set_version:";
+    private static final String PREF_LAST_AUTO_DAY = "cplan_last_auto_day";
     private static final String[] ANGLES = {"problem", "mistake", "story", "question", "comparison", "steps",
             "fear_loss", "behind_the_scenes", "customer_voice", "trend"};
     private static final int[] ANGLE_LABELS = {R.string.cplan_angle_problem, R.string.cplan_angle_mistake,
@@ -74,6 +71,7 @@ public final class ContentPlanCard {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final SlideRepository slides;
     private final ActivityResultLauncher<Intent> practiceLauncher;
+    private final PlanSetSync sync;
 
     private final TextView label;
     private final TextView title;
@@ -101,6 +99,7 @@ public final class ContentPlanCard {
         this.card = card;
         this.store = store;
         this.slides = host.slideRepository();
+        this.sync = new PlanSetSync(slides, PlanSetIndex.get(host), host::discardSlideData);
         label = card.findViewById(R.id.cplan_label);
         title = card.findViewById(R.id.cplan_title);
         chip = card.findViewById(R.id.cplan_chip);
@@ -117,7 +116,7 @@ public final class ContentPlanCard {
                     if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) return;
                     String dayId = result.getData().getStringExtra(ContentPlanPracticeActivity.EXTRA_DAY_ID);
                     PlanWeek.Day day = findDay(dayId);
-                    if (day != null) useAsTopics(day);
+                    if (day != null) showSet(day);
                 });
 
         btnUse.setOnClickListener(v -> onUseClicked());
@@ -193,7 +192,7 @@ public final class ContentPlanCard {
                     brandId = brand;
                     fetchedForDate = forDate;
                     bind(fetched);
-                    cleanUp(fetched);
+                    sync.sync(fetched, brand, () -> maybeAutoSwitch(fetched));
                 });
             } catch (ContentPlanException | JSONException e) {
                 // Offline or a server problem: the cached card stays, silently.
@@ -207,7 +206,10 @@ public final class ContentPlanCard {
     public void rebind() {
         if (brandId == null) return;
         PlanWeek cached = readCache(brandId);
-        if (cached != null) bind(cached);
+        if (cached != null) {
+            bind(cached);
+            maybeAutoSwitch(cached);
+        }
     }
 
     private PlanWeek readCache(String brand) {
@@ -412,61 +414,57 @@ public final class ContentPlanCard {
             afterSwitch();
             return;
         }
-        useAsTopics(selected);
+        showSet(selected);
     }
 
-    /** Loads the hooks of {@code day} as the recorder's topics, one per beat, in a set of their own. */
-    public void useAsTopics(PlanWeek.Day day) {
-        if (day.beats.isEmpty()) return;
+    /** Puts the saved set of {@code day} on screen, when it has topics. Nothing is written or replaced here. */
+    public void showSet(PlanWeek.Day day) {
+        if (day == null || day.beats.isEmpty()) return;
         final String setId = Slide.planSetId(day.id);
-        final SharedPreferences prefs = host.getSharedPreferences(
-                RecordSettings.PREF_NAME, Context.MODE_PRIVATE);
-        final String versionKey = PREF_VERSION_PREFIX + day.id;
         slides.getSet(setId, existing -> {
-            boolean current = !existing.isEmpty() && prefs.contains(versionKey)
-                    && prefs.getInt(versionKey, 0) >= day.version;
-            if (current) {
-                host.switchSlideSet(setId);
-                afterSwitch();
-                return;
-            }
-            slides.replaceSet(setId, buildSlides(day), removed -> {
-                host.discardSlideData(removed);
-                prefs.edit().putInt(versionKey, day.version).apply();
-                host.switchSlideSet(setId);
-                afterSwitch();
-            });
+            if (existing.isEmpty()) return;
+            host.switchSlideSet(setId);
+            afterSwitch();
         });
     }
 
-    /** One TEXT slide per beat from its hook, in order; the 200-character cut is only a safety net. */
-    static List<Slide> buildSlides(PlanWeek.Day day) {
-        List<Slide> out = new ArrayList<>();
-        int i = 0;
-        for (PlanWeek.Beat b : day.beats) {
-            String hook = b.hook.length() > 200 ? b.hook.substring(0, 200) : b.hook;
-            out.add(new Slide(Slide.TYPE_TEXT, i++, hook, null));
+    /**
+     * Once per video, on a fresh app launch only: puts the next video's saved set on screen. No toast, no dialog.
+     * The fresh-launch flag stays set while the decision could not be made yet (recording, Topic Manager open, set
+     * not saved yet) so a later call retries.
+     */
+    private void maybeAutoSwitch(PlanWeek pw) {
+        if (!host.isFreshLaunch()) return;
+        if (pw == null) return;
+        final String today = localToday(pw);
+        final PlanWeek.Day day = PlanAutoTarget.target(pw, today, id -> store.recordedLocally(id) || serverRecorded(pw, id));
+        if (day == null) {
+            host.clearFreshLaunch();
+            return;
         }
-        return out;
+        final String setId = Slide.planSetId(day.id);
+        final SharedPreferences prefs = host.getSharedPreferences(RecordSettings.PREF_NAME, Context.MODE_PRIVATE);
+        slides.getSet(setId, existing -> {
+            String lastAuto = prefs.getString(PREF_LAST_AUTO_DAY, null);
+            PlanAutoTarget.Switch s = PlanAutoTarget.decide(day, lastAuto, host.activeSetId(),
+                    host.isRecordingNow(), host.isTopicManagerOpen(), !existing.isEmpty());
+            if (s != PlanAutoTarget.Switch.NONE) prefs.edit().putString(PREF_LAST_AUTO_DAY, day.id).apply();
+            if (s == PlanAutoTarget.Switch.SWITCH) host.switchSlideSet(setId);
+            if (s != PlanAutoTarget.Switch.NONE || day.id.equals(lastAuto)) host.clearFreshLaunch();
+            afterSwitch();
+        });
+    }
+
+    private static boolean serverRecorded(PlanWeek pw, String dayId) {
+        if (pw.week == null) return false;
+        for (PlanWeek.Day d : pw.week.days) {
+            if (d.id.equals(dayId)) return d.isRecorded();
+        }
+        return false;
     }
 
     private void afterSwitch() {
         if (plan != null) bind(plan);
-    }
-
-    /** Drops the topic sets of days that are not in the current week (an old week's days). */
-    private void cleanUp(PlanWeek pw) {
-        final Set<String> keep = new HashSet<>();
-        if (pw.week != null) {
-            for (PlanWeek.Day d : pw.week.days) keep.add(Slide.planSetId(d.id));
-        }
-        slides.planSetIds(ids -> {
-            for (String setId : ids) {
-                if (keep.contains(setId)) continue;
-                if (setId.equals(host.activeSetId())) host.switchSlideSet(null);
-                slides.deleteSetOrOwn(setId, host::discardSlideData);
-            }
-        });
     }
 
     // ---- week list ----

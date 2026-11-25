@@ -317,6 +317,8 @@ public class MainActivity extends AppCompatActivity
     /** Height of the top menu bar as declared in XML, before any status-bar inset. */
     private int topMenuBarBaseHeight = -1;
     private boolean isRecording = false;
+    /** True from a fresh launch (no saved state) until the content plan has made its once-per-video decision. */
+    private boolean freshLaunch;
     private AudioDeviceCallback audioDeviceCallback;
     private boolean overlayRequested = false;
     private boolean leftAppWithoutOverlayPermission = false;
@@ -353,6 +355,7 @@ public class MainActivity extends AppCompatActivity
 
         setContentView(R.layout.activity_main);
 
+        freshLaunch = savedInstanceState == null;
         repository = new SlideRepository(this);
         activeSetId = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getString(KEY_ACTIVE_SLIDE_SET, null);
 
@@ -3713,6 +3716,22 @@ public class MainActivity extends AppCompatActivity
     /** The set of topics on show: null = the user's own, "plan:<dayId>" = one plan day's. */
     public String activeSetId() {
         return activeSetId;
+    }
+
+    public boolean isRecordingNow() {
+        return isRecording;
+    }
+
+    public boolean isTopicManagerOpen() {
+        return managerDialog != null && managerDialog.isShowing();
+    }
+
+    public boolean isFreshLaunch() {
+        return freshLaunch;
+    }
+
+    public void clearFreshLaunch() {
+        freshLaunch = false;
     }
 
     public SlideRepository slideRepository() {
