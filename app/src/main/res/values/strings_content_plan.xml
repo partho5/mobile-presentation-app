@@ -39,7 +39,7 @@
     <string name="cplan_next_beat">Next</string>
     <string name="cplan_step_count">%1$d / %2$d</string>
     <string name="cplan_show_script">Show Full Concept</string>
-    <string name="cplan_hide_script">Hide whole script</string>
+    <string name="cplan_hide_script">Hide Full Concept</string>
     <string name="cplan_done">Done</string>
 
     <!-- TopicSetsSheet, TopicSetChips, TopicSetList, MainActivity drawer entry -->
