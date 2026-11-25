@@ -17,7 +17,7 @@ import com.jovoc.facecampresentationrecorder.db.Slide;
 
 import java.util.List;
 
-/** The "Topic sets" sheet: every set to switch to, delete with confirmation, and a link to the website planner. */
+/** The "Topic sets" sheet: every set to switch to, delete (long-press) with confirmation, and a link to the website planner. */
 public final class TopicSetsSheet {
 
     private static final int ACCENT = 0xFF64B5F6;
@@ -92,7 +92,7 @@ public final class TopicSetsSheet {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(dp(host, 48));
-        row.setPadding(dp(host, 12), dp(host, 6), dp(host, 4), dp(host, 6));
+        row.setPadding(dp(host, 12), dp(host, 6), dp(host, 12), dp(host, 6));
         row.setBackgroundColor(0xFF222222);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -153,17 +153,12 @@ public final class TopicSetsSheet {
             row.addView(practice);
         }
 
+        // Deleting is a long-press on a video row (no button next to Practice, so no mis-taps); it still asks first.
         if (item.setId != null) {
-            Button del = new Button(host, null, 0);
-            del.setText(R.string.cplan_delete);
-            del.setAllCaps(false);
-            del.setTextColor(ACCENT);
-            del.setTextSize(14);
-            del.setBackgroundColor(0x00000000);
-            del.setMinHeight(dp(host, 48));
-            del.setMinimumHeight(dp(host, 48));
-            del.setOnClickListener(v -> confirmDelete(host, dialog, scroll, item));
-            row.addView(del);
+            row.setOnLongClickListener(v -> {
+                confirmDelete(host, dialog, scroll, item);
+                return true;
+            });
         }
         return row;
     }

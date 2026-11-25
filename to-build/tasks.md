@@ -293,6 +293,22 @@ or the cached week has no beats for today).
 **Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: Practice is reachable from the strip on every day
 that still has a video to record, and from the Topic sets sheet for any unrecorded video.
 
+## S6 — Sheet buttons too close; swipe in Practice (owner report 2026-11-25)
+**Report:** in the Topic sets sheet the Practice and Delete buttons sit too close together (mis-taps). In the Practice screen the
+next/prev buttons are fine but swiping must also move between topics, like the regular recording mode.
+**Read first:** `TopicSetsSheet.java` (row building, Delete button, `showDeleteConfirm`), `ContentPlanPracticeActivity.java` and
+`res/layout/activity_content_plan_practice.xml` (next/prev handling), and how `MainActivity` implements swipe between topics
+during normal recording (grep `GestureDetector`, `onFling`, `SimpleOnGestureListener`, `swipe`) — reuse its direction,
+thresholds and feel; do not invent new ones.
+**Do**:
+1. Sheet: remove the visible Delete button from video rows. Deleting stays possible (D3) by **long-press on the row**, which
+   opens the existing confirmation dialog (unchanged text). No hint text, no toast. Practice button stays, with 12dp spacing
+   from the row edge.
+2. Practice screen: add horizontal swipe = same action as next/prev, in the same direction mapping as regular recording mode;
+   buttons stay. Do not break vertical scrolling of long beat text (use a fling detector with a horizontal-dominance check).
+**Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: no Delete button in the sheet, long-press asks
+to delete; swipe moves between beats in Practice like in recording.
+
 ---
 
 ## Progress
@@ -301,6 +317,7 @@ that still has a video to record, and from the Topic sets sheet for any unrecord
 - [x] S3 set chips in the Topic Manager, topic sets sheet, drawer entry, first-recording flag
 - [x] S4 slim strip, proper buttons
 - [x] S5 Practice reachable on any day with a video left
+- [x] S6 sheet long-press delete, swipe in Practice
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
@@ -309,3 +326,4 @@ that still has a video to record, and from the Topic sets sheet for any unrecord
 | S3 | Manager chip row, sets sheet, drawer entry | S2 | ☑ |
 | S4 | Slim strip, buttons, string cleanup | S2, S3 | ☑ |
 | S5 | Practice reachable on any day with a video left | S4 | ☑ |
+| S6 | Sheet long-press delete, swipe in Practice | S5 | ☑ |

@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.TypedValue;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -42,6 +44,7 @@ public class ContentPlanPracticeActivity extends AppCompatActivity {
     private Button next;
     private Button toggleScript;
     private LinearLayout script;
+    private GestureDetector swipe;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,7 +95,40 @@ public class ContentPlanPracticeActivity extends AppCompatActivity {
             finish();
         });
         fillScript();
+        setupSwipe();
         render();
+    }
+
+    /**
+     * Horizontal swipe moves between beats, the same direction and thresholds as the recorder's slides
+     * (MainActivity.setupGestureDetector): swipe left = next, swipe right = previous. Horizontal dominance keeps
+     * vertical scrolling of long texts working; the buttons stay.
+     */
+    private void setupSwipe() {
+        swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                    go(diffX > 0 ? step - 1 : step + 1);
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (swipe != null) swipe.onTouchEvent(ev);
+        return super.dispatchTouchEvent(ev);
     }
 
     private PlanWeek.Day loadDay(String brandId, String dayId) {
