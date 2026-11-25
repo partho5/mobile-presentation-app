@@ -3756,6 +3756,11 @@ public class MainActivity extends AppCompatActivity
         return repository;
     }
 
+    /** Opens the Practice screen for one planned video (used by the Topic sets sheet). */
+    public void practicePlanDay(String dayId) {
+        if (contentPlanCard != null) contentPlanCard.practice(dayId);
+    }
+
     /** Shows the content-plan card only when the menu bar is open and nothing is recording (the screen is captured). */
     public void syncPlanCardVisibility() {
         if (contentPlanCard != null) contentPlanCard.setAllowed(!isRecording && isMenuBarVisible);

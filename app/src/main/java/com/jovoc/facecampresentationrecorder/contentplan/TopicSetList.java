@@ -34,10 +34,12 @@ public final class TopicSetList {
         public final boolean missed;
         public final boolean isToday;
         public final boolean onScreen;
+        /** True when the video is not recorded and its day (with topics) is in the cached week: Practice can open it. */
+        public final boolean canPractice;
         final long createdMs;
 
         Item(String setId, String title, String date, boolean recorded, boolean missed, boolean isToday,
-             boolean onScreen, long createdMs) {
+             boolean onScreen, boolean canPractice, long createdMs) {
             this.setId = setId;
             this.title = title;
             this.date = date;
@@ -45,6 +47,7 @@ public final class TopicSetList {
             this.missed = missed;
             this.isToday = isToday;
             this.onScreen = onScreen;
+            this.canPractice = canPractice;
             this.createdMs = createdMs;
         }
     }
@@ -72,7 +75,7 @@ public final class TopicSetList {
 
     private static List<Item> build(MainActivity host, List<String> ids, String active) {
         List<Item> out = new ArrayList<>();
-        out.add(new Item(null, null, null, false, false, false, Objects.equals(null, active), 0));
+        out.add(new Item(null, null, null, false, false, false, Objects.equals(null, active), false, 0));
         try {
             PlanSetIndex index = PlanSetIndex.get(host);
             ContentPlanStore store = ContentPlanStore.get(host);
@@ -101,8 +104,9 @@ public final class TopicSetList {
                 boolean recorded = store.recordedLocally(dayId) || serverRecorded(pw, dayId);
                 boolean missed = date != null && date.compareTo(today) < 0 && !recorded;
                 boolean isToday = date != null && date.equals(today);
+                boolean canPractice = !recorded && hasBeats(pw, dayId);
                 videos.add(new Item(id, title, date, recorded, missed, isToday,
-                        Objects.equals(id, active), e == null ? 0 : e.createdMs));
+                        Objects.equals(id, active), canPractice, e == null ? 0 : e.createdMs));
             }
             Collections.sort(videos, (a, b) -> {
                 if (a.date == null || b.date == null) {
@@ -123,6 +127,14 @@ public final class TopicSetList {
         if (pw == null || pw.week == null) return false;
         for (PlanWeek.Day d : pw.week.days) {
             if (d.id.equals(dayId)) return d.isRecorded();
+        }
+        return false;
+    }
+
+    private static boolean hasBeats(PlanWeek pw, String dayId) {
+        if (pw == null || pw.week == null) return false;
+        for (PlanWeek.Day d : pw.week.days) {
+            if (d.id.equals(dayId)) return !d.beats.isEmpty();
         }
         return false;
     }

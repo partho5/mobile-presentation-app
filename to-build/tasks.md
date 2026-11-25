@@ -275,6 +275,24 @@ the next refresh.
 one line with a filled Practice button that is easy to tap; after recording it is gone; with no plan nothing shows; the strip
 does not hide the topic text (if it does, reduce its margin, do not add more UI).
 
+## S5 — Practice reachable again (owner report 2026-11-25: "I don't see practice mode")
+**Cause (found by reading S4):** the only entry to the Practice screen is the strip's Practice button, and the strip is shown
+only when **today** has an unrecorded video with beats. Before S4 the card also showed the next/other days and the week
+sheet, so Practice was reachable on any day; now it vanishes whenever nothing is due today (or today's video was recorded,
+or the cached week has no beats for today).
+**Read first:** `ContentPlanCard.java` (`bind`, `practiceLauncher`, `btnPractice` click), `TopicSetsSheet.java`,
+`TopicSetList.java`, `ContentPlanPracticeActivity.java` (extras `EXTRA_BRAND_ID`, `EXTRA_DAY_ID`).
+**Do**:
+1. Strip: when today has no unrecorded video with beats, show the strip for the **next upcoming unrecorded day with beats**
+   (label `cplan_next_video` "Next video · <EEE d MMM>"; new string), instead of hiding. It hides only when no plan,
+   inactive/not ready, or no unrecorded day with beats remains in the week. Practice button and tap-for-sheet unchanged.
+2. Topic sets sheet: every video row whose day has beats and is not recorded gets a normal-size "Practice" button
+   (`cplan_practice`, 48dp) that launches the same Practice intent for that day (expose a `ContentPlanCard.practice(dayId)`
+   method; the sheet reaches the card through `MainActivity`, add a small accessor if none exists). Recorded rows: no button.
+3. Practice results (`EXTRA_DAY_ID`) keep going through `showSet`.
+**Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: Practice is reachable from the strip on every day
+that still has a video to record, and from the Topic sets sheet for any unrecorded video.
+
 ---
 
 ## Progress
@@ -282,6 +300,7 @@ does not hide the topic text (if it does, reduce its margin, do not add more UI)
 - [x] S2 automatic save of every video's set, once-per-video switch
 - [x] S3 set chips in the Topic Manager, topic sets sheet, drawer entry, first-recording flag
 - [x] S4 slim strip, proper buttons
+- [x] S5 Practice reachable on any day with a video left
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
@@ -289,3 +308,4 @@ does not hide the topic text (if it does, reduce its margin, do not add more UI)
 | S2 | Auto-save sets, auto-switch once per video | S1 | ☑ |
 | S3 | Manager chip row, sets sheet, drawer entry | S2 | ☑ |
 | S4 | Slim strip, buttons, string cleanup | S2, S3 | ☑ |
+| S5 | Practice reachable on any day with a video left | S4 | ☑ |

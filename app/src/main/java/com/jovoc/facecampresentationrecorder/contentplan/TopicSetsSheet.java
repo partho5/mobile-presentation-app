@@ -137,6 +137,22 @@ public final class TopicSetsSheet {
             dialog.dismiss();
         });
 
+        if (item.canPractice) {
+            Button practice = new Button(host, null, 0);
+            practice.setText(R.string.cplan_practice);
+            practice.setAllCaps(false);
+            practice.setTextColor(ACCENT);
+            practice.setTextSize(14);
+            practice.setBackgroundColor(0x00000000);
+            practice.setMinHeight(dp(host, 48));
+            practice.setMinimumHeight(dp(host, 48));
+            practice.setOnClickListener(v -> {
+                dialog.dismiss();
+                host.practicePlanDay(item.setId.substring(Slide.PLAN_SET_PREFIX.length()));
+            });
+            row.addView(practice);
+        }
+
         if (item.setId != null) {
             Button del = new Button(host, null, 0);
             del.setText(R.string.cplan_delete);

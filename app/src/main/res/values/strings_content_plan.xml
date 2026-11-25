@@ -7,6 +7,8 @@
     <string name="cplan_today">Today\'s video</string>
     <string name="cplan_use_topics">Use as topics</string>
     <string name="cplan_practice">Practice</string>
+    <!-- ContentPlanCard: the strip when today has nothing left; %1$s is a date like "Tue 25 Nov" -->
+    <string name="cplan_next_video">Next video · %1$s</string>
     <string name="cplan_recorded">Recorded ✓</string>
     <string name="cplan_more_today">+%d more today</string>
     <string name="cplan_status_join">%1$s · %2$s</string>

@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The slim "Today's video" strip of the recorder screen: shown only on a day with a planned video still to record, it
+ * The slim "Today's video" / "Next video" strip of the recorder screen: shown while a planned video is still to record, it
  * opens Practice (button) or the Topic sets sheet (tap). It also keeps every video's topic set saved and puts the next
  * one on screen once per video. It is never visible while recording (the screen is captured); no plan text is logged.
  */
@@ -82,13 +82,18 @@ public final class ContentPlanCard {
                 });
 
         btnPractice.setOnClickListener(v -> {
-            if (selected == null) return;
-            Intent i = new Intent(host, ContentPlanPracticeActivity.class);
-            i.putExtra(ContentPlanPracticeActivity.EXTRA_BRAND_ID, brandId);
-            i.putExtra(ContentPlanPracticeActivity.EXTRA_DAY_ID, selected.id);
-            practiceLauncher.launch(i);
+            if (selected != null) practice(selected.id);
         });
         card.setOnClickListener(v -> TopicSetsSheet.show(host));
+    }
+
+    /** Opens the Practice screen for one video of the cached week (strip button and Topic sets sheet). */
+    public void practice(String dayId) {
+        if (dayId == null || brandId == null) return;
+        Intent i = new Intent(host, ContentPlanPracticeActivity.class);
+        i.putExtra(ContentPlanPracticeActivity.EXTRA_BRAND_ID, brandId);
+        i.putExtra(ContentPlanPracticeActivity.EXTRA_DAY_ID, dayId);
+        practiceLauncher.launch(i);
     }
 
     /** True when there is something to show; the host shows the card only then, and never while recording. */
@@ -190,8 +195,9 @@ public final class ContentPlanCard {
     }
 
     /**
-     * The strip is shown only when the plan is active and ready and today has a video still to record; in every other
-     * case (no plan, setup, writing, failed, stale, nothing left today, all recorded) it is hidden.
+     * The strip shows today's first video still to record; when today has none it shows the next upcoming video still
+     * to record ("Next video"), so Practice stays reachable on every day. It is hidden only when there is no plan, the
+     * plan is not active and ready, or no unrecorded video with topics is left in the week.
      */
     private void bind(PlanWeek pw) {
         plan = pw;
@@ -208,15 +214,21 @@ public final class ContentPlanCard {
             if (first == null) first = d;
             else others++;
         }
-        if (first == null) {
-            setContent(false);
-            return;
+        String text;
+        if (first != null) {
+            text = host.getString(R.string.cplan_today);
+            if (others > 0) {
+                text = host.getString(R.string.cplan_status_join, text, host.getString(R.string.cplan_more_today, others));
+            }
+        } else {
+            first = PlanAutoTarget.target(pw, today, id -> store.recordedLocally(id) || serverRecorded(pw, id));
+            if (first == null) {
+                setContent(false);
+                return;
+            }
+            text = host.getString(R.string.cplan_next_video, TopicSetChips.formatDate(first.date));
         }
         selected = first;
-        String text = host.getString(R.string.cplan_today);
-        if (others > 0) {
-            text = host.getString(R.string.cplan_status_join, text, host.getString(R.string.cplan_more_today, others));
-        }
         label.setText(text);
         title.setText(first.title);
         setContent(true);
