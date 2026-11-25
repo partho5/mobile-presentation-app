@@ -33,7 +33,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_undo"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/editor_undo"
@@ -49,7 +49,7 @@
                 app:iconTint="#FFFFFF" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_redo"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/editor_redo"
@@ -71,7 +71,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_save"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.App.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="44dp"
                 android:insetTop="0dp"
@@ -150,7 +150,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_play"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:insetTop="0dp"
@@ -176,7 +176,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_nudge_back"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:contentDescription="@string/editor_nudge_back_desc"
@@ -190,7 +190,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_nudge_fwd"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:contentDescription="@string/editor_nudge_fwd_desc"
@@ -224,7 +224,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_audio_toggle"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:insetTop="0dp"
@@ -248,7 +248,7 @@
             <!-- Only shown while zoomed in (pinch the timeline to zoom). -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_zoom_fit"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_gravity="top|end"
@@ -274,7 +274,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_set_start"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.App.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_marginEnd="6dp"
@@ -291,7 +291,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_set_end"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.App.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_marginEnd="6dp"
@@ -354,7 +354,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_add_audio"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    style="@style/Widget.App.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:layout_alignParentEnd="true"
@@ -413,7 +413,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btn_audio_mute"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                style="@style/Widget.App.Button.TextButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="48dp"
                                 android:minWidth="64dp"
@@ -426,7 +426,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btn_audio_remove"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                style="@style/Widget.App.Button.TextButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="48dp"
                                 android:minWidth="64dp"

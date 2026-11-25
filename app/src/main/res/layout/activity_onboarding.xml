@@ -64,7 +64,7 @@
 
             <Button
                 android:id="@+id/btn_onb_skip"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.App.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing="0"
@@ -86,7 +86,7 @@
         <!-- Outside the pager, so the main button never moves between screens. -->
         <Button
             android:id="@+id/btn_onb_next"
-            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            style="@style/Widget.App.Button.UnelevatedButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginStart="24dp"

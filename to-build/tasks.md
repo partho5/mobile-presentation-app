@@ -339,6 +339,22 @@ fill `#264CAF50`, 1dp `#4CAF50` stroke, fully rounded capsule (new drawable `bg_
 chips row in the Topic Manager marks the set on screen, leave it as is.
 **Check**: `:app:assembleDebug`.
 
+## S9 — Sentence-case buttons and two renamed labels (owner request 2026-11-25)
+**Cause:** `Widget.MaterialComponents.Button*` styles set `textAllCaps=true`; S7 moved buttons to them, so button text (incl.
+"Edit Topics") now renders ALL UPPER.
+**Do**:
+1. All buttons in the app render text as written (sentence case): best done once in `res/values/themes.xml` by overriding the
+   button styles' `android:textAllCaps` = false (e.g. app-wide styles for `Widget.MaterialComponents.Button`, `.OutlinedButton`,
+   `.TextButton` referenced through the theme's `materialButtonStyle`/`borderlessButtonStyle`/`materialButtonOutlinedStyle`), plus
+   `android:textAllCaps="false"` on any button that sets its own style and still shows caps. Then grep layouts and Java for
+   `textAllCaps="true"` / `setAllCaps(true)` on buttons and remove. Check every layout that has buttons (main screen incl. "Edit
+   Topics", dialogs, Practice, strip, sheets, settings screens).
+2. Strings (`res/values/strings_content_plan.xml` and any other place that holds them; grep the old texts in `res/values*/`
+   including translations): `cplan_show_whole_script` text -> "Show Full Concept" (find the real key by grepping "Show whole script"),
+   `cplan_use_topics` text -> "Set for Recording" (grep "Use as topics"). Keep keys, change values only; update every
+   locale file that has them. Other visible texts must stay in sentence case as already written.
+**Check**: `:app:assembleDebug`.
+
 ---
 
 ## Progress
@@ -350,6 +366,7 @@ chips row in the Topic Manager marks the set on screen, leave it as is.
 - [x] S6 sheet long-press delete, swipe in Practice
 - [x] S7 real buttons (Practice screen + all Material3 leftovers)
 - [x] S8 "On screen" green capsule
+- [x] S9 sentence-case buttons, renamed labels
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
@@ -361,3 +378,4 @@ chips row in the Topic Manager marks the set on screen, leave it as is.
 | S6 | Sheet long-press delete, swipe in Practice | S5 | ☑ |
 | S7 | Real buttons everywhere (Practice screen + Material3 leftovers) | S6 | ☑ |
 | S8 | "On screen" green capsule in the sets sheet | S7 | ☑ |
+| S9 | Sentence-case buttons, renamed labels | S8 | ☑ |

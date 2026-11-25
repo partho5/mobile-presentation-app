@@ -5,7 +5,7 @@
 
     <!-- ContentPlanCard: the slim strip on the recorder screen -->
     <string name="cplan_today">Today\'s video</string>
-    <string name="cplan_use_topics">Use as topics</string>
+    <string name="cplan_use_topics">Set for Recording</string>
     <string name="cplan_practice">Practice</string>
     <!-- ContentPlanCard: the strip when today has nothing left; %1$s is a date like "Tue 25 Nov" -->
     <string name="cplan_next_video">Next video · %1$s</string>
@@ -38,7 +38,7 @@
     <string name="cplan_previous">Previous</string>
     <string name="cplan_next_beat">Next</string>
     <string name="cplan_step_count">%1$d / %2$d</string>
-    <string name="cplan_show_script">Show whole script</string>
+    <string name="cplan_show_script">Show Full Concept</string>
     <string name="cplan_hide_script">Hide whole script</string>
     <string name="cplan_done">Done</string>
 

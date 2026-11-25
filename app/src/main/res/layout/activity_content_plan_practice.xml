@@ -111,7 +111,7 @@
 
                 <Button
                     android:id="@+id/practice_prev"
-                    style="@style/Widget.MaterialComponents.Button"
+                    style="@style/Widget.App.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:insetTop="4dp"
@@ -136,7 +136,7 @@
 
                 <Button
                     android:id="@+id/practice_next"
-                    style="@style/Widget.MaterialComponents.Button"
+                    style="@style/Widget.App.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:insetTop="4dp"
@@ -152,7 +152,7 @@
 
             <Button
                 android:id="@+id/practice_toggle_script"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.App.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
@@ -185,7 +185,7 @@
 
         <Button
             android:id="@+id/practice_use"
-            style="@style/Widget.MaterialComponents.Button"
+            style="@style/Widget.App.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="2"
@@ -200,7 +200,7 @@
 
         <Button
             android:id="@+id/practice_done"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/Widget.App.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"

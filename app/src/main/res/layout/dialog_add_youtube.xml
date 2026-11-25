@@ -45,7 +45,7 @@
 
         <Button
             android:id="@+id/btn_cancel_youtube"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
+            style="@style/Widget.App.Button.TextButton"
             android:minHeight="40dp"
             android:insetTop="4dp"
             android:insetBottom="4dp"
