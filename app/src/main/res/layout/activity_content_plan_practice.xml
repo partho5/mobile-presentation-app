@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Practice screen of a content-plan day (ContentPlanPracticeActivity): no camera, no recording. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/practice_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -104,17 +105,24 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/practice_prev"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:insetTop="4dp"
+                    android:insetBottom="4dp"
+                    android:minHeight="40dp"
+                    android:minWidth="112dp"
                     android:text="@string/cplan_previous"
-                    android:textColor="#64B5F6" />
+                    android:textColor="#0B1620"
+                    android:textSize="15sp"
+                    app:backgroundTint="#64B5F6"
+                    app:cornerRadius="20dp" />
 
                 <TextView
                     android:id="@+id/practice_count"
@@ -122,26 +130,41 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:textColor="#B3FFFFFF"
-                    android:textSize="14sp" />
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/practice_next"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:insetTop="4dp"
+                    android:insetBottom="4dp"
+                    android:minHeight="40dp"
+                    android:minWidth="112dp"
                     android:text="@string/cplan_next_beat"
-                    android:textColor="#64B5F6" />
+                    android:textColor="#0B1620"
+                    android:textSize="15sp"
+                    app:backgroundTint="#64B5F6"
+                    app:cornerRadius="20dp" />
             </LinearLayout>
 
             <Button
                 android:id="@+id/practice_toggle_script"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                android:minHeight="40dp"
                 android:text="@string/cplan_show_script"
-                android:textColor="#64B5F6" />
+                android:textColor="#64B5F6"
+                android:textSize="15sp"
+                app:cornerRadius="20dp"
+                app:strokeColor="#64B5F6"
+                app:strokeWidth="1dp" />
 
             <LinearLayout
                 android:id="@+id/practice_script"
@@ -158,24 +181,38 @@
         android:background="#1A1A1A"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:padding="12dp">
 
         <Button
             android:id="@+id/practice_use"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="2"
+            android:insetTop="4dp"
+            android:insetBottom="4dp"
+            android:minHeight="40dp"
             android:text="@string/cplan_use_topics"
-            android:textColor="#64B5F6" />
+            android:textColor="#0B1620"
+            android:textSize="15sp"
+            app:backgroundTint="#64B5F6"
+            app:cornerRadius="20dp" />
 
         <Button
             android:id="@+id/practice_done"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:layout_weight="1"
+            android:insetTop="4dp"
+            android:insetBottom="4dp"
+            android:minHeight="40dp"
             android:text="@string/cplan_done"
-            android:textColor="#B3FFFFFF" />
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            app:cornerRadius="20dp"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="1dp" />
     </LinearLayout>
 </LinearLayout>

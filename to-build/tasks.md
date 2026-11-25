@@ -309,6 +309,28 @@ thresholds and feel; do not invent new ones.
 **Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: no Delete button in the sheet, long-press asks
 to delete; swipe moves between beats in Practice like in recording.
 
+## S7 — Real buttons everywhere (owner report 2026-11-25: Practice screen buttons tiny, background invisible)
+**Cause:** `Widget.Material3.Button.*` styles inside `Theme.MaterialComponents` (`res/values/themes.xml`) render as tiny flat
+text. Files that still use `Widget.Material3.*`: `activity_content_plan_practice.xml`, `dialog_add_youtube.xml`,
+`dialog_more_slide_types.xml`, `dialog_slide_manager.xml`, `dialog_add_text.xml`, `dialog_add_website.xml`, `activity_main.xml`
+(re-grep, also check Java).
+**Read first:** `res/layout/activity_content_plan_practice.xml`, `ContentPlanPracticeActivity.java` (`go()`, button wiring),
+then each other file above (look at what every Material3 widget is: button, text field, chip, etc.).
+**Do**:
+1. Practice screen (owner-approved design): Previous/Next = filled buttons (`Widget.MaterialComponents.Button`, accent
+   `#64B5F6`, text `#0B1620`, 15sp medium, 48dp tap height via minHeight 40dp + insets 4dp, cornerRadius 20dp), left and right of
+   the larger centred "1 / 4" counter; Previous is dimmed (`#2A2A2A` fill, grey `#888888` text) on the first beat, Next on the
+   last (set in `go()`/render, buttons stay clickable but no-op). "Show whole script" = full-width outlined button
+   (`Widget.MaterialComponents.Button.OutlinedButton`, 1dp `#64B5F6` stroke, accent text, 48dp). Bottom bar: "Use as topics" =
+   filled accent, layout_weight 2; "Done" = outlined, white stroke/text, weight 1; 12dp gap, 12dp bar padding, 48dp tall.
+2. Every other file listed: replace each `Widget.Material3.Button*` with the matching `Widget.MaterialComponents.Button*`
+   (primary action filled accent, secondary outlined/text with visible 48dp tap area, text 15sp). Leave Material3 *non-button*
+   widgets alone only if they render correctly in this theme; otherwise swap to the MaterialComponents equivalent. Do not change
+   ids, behaviour or strings. Keep dialog colours consistent with the dark theme (`#121212` / `#222222` / accent `#64B5F6`).
+3. Final `grep -rn "Widget.Material3" app/src` must return nothing.
+**Check**: `:app:assembleDebug`; `--tests '*contentplan*'`. Owner on a device: Practice screen buttons are large with visible
+backgrounds; dialogs (add text/website/YouTube, more slide types, slide manager) and main screen buttons look right.
+
 ---
 
 ## Progress
@@ -318,6 +340,7 @@ to delete; swipe moves between beats in Practice like in recording.
 - [x] S4 slim strip, proper buttons
 - [x] S5 Practice reachable on any day with a video left
 - [x] S6 sheet long-press delete, swipe in Practice
+- [x] S7 real buttons (Practice screen + all Material3 leftovers)
 
 | Card | What | Depends on | Done |
 |---|---|---|---|
@@ -327,3 +350,4 @@ to delete; swipe moves between beats in Practice like in recording.
 | S4 | Slim strip, buttons, string cleanup | S2, S3 | ☑ |
 | S5 | Practice reachable on any day with a video left | S4 | ☑ |
 | S6 | Sheet long-press delete, swipe in Practice | S5 | ☑ |
+| S7 | Real buttons everywhere (Practice screen + Material3 leftovers) | S6 | ☑ |

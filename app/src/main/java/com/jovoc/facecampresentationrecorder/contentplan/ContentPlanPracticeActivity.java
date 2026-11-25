@@ -1,6 +1,7 @@
 package com.jovoc.facecampresentationrecorder.contentplan;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -165,10 +166,14 @@ public class ContentPlanPracticeActivity extends AppCompatActivity {
         say.setText(closing ? day.closingLine : beat.say);
         count.setText(getString(R.string.cplan_step_count, Math.min(step + 1, beats), beats));
         int last = day.closingLine.isEmpty() ? beats - 1 : beats;
-        prev.setEnabled(step > 0);
-        next.setEnabled(step < last);
-        prev.setAlpha(prev.isEnabled() ? 1f : 0.3f);
-        next.setAlpha(next.isEnabled() ? 1f : 0.3f);
+        styleStepButton(prev, step > 0);
+        styleStepButton(next, step < last);
+    }
+
+    /** Active = accent fill; at the first/last beat dimmed. The button stays clickable, go() clamps, so it is a no-op. */
+    private static void styleStepButton(Button b, boolean active) {
+        b.setBackgroundTintList(ColorStateList.valueOf(active ? 0xFF64B5F6 : 0xFF2A2A2A));
+        b.setTextColor(active ? 0xFF0B1620 : 0xFF888888);
     }
 
     /** The whole script in one list: every hook in bold with its words under it, then the closing line. */

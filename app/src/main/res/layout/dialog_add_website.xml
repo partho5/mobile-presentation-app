@@ -45,7 +45,10 @@
 
         <Button
             android:id="@+id/btn_cancel_website"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:minHeight="40dp"
+            android:insetTop="4dp"
+            android:insetBottom="4dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cancel"
