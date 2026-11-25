@@ -12,22 +12,16 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.jovoc.facecampresentationrecorder.BuildConfig;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.db.Slide;
 import com.jovoc.facecampresentationrecorder.db.SlideRepository;
-import com.jovoc.facecampresentationrecorder.publish.PublishApi;
-import com.jovoc.facecampresentationrecorder.publish.PublishException;
-import com.jovoc.facecampresentationrecorder.ui.WebLinks;
 import com.jovoc.facecampresentationrecorder.util.RecordSettings;
 
 import org.json.JSONException;
@@ -548,33 +542,7 @@ public final class ContentPlanCard {
 
     // ---- the web page ----
 
-    /** Opens the website's plan page, already signed in; the plain page when the server cannot give a link. */
     private void openWebPage() {
-        final Context app = host.getApplicationContext();
-        IO.execute(() -> {
-            String url = null;
-            PublishException error = null;
-            try {
-                AuthRepository repo = SessionManager.get(app).repository();
-                url = new PublishApi(repo).webLink(LINK_TARGET, null);
-            } catch (PublishException e) {
-                error = e;
-            }
-            final PublishException err = error;
-            final String link = url != null ? url
-                    : err != null && err.kind != PublishException.Kind.NETWORK
-                            && err.kind != PublishException.Kind.SIGNED_OUT
-                    ? BuildConfig.WEB_BASE_URL + "/plan" : null;
-            main.post(() -> {
-                if (host.isFinishing() || host.isDestroyed()) return;
-                if (link != null) {
-                    WebLinks.open(host, link);
-                } else if (err != null && err.kind == PublishException.Kind.NETWORK) {
-                    Toast.makeText(host, R.string.err_offline, Toast.LENGTH_LONG).show();
-                } else if (err != null && err.kind != PublishException.Kind.SIGNED_OUT) {
-                    Toast.makeText(host, R.string.cplan_link_failed, Toast.LENGTH_LONG).show();
-                }
-            });
-        });
+        ContentPlanWeb.open(host);
     }
 }

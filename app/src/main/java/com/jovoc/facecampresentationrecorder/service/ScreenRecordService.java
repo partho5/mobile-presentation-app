@@ -533,6 +533,14 @@ public class ScreenRecordService extends Service {
                     Log.w(TAG, "Could not queue the plan recorded report", e);
                 }
 
+                // First recording done: the drawer may now show "Topic sets".
+                try {
+                    getSharedPreferences(RecordSettings.PREF_NAME, MODE_PRIVATE).edit()
+                            .putBoolean("recorded_once", true).apply();
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not save the first-recording flag", e);
+                }
+
                 Intent finishIntent = new Intent(ACTION_RECORDING_FINISHED);
                 finishIntent.setPackage(getPackageName());
                 finishIntent.putExtra(EXTRA_VIDEO_PATH, currentVideoPath);

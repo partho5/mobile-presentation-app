@@ -6,6 +6,11 @@
             android:icon="@drawable/ic_slides"
             android:title="Manage Topics" />
         <item
+            android:id="@+id/nav_topic_sets"
+            android:icon="@drawable/ic_slides"
+            android:title="@string/cplan_nav_topic_sets"
+            android:visible="false" />
+        <item
             android:id="@+id/nav_record_settings"
             android:icon="@drawable/ic_settings"
             android:title="Settings" />

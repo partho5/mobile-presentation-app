@@ -799,6 +799,16 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    /** The "Topic sets" drawer entry shows after the first recording, or at once when a plan set exists. */
+    private void refreshTopicSetsEntry() {
+        if (navigationView == null) return;
+        android.view.MenuItem item = navigationView.getMenu().findItem(R.id.nav_topic_sets);
+        if (item == null) return;
+        boolean visible = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getBoolean("recorded_once", false)
+                || !com.jovoc.facecampresentationrecorder.contentplan.PlanSetIndex.get(this).all().isEmpty();
+        item.setVisible(visible);
+    }
+
     private void setupDrawer() {
         ImageButton btnOpenDrawer = findViewById(R.id.btn_open_drawer);
 
@@ -813,11 +823,14 @@ public class MainActivity extends AppCompatActivity
 
         if (navigationView != null) {
             tintDrawerIcons();
+            refreshTopicSetsEntry();
             navigationView.setNavigationItemSelectedListener(item -> {
                 int itemId = item.getItemId();
                 ActivityTracker.log("click", "drawer " + drawerItemName(itemId));
                 if (itemId == R.id.nav_edit_slides) {
                     openSlideManagerDialog();
+                } else if (itemId == R.id.nav_topic_sets) {
+                    com.jovoc.facecampresentationrecorder.contentplan.TopicSetsSheet.show(this);
                 } else if (itemId == R.id.nav_record_settings) {
                     startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.SettingsActivity.class));
                 } else if (itemId == R.id.nav_saved_recordings) {
@@ -1748,6 +1761,7 @@ public class MainActivity extends AppCompatActivity
 
     private static String drawerItemName(int itemId) {
         if (itemId == R.id.nav_edit_slides) return "topics";
+        if (itemId == R.id.nav_topic_sets) return "topic_sets";
         if (itemId == R.id.nav_record_settings) return "settings";
         if (itemId == R.id.nav_saved_recordings) return "my_videos";
         if (itemId == R.id.nav_account) return "auto_upload";
@@ -2380,6 +2394,7 @@ public class MainActivity extends AppCompatActivity
         }
         // Picks up crop ratios changed on the Settings screen.
         applyRecordSettings();
+        refreshTopicSetsEntry();
         if (contentPlanCard != null) {
             contentPlanCard.rebind(); // shows Recorded from the local mark straight away
             contentPlanCard.refresh(false);
@@ -3149,6 +3164,9 @@ public class MainActivity extends AppCompatActivity
         managerDialog = new BottomSheetDialog(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_slide_manager, null);
         managerDialog.setContentView(dialogView);
+        com.jovoc.facecampresentationrecorder.contentplan.TopicSetChips.bind(this,
+                dialogView.findViewById(R.id.manager_set_chips),
+                dialogView.findViewById(R.id.manager_set_chips_row));
 
         recyclerSlides = dialogView.findViewById(R.id.recycler_slides);
         recyclerSlides.setLayoutManager(new LinearLayoutManager(this));
