@@ -74,6 +74,22 @@
                     android:text="@string/onb_how_edit" />
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/OnbRowIcon"
+                    android:src="@drawable/ic_aspect_ratio" />
+
+                <TextView
+                    style="@style/OnbBody"
+                    android:layout_marginStart="14dp"
+                    android:text="@string/onb_how_crop" />
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

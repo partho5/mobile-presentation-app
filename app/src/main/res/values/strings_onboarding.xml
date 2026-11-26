@@ -20,7 +20,8 @@
     <string name="onb_how_publish">%1$s helps you create videos showing your face and publish them to 30+ social platforms.</string>
     <string name="onb_how_publish_highlight">30+</string>
     <string name="onb_how_ai">Our AI analyses your video and writes captions, descriptions and hashtags, and does SEO where applicable.</string>
-    <string name="onb_how_edit">With some basic video editing.</string>
+    <string name="onb_how_edit">And AI edits your video too: cuts, zooms, subtitles, effects and sound.</string>
+    <string name="onb_how_crop">Auto-crops to 9:16, 1:1 or 4:5, as you want.</string>
     <string name="onb_how_offer">Click Start\nTalk for 2 minutes\nClick Stop</string>
     <string-array name="onb_how_offer_highlights" translatable="false">
         <item>Start</item>
