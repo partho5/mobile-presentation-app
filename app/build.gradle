@@ -10,8 +10,8 @@ android {
         applicationId "com.jovoc.facecampresentationrecorder"
         minSdk 31
         targetSdk 36
-        versionCode 4
-        versionName "1.0"
+        versionCode 5
+        versionName "2.0"
 
         // TODO(LEGAL-URLS): no privacy / terms page exists yet. Put the full https URLs here;
         // while empty the Account screen hides the two links. Google Play needs a privacy URL.

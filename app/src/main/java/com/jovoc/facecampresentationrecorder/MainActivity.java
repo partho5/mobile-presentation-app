@@ -3609,17 +3609,22 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    /** Animates a Topic Manager card into its new place and keeps it on screen. */
+    private void showCardSwap(int from, int to) {
+        if (slideAdapter == null) return;
+        slideAdapter.showSwap(slides, from, to);
+        if (recyclerSlides != null) recyclerSlides.smoothScrollToPosition(to);
+    }
+
     @Override
     public void onMoveUp(int position) {
         if (position > 0) {
             ActivityTracker.log("topic_move", "up");
             Collections.swap(slides, position, position - 1);
-            repository.updateAll(slides, () -> {
-                slideAdapter.setSlides(slides);
-                if (currentSlideIndex == position) currentSlideIndex = position - 1;
-                else if (currentSlideIndex == position - 1) currentSlideIndex = position;
-                renderCurrentSlide();
-            });
+            if (currentSlideIndex == position) currentSlideIndex = position - 1;
+            else if (currentSlideIndex == position - 1) currentSlideIndex = position;
+            showCardSwap(position, position - 1);
+            repository.updateAll(slides, this::renderCurrentSlide);
         }
     }
 
@@ -3628,12 +3633,10 @@ public class MainActivity extends AppCompatActivity
         if (position < slides.size() - 1) {
             ActivityTracker.log("topic_move", "down");
             Collections.swap(slides, position, position + 1);
-            repository.updateAll(slides, () -> {
-                slideAdapter.setSlides(slides);
-                if (currentSlideIndex == position) currentSlideIndex = position + 1;
-                else if (currentSlideIndex == position + 1) currentSlideIndex = position;
-                renderCurrentSlide();
-            });
+            if (currentSlideIndex == position) currentSlideIndex = position + 1;
+            else if (currentSlideIndex == position + 1) currentSlideIndex = position;
+            showCardSwap(position, position + 1);
+            repository.updateAll(slides, this::renderCurrentSlide);
         }
     }
 

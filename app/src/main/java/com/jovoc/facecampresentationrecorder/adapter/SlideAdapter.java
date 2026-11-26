@@ -40,6 +40,19 @@ public class SlideAdapter extends RecyclerView.Adapter<SlideAdapter.SlideViewHol
         notifyDataSetChanged();
     }
 
+    /**
+     * Shows a swap of two neighbouring cards as an animated slide instead of a full redraw. {@code swapped} is the
+     * list after the swap. The two cards are rebound with a payload so their number and arrow states refresh
+     * without the item animator cross-fading them.
+     */
+    public void showSwap(List<Slide> swapped, int from, int to) {
+        this.slides = swapped != null ? swapped : new ArrayList<>();
+        notifyItemMoved(from, to);
+        notifyItemRangeChanged(Math.min(from, to), 2, PAYLOAD_POSITION);
+    }
+
+    private static final Object PAYLOAD_POSITION = new Object();
+
     public List<Slide> getSlides() {
         return slides;
     }

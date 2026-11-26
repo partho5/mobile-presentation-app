@@ -14,6 +14,7 @@ import com.jovoc.facecampresentationrecorder.entitlements.Entitlements;
 import com.jovoc.facecampresentationrecorder.entitlements.EntitlementsRefresher;
 import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
+import com.jovoc.facecampresentationrecorder.util.InstallHistory;
 import com.jovoc.facecampresentationrecorder.tracker.AutoTracker;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerCrashHandler;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerScheduler;
@@ -38,6 +39,13 @@ public class FaceCamApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        int upgradedFrom = InstallHistory.NO_CHANGE;
+        try {
+            // First, before anything writes settings: tells a fresh install from an update of an earlier version.
+            upgradedFrom = InstallHistory.record(this);
+        } catch (Exception e) {
+            // The install record must never stop the app from starting.
+        }
         try {
             Entitlements.init(this);
             EntitlementsRefresher.init(this);
@@ -72,6 +80,10 @@ public class FaceCamApp extends Application {
             registerActivityLifecycleCallbacks(new AutoTracker(this));
             ActivityTracker.onStored(new TrackerScheduler(this));
             TrackerScheduler.schedulePeriodic(this);
+            if (upgradedFrom != InstallHistory.NO_CHANGE) {
+                ActivityTracker.log("app_version", upgradedFrom == InstallHistory.NONE
+                        ? "fresh_install" : "upgraded_from_" + upgradedFrom);
+            }
         } catch (Throwable ignored) {
             // Tracking must never stop the app from starting.
         }

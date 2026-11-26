@@ -45,7 +45,7 @@
     <!-- TopicSetsSheet, TopicSetChips, TopicSetList, MainActivity drawer entry -->
     <string name="cplan_nav_topic_sets">Topic sets</string>
     <string name="cplan_sets_title">Topic sets</string>
-    <string name="cplan_my_topics">My topics</string>
+    <string name="cplan_my_topics">Made on this device</string>
     <string name="cplan_set_unknown">Video</string>
     <string name="cplan_on_screen">On screen</string>
     <string name="cplan_delete">Delete</string>

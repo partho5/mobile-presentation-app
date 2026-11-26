@@ -18,7 +18,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 
-/** The row of set chips at the top of the Topic Manager: "My topics" and one chip per planned video. */
+/** The row of set chips at the top of the Topic Manager: "Made on this device" and one chip per planned video. */
 public final class TopicSetChips {
 
     private TopicSetChips() {

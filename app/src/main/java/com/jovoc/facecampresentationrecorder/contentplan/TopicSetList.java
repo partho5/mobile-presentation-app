@@ -20,12 +20,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The topic sets the user can switch between: "My topics" first, then one per planned video by date. Shared by the
+ * The topic sets the user can switch between: "Made on this device" first, then one per planned video by date. Shared by the
  * Topic sets sheet and the chip row of the Topic Manager. Ids and titles only; no plan text is read or logged.
  */
 public final class TopicSetList {
 
-    /** One set. {@code setId} null = the user's own topics; {@code date} null = unknown / My topics. */
+    /** One set. {@code setId} null = the user's own topics; {@code date} null = unknown / Made on this device. */
     public static final class Item {
         public final String setId;
         public final String title;
@@ -118,7 +118,7 @@ public final class TopicSetList {
             });
             out.addAll(videos);
         } catch (RuntimeException e) {
-            // keep at least "My topics"
+            // keep at least "Made on this device"
         }
         return out;
     }
