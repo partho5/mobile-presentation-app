@@ -99,11 +99,11 @@ public final class SubtitleStyle {
     public static SubtitleStyle cleanWhite(float fontSizeSp, float positionY) {
         return new SubtitleStyle(
                 TEMPLATE_CLEAN_WHITE,
-                0x33FFFFFF,
-                0x33FFFFFF,
+                0xFF000000,
+                0xFF000000,
                 0xFFFFFFFF,
                 0xFF00E5FF,
-                0xFF00E5FF,
+                0xFF000000,
                 DEFAULT_CORNER_RADIUS_DP,
                 DEFAULT_PADDING_HORIZONTAL_DP,
                 DEFAULT_PADDING_VERTICAL_DP,

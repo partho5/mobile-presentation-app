@@ -42,6 +42,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
@@ -352,6 +353,14 @@ public class MainActivity extends AppCompatActivity
         // full-bleed, root_layout's pixels are the same pixels MediaProjection
         // captures, and bar visibility changes nothing.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // Also lay out under the camera cutout. With the default mode, Android 12-14 move
+        // the window below the cutout whenever the bars are hidden (presentation mode), so
+        // root_layout starts ~a status bar lower than the captured frame and every crop
+        // guide line sits that much below where the auto-crop actually cuts.
+        WindowManager.LayoutParams winLp = getWindow().getAttributes();
+        winLp.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        getWindow().setAttributes(winLp);
 
         setContentView(R.layout.activity_main);
 

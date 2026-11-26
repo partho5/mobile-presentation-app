@@ -37,8 +37,8 @@ public class SubtitleStyleTest {
     public void testCleanWhiteTemplate() {
         SubtitleStyle style = SubtitleStyle.cleanWhite();
         assertEquals(SubtitleStyle.TEMPLATE_CLEAN_WHITE, style.templateId);
-        assertEquals(0x33FFFFFF, style.pillColor);
-        assertEquals(0xFF00E5FF, style.outlineColor);
+        assertEquals(0xFF000000, style.pillColor);
+        assertEquals(0xFF000000, style.outlineColor);
         assertEquals(0xFF00E5FF, style.activeTextColor);
         assertEquals(0xFFFFFFFF, style.textColor);
     }
