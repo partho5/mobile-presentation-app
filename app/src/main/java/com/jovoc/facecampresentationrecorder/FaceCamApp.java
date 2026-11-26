@@ -16,6 +16,7 @@ import com.jovoc.facecampresentationrecorder.publish.CaptionUsage;
 import com.jovoc.facecampresentationrecorder.tracker.ActivityTracker;
 import com.jovoc.facecampresentationrecorder.util.InstallHistory;
 import com.jovoc.facecampresentationrecorder.tracker.AutoTracker;
+import com.jovoc.facecampresentationrecorder.tracker.CameraCrashGuard;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerCrashHandler;
 import com.jovoc.facecampresentationrecorder.tracker.TrackerScheduler;
 import com.jovoc.facecampresentationrecorder.ui.BillingLink;
@@ -98,6 +99,8 @@ public class FaceCamApp extends Application {
         } catch (Throwable ignored) {
             // Tracking must never stop the app from starting.
         }
+        // Runs before the tracker's handler: drops one known camera2 framework race (see the class).
+        CameraCrashGuard.install();
     }
 
     /**

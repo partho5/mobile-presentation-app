@@ -1902,8 +1902,8 @@ public class MainActivity extends AppCompatActivity
                             showCropGuideLines();
                             triggerStartFlashEffect(() -> {
                                 hideCropGuideLines();
+                                if (!startRecordingService(serviceIntent)) return;
                                 logRecordStart(0);
-                                ContextCompat.startForegroundService(this, serviceIntent);
                                 isRecording = true;
                                 resetDrawingTools();
                                 isMenuBarVisible = false;
@@ -2432,6 +2432,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onStop() {
         super.onStop();
+        if (!isChangingConfigurations()) cancelCountdownSilently();
         if (audioDeviceCallback != null) {
             AudioInputs.unregister(this, audioDeviceCallback);
             audioDeviceCallback = null;
@@ -3862,13 +3863,14 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onFinish() {
+                countDownTimer = null;
                 if (countdownOverlayContainer != null) {
                     countdownOverlayContainer.setVisibility(View.GONE);
                 }
                 hideCropGuideLines();
                 triggerStartFlashEffect(() -> {
+                    if (!startRecordingService(serviceIntent)) return;
                     logRecordStart(countdownSeconds);
-                    ContextCompat.startForegroundService(MainActivity.this, serviceIntent);
                     isRecording = true;
                     resetDrawingTools();
                     isMenuBarVisible = false;
@@ -3877,6 +3879,38 @@ public class MainActivity extends AppCompatActivity
                 });
             }
         }.start();
+    }
+
+    /**
+     * Starts the recording service. Android refuses a camera/mic/screen foreground service once the
+     * app is in the background, so a refusal is reported to the user instead of crashing the app.
+     */
+    private boolean startRecordingService(Intent serviceIntent) {
+        try {
+            ContextCompat.startForegroundService(this, serviceIntent);
+            return true;
+        } catch (IllegalStateException | SecurityException e) {
+            // ForegroundServiceStartNotAllowedException extends IllegalStateException
+            Log.w(TAG, "Recording service start refused", e);
+            ActivityTracker.log("error", "record start refused",
+                    Meta.of("type", e.getClass().getSimpleName()));
+            updateNavigationButtonsState();
+            Toast.makeText(this, R.string.record_start_refused, Toast.LENGTH_LONG).show();
+            return false;
+        }
+    }
+
+    /** Leaving the app mid-countdown cancels it: the recording can't start from the background. */
+    private void cancelCountdownSilently() {
+        if (countDownTimer == null) return;
+        countDownTimer.cancel();
+        countDownTimer = null;
+        ActivityTracker.log("record", "countdown cancelled", Meta.of("reason", "app_left"));
+        if (countdownOverlayContainer != null) {
+            countdownOverlayContainer.setVisibility(View.GONE);
+        }
+        hideCropGuideLines();
+        updateNavigationButtonsState();
     }
 
     private void cancelCountdown() {

@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Face Branding</string>
     <string name="camera_permission_hint">Your\nface will be\nhere, after you\nallow all the permissions</string>
+    <string name="record_start_refused">Recording could not start because the app left the screen. Tap record again.</string>
 </resources>
