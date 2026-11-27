@@ -34,9 +34,9 @@ public class SubtitleStyleTest {
     }
 
     @Test
-    public void testCleanWhiteTemplate() {
-        SubtitleStyle style = SubtitleStyle.cleanWhite();
-        assertEquals(SubtitleStyle.TEMPLATE_CLEAN_WHITE, style.templateId);
+    public void testCyanHighlightTemplate() {
+        SubtitleStyle style = SubtitleStyle.cyanHighlight();
+        assertEquals(SubtitleStyle.TEMPLATE_CYAN_HIGHLIGHT, style.templateId);
         assertEquals(0xFF000000, style.pillColor);
         assertEquals(0xFF000000, style.outlineColor);
         assertEquals(0xFF00E5FF, style.activeTextColor);
@@ -62,15 +62,22 @@ public class SubtitleStyleTest {
         SubtitleStyle yellow = SubtitleStyle.fromTemplate("yellow_pill");
         assertEquals(SubtitleStyle.TEMPLATE_YELLOW_PILL, yellow.templateId);
 
-        SubtitleStyle white = SubtitleStyle.fromTemplate("clean_white");
-        assertEquals(SubtitleStyle.TEMPLATE_CLEAN_WHITE, white.templateId);
+        SubtitleStyle white = SubtitleStyle.fromTemplate("cyan_highlight");
+        assertEquals(SubtitleStyle.TEMPLATE_CYAN_HIGHLIGHT, white.templateId);
 
         SubtitleStyle pro = SubtitleStyle.fromTemplate("pro_bounce");
         assertEquals(SubtitleStyle.TEMPLATE_PREMIUM, pro.templateId);
 
         // Unknown fallback
         SubtitleStyle unknown = SubtitleStyle.fromTemplate("non_existent");
-        assertEquals(SubtitleStyle.TEMPLATE_GREEN_PILL, unknown.templateId);
+        assertEquals(SubtitleStyle.TEMPLATE_CYAN_HIGHLIGHT, unknown.templateId);
+
+        SubtitleStyle missing = SubtitleStyle.fromTemplate(null);
+        assertEquals(SubtitleStyle.TEMPLATE_CYAN_HIGHLIGHT, missing.templateId);
+
+        // The pre-rename id that may still be saved on devices lands on the same cyan style
+        SubtitleStyle legacy = SubtitleStyle.fromTemplate("clean_white");
+        assertEquals(SubtitleStyle.TEMPLATE_CYAN_HIGHLIGHT, legacy.templateId);
     }
 
     @Test

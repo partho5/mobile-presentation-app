@@ -152,7 +152,7 @@ public class DrawingBoardView extends View {
 
     private final float penWidth;
     private final float eraserWidth;
-    private int penColor = Color.WHITE;
+    private int penColor = 0xFFFF1744; // palette red
     private boolean eraserMode = false;
     private boolean inputEnabled = true;
     private Listener listener;
@@ -166,7 +166,7 @@ public class DrawingBoardView extends View {
     private final float touchSlop;
     private final float textHitPad;
     private boolean textMode = false;
-    private int textColor = Color.WHITE;
+    private int textColor = 0xFFFFB300; // palette amber
     private int textSize = TEXT_SIZE_MEDIUM;
     private TextListener textListener;
     private TextItem editing;          // the text being typed; not in `texts` meanwhile

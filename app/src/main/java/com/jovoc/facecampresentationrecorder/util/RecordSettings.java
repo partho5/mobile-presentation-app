@@ -47,7 +47,7 @@ public final class RecordSettings {
 
     public static final String SUBTITLE_TEMPLATE_GREEN_PILL = "green_pill";
     public static final String SUBTITLE_TEMPLATE_YELLOW_PILL = "yellow_pill";
-    public static final String SUBTITLE_TEMPLATE_CLEAN_WHITE = "clean_white";
+    public static final String SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT = "cyan_highlight";
     public static final String SUBTITLE_TEMPLATE_PREMIUM = "pro_bounce";
 
     /** Background replacement prefs, read by BgReplaceService / FaceBgReplaceTask. */
@@ -85,10 +85,10 @@ public final class RecordSettings {
         return appPrefs(context).getBoolean(KEY_AUTOCROP_1_1, false) && allows(features, Feature.CROP_1_1);
     }
 
-    /** "Replace face cam background" (Settings), on by default; it also needs the bg_replace feature. */
+    /** "Replace face cam background" (Settings), off by default; it also needs the bg_replace feature. */
     public static boolean bgReplaceEnabled(Context context, FeatureSnapshot features) {
         return context.getSharedPreferences(BG_PREF_NAME, Context.MODE_PRIVATE)
-                .getBoolean(KEY_BG_REPLACE_ENABLED, true) && allows(features, Feature.BG_REPLACE);
+                .getBoolean(KEY_BG_REPLACE_ENABLED, false) && allows(features, Feature.BG_REPLACE);
     }
 
     public static boolean showEditorAfterRecording(Context context) {
@@ -104,7 +104,13 @@ public final class RecordSettings {
     }
 
     public static String subtitleTemplate(Context context) {
-        return appPrefs(context).getString(KEY_SUBTITLE_TEMPLATE, SUBTITLE_TEMPLATE_GREEN_PILL);
+        String t = appPrefs(context).getString(KEY_SUBTITLE_TEMPLATE, SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT);
+        // A missing or unknown saved name reads as the default, so Settings and recordings always agree.
+        if (SUBTITLE_TEMPLATE_GREEN_PILL.equals(t) || SUBTITLE_TEMPLATE_YELLOW_PILL.equals(t)
+                || SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT.equals(t) || SUBTITLE_TEMPLATE_PREMIUM.equals(t)) {
+            return t;
+        }
+        return SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT;
     }
 
     public static void setSubtitleTemplate(Context context, String template) {

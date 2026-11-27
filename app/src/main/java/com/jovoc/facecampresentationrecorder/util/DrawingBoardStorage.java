@@ -182,7 +182,7 @@ public final class DrawingBoardStorage {
     }
 
     public static int loadPenColor(Context context) {
-        return prefs(context).getInt(KEY_PEN_COLOR, Color.WHITE);
+        return prefs(context).getInt(KEY_PEN_COLOR, 0xFFFF1744); // palette red
     }
 
     public static void savePenColor(Context context, int color) {
@@ -190,7 +190,7 @@ public final class DrawingBoardStorage {
     }
 
     public static int loadTextColor(Context context) {
-        return prefs(context).getInt(KEY_TEXT_COLOR, Color.WHITE);
+        return prefs(context).getInt(KEY_TEXT_COLOR, 0xFFFFB300); // palette amber
     }
 
     public static void saveTextColor(Context context, int color) {

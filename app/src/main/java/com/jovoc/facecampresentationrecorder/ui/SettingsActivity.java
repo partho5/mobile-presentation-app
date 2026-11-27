@@ -20,7 +20,7 @@ import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SUBT
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.KEY_SUBTITLE_TEMPLATE;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_GREEN_PILL;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_YELLOW_PILL;
-import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_CLEAN_WHITE;
+import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.SUBTITLE_TEMPLATE_PREMIUM;
 import static com.jovoc.facecampresentationrecorder.util.RecordSettings.PREF_NAME;
 
@@ -132,11 +132,11 @@ public class SettingsActivity extends AppCompatActivity {
     private CheckBox cbBurnSubtitles;
     private View cardSubGreen;
     private View cardSubYellow;
-    private View cardSubWhite;
+    private View cardSubCyan;
     private View cardSubPremium;
     private View checkSubGreen;
     private View checkSubYellow;
-    private View checkSubWhite;
+    private View checkSubCyan;
     private View checkSubPremium;
     private ImageView crownSubPremium;
     private TextView tierSubPremium;
@@ -471,12 +471,12 @@ public class SettingsActivity extends AppCompatActivity {
         cbBurnSubtitles = findViewById(R.id.cb_burn_subtitles);
         cardSubGreen = findViewById(R.id.card_sub_green);
         cardSubYellow = findViewById(R.id.card_sub_yellow);
-        cardSubWhite = findViewById(R.id.card_sub_white);
+        cardSubCyan = findViewById(R.id.card_sub_cyan);
         cardSubPremium = findViewById(R.id.card_sub_premium);
 
         checkSubGreen = findViewById(R.id.iv_check_sub_green);
         checkSubYellow = findViewById(R.id.iv_check_sub_yellow);
-        checkSubWhite = findViewById(R.id.iv_check_sub_white);
+        checkSubCyan = findViewById(R.id.iv_check_sub_cyan);
         checkSubPremium = findViewById(R.id.iv_check_sub_premium);
 
         crownSubPremium = findViewById(R.id.iv_crown_sub_premium);
@@ -498,7 +498,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         cardSubGreen.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_GREEN_PILL));
         cardSubYellow.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_YELLOW_PILL));
-        cardSubWhite.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_CLEAN_WHITE));
+        cardSubCyan.setOnClickListener(v -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT));
         cardSubPremium.setOnClickListener(v -> {
             Gate.run(this, Feature.BG_CUSTOM, () -> selectSubtitleTemplate(SUBTITLE_TEMPLATE_PREMIUM));
         });
@@ -517,11 +517,11 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void updateSubtitleSelectionUI(String selected) {
-        if (selected == null) selected = SUBTITLE_TEMPLATE_GREEN_PILL;
+        if (selected == null) selected = SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT;
 
         boolean isGreen = SUBTITLE_TEMPLATE_GREEN_PILL.equals(selected);
         boolean isYellow = SUBTITLE_TEMPLATE_YELLOW_PILL.equals(selected);
-        boolean isWhite = SUBTITLE_TEMPLATE_CLEAN_WHITE.equals(selected);
+        boolean isCyan = SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT.equals(selected);
         boolean isPremium = SUBTITLE_TEMPLATE_PREMIUM.equals(selected);
 
         if (cardSubGreen != null) cardSubGreen.setSelected(isGreen);
@@ -530,8 +530,8 @@ public class SettingsActivity extends AppCompatActivity {
         if (cardSubYellow != null) cardSubYellow.setSelected(isYellow);
         if (checkSubYellow != null) checkSubYellow.setVisibility(isYellow ? View.VISIBLE : View.GONE);
 
-        if (cardSubWhite != null) cardSubWhite.setSelected(isWhite);
-        if (checkSubWhite != null) checkSubWhite.setVisibility(isWhite ? View.VISIBLE : View.GONE);
+        if (cardSubCyan != null) cardSubCyan.setSelected(isCyan);
+        if (checkSubCyan != null) checkSubCyan.setVisibility(isCyan ? View.VISIBLE : View.GONE);
 
         if (cardSubPremium != null) cardSubPremium.setSelected(isPremium);
         if (checkSubPremium != null) checkSubPremium.setVisibility(isPremium ? View.VISIBLE : View.GONE);
@@ -539,25 +539,25 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void updateSubtitlePreview(String template, boolean animate) {
         if (tvSubPrevHighlight == null) return;
-        if (template == null) template = SUBTITLE_TEMPLATE_GREEN_PILL;
+        if (template == null) template = SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT;
 
         switch (template) {
+            case SUBTITLE_TEMPLATE_GREEN_PILL:
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_green);
+                tvSubPrevHighlight.setTextColor(0xFF000000);
+                break;
             case SUBTITLE_TEMPLATE_YELLOW_PILL:
                 tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_yellow);
                 tvSubPrevHighlight.setTextColor(0xFF000000);
-                break;
-            case SUBTITLE_TEMPLATE_CLEAN_WHITE:
-                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_white);
-                tvSubPrevHighlight.setTextColor(0xFF00E5FF);
                 break;
             case SUBTITLE_TEMPLATE_PREMIUM:
                 tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_premium);
                 tvSubPrevHighlight.setTextColor(0xFFFFFFFF);
                 break;
-            case SUBTITLE_TEMPLATE_GREEN_PILL:
+            case SUBTITLE_TEMPLATE_CYAN_HIGHLIGHT:
             default:
-                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_green);
-                tvSubPrevHighlight.setTextColor(0xFF000000);
+                tvSubPrevHighlight.setBackgroundResource(R.drawable.bg_subtitle_pill_cyan);
+                tvSubPrevHighlight.setTextColor(0xFF00E5FF);
                 break;
         }
 
@@ -651,7 +651,7 @@ public class SettingsActivity extends AppCompatActivity {
      */
     private void setupBackground() {
         bindGatedCheckBox(R.id.cb_bg_replace, R.id.tv_tier_bg_replace, bgPrefs, KEY_BG_REPLACE_ENABLED,
-                true, Feature.BG_REPLACE);
+                false, Feature.BG_REPLACE);
 
         photoPicker = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
             if (uri != null) {

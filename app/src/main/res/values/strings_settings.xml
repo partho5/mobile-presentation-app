@@ -51,7 +51,7 @@
     <string name="set_subtitles_template_header">Subtitle Highlight Style:</string>
     <string name="set_subtitles_template_green">Default Green</string>
     <string name="set_subtitles_template_yellow">Vibrant Yellow</string>
-    <string name="set_subtitles_template_white">Clean White</string>
+    <string name="set_subtitles_template_cyan">Cyan Highlight</string>
     <string name="set_subtitles_template_premium">Pro Gradient / Bounce</string>
     <string name="set_subtitles_preview_sample">Create engaging videos with AI subtitles</string>
     <string name="set_perm_camera">Camera (your face cam)</string>

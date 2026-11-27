@@ -13,7 +13,7 @@ public final class SubtitleStyle {
 
     public static final String TEMPLATE_GREEN_PILL = "green_pill";
     public static final String TEMPLATE_YELLOW_PILL = "yellow_pill";
-    public static final String TEMPLATE_CLEAN_WHITE = "clean_white";
+    public static final String TEMPLATE_CYAN_HIGHLIGHT = "cyan_highlight";
     public static final String TEMPLATE_PREMIUM = "pro_bounce";
 
     public static final float DEFAULT_POSITION_Y = 0.95f;
@@ -41,7 +41,7 @@ public final class SubtitleStyle {
                          int activeTextColor, int outlineColor, float cornerRadiusDp,
                          float paddingHorizontalDp, float paddingVerticalDp,
                          float fontSizeSp, float positionY, float scaleActiveWord) {
-        this.templateId = templateId != null ? templateId : TEMPLATE_GREEN_PILL;
+        this.templateId = templateId != null ? templateId : TEMPLATE_CYAN_HIGHLIGHT;
         this.pillColor = pillColor;
         this.pillEndColor = pillEndColor;
         this.textColor = textColor;
@@ -96,9 +96,9 @@ public final class SubtitleStyle {
         );
     }
 
-    public static SubtitleStyle cleanWhite(float fontSizeSp, float positionY) {
+    public static SubtitleStyle cyanHighlight(float fontSizeSp, float positionY) {
         return new SubtitleStyle(
-                TEMPLATE_CLEAN_WHITE,
+                TEMPLATE_CYAN_HIGHLIGHT,
                 0xFF000000,
                 0xFF000000,
                 0xFFFFFFFF,
@@ -138,8 +138,8 @@ public final class SubtitleStyle {
         return yellowPill(DEFAULT_FONT_SIZE_SP, DEFAULT_POSITION_Y);
     }
 
-    public static SubtitleStyle cleanWhite() {
-        return cleanWhite(DEFAULT_FONT_SIZE_SP, DEFAULT_POSITION_Y);
+    public static SubtitleStyle cyanHighlight() {
+        return cyanHighlight(DEFAULT_FONT_SIZE_SP, DEFAULT_POSITION_Y);
     }
 
     public static SubtitleStyle premium() {
@@ -147,17 +147,17 @@ public final class SubtitleStyle {
     }
 
     public static SubtitleStyle fromTemplate(String templateId, float fontSizeSp, float positionY) {
-        if (templateId == null) templateId = TEMPLATE_GREEN_PILL;
+        if (templateId == null) templateId = TEMPLATE_CYAN_HIGHLIGHT;
         switch (templateId) {
+            case TEMPLATE_GREEN_PILL:
+                return greenPill(fontSizeSp, positionY);
             case TEMPLATE_YELLOW_PILL:
                 return yellowPill(fontSizeSp, positionY);
-            case TEMPLATE_CLEAN_WHITE:
-                return cleanWhite(fontSizeSp, positionY);
             case TEMPLATE_PREMIUM:
                 return premium(fontSizeSp, positionY);
-            case TEMPLATE_GREEN_PILL:
+            case TEMPLATE_CYAN_HIGHLIGHT:
             default:
-                return greenPill(fontSizeSp, positionY);
+                return cyanHighlight(fontSizeSp, positionY);
         }
     }
 
@@ -170,7 +170,7 @@ public final class SubtitleStyle {
      */
     public static SubtitleStyle fromSettings(Context context) {
         if (context == null) {
-            return greenPill();
+            return cyanHighlight();
         }
         String template = RecordSettings.subtitleTemplate(context);
         String fontSizeStr = RecordSettings.subtitleFontSize(context);

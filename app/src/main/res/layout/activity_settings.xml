@@ -402,103 +402,6 @@
                 android:orientation="vertical"
                 app:helpSection="auto_crop" />
 
-            <!-- AI virtual background -->
-            <include layout="@layout/view_settings_divider" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="@string/set_bg_header"
-                android:textColor="#22D3EE"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <!-- Always-visible tips for a clean background replacement -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/set_bg_tips_title"
-                android:textColor="#FBBF24"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:lineSpacingMultiplier="1.15"
-                android:text="@string/set_bg_tip_wall"
-                android:textColor="#B0B0B0"
-                android:textSize="14sp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:lineSpacingMultiplier="1.15"
-                android:text="@string/set_bg_tip_light"
-                android:textColor="#B0B0B0"
-                android:textSize="14sp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="6dp"
-                android:lineSpacingMultiplier="1.15"
-                android:text="@string/set_bg_tip_gpu"
-                android:textColor="#B0B0B0"
-                android:textSize="14sp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <CheckBox
-                    android:id="@+id/cb_bg_replace"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:buttonTint="#22D3EE"
-                    android:minHeight="48dp"
-                    android:text="@string/set_bg_replace"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/tv_tier_bg_replace"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:visibility="gone" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="4dp"
-                android:text="@string/set_bg_pick"
-                android:textColor="#AAAAAA"
-                android:textSize="13sp" />
-
-            <!-- Cards are built in SettingsActivity: assets/bg_samples/, the user's own photos, then an add card -->
-            <GridLayout
-                android:id="@+id/grid_bg_sample"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:columnCount="2" />
-
-            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:orientation="vertical"
-                app:helpSection="background" />
-
             <!-- Captions & Subtitles (Part 4) -->
             <include layout="@layout/view_settings_divider" />
 
@@ -656,9 +559,9 @@
                             android:visibility="gone" />
                     </FrameLayout>
 
-                    <!-- Card 3: Clean White -->
+                    <!-- Card 3: Cyan Highlight -->
                     <FrameLayout
-                        android:id="@+id/card_sub_white"
+                        android:id="@+id/card_sub_cyan"
                         android:layout_width="130dp"
                         android:layout_height="96dp"
                         android:layout_marginEnd="10dp"
@@ -676,7 +579,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:background="@drawable/bg_subtitle_pill_white"
+                                android:background="@drawable/bg_subtitle_pill_cyan"
                                 android:paddingStart="10dp"
                                 android:paddingTop="3dp"
                                 android:paddingEnd="10dp"
@@ -690,14 +593,14 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
-                                android:text="@string/set_subtitles_template_white"
+                                android:text="@string/set_subtitles_template_cyan"
                                 android:textColor="#FFFFFF"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
                         <ImageView
-                            android:id="@+id/iv_check_sub_white"
+                            android:id="@+id/iv_check_sub_cyan"
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:layout_gravity="top|end"
@@ -1080,6 +983,103 @@
                 android:text="@string/set_show_editor_hint"
                 android:textColor="#AAAAAA"
                 android:textSize="13sp" />
+
+            <!-- AI virtual background -->
+            <include layout="@layout/view_settings_divider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="@string/set_bg_header"
+                android:textColor="#22D3EE"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <!-- Always-visible tips for a clean background replacement -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_bg_tips_title"
+                android:textColor="#FBBF24"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingMultiplier="1.15"
+                android:text="@string/set_bg_tip_wall"
+                android:textColor="#B0B0B0"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingMultiplier="1.15"
+                android:text="@string/set_bg_tip_light"
+                android:textColor="#B0B0B0"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="6dp"
+                android:lineSpacingMultiplier="1.15"
+                android:text="@string/set_bg_tip_gpu"
+                android:textColor="#B0B0B0"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/cb_bg_replace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:buttonTint="#22D3EE"
+                    android:minHeight="48dp"
+                    android:text="@string/set_bg_replace"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tv_tier_bg_replace"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp"
+                android:text="@string/set_bg_pick"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp" />
+
+            <!-- Cards are built in SettingsActivity: assets/bg_samples/, the user's own photos, then an add card -->
+            <GridLayout
+                android:id="@+id/grid_bg_sample"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2" />
+
+            <com.jovoc.facecampresentationrecorder.ui.SettingsHelpView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical"
+                app:helpSection="background" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
