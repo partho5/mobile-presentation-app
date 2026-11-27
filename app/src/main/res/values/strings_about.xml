@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about_title">About App</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">A powerful, simple app for presenting topics with live face cam overlay and screen recording.</string>
+    <string name="about_privacy_heading">Privacy</string>
+    <string name="about_privacy_body">Camera and screen capture are used only for live preview and recording, and only when you start them.</string>
+    <string name="nav_header_tagline">Personal branding made easiest</string>
+    <string name="about_contact">Contact the developer</string>
+</resources>

@@ -76,6 +76,11 @@
             android:label="@string/contact_title" />
 
         <activity
+            android:name=".ui.AboutActivity"
+            android:exported="false"
+            android:label="@string/about_title" />
+
+        <activity
             android:name=".ui.DevicesActivity"
             android:exported="false"
             android:label="@string/dev_title"

@@ -16,12 +16,18 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
+    <!-- One line on every screen: shrinks from 14sp down to 9sp instead of wrapping. -->
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Features &amp; Settings"
-        android:textColor="#AAAAAA"
-        android:textSize="14sp" />
+        android:autoSizeMaxTextSize="14sp"
+        android:autoSizeMinTextSize="9sp"
+        android:autoSizeStepGranularity="0.5sp"
+        android:autoSizeTextType="uniform"
+        android:ellipsize="none"
+        android:maxLines="1"
+        android:text="@string/nav_header_tagline"
+        android:textColor="#AAAAAA" />
 
 </LinearLayout>

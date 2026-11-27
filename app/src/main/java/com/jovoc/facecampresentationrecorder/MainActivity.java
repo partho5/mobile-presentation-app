@@ -804,9 +804,46 @@ public class MainActivity extends AppCompatActivity
             android.view.MenuItem item = menu.getItem(i);
             android.graphics.drawable.Drawable icon = item.getIcon();
             if (icon == null || item.getItemId() == R.id.nav_account) continue;
+            if (item.getItemId() == R.id.nav_contact) {
+                android.graphics.drawable.Drawable face = founderFaceIcon();
+                if (face != null) {
+                    item.setIcon(face);
+                    continue;
+                }
+            }
             icon = androidx.core.graphics.drawable.DrawableCompat.wrap(icon.mutate());
             androidx.core.graphics.drawable.DrawableCompat.setTint(icon, 0xFFFFFFFF);
             item.setIcon(icon);
+        }
+    }
+
+    /** The founder photo as a small round icon for the "Contact" drawer entry; null means keep the mail icon. */
+    @androidx.annotation.Nullable
+    private android.graphics.drawable.Drawable founderFaceIcon() {
+        try {
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeResource(getResources(), R.drawable.founder_photo, bounds);
+            int target = Math.round(48 * getResources().getDisplayMetrics().density);
+            int sample = 1;
+            while (bounds.outWidth / (sample * 2) >= target && bounds.outHeight / (sample * 2) >= target) {
+                sample *= 2;
+            }
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            android.graphics.Bitmap photo =
+                    android.graphics.BitmapFactory.decodeResource(getResources(), R.drawable.founder_photo, opts);
+            if (photo == null) return null;
+            int side = Math.min(photo.getWidth(), photo.getHeight());
+            android.graphics.Bitmap square = android.graphics.Bitmap.createBitmap(photo,
+                    (photo.getWidth() - side) / 2, (photo.getHeight() - side) / 2, side, side);
+            androidx.core.graphics.drawable.RoundedBitmapDrawable round =
+                    androidx.core.graphics.drawable.RoundedBitmapDrawableFactory.create(getResources(), square);
+            round.setCircular(true);
+            round.setAntiAlias(true);
+            return round;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return null;
         }
     }
 
@@ -859,7 +896,7 @@ public class MainActivity extends AppCompatActivity
                 } else if (itemId == R.id.nav_contact) {
                     startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.ContactActivity.class));
                 } else if (itemId == R.id.nav_about) {
-                    openAboutDialog();
+                    startActivity(new Intent(this, com.jovoc.facecampresentationrecorder.ui.AboutActivity.class));
                 }
                 if (drawerLayout != null) {
                     drawerLayout.closeDrawer(GravityCompat.START);
@@ -3853,15 +3890,6 @@ public class MainActivity extends AppCompatActivity
     private void openSavedRecordings() {
         Intent intent = new Intent(this, SavedRecordingsActivity.class);
         startActivity(intent);
-    }
-
-    private void openAboutDialog() {
-        String appName = getString(R.string.app_name);
-        new AlertDialog.Builder(this)
-                .setTitle("About " + appName)
-                .setMessage("Version 1.0.0\n\nA powerful, simple app for presenting topics with live face cam overlay and screen recording.\n\nPrivacy Notice: Camera and Screen Capture are used exclusively for live preview and recording when initiated by you.")
-                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
-                .show();
     }
 
     private void startTimedRecording(Intent serviceIntent, int countdownSeconds) {
