@@ -83,6 +83,43 @@ public class ContentPlanApiTest {
     }
 
     @Test
+    public void stamp_getsThePathWithTheBrand_andParsesTheStamp() throws Exception {
+        server.enqueue(json(200, "{\"stamp\":\"2026-11-27T10:00:00.000Z|3\"}"));
+        assertEquals("2026-11-27T10:00:00.000Z|3", api.stamp("w1"));
+        RecordedRequest r = server.takeRequest();
+        assertEquals("GET", r.getMethod());
+        assertEquals(ContentPlanApi.PATH_WEEK_STAMP, r.getPath());
+        assertEquals("w1", r.getHeader("x-workspace-id"));
+        assertEquals("Bearer acc", r.getHeader("Authorization"));
+    }
+
+    @Test
+    public void stamp_badBody_isAServerFailure() throws Exception {
+        String[] bad = {"not json", "{}", "{\"stamp\":\"\"}", "[]"};
+        for (String body : bad) {
+            server.enqueue(json(200, body));
+            try {
+                api.stamp("w1");
+                fail("expected ContentPlanException for " + body);
+            } catch (ContentPlanException e) {
+                assertEquals(ContentPlanException.SERVER, e.code);
+            }
+        }
+    }
+
+    @Test
+    public void stamp_404WhenTheRouteIsNotDeployed_isNotFound() throws Exception {
+        server.enqueue(json(404, "{\"statusCode\":404}"));
+        try {
+            api.stamp("w1");
+            fail("expected ContentPlanException");
+        } catch (ContentPlanException e) {
+            assertEquals(ContentPlanException.NOT_FOUND, e.code);
+            assertFalse(e.retryable);
+        }
+    }
+
+    @Test
     public void recorded_postsWithIdempotencyKeyAndBrand() throws Exception {
         server.enqueue(json(200, "{\"id\":\"d1\",\"status\":\"RECORDED\"}"));
         api.recorded("d1", "w1");

@@ -56,6 +56,23 @@ public class ContentPlanStoreTest {
     }
 
     @Test
+    public void weekStampIsKeptPerBrand_besideTheWeek() {
+        ContentPlanStore s = new ContentPlanStore(new MapStore());
+        assertNull(s.weekStamp("b1"));
+        s.saveWeek("b1", "{\"a\":1}", 100);
+        assertNull(s.weekStamp("b1")); // saving the week alone invents no stamp
+        s.saveWeekStamp("b1", "s1");
+        s.saveWeekStamp("b2", "s2");
+        assertEquals("s1", s.weekStamp("b1"));
+        assertEquals("s2", s.weekStamp("b2"));
+        s.saveWeek("b1", "{\"a\":3}", 300);
+        assertEquals("s1", s.weekStamp("b1")); // a later week keeps the stamp until a new one is saved
+        s.saveWeekStamp("b1", "s3");
+        assertEquals("s3", s.weekStamp("b1"));
+        assertEquals("s2", s.weekStamp("b2"));
+    }
+
+    @Test
     public void pendingAddAndRemove() {
         ContentPlanStore s = new ContentPlanStore(new MapStore());
         s.savePendingRecorded("d2", "b1", 200);

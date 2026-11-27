@@ -21,6 +21,7 @@ public final class ContentPlanStore {
     private static final String PREFS = "content_plan";
     private static final String PREFIX_WEEK = "week:";
     private static final String PREFIX_FETCHED = "fetched:";
+    private static final String PREFIX_STAMP = "stamp:";
     private static final String PREFIX_PENDING = "pending:";
     private static final String PREFIX_RECORDED = "recorded:";
     /** A local "recorded" mark is kept this long, then pruned on the next save. */
@@ -103,6 +104,16 @@ public final class ContentPlanStore {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    /** Keeps the week stamp the cached week of {@code brandId} was fetched at. */
+    public synchronized void saveWeekStamp(String brandId, String stamp) {
+        store.put(PREFIX_STAMP + brandKey(brandId), stamp);
+    }
+
+    /** The stamp the cached week of {@code brandId} was fetched at, or null. */
+    public synchronized String weekStamp(String brandId) {
+        return store.get(PREFIX_STAMP + brandKey(brandId));
     }
 
     // ---- "recorded" reports waiting to be sent ----

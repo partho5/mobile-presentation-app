@@ -111,7 +111,8 @@ public final class ContentPlanCard {
 
     /**
      * Shows the cached week at once, then asks the server unless the last answer for this brand is under 10 minutes
-     * old (or {@code force}, or the local date changed). Any failure keeps the cached card.
+     * old (or {@code force}, or the local date changed). Inside the 10 minutes it asks the cheap week stamp instead and
+     * fetches the week only when the stamp changed. Any failure keeps the cached card.
      */
     public void refresh(boolean force) {
         final Context app = host.getApplicationContext();
@@ -140,8 +141,7 @@ public final class ContentPlanCard {
                 boolean fresh = cacheBrand != null && cached != null
                         && System.currentTimeMillis() - store.fetchedAt(cacheBrand) < FRESH_MS
                         && today != null && (fetchedForDate == null || today.equals(fetchedForDate));
-                if (fresh && !force) return;
-                String brand = session.brandForNewJob();
+                String brand = fresh && !force ? cacheBrand : session.brandForNewJob();
                 if (brand == null) {
                     if (cacheBrand == null) main.post(() -> {
                         plan = null;
@@ -149,9 +149,16 @@ public final class ContentPlanCard {
                     });
                     return;
                 }
-                String json = new ContentPlanApi(session.repository()).week(brand);
+                ContentPlanApi api = new ContentPlanApi(session.repository());
+                // The stamp is asked before the week and the one asked is the one kept: a change that lands between
+                // the two calls leaves the kept stamp older than the week, so the next resume fetches once more
+                // (harmless), where a stamp asked after the week could hide that change for good.
+                String stamp = readStamp(api, brand);
+                if (!PlanRefreshPolicy.shouldFetchWeek(fresh, force, store.weekStamp(brand), stamp)) return;
+                String json = api.week(brand);
                 PlanWeek fetched = PlanWeek.parse(json);
                 store.saveWeek(brand, json, System.currentTimeMillis());
+                if (stamp != null) store.saveWeekStamp(brand, stamp);
                 final String forDate = localToday(fetched);
                 main.post(() -> {
                     brandId = brand;
@@ -165,6 +172,15 @@ public final class ContentPlanCard {
                 fetching = false;
             }
         });
+    }
+
+    /** The server's week stamp, or null on any failure (offline, route not deployed yet, bad answer). */
+    private static String readStamp(ContentPlanApi api, String brand) {
+        try {
+            return api.stamp(brand);
+        } catch (ContentPlanException e) {
+            return null;
+        }
     }
 
     /** Re-reads the cache and shows it again (a recording may have marked a day recorded). */

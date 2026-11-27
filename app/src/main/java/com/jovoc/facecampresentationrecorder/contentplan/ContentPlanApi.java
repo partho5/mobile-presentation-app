@@ -4,6 +4,9 @@ import com.jovoc.facecampresentationrecorder.auth.ApiResponse;
 import com.jovoc.facecampresentationrecorder.auth.AuthException;
 import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -17,6 +20,7 @@ import java.util.Map;
 public class ContentPlanApi {
 
     public static final String PATH_WEEK = "/public/v1/content-plan/week";
+    static final String PATH_WEEK_STAMP = "/public/v1/content-plan/week/stamp";
     static final String PATH_DAYS = "/public/v1/content-plan/days/";
     static final String HEADER_IDEMPOTENCY = "Idempotency-Key";
 
@@ -31,6 +35,21 @@ public class ContentPlanApi {
         ApiResponse r = send("GET", PATH_WEEK, null, workspaceId, null);
         if (r.body.isEmpty() || r.body.charAt(0) != '{') throw new ContentPlanException(ContentPlanException.SERVER, true);
         return r.body;
+    }
+
+    /**
+     * GET the week stamp: a cheap opaque value that changes whenever anything {@link #week} returns changes. Sent like
+     * {@link #week}; a body that is not {@code {"stamp": "<text>"}} is a {@link ContentPlanException#SERVER} failure.
+     */
+    public String stamp(String workspaceId) throws ContentPlanException {
+        ApiResponse r = send("GET", PATH_WEEK_STAMP, null, workspaceId, null);
+        try {
+            String stamp = new JSONObject(r.body).getString("stamp");
+            if (stamp.isEmpty()) throw new ContentPlanException(ContentPlanException.SERVER, true);
+            return stamp;
+        } catch (JSONException e) {
+            throw new ContentPlanException(ContentPlanException.SERVER, true, e);
+        }
     }
 
     /** POST days/:id/recorded: tells the server the day was recorded. Idempotent per day. */
