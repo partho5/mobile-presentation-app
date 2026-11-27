@@ -12,6 +12,7 @@ import com.jovoc.facecampresentationrecorder.auth.AuthRepository;
 import com.jovoc.facecampresentationrecorder.auth.SessionManager;
 import com.jovoc.facecampresentationrecorder.publish.PublishApi;
 import com.jovoc.facecampresentationrecorder.publish.PublishException;
+import com.jovoc.facecampresentationrecorder.ui.SignInSheet;
 import com.jovoc.facecampresentationrecorder.ui.WebLinks;
 
 import java.util.concurrent.ExecutorService;
@@ -29,9 +30,13 @@ public final class ContentPlanWeb {
     private ContentPlanWeb() {
     }
 
-    /** Opens the plan page; the plain page when the server cannot give a link. */
+    /** Opens the plan page; the plain page when the server cannot give a link. Signed out: sign in here first. */
     public static void open(MainActivity host) {
         final Context app = host.getApplicationContext();
+        if (!SessionManager.get(app).hasSession()) {
+            askSignIn(host);
+            return;
+        }
         final Handler main = new Handler(Looper.getMainLooper());
         IO.execute(() -> {
             String url = null;
@@ -55,8 +60,18 @@ public final class ContentPlanWeb {
                     Toast.makeText(host, R.string.err_offline, Toast.LENGTH_LONG).show();
                 } else if (err != null && err.kind != PublishException.Kind.SIGNED_OUT) {
                     Toast.makeText(host, R.string.cplan_link_failed, Toast.LENGTH_LONG).show();
+                } else if (err != null && !SessionManager.get(app).hasSession()) {
+                    askSignIn(host); // the session ended on the server
                 }
             });
+        });
+    }
+
+    /** The in-place sign-in sheet; once signed in, the page opens with no further tap. */
+    private static void askSignIn(MainActivity host) {
+        SignInSheet.require(host, R.string.cplan_sign_in_title, R.string.cplan_sign_in_reason, () -> {
+            host.refreshAfterSignIn();
+            open(host);
         });
     }
 }

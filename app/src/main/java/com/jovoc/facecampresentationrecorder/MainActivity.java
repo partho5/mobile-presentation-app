@@ -865,6 +865,12 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    /** A sign-in done in place (SignInSheet) skips onResume; reload what depends on the account. */
+    public void refreshAfterSignIn() {
+        refreshTopicSetsEntry();
+        if (contentPlanCard != null) contentPlanCard.refresh(true);
+    }
+
     /** The "Topic sets" drawer entry shows after the first recording, or at once when a plan set exists. */
     private void refreshTopicSetsEntry() {
         if (navigationView == null) return;

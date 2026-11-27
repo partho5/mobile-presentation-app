@@ -74,9 +74,11 @@ public final class TopicSetsSheet {
         Button web = new Button(host);
         web.setText(R.string.cplan_open_web);
         web.setAllCaps(false);
-        web.setTextColor(0xFF0B1620);
-        web.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ACCENT));
-        web.setMinHeight(dp(host, 48));
+        web.setTextColor(0xFFFFFFFF);
+        web.setTextSize(16);
+        web.setTypeface(Typeface.DEFAULT_BOLD);
+        web.setBackground(vibrantBackground(host));
+        web.setMinHeight(dp(host, 52));
         LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         wlp.topMargin = dp(host, 12);
@@ -84,6 +86,19 @@ public final class TopicSetsSheet {
         web.setOnClickListener(v -> ContentPlanWeb.open(host));
         root.addView(web);
         return root;
+    }
+
+    /** Violet-to-blue gradient with a white ripple: the sheet's one call to action stands out on the dark sheet. */
+    private static android.graphics.drawable.Drawable vibrantBackground(MainActivity host) {
+        android.graphics.drawable.GradientDrawable fill = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xFF7C4DFF, 0xFF2979FF});
+        fill.setCornerRadius(dp(host, 12));
+        android.graphics.drawable.GradientDrawable mask = new android.graphics.drawable.GradientDrawable();
+        mask.setColor(0xFFFFFFFF);
+        mask.setCornerRadius(dp(host, 12));
+        return new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x40FFFFFF), fill, mask);
     }
 
     private static View row(MainActivity host, BottomSheetDialog dialog, ScrollView scroll,

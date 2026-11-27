@@ -53,5 +53,7 @@
     <string name="cplan_delete_title">Delete these topics?</string>
     <string name="cplan_delete_message">This cannot be undone.</string>
     <string name="cplan_open_web">Plan videos on the website</string>
+    <string name="cplan_sign_in_title">Log in to plan videos</string>
+    <string name="cplan_sign_in_reason">Your video plan lives in your Nany Social account. Enter your email and we will send you a 6-digit code. New here? The same code creates your account.</string>
     <string name="cplan_sets_empty">Your AI video plans appear here.</string>
 </resources>

@@ -151,4 +151,28 @@ public class SignInFlowTest {
         assertEquals(SignInFlow.Destination.NEXT, SignInFlow.afterSignIn(true));
         assertEquals(SignInFlow.Destination.PREVIOUS_SCREEN, SignInFlow.afterSignIn(false));
     }
+
+    @Test
+    public void codeStepIsKeptUntilTheCodeExpires() {
+        flow.onCodeSent("a@b.co");
+        now.addAndGet(SignInFlow.CODE_VALID_MS - 1);
+        assertFalse(flow.dropStaleCode());
+        assertEquals(SignInFlow.Step.CODE, flow.step());
+    }
+
+    @Test
+    public void expiredCodeDropsBackToEmailStepKeepingTheEmail() {
+        flow.onCodeSent("a@b.co");
+        now.addAndGet(SignInFlow.CODE_VALID_MS);
+        assertTrue(flow.dropStaleCode());
+        assertEquals(SignInFlow.Step.EMAIL, flow.step());
+        assertEquals("a@b.co", flow.email());
+    }
+
+    @Test
+    public void dropStaleCodeDoesNothingOnEmailStep() {
+        now.addAndGet(SignInFlow.CODE_VALID_MS * 2);
+        assertFalse(flow.dropStaleCode());
+        assertEquals(SignInFlow.Step.EMAIL, flow.step());
+    }
 }

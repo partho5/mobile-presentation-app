@@ -35,6 +35,8 @@ public final class SignInFlow {
 
     public static final long RESEND_COOLDOWN_MS = 30_000L;
     public static final int DEFAULT_LOCK_SECONDS = 60;
+    /** How long an emailed code works (the code step's copy says 10 minutes). */
+    public static final long CODE_VALID_MS = 10 * 60_000L;
 
     private final LongSupplier clock;
     private Step step = Step.EMAIL;
@@ -42,6 +44,7 @@ public final class SignInFlow {
     private long sendUntil;
     private long verifyUntil;
     private long resendUntil;
+    private long codeSentAt;
     private int lastRetryAfterSeconds;
 
     public SignInFlow(LongSupplier clock) {
@@ -97,7 +100,18 @@ public final class SignInFlow {
     public void onCodeSent(String sentTo) {
         email = sentTo;
         step = Step.CODE;
-        resendUntil = clock.getAsLong() + RESEND_COOLDOWN_MS;
+        codeSentAt = clock.getAsLong();
+        resendUntil = codeSentAt + RESEND_COOLDOWN_MS;
+    }
+
+    /**
+     * Back to the email step when the last code has expired, so a flow kept across screens (the in-place
+     * sign-in sheet) never asks for a dead code. Returns true when it moved.
+     */
+    public boolean dropStaleCode() {
+        if (step != Step.CODE || clock.getAsLong() - codeSentAt < CODE_VALID_MS) return false;
+        step = Step.EMAIL;
+        return true;
     }
 
     public void onChangeEmail() {
@@ -165,6 +179,7 @@ public final class SignInFlow {
         step = savedStep == null ? Step.EMAIL : savedStep;
         email = savedEmail == null ? "" : savedEmail;
         if (step == Step.CODE && !AuthRepository.isValidEmail(email)) step = Step.EMAIL;
+        if (step == Step.CODE) codeSentAt = now; // not saved; counting from the restore keeps the step usable
         if (left != null && left.length == 3) {
             sendUntil = now + Math.max(0, left[0]);
             verifyUntil = now + Math.max(0, left[1]);

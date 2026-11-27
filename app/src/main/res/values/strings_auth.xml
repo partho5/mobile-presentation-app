@@ -3,6 +3,7 @@
     <string name="product_name">Nany Social</string>
     <string name="sign_in_title">Auto upload to social media</string>
     <string name="sign_in_not_now">Not now</string>
+    <string name="sign_in_later">Later</string>
     <string name="sign_in_code_desc">6-digit code</string>
     <string name="sign_in_working">Working</string>
     <string name="sign_in_email_hint_text">Sign in to Nany Social to publish your recordings. Enter your email and we will send you a 6-digit code. New here? The same code creates your account.</string>
