@@ -1,12 +1,13 @@
 package com.jovoc.facecampresentationrecorder.ui;
 
 import android.content.Context;
-import android.graphics.PorterDuff;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
@@ -48,7 +49,10 @@ public class SlideInkController implements DrawingBoardView.Listener {
     private static final float SWATCH_INSET_DP = 4f;
     private static final long SAVE_DEBOUNCE_MS = 1000L;
     private static final float DISABLED_ALPHA = 0.3f;
-    private static final float IDLE_ALPHA = 0.8f;
+    private static final long TOOLS_IN_MS = 220L;
+    private static final long TOOLS_OUT_MS = 160L;
+    private static final float TOOLS_OFFSET_DP = 10f;
+    private static final float TOOLS_START_SCALE = 0.94f;
 
     private final Context context;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -58,6 +62,7 @@ public class SlideInkController implements DrawingBoardView.Listener {
 
     private final DrawingBoardView ink;
     private final ImageButton btnPen;
+    private final ToolIconAnimator penIcon;
     private final View tools;
     private final View toolUndo;
     private final LinearLayout palette;
@@ -79,6 +84,7 @@ public class SlideInkController implements DrawingBoardView.Listener {
         toolUndo = root.findViewById(R.id.slide_ink_undo);
         palette = root.findViewById(R.id.slide_ink_palette);
         toolClear = root.findViewById(R.id.slide_ink_clear);
+        penIcon = new ToolIconAnimator(btnPen);
 
         buildSwatches();
         ink.setInputEnabled(false);
@@ -124,7 +130,7 @@ public class SlideInkController implements DrawingBoardView.Listener {
         if (on && !FeatureSnapshot.allows(Feature.SLIDE_INK)) return;
         penMode = on;
         ink.setInputEnabled(on);
-        tools.setVisibility(on ? View.VISIBLE : View.GONE);
+        showTools(on);
         stylePenButton();
         if (!on) flush();
         if (listener != null) listener.onPenModeChanged(on);
@@ -188,15 +194,41 @@ public class SlideInkController implements DrawingBoardView.Listener {
         sw.setBackground(new InsetDrawable(dot, inset));
     }
 
-    /** Idle: plain white icon. Pen mode: lit up in the active colour. */
+    /** Idle: plain white icon. Pen mode: lit up in the active colour (animated both ways). */
     private void stylePenButton() {
-        if (penMode) {
-            btnPen.setColorFilter(ink.getPenColor(), PorterDuff.Mode.SRC_IN);
-            btnPen.setAlpha(1f);
+        penIcon.setActive(penMode, ink.getPenColor(), true);
+    }
+
+    /** Undo / swatches / Clear row: rises and fades in with pen mode, sinks and fades out after it. */
+    private void showTools(boolean show) {
+        tools.animate().cancel();
+        float offset = TOOLS_OFFSET_DP * density;
+        if (show) {
+            if (tools.getVisibility() != View.VISIBLE) {
+                tools.setAlpha(0f);
+                tools.setTranslationY(offset);
+                tools.setScaleX(TOOLS_START_SCALE);
+                tools.setScaleY(TOOLS_START_SCALE);
+                tools.setVisibility(View.VISIBLE);
+            }
+            tools.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+                    .setDuration(TOOLS_IN_MS).setInterpolator(new DecelerateInterpolator()).start();
+        } else if (tools.getVisibility() == View.VISIBLE && tools.isShown()) {
+            tools.animate().alpha(0f).translationY(offset)
+                    .scaleX(TOOLS_START_SCALE).scaleY(TOOLS_START_SCALE)
+                    .setDuration(TOOLS_OUT_MS).setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(this::resetToolsHidden).start();
         } else {
-            btnPen.clearColorFilter();
-            btnPen.setAlpha(IDLE_ALPHA);
+            resetToolsHidden();
         }
+    }
+
+    private void resetToolsHidden() {
+        tools.setVisibility(View.GONE);
+        tools.setAlpha(1f);
+        tools.setTranslationY(0f);
+        tools.setScaleX(1f);
+        tools.setScaleY(1f);
     }
 
     // ---- saving ----

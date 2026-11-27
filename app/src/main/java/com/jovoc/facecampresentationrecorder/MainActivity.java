@@ -11,6 +11,7 @@ import com.jovoc.facecampresentationrecorder.ui.DrawingBoardView;
 import com.jovoc.facecampresentationrecorder.ui.Gate;
 import com.jovoc.facecampresentationrecorder.ui.PremiumMark;
 import com.jovoc.facecampresentationrecorder.ui.SlideInkController;
+import com.jovoc.facecampresentationrecorder.ui.ToolIconAnimator;
 import com.jovoc.facecampresentationrecorder.ui.SlideTransitionController;
 import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 import com.jovoc.facecampresentationrecorder.util.SlideInkStorage;
@@ -209,6 +210,7 @@ public class MainActivity extends AppCompatActivity
 
     // Drawing board (shown only while recording)
     private ImageButton btnDrawingBoard;
+    private ToolIconAnimator drawingBoardIcon;
     /** The button plus its premium crown; this is what shows and hides, with the recording. */
     private View wrapDrawingBoard;
     private ImageView crownDrawingBoard;
@@ -1139,7 +1141,14 @@ public class MainActivity extends AppCompatActivity
             drawingBoardController = new DrawingBoardController(drawingBoardContainer);
         }
         if (btnDrawingBoard != null) {
+            drawingBoardIcon = new ToolIconAnimator(btnDrawingBoard);
             btnDrawingBoard.setOnClickListener(v -> toggleDrawingBoard());
+            if (drawingBoardController != null) {
+                // Recolour the lit toggle when the board's pen colour changes (crossfade, no pop).
+                drawingBoardController.setOnPenColorChanged(color -> {
+                    if (isDrawingBoardVisible) drawingBoardIcon.setActive(true, color, true);
+                });
+            }
         }
         if (rootLayout != null) {
             // Keep the board square if the window changes size (rotation, bars) while it is open.
@@ -1511,14 +1520,17 @@ public class MainActivity extends AppCompatActivity
         sizeDrawingBoard();
         int side = drawingBoardContainer.getLayoutParams().height;
         drawingBoardContainer.setTranslationY(-side);
+        drawingBoardContainer.setAlpha(0f);
         drawingBoardContainer.setVisibility(View.VISIBLE);
         isDrawingBoardVisible = true;
         if (drawingBoardController != null) drawingBoardController.onBoardShown();
+        setDrawingBoardIconActive(true, true);
         isDrawingBoardAnimating = true;
         drawingBoardContainer.animate()
                 .translationY(0f)
+                .alpha(1f)
                 .setDuration(DRAWING_BOARD_ANIM_MS)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .setInterpolator(new android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
                 .withEndAction(() -> isDrawingBoardAnimating = false)
                 .start();
     }
@@ -1528,23 +1540,34 @@ public class MainActivity extends AppCompatActivity
         if (drawingBoardController != null) drawingBoardController.onBoardHidden();
         drawingBoardContainer.animate().cancel();
         isDrawingBoardVisible = false;
+        setDrawingBoardIconActive(false, animate);
         if (!animate || drawingBoardContainer.getVisibility() != View.VISIBLE) {
             isDrawingBoardAnimating = false;
             drawingBoardContainer.setVisibility(View.GONE);
             drawingBoardContainer.setTranslationY(0f);
+            drawingBoardContainer.setAlpha(1f);
             return;
         }
         isDrawingBoardAnimating = true;
         drawingBoardContainer.animate()
                 .translationY(-drawingBoardContainer.getHeight())
+                .alpha(0f)
                 .setDuration(DRAWING_BOARD_ANIM_MS)
-                .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                .setInterpolator(new android.view.animation.PathInterpolator(0.4f, 0f, 1f, 1f))
                 .withEndAction(() -> {
                     isDrawingBoardAnimating = false;
                     drawingBoardContainer.setVisibility(View.GONE);
                     drawingBoardContainer.setTranslationY(0f);
+                    drawingBoardContainer.setAlpha(1f);
                 })
                 .start();
+    }
+
+    /** Board toggle lit in the board's pen colour while the board is open, white otherwise. */
+    private void setDrawingBoardIconActive(boolean on, boolean animate) {
+        if (drawingBoardIcon == null) return;
+        int color = drawingBoardController != null ? drawingBoardController.getPenColor() : Color.WHITE;
+        drawingBoardIcon.setActive(on, color, animate);
     }
 
     private List<String> getMissingPermissions() {

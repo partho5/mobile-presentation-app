@@ -24,6 +24,7 @@ import com.jovoc.facecampresentationrecorder.util.DrawingBoardStorage;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -87,6 +88,7 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
     private int slideId = SlideInkController.NO_SLIDE;
     private final Runnable hidePalette = () -> showPalette(false);
     private final Runnable saveRunnable = this::saveInBackground;
+    private IntConsumer penColorListener;
 
     public DrawingBoardController(View container) {
         context = container.getContext().getApplicationContext();
@@ -240,6 +242,16 @@ public class DrawingBoardController implements DrawingBoardView.Listener, Drawin
         }
         toolPen.invalidate();
         refreshSwatches();
+        if (penColorListener != null) penColorListener.accept(color);
+    }
+
+    /** Told whenever the board's pen colour changes (MainActivity tints the board toggle with it). */
+    public void setOnPenColorChanged(IntConsumer listener) {
+        penColorListener = listener;
+    }
+
+    public int getPenColor() {
+        return board.getPenColor();
     }
 
     /** Ticks the swatch that matches the colour of the active tool (text colour for Text, else pen). */
