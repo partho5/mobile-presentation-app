@@ -432,6 +432,8 @@ public class MainActivity extends AppCompatActivity
 
         if (rootLayout != null) {
             rootLayout.post(this::showCropGuideLines);
+            // Keeps the record row off the 9:16 line through every layout change (bars, pen tools, rotation).
+            rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(this::placeRecordRow);
         }
     }
 
@@ -687,6 +689,67 @@ public class MainActivity extends AppCompatActivity
                 RecordSettings.autoCrop45(this), 4, 5);
         showOneGuideLine(guideLineView11, guideLabel11,
                 RecordSettings.autoCrop11(this), 1, 1);
+        placeRecordRow();
+    }
+
+    /**
+     * Keeps "Start Record" off the 9:16 guide line. When the line runs through the button's own spot, the button goes
+     * 8dp below the line if it fits above the board/pen row, else 8dp above the line; the ‹ › arrows move with it so
+     * the row stays level. Open pen tools are lifted above the moved button. Safe to call on every layout pass: it
+     * only writes values that change.
+     */
+    private void placeRecordRow() {
+        if (btnRecord == null || rootLayout == null || btnRecord.getHeight() == 0) return;
+        float density = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * density);
+        int[] loc = new int[2];
+        rootLayout.getLocationInWindow(loc);
+        int rootTop = loc[1];
+        btnRecord.getLocationInWindow(loc);
+        float naturalTop = loc[1] - rootTop - btnRecord.getTranslationY();
+        int h = btnRecord.getHeight();
+
+        float shift = 0f;
+        if (guideLineView916 != null && guideLineView916.getVisibility() == View.VISIBLE) {
+            float lineY = guideLineView916.getY();
+            if (lineY >= naturalTop - gap && lineY <= naturalTop + h + gap) {
+                float limit = rootLayout.getHeight();
+                View row = findViewById(R.id.recording_buttons_row);
+                if (row != null && row.getVisibility() == View.VISIBLE && row.getHeight() > 0) {
+                    row.getLocationInWindow(loc);
+                    limit = loc[1] - rootTop - row.getTranslationY();
+                }
+                float below = lineY + gap;
+                float top = below + h + gap <= limit ? below : lineY - gap - h;
+                shift = top - naturalTop;
+            }
+        }
+        if (btnRecord.getTranslationY() != shift) btnRecord.setTranslationY(shift);
+        if (btnPrev != null && btnPrev.getTranslationY() != shift) btnPrev.setTranslationY(shift);
+        if (btnNext != null && btnNext.getTranslationY() != shift) btnNext.setTranslationY(shift);
+        liftPenTools(naturalTop + shift, gap);
+    }
+
+    /** Raises the open pen tools (their bottom margin) to clear the record button; back to 8dp otherwise. */
+    private void liftPenTools(float buttonTop, int gap) {
+        View tools = findViewById(R.id.slide_ink_tools);
+        View row = findViewById(R.id.recording_buttons_row);
+        if (tools == null || row == null || !(tools.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) return;
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) tools.getLayoutParams();
+        int wanted = gap;
+        if (tools.getVisibility() == View.VISIBLE && btnRecord.getVisibility() == View.VISIBLE
+                && tools.getHeight() > 0 && row.getTop() > 0) {
+            float toolsBottom = row.getTop() - gap;
+            float toolsTop = toolsBottom - tools.getHeight();
+            float buttonBottom = buttonTop + btnRecord.getHeight();
+            if (toolsTop < buttonBottom && toolsBottom > buttonTop) {
+                wanted = Math.round(row.getTop() - buttonTop + gap);
+            }
+        }
+        if (lp.bottomMargin != wanted) {
+            lp.bottomMargin = wanted;
+            tools.setLayoutParams(lp);
+        }
     }
 
     private void showOneGuideLine(View line, TextView label,

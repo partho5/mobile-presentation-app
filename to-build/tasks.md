@@ -79,3 +79,30 @@ Read first: `J/MainActivity.java` (top bar, `practicePlanDay`, `syncPlanCardVisi
   open Edit Topics; else open Practice for `activeSetId`. MainActivity owns the launcher; on return reload slides; on
   `set_id` result switch the set.
 - Topic sets sheet "Practice" opens the same screen for that set.
+
+-----------------
+
+# Start button off the 9:16 line (SB1)
+
+## Intent (owner, 2026-11-27)
+On tall phones "Start Record" sits right on the 9:16 guide line. Put it immediately below the line. The drawing-board
+and pen buttons sit under it, so on shorter phones there may be no room below.
+
+## Shared context
+- Line Y = screen width × 16/9 from the top of `root_layout` (`MainActivity.showOneGuideLine`), drawn only when 9:16
+  crop is on and the screen is tall enough. Start button and ‹ › arrows are centred in the bottom 40%.
+- The board/pen row (`recording_buttons_row`) is 70dp above the bottom; the pen tools (`slide_ink_tools`) sit above
+  that row and animate their own translationY (`SlideInkController.showTools`).
+- In dp: 20:9 phones have ~80dp between the line and the board/pen row (button ~49dp + 8dp gaps fit); 19.5:9 has
+  ~50dp (does not fit); 18:9 and shorter have the row at or above the line.
+
+## Progress
+- [x] SB1 Place the record row by the 9:16 line
+
+## SB1
+- `MainActivity.placeRecordRow()`: when the visible 9:16 line touches the button's natural spot (±8dp), move the
+  button (translationY) to 8dp below the line if it fits 8dp above the board/pen row; else to 8dp above the line.
+  ‹ › arrows get the same offset so the row stays aligned. Line hidden or not touching → no offset.
+- Pen tools: if open and they would overlap the moved button, raise them (bottom margin) to sit 8dp above it; else
+  their default 8dp margin.
+- Called from `showCropGuideLines` and a global-layout listener (guarded: only changes when values differ).
