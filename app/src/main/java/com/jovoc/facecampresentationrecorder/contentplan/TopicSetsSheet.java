@@ -13,7 +13,6 @@ import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.jovoc.facecampresentationrecorder.MainActivity;
 import com.jovoc.facecampresentationrecorder.R;
-import com.jovoc.facecampresentationrecorder.db.Slide;
 
 import java.util.List;
 
@@ -158,21 +157,20 @@ public final class TopicSetsSheet {
             dialog.dismiss();
         });
 
-        if (item.canPractice) {
-            Button practice = new Button(host, null, 0);
-            practice.setText(R.string.cplan_practice);
-            practice.setAllCaps(false);
-            practice.setTextColor(ACCENT);
-            practice.setTextSize(14);
-            practice.setBackgroundColor(0x00000000);
-            practice.setMinHeight(dp(host, 48));
-            practice.setMinimumHeight(dp(host, 48));
-            practice.setOnClickListener(v -> {
-                dialog.dismiss();
-                host.practicePlanDay(item.setId.substring(Slide.PLAN_SET_PREFIX.length()));
-            });
-            row.addView(practice);
-        }
+        // Every set can be practised, the own topics too (PracticeActivity).
+        Button practice = new Button(host, null, 0);
+        practice.setText(R.string.practice_button);
+        practice.setAllCaps(false);
+        practice.setTextColor(ACCENT);
+        practice.setTextSize(14);
+        practice.setBackgroundColor(0x00000000);
+        practice.setMinHeight(dp(host, 48));
+        practice.setMinimumHeight(dp(host, 48));
+        practice.setOnClickListener(v -> {
+            dialog.dismiss();
+            host.practiceSet(item.setId);
+        });
+        row.addView(practice);
 
         // Deleting is a long-press on a video row (no button next to Practice, so no mis-taps); it still asks first.
         if (item.setId != null) {

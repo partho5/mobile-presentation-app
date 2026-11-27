@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MainActivity top bar and PracticeActivity: practising the topic set that is on screen -->
+    <string name="practice_button">Practice</string>
+    <string name="practice_title">Practice</string>
+    <string name="practice_own_title">Your topics</string>
+    <string name="practice_say_label">What I\'ll say</string>
+    <string name="practice_say_hint">Why it matters · An example · What to do next</string>
+    <string name="practice_nothing_yet">Nothing written yet</string>
+    <string name="practice_add_topic">Add a topic to practice it</string>
+    <string name="practice_kind_image">Picture</string>
+    <string name="practice_kind_video">Video</string>
+    <string name="practice_kind_website">Website</string>
+    <string name="practice_kind_youtube">YouTube</string>
+</resources>

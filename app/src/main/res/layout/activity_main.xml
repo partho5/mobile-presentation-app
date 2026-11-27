@@ -213,12 +213,28 @@
                 android:contentDescription="Open Navigation Menu"
                 android:src="@drawable/ic_hamburger" />
 
-            <!-- No title: this only pushes "Edit Topics" to the end of the bar. -->
+            <!-- No title: this only pushes "Practice" and "Edit Topics" to the end of the bar. -->
             <Space
                 android:id="@+id/toolbar_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1" />
+
+            <!-- Practice of the topic set on screen; part of the bar, so it never covers a slide and hides
+                 with the bar (and while recording). -->
+            <Button
+                android:id="@+id/btn_practice"
+                style="@style/Widget.App.Button.TextButton"
+                android:minHeight="40dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:text="@string/practice_button"
+                android:textColor="#64B5F6"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btn_slide_manager"
@@ -233,9 +249,6 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <!-- Today's video from the AI content plan; hidden while recording (the screen is captured) -->
-        <include layout="@layout/view_content_plan_today" />
 
         <!-- Drawing board: square silver panel with a black canvas and a bottom tool bar.
              Declared before the camera wrapper so the face cam always draws above it; sized

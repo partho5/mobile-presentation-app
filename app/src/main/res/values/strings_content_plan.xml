@@ -3,19 +3,15 @@
     <!-- MainActivity: switching topic sets (own topics / a content-plan day's topics) -->
     <string name="cplan_locked_recording">Finish recording first</string>
 
-    <!-- ContentPlanCard: the slim strip on the recorder screen -->
-    <string name="cplan_today">Today\'s video</string>
+    <!-- PracticeActivity: put the practised set on the recorder screen -->
     <string name="cplan_use_topics">Set for Recording</string>
-    <string name="cplan_practice">Practice</string>
-    <!-- ContentPlanCard: the strip when today has nothing left; %1$s is a date like "Tue 25 Nov" -->
-    <string name="cplan_next_video">Next video · %1$s</string>
+    <!-- TopicSetsSheet, TopicSetChips -->
     <string name="cplan_recorded">Recorded ✓</string>
-    <string name="cplan_more_today">+%d more today</string>
     <string name="cplan_status_join">%1$s · %2$s</string>
     <string name="cplan_your_idea">Your idea</string>
     <string name="cplan_link_failed">Could not open the page. Try again.</string>
 
-    <!-- ContentPlanPracticeActivity: the angle chip -->
+    <!-- PracticeActivity: the angle chip -->
     <string name="cplan_angle_problem">Problem</string>
     <string name="cplan_angle_mistake">Common mistake</string>
     <string name="cplan_angle_story">Story</string>
@@ -31,9 +27,7 @@
     <string name="cplan_day_today">Today</string>
     <string name="cplan_day_missed">Missed</string>
 
-    <!-- ContentPlanPracticeActivity: the Practice screen -->
-    <string name="cplan_practice_title">Practice</string>
-    <string name="cplan_you_say">You say</string>
+    <!-- PracticeActivity: the Practice screen -->
     <string name="cplan_end_with">End with</string>
     <string name="cplan_previous">Previous</string>
     <string name="cplan_next_beat">Next</string>

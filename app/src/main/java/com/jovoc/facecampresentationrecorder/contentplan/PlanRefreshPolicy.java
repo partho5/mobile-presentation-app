@@ -1,7 +1,7 @@
 package com.jovoc.facecampresentationrecorder.contentplan;
 
 /**
- * Pure policy for {@link ContentPlanCard#refresh}: whether the full week must be fetched now. Inside the freshness
+ * Pure policy for {@link ContentPlanLoader#refresh}: whether the full week must be fetched now. Inside the freshness
  * window the cheap week stamp decides; any doubt keeps today's behaviour (no fetch inside the window).
  */
 public final class PlanRefreshPolicy {

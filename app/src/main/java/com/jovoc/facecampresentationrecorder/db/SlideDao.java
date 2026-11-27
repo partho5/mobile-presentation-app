@@ -39,6 +39,9 @@ public interface SlideDao {
     @Query("UPDATE slides SET speaker_note = :note WHERE id = :id")
     void updateNote(int id, String note);
 
+    @Query("SELECT speaker_note FROM slides WHERE id = :id")
+    String noteOf(int id);
+
     @Insert
     void insertAll(List<Slide> slides);
 

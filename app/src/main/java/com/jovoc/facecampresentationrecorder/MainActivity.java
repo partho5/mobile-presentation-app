@@ -151,7 +151,19 @@ public class MainActivity extends AppCompatActivity
     private SlideRepository repository;
     // Which set of topics is shown: null = the user's own topics, "plan:<dayId>" = one content-plan day's topics.
     private String activeSetId;
-    private com.jovoc.facecampresentationrecorder.contentplan.ContentPlanCard contentPlanCard;
+    private com.jovoc.facecampresentationrecorder.contentplan.ContentPlanLoader contentPlanLoader;
+    /** Practice of a topic set; on return the topics are re-read (notes may have changed) or another set is shown. */
+    private final ActivityResultLauncher<Intent> practiceLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                Intent data = result.getData();
+                if (result.getResultCode() == RESULT_OK && data != null
+                        && data.getBooleanExtra(com.jovoc.facecampresentationrecorder.practice.PracticeActivity.EXTRA_SWITCH, false)) {
+                    switchSlideSet(data.getStringExtra(
+                            com.jovoc.facecampresentationrecorder.practice.PracticeActivity.EXTRA_SET_ID));
+                } else if (!isRecordingNow()) {
+                    loadSlidesFromDb(false);
+                }
+            });
     private static final String KEY_ACTIVE_SLIDE_SET = "active_slide_set";
     private List<Slide> slides = new ArrayList<>();
     private int currentSlideIndex = 0;
@@ -388,11 +400,8 @@ public class MainActivity extends AppCompatActivity
         activeSetId = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getString(KEY_ACTIVE_SLIDE_SET, null);
 
         initViews();
-        View planCardView = findViewById(R.id.card_content_plan);
-        if (planCardView != null) {
-            contentPlanCard = new com.jovoc.facecampresentationrecorder.contentplan.ContentPlanCard(this,
-                    planCardView, com.jovoc.facecampresentationrecorder.contentplan.ContentPlanStore.get(this));
-        }
+        contentPlanLoader = new com.jovoc.facecampresentationrecorder.contentplan.ContentPlanLoader(this,
+                com.jovoc.facecampresentationrecorder.contentplan.ContentPlanStore.get(this));
         applySystemBarInsets();
         setupDrawer();
         setupGestureDetector();
@@ -533,6 +542,7 @@ public class MainActivity extends AppCompatActivity
 
         Button btnSlideManager = findViewById(R.id.btn_slide_manager);
         btnSlideManager.setOnClickListener(v -> openSlideManagerDialog());
+        findViewById(R.id.btn_practice).setOnClickListener(v -> openPractice());
 
         zonePrev.setOnClickListener(v -> goToPreviousSlide());
         zoneNext.setOnClickListener(v -> goToNextSlide());
@@ -868,7 +878,7 @@ public class MainActivity extends AppCompatActivity
     /** A sign-in done in place (SignInSheet) skips onResume; reload what depends on the account. */
     public void refreshAfterSignIn() {
         refreshTopicSetsEntry();
-        if (contentPlanCard != null) contentPlanCard.refresh(true);
+        if (contentPlanLoader != null) contentPlanLoader.refresh(true);
     }
 
     /** The "Topic sets" drawer entry shows after the first recording, or at once when a plan set exists. */
@@ -1938,8 +1948,6 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // Never visible while recording: the screen is captured.
-        syncPlanCardVisibility();
         updateNavigationButtonsState();
     }
 
@@ -2501,9 +2509,9 @@ public class MainActivity extends AppCompatActivity
         // Picks up crop ratios changed on the Settings screen.
         applyRecordSettings();
         refreshTopicSetsEntry();
-        if (contentPlanCard != null) {
-            contentPlanCard.rebind(); // shows Recorded from the local mark straight away
-            contentPlanCard.refresh(false);
+        if (contentPlanLoader != null) {
+            contentPlanLoader.rebind(); // moves on from a video just recorded, from the local mark
+            contentPlanLoader.refresh(false);
         }
     }
 
@@ -3976,14 +3984,32 @@ public class MainActivity extends AppCompatActivity
         return repository;
     }
 
-    /** Opens the Practice screen for one planned video (used by the Topic sets sheet). */
-    public void practicePlanDay(String dayId) {
-        if (contentPlanCard != null) contentPlanCard.practice(dayId);
+    /**
+     * Top bar "Practice": practises the set on screen. With no topic to record yet it says so and opens Edit Topics,
+     * so the tap still leads somewhere useful.
+     */
+    private void openPractice() {
+        if (isRecording) return;
+        int enabled = 0;
+        if (slides != null) {
+            for (Slide s : slides) {
+                if (!s.isDisabled()) enabled++;
+            }
+        }
+        ActivityTracker.log("click", "practice", Meta.of("count", enabled));
+        if (enabled == 0) {
+            Toast.makeText(this, R.string.practice_add_topic, Toast.LENGTH_SHORT).show();
+            openSlideManagerDialog();
+            return;
+        }
+        practiceSet(activeSetId);
     }
 
-    /** Shows the content-plan card only when the menu bar is open and nothing is recording (the screen is captured). */
-    public void syncPlanCardVisibility() {
-        if (contentPlanCard != null) contentPlanCard.setAllowed(!isRecording && isMenuBarVisible);
+    /** Opens Practice for one set (null = own topics); also used by the Topic sets sheet. */
+    public void practiceSet(String setIdOrNull) {
+        if (isRecording) return;
+        practiceLauncher.launch(com.jovoc.facecampresentationrecorder.practice.PracticeActivity.intent(this,
+                setIdOrNull, java.util.Objects.equals(setIdOrNull, activeSetId)));
     }
 
     /** Discards the ink and drawing-board data of topics that no longer exist. */

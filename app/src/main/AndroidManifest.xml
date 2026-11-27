@@ -102,10 +102,11 @@
             android:windowSoftInputMode="adjustNothing"
             android:screenOrientation="unspecified" />
 
-        <!-- Practice for a content-plan day: no camera and no recording. -->
+        <!-- Practice for any topic set: no camera and no recording. -->
         <activity
-            android:name=".contentplan.ContentPlanPracticeActivity"
+            android:name=".practice.PracticeActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:screenOrientation="unspecified" />
 
         <activity

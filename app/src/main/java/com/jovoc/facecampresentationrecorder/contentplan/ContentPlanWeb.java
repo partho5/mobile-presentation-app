@@ -43,7 +43,7 @@ public final class ContentPlanWeb {
             PublishException error = null;
             try {
                 AuthRepository repo = SessionManager.get(app).repository();
-                url = new PublishApi(repo).webLink(ContentPlanCard.LINK_TARGET, null);
+                url = new PublishApi(repo).webLink(ContentPlanLoader.LINK_TARGET, null);
             } catch (PublishException e) {
                 error = e;
             }

@@ -104,19 +104,26 @@ public class SlideRepository {
         });
     }
 
+    /**
+     * Saves an edited topic. The speaker note is written only by {@link #updateNote} (Practice), so the stored note is
+     * kept here: an older copy of the slide can never undo a note.
+     */
     public void update(Slide slide, Runnable onComplete) {
         executor.execute(() -> {
+            slide.setSpeakerNote(slideDao.noteOf(slide.getId()));
             slideDao.update(slide);
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
 
+    /** Saves the new order; like {@link #update}, the stored speaker notes are kept. */
     public void updateAll(List<Slide> slides, Runnable onComplete) {
         List<Slide> copy = new ArrayList<>(slides);
         executor.execute(() -> {
             for (int i = 0; i < copy.size(); i++) {
                 Slide slide = copy.get(i);
                 slide.setOrderIndex(i);
+                slide.setSpeakerNote(slideDao.noteOf(slide.getId()));
                 slideDao.update(slide);
             }
             if (onComplete != null) mainHandler.post(onComplete);
