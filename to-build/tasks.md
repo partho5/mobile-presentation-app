@@ -33,7 +33,7 @@ box with prompts (Why it matters · An example · What to do next), saved to tha
 
 ## Progress
 - [x] PR1 Data: speaker note column, signature, plan sets carry their spoken lines, index keeps the closing line
-- [ ] PR2 PracticeScript: pure step builder (+ tests)
+- [x] PR2 PracticeScript: pure step builder (+ tests)
 - [ ] PR3 Practice screen for any set (new `practice` package, replaces ContentPlanPracticeActivity)
 - [ ] PR4 Home: strip removed, Practice in the top bar, Topic sets sheet uses the same screen
 
