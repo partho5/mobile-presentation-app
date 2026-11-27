@@ -164,7 +164,7 @@ public final class ContentPlanCard {
                     brandId = brand;
                     fetchedForDate = forDate;
                     bind(fetched);
-                    sync.sync(fetched, brand, () -> maybeAutoSwitch(fetched));
+                    sync.sync(fetched, brand, () -> maybeAutoSwitch(fetched, true));
                 });
             } catch (ContentPlanException | JSONException e) {
                 // Offline or a server problem: the cached card stays, silently.
@@ -189,7 +189,7 @@ public final class ContentPlanCard {
         PlanWeek cached = readCache(brandId);
         if (cached != null) {
             bind(cached);
-            maybeAutoSwitch(cached);
+            maybeAutoSwitch(cached, false);
         }
     }
 
@@ -288,12 +288,14 @@ public final class ContentPlanCard {
     }
 
     /**
-     * Once per video, on a fresh app launch only: puts the next video's saved set on screen. No toast, no dialog.
-     * The fresh-launch flag stays set while the decision could not be made yet (recording, Topic Manager open, set
-     * not saved yet) so a later call retries.
+     * Once per video: puts the next video's saved set on screen. No toast, no dialog. On a fresh app launch any new
+     * target switches; after a week fetched on resume ({@code fetched}) only the owner's own instant video does (see
+     * {@link PlanAutoTarget#decide}). The fresh-launch flag stays set while the decision could not be made yet
+     * (recording, Topic Manager open, set not saved yet) so a later call retries.
      */
-    private void maybeAutoSwitch(PlanWeek pw) {
-        if (!host.isFreshLaunch()) return;
+    private void maybeAutoSwitch(PlanWeek pw, boolean fetched) {
+        final boolean fresh = host.isFreshLaunch();
+        if (!fresh && !fetched) return;
         if (pw == null) return;
         final String today = localToday(pw);
         final PlanWeek.Day day = PlanAutoTarget.target(pw, today, id -> store.recordedLocally(id) || serverRecorded(pw, id));
@@ -306,7 +308,7 @@ public final class ContentPlanCard {
         slides.getSet(setId, existing -> {
             String lastAuto = prefs.getString(PREF_LAST_AUTO_DAY, null);
             PlanAutoTarget.Switch s = PlanAutoTarget.decide(day, lastAuto, host.activeSetId(),
-                    host.isRecordingNow(), host.isTopicManagerOpen(), !existing.isEmpty());
+                    host.isRecordingNow(), host.isTopicManagerOpen(), !existing.isEmpty(), fresh);
             if (s != PlanAutoTarget.Switch.NONE) prefs.edit().putString(PREF_LAST_AUTO_DAY, day.id).apply();
             if (s == PlanAutoTarget.Switch.SWITCH) host.switchSlideSet(setId);
             if (s != PlanAutoTarget.Switch.NONE || day.id.equals(lastAuto)) host.clearFreshLaunch();
