@@ -232,13 +232,30 @@ public class MainActivity extends AppCompatActivity
     // Cap on the ink layer's height so a very tall image can't force a huge bitmap.
     private static final int SLIDE_INK_MAX_HEIGHT_SCREENS = 3;
 
-    // First-run swipe tutorial
+    // Gesture hint: first-run swipe tutorial, then the double-tap-for-menu hint (same widget)
+    private static final int HINT_NONE = 0;
+    private static final int HINT_SWIPE_NEXT = 1;
+    private static final int HINT_SWIPE_PREV = 2;
+    private static final int HINT_DOUBLE_TAP = 3;
+    /** Idle time with no touch at all before the double-tap reminder appears. */
+    private static final long DOUBLE_TAP_IDLE_MS = 5000;
+    /** Menu opens by double-tap after which the user is taken to know the gesture. */
+    private static final int DOUBLE_TAP_LEARNED_OPENS = 3;
     private View swipeHintContainer;
     private ImageView ivSwipeHintHand;
+    private View vSwipeHintRing;
     private TextView tvSwipeHintLabel;
     private ValueAnimator swipeHintAnimator;
-    private boolean swipeHintShowingNext;
+    private int shownHintMode = HINT_NONE;
     private final Runnable swipeHintPositionRunnable = this::positionAndStartSwipeHint;
+    private boolean lastHasPrev;
+    private boolean lastHasNext;
+    /** The double-tap hint is wanted; it shows once nothing blocks it and hides on the next touch. */
+    private boolean doubleTapHintPending;
+    /** The idle reminder fires at most once per launch (unless there are no topics at all). */
+    private boolean idleReminderUsedThisLaunch;
+    private final Handler idleHintHandler = new Handler(Looper.getMainLooper());
+    private final Runnable idleHintRunnable = this::onIdleForDoubleTapHint;
 
     // Countdown & Start Flash Components
     private View countdownOverlayContainer;
@@ -507,6 +524,7 @@ public class MainActivity extends AppCompatActivity
         ivStopArrowHint = findViewById(R.id.iv_stop_arrow_hint);
         swipeHintContainer = findViewById(R.id.swipe_hint_container);
         ivSwipeHintHand = findViewById(R.id.iv_swipe_hint_hand);
+        vSwipeHintRing = findViewById(R.id.v_swipe_hint_ring);
         tvSwipeHintLabel = findViewById(R.id.tv_swipe_hint_label);
 
         if (btnCancelCountdown != null) {
@@ -2118,6 +2136,7 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public boolean onDoubleTap(MotionEvent e) {
+                if (!isMenuBarVisible) recordDoubleTapMenuOpen();
                 toggleMenuBarAndSystemBars();
                 return true;
             }
@@ -2181,6 +2200,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            onUserTouch();
             boardTouchActive = (isDrawingBoardVisible && isTouchInsideView(ev, drawingBoardContainer))
                     || isTouchInsideSlideInk(ev);
         }
@@ -2362,6 +2382,7 @@ public class MainActivity extends AppCompatActivity
     private static final String KEY_SWIPE_HINT_NEXT_DONE = "swipeHintNextDone";
     private static final String KEY_SWIPE_HINT_PREV_DONE = "swipeHintPrevDone";
     private static final String KEY_DOUBLE_TAP_TIP_SHOWN = "doubleTapTipShown";
+    private static final String KEY_DOUBLE_TAP_MENU_OPENS = "doubleTapMenuOpens";
     private static final String KEY_SUCCESSFUL_RECORDINGS = "successfulRecordingsCount";
     private static final String KEY_INITIAL_SLIDES_SEEDED = "initialSlidesSeeded";
     private static final String SEED_IMAGE_ASSET = "seed_slide_deep_breath.webp";
@@ -2391,7 +2412,7 @@ public class MainActivity extends AppCompatActivity
                 }
                 if (isInitialAppLaunchCheck) {
                     isInitialAppLaunchCheck = false;
-                    Toast.makeText(this, "Double tap to add topics", Toast.LENGTH_SHORT).show();
+                    requestDoubleTapHint();
                 }
                 renderCurrentSlide();
             } else {
@@ -2446,6 +2467,16 @@ public class MainActivity extends AppCompatActivity
     protected void onPause() {
         super.onPause();
         stopVideoIfPlaying();
+        idleHintHandler.removeCallbacks(idleHintRunnable);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // The idle clock only runs while the home screen is in front (not behind a dialog or permission prompt).
+        if (hasFocus) restartIdleHintClock();
+        else idleHintHandler.removeCallbacks(idleHintRunnable);
+        refreshGestureHint();
     }
 
     @Override
@@ -3081,6 +3112,7 @@ public class MainActivity extends AppCompatActivity
 
     private int countActiveSlides() {
         int n = 0;
+        if (slides == null) return 0;
         for (Slide s : slides) if (!s.isDisabled()) n++;
         return n;
     }
@@ -3095,38 +3127,102 @@ public class MainActivity extends AppCompatActivity
             prefs.edit().putBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false).apply();
             if (!prefs.getBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, false)) {
                 prefs.edit().putBoolean(KEY_DOUBLE_TAP_TIP_SHOWN, true).apply();
-                Toast.makeText(this, "Double-tap anywhere for menu & topic editing", Toast.LENGTH_LONG).show();
+                requestDoubleTapHint();
             }
         }
     }
 
     private void updateSwipeHint(boolean hasPrev, boolean hasNext) {
+        lastHasPrev = hasPrev;
+        lastHasNext = hasNext;
         if (swipeHintContainer == null) return;
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         boolean countdownVisible = countdownOverlayContainer != null
                 && countdownOverlayContainer.getVisibility() == View.VISIBLE;
         boolean show = prefs.getBoolean(KEY_SWIPE_TUTORIAL_ACTIVE, false)
                 && !isRecording && !countdownVisible && countActiveSlides() >= 2;
-        Boolean wantNext = null;
+        int mode = HINT_NONE;
         if (show) {
-            if (!prefs.getBoolean(KEY_SWIPE_HINT_NEXT_DONE, false) && hasNext) wantNext = true;
-            else if (!prefs.getBoolean(KEY_SWIPE_HINT_PREV_DONE, false) && hasPrev) wantNext = false;
+            if (!prefs.getBoolean(KEY_SWIPE_HINT_NEXT_DONE, false) && hasNext) mode = HINT_SWIPE_NEXT;
+            else if (!prefs.getBoolean(KEY_SWIPE_HINT_PREV_DONE, false) && hasPrev) mode = HINT_SWIPE_PREV;
         }
-        if (wantNext == null) {
+        // The swipe tutorial comes first; the double-tap hint waits behind it.
+        if (mode == HINT_NONE && doubleTapHintPending && canShowDoubleTapHint()) mode = HINT_DOUBLE_TAP;
+        if (mode == HINT_NONE) {
             hideSwipeHint();
             return;
         }
-        if (swipeHintAnimator != null && swipeHintShowingNext == wantNext) {
+        if (swipeHintAnimator != null && shownHintMode == mode) {
             // Same hint already running; just re-centre it (slide size may have changed)
             swipeHintContainer.removeCallbacks(swipeHintPositionRunnable);
             swipeHintContainer.postDelayed(swipeHintPositionRunnable, 400);
             return;
         }
         hideSwipeHint();
-        swipeHintShowingNext = wantNext;
-        tvSwipeHintLabel.setText(wantNext ? "Swipe left for next topic" : "Swipe right to go back");
+        shownHintMode = mode;
+        if (mode == HINT_SWIPE_NEXT) tvSwipeHintLabel.setText("Swipe left for next topic");
+        else if (mode == HINT_SWIPE_PREV) tvSwipeHintLabel.setText("Swipe right to go back");
+        else tvSwipeHintLabel.setText(countActiveSlides() == 0
+                ? "Double-tap to add topics" : "Double-tap to open menu & topics");
         swipeHintContainer.setVisibility(View.INVISIBLE);
         swipeHintContainer.postDelayed(swipeHintPositionRunnable, 400);
+    }
+
+    private void refreshGestureHint() {
+        updateSwipeHint(lastHasPrev, lastHasNext);
+    }
+
+    // --- Double-tap-for-menu hint ---
+
+    /** Nothing is in the way and the user isn't busy drawing: pen and board count as "knows what to do". */
+    private boolean canShowDoubleTapHint() {
+        boolean countdownVisible = countdownOverlayContainer != null
+                && countdownOverlayContainer.getVisibility() == View.VISIBLE;
+        boolean drawerOpen = drawerLayout != null && drawerLayout.isDrawerOpen(GravityCompat.START);
+        boolean penMode = slideInkController != null && slideInkController.isPenMode();
+        return !isRecording && !countdownVisible && !isMenuBarVisible && !drawerOpen
+                && !penMode && !isDrawingBoardVisible && hasWindowFocus();
+    }
+
+    private void requestDoubleTapHint() {
+        doubleTapHintPending = true;
+        refreshGestureHint();
+    }
+
+    /** Any touch on the screen dismisses the double-tap hint and restarts the idle clock. */
+    private void onUserTouch() {
+        if (doubleTapHintPending) {
+            doubleTapHintPending = false;
+            if (shownHintMode == HINT_DOUBLE_TAP) hideSwipeHint();
+        }
+        restartIdleHintClock();
+    }
+
+    private int getDoubleTapMenuOpens() {
+        return getSharedPreferences(PREF_NAME, MODE_PRIVATE).getInt(KEY_DOUBLE_TAP_MENU_OPENS, 0);
+    }
+
+    private void recordDoubleTapMenuOpen() {
+        int opens = getDoubleTapMenuOpens();
+        if (opens >= DOUBLE_TAP_LEARNED_OPENS) return;
+        getSharedPreferences(PREF_NAME, MODE_PRIVATE).edit()
+                .putInt(KEY_DOUBLE_TAP_MENU_OPENS, opens + 1).apply();
+    }
+
+    private void restartIdleHintClock() {
+        idleHintHandler.removeCallbacks(idleHintRunnable);
+        boolean noTopics = countActiveSlides() == 0;
+        // With no topics there is nothing else to do, so the reminder may come back every idle pause.
+        boolean armed = noTopics
+                || (!idleReminderUsedThisLaunch && getDoubleTapMenuOpens() < DOUBLE_TAP_LEARNED_OPENS);
+        if (armed) idleHintHandler.postDelayed(idleHintRunnable, DOUBLE_TAP_IDLE_MS);
+    }
+
+    /** 5 s without a touch: the user may not know how to reach the menu. */
+    private void onIdleForDoubleTapHint() {
+        if (shownHintMode != HINT_NONE || !canShowDoubleTapHint()) return;
+        if (countActiveSlides() > 0) idleReminderUsedThisLaunch = true;
+        requestDoubleTapHint();
     }
 
     private void hideSwipeHint() {
@@ -3136,12 +3232,13 @@ public class MainActivity extends AppCompatActivity
             swipeHintAnimator.cancel();
             swipeHintAnimator = null;
         }
+        shownHintMode = HINT_NONE;
         swipeHintContainer.setVisibility(View.GONE);
     }
 
     private void positionAndStartSwipeHint() {
         if (swipeHintContainer == null || rootLayout == null || btnRecord == null) return;
-        if (isRecording) return;
+        if (isRecording || shownHintMode == HINT_NONE) return;
         if (swipeHintAnimator != null) {
             swipeHintAnimator.cancel();
             swipeHintAnimator = null;
@@ -3188,43 +3285,87 @@ public class MainActivity extends AppCompatActivity
         swipeHintContainer.setAlpha(0f);
         swipeHintContainer.setVisibility(View.VISIBLE);
 
-        final float dir = swipeHintShowingNext ? -1f : 1f;
-        final float travel = 56f * density;
+        if (vSwipeHintRing != null) vSwipeHintRing.setAlpha(0f);
+        if (shownHintMode == HINT_DOUBLE_TAP) {
+            startDoubleTapHintAnimation();
+        } else {
+            final float dir = shownHintMode == HINT_SWIPE_NEXT ? -1f : 1f;
+            final float travel = 56f * density;
+            swipeHintAnimator = ValueAnimator.ofFloat(0f, 1f);
+            swipeHintAnimator.setDuration(1800);
+            swipeHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+            swipeHintAnimator.addUpdateListener(a -> {
+                float t = (float) a.getAnimatedValue();
+                float alpha, scale, move;
+                if (t < 0.15f) {                       // fade in + press
+                    float p = t / 0.15f;
+                    alpha = p;
+                    scale = 1.1f - 0.15f * p;
+                    move = -travel / 2f;
+                } else if (t < 0.75f) {                // swipe
+                    float p = (t - 0.15f) / 0.6f;
+                    float e = 1f - (1f - p) * (1f - p); // decelerate
+                    alpha = 1f;
+                    scale = 0.95f;
+                    move = -travel / 2f + travel * e;
+                } else if (t < 0.9f) {                 // fade out
+                    float p = (t - 0.75f) / 0.15f;
+                    alpha = 1f - p;
+                    scale = 0.95f + 0.15f * p;
+                    move = travel / 2f;
+                } else {                               // pause
+                    alpha = 0f;
+                    scale = 1.1f;
+                    move = travel / 2f;
+                }
+                ivSwipeHintHand.setAlpha(alpha);
+                ivSwipeHintHand.setScaleX(scale);
+                ivSwipeHintHand.setScaleY(scale);
+                ivSwipeHintHand.setTranslationX(dir * move);
+                tvSwipeHintLabel.setAlpha(0.6f + 0.4f * alpha);
+            });
+        }
+        swipeHintContainer.setAlpha(1f);
+        swipeHintAnimator.start();
+    }
+
+    /** Hand presses twice in quick succession; a ring ripples out from the fingertip on each tap. */
+    private void startDoubleTapHintAnimation() {
+        ivSwipeHintHand.setTranslationX(0f);
         swipeHintAnimator = ValueAnimator.ofFloat(0f, 1f);
-        swipeHintAnimator.setDuration(1800);
+        swipeHintAnimator.setDuration(1700);
         swipeHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
         swipeHintAnimator.addUpdateListener(a -> {
             float t = (float) a.getAnimatedValue();
-            float alpha, scale, move;
-            if (t < 0.15f) {                       // fade in + press
-                float p = t / 0.15f;
-                alpha = p;
-                scale = 1.1f - 0.15f * p;
-                move = -travel / 2f;
-            } else if (t < 0.75f) {                // swipe
-                float p = (t - 0.15f) / 0.6f;
-                float e = 1f - (1f - p) * (1f - p); // decelerate
-                alpha = 1f;
-                scale = 0.95f;
-                move = -travel / 2f + travel * e;
-            } else if (t < 0.9f) {                 // fade out
-                float p = (t - 0.75f) / 0.15f;
-                alpha = 1f - p;
-                scale = 0.95f + 0.15f * p;
-                move = travel / 2f;
-            } else {                               // pause
-                alpha = 0f;
-                scale = 1.1f;
-                move = travel / 2f;
-            }
+            float alpha = hintSeg(t, 0f, 0.08f) * (1f - hintSeg(t, 0.82f, 0.92f));
+            float press = (hintSeg(t, 0.10f, 0.17f) - hintSeg(t, 0.17f, 0.25f))
+                    + (hintSeg(t, 0.31f, 0.38f) - hintSeg(t, 0.38f, 0.46f));
+            float scale = 1f - 0.15f * press;
             ivSwipeHintHand.setAlpha(alpha);
             ivSwipeHintHand.setScaleX(scale);
             ivSwipeHintHand.setScaleY(scale);
-            ivSwipeHintHand.setTranslationX(dir * move);
+            if (vSwipeHintRing != null) {
+                float p = -1f; // ripple progress; one ring per tap, starting at the press
+                if (t >= 0.14f && t < 0.38f) p = hintSeg(t, 0.14f, 0.38f);
+                else if (t >= 0.38f && t < 0.68f) p = hintSeg(t, 0.38f, 0.68f);
+                if (p < 0f) {
+                    vSwipeHintRing.setAlpha(0f);
+                } else {
+                    float rs = 0.4f + 1.1f * p;
+                    vSwipeHintRing.setScaleX(rs);
+                    vSwipeHintRing.setScaleY(rs);
+                    vSwipeHintRing.setAlpha(0.9f * (1f - p));
+                }
+            }
             tvSwipeHintLabel.setAlpha(0.6f + 0.4f * alpha);
         });
-        swipeHintContainer.setAlpha(1f);
-        swipeHintAnimator.start();
+    }
+
+    /** 0 before a, 1 after b, linear in between. */
+    private static float hintSeg(float t, float a, float b) {
+        if (t <= a) return 0f;
+        if (t >= b) return 1f;
+        return (t - a) / (b - a);
     }
 
     // --- Slide Manager Dialog ---
@@ -4422,6 +4563,7 @@ public class MainActivity extends AppCompatActivity
     protected void onDestroy() {
         super.onDestroy();
         hideSwipeHint();
+        idleHintHandler.removeCallbacks(idleHintRunnable);
         hideHandleHandler.removeCallbacks(flipFreezeTimeoutRunnable);
         unregisterRecordingFinishedReceiver();
         if (slideTransition != null) slideTransition.cancel();

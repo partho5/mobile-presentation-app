@@ -800,24 +800,44 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- First-run swipe tutorial hint (non-clickable; positioned in code) -->
+        <!-- Gesture hint: first-run swipe tutorial and the double-tap-for-menu hint
+             (non-clickable; positioned and animated in code) -->
         <LinearLayout
             android:id="@+id/swipe_hint_container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:clickable="false"
+            android:clipChildren="false"
             android:focusable="false"
             android:elevation="22dp"
             android:gravity="center_horizontal"
             android:orientation="vertical"
             android:visibility="gone">
 
-            <ImageView
-                android:id="@+id/iv_swipe_hint_hand"
+            <FrameLayout
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:contentDescription="Swipe hint"
-                android:src="@drawable/ic_swipe_hand" />
+                android:clipChildren="false">
+
+                <!-- Tap ripple, centred on the fingertip of the hand icon; double-tap hint only -->
+                <View
+                    android:id="@+id/v_swipe_hint_ring"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="start|top"
+                    android:layout_marginStart="12.8dp"
+                    android:layout_marginTop="3.5dp"
+                    android:alpha="0"
+                    android:background="@drawable/bg_tap_ripple_ring"
+                    android:importantForAccessibility="no" />
+
+                <ImageView
+                    android:id="@+id/iv_swipe_hint_hand"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:contentDescription="Gesture hint"
+                    android:src="@drawable/ic_swipe_hand" />
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/tv_swipe_hint_label"
