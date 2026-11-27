@@ -119,7 +119,7 @@ public final class PlanWeek {
         return week != null && WEEK_READY.equals(week.status);
     }
 
-    /** Every day of {@code date} in the server's order (an AI day comes before an instant idea); never null. */
+    /** Every day of {@code date} in the server's order (an instant idea comes before an AI day); never null. */
     public List<Day> daysFor(String date) {
         List<Day> out = new ArrayList<>();
         if (week == null || date == null) return out;
