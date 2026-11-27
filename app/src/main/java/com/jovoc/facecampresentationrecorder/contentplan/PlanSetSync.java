@@ -25,13 +25,18 @@ public final class PlanSetSync {
         this.onRemoved = onRemoved;
     }
 
-    /** One TEXT slide per beat from its hook, in order; the 200-character cut is only a safety net. */
+    /**
+     * One TEXT slide per beat from its hook, in order, with the beat's spoken line as the speaker note (Practice shows
+     * it); the 200-character cut is only a safety net.
+     */
     static List<Slide> buildSlides(PlanWeek.Day day) {
         List<Slide> out = new ArrayList<>();
         int i = 0;
         for (PlanWeek.Beat b : day.beats) {
             String hook = b.hook.length() > 200 ? b.hook.substring(0, 200) : b.hook;
-            out.add(new Slide(Slide.TYPE_TEXT, i++, hook, null));
+            Slide s = new Slide(Slide.TYPE_TEXT, i++, hook, null);
+            s.setSpeakerNote(b.say == null || b.say.isEmpty() ? null : b.say);
+            out.add(s);
         }
         return out;
     }
@@ -108,6 +113,6 @@ public final class PlanSetSync {
                                                PlanSetIndex.Entry previous) {
         long created = previous != null && previous.createdMs > 0 ? previous.createdMs : System.currentTimeMillis();
         return new PlanSetIndex.Entry(day.id, brandId, day.title, day.date, day.kind, day.version, signature,
-                created);
+                created, day.closingLine);
     }
 }

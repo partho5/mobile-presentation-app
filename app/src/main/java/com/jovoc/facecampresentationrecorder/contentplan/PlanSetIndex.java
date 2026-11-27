@@ -31,9 +31,17 @@ public final class PlanSetIndex {
         public final int version;
         public final String signature;
         public final long createdMs;
+        /** The video's closing line, so Practice can show it after the week has left the cache; "" when none. */
+        public final String closingLine;
 
         public Entry(String dayId, String brandId, String title, String date, String kind, int version,
                      String signature, long createdMs) {
+            this(dayId, brandId, title, date, kind, version, signature, createdMs, "");
+        }
+
+        public Entry(String dayId, String brandId, String title, String date, String kind, int version,
+                     String signature, long createdMs, String closingLine) {
+            this.closingLine = closingLine == null ? "" : closingLine;
             this.dayId = dayId;
             this.brandId = brandId;
             this.title = title;
@@ -93,6 +101,7 @@ public final class PlanSetIndex {
             o.put("version", e.version);
             o.put("sig", e.signature == null ? JSONObject.NULL : e.signature);
             o.put("created", e.createdMs);
+            o.put("closing", e.closingLine);
             store.put(PREFIX_SET + e.dayId, o.toString());
         } catch (JSONException ex) {
             throw new IllegalStateException(ex);
@@ -129,7 +138,8 @@ public final class PlanSetIndex {
                     o.optString("kind", ""),
                     o.optInt("version", 0),
                     o.isNull("sig") ? null : o.optString("sig", null),
-                    o.optLong("created", 0));
+                    o.optLong("created", 0),
+                    o.optString("closing", ""));
         } catch (JSONException e) {
             return null;
         }

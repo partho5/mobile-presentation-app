@@ -43,6 +43,15 @@ public class PlanSetIndexTest {
     }
 
     @Test
+    public void closingLineRoundTripsAndDefaultsToEmpty() {
+        PlanSetIndex idx = new PlanSetIndex(new ContentPlanStoreTest.MapStore());
+        idx.put(new PlanSetIndex.Entry("d1", "b1", "T", "2026-11-25", "PLANNED", 1, null, 5, "Follow for more"));
+        assertEquals("Follow for more", idx.get("d1").closingLine);
+        idx.put(entry("d2", "2026-11-25", 10, "abc"));
+        assertEquals("", idx.get("d2").closingLine);
+    }
+
+    @Test
     public void putReplaces() {
         PlanSetIndex idx = new PlanSetIndex(new ContentPlanStoreTest.MapStore());
         idx.put(entry("d1", "2026-11-25", 10, "a"));

@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(entities = {Slide.class, PublishJob.class, UploadSession.class,
         AudioUploadSession.class, TrackedActivity.class},
-        version = 11, exportSchema = false)
+        version = 12, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -146,11 +146,19 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Adds the nullable speaker note to slides (what the user plans to say on a topic, used by Practice).
+    static final Migration MIGRATION_11_12 = new Migration(11, 12) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE slides ADD COLUMN speaker_note TEXT");
+        }
+    };
+
     /** Every step from version 1 to the current one, in order. */
     static final Migration[] MIGRATIONS = {
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
             MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-            MIGRATION_10_11
+            MIGRATION_10_11, MIGRATION_11_12
     };
 
     public static AppDatabase getInstance(Context context) {

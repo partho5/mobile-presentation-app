@@ -43,6 +43,14 @@ public class SlideRepository {
         });
     }
 
+    /** Saves one topic's speaker note (null clears it); {@code onComplete} runs on the main thread. */
+    public void updateNote(int slideId, String noteOrNull, Runnable onComplete) {
+        executor.execute(() -> {
+            slideDao.updateNote(slideId, noteOrNull);
+            if (onComplete != null) mainHandler.post(onComplete);
+        });
+    }
+
     /** Swaps a whole set for new slides in one transaction; reports the ids that were removed. */
     public void replaceSet(String setId, List<Slide> slides, Callback<List<Integer>> removedIds) {
         List<Slide> copy = new ArrayList<>(slides);

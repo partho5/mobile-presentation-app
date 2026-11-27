@@ -44,6 +44,10 @@ public class Slide {
     @ColumnInfo(name = "set_id")
     private String setId;
 
+    /** What the user plans to say on this topic (Practice); null = nothing written yet. Never logged. */
+    @ColumnInfo(name = "speaker_note")
+    private String speakerNote;
+
     public Slide() {
     }
 
@@ -109,5 +113,13 @@ public class Slide {
 
     public void setSetId(String setId) {
         this.setId = setId;
+    }
+
+    public String getSpeakerNote() {
+        return speakerNote;
+    }
+
+    public void setSpeakerNote(String speakerNote) {
+        this.speakerNote = speakerNote;
     }
 }

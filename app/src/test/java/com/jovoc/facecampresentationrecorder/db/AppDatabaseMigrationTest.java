@@ -37,14 +37,21 @@ public class AppDatabaseMigrationTest {
     }
 
     @Test
-    public void currentVersionIsElevenAndEveryStepIsRegisteredInOrder() {
+    public void currentVersionIsTwelveAndEveryStepIsRegisteredInOrder() {
         Migration[] all = AppDatabase.MIGRATIONS;
-        assertEquals(10, all.length);
+        assertEquals(11, all.length);
         for (int i = 0; i < all.length; i++) {
             assertEquals(i + 1, all[i].startVersion);
             assertEquals(i + 2, all[i].endVersion);
         }
-        assertEquals(11, all[all.length - 1].endVersion);
+        assertEquals(12, all[all.length - 1].endVersion);
+    }
+
+    @Test
+    public void migration11to12_addsOnlyTheSpeakerNoteColumn() {
+        List<String> sql = run(AppDatabase.MIGRATION_11_12);
+        assertEquals(1, sql.size());
+        assertEquals("ALTER TABLE slides ADD COLUMN speaker_note TEXT", sql.get(0));
     }
 
     @Test

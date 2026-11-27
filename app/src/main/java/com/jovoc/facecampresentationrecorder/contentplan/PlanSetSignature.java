@@ -8,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 /**
- * A fingerprint of a topic set's content (type, text, image path, disabled flag, in order). Compared with the one
+ * A fingerprint of a topic set's content (type, text, image path, disabled flag, speaker note when written, in order). Compared with the one
  * saved at creation time it tells whether the user changed the set. Ids and order indexes are not part of it.
  */
 public final class PlanSetSignature {
@@ -28,6 +28,9 @@ public final class PlanSetSignature {
                         .append(nz(s.getTextContent())).append('\u0001')
                         .append(nz(s.getImagePath())).append('\u0001')
                         .append(s.isDisabled());
+                // Only a written note joins the fingerprint, so sets saved before notes existed keep their signature.
+                String note = s.getSpeakerNote();
+                if (note != null && !note.isEmpty()) sb.append('\u0001').append(note);
             }
         }
         try {

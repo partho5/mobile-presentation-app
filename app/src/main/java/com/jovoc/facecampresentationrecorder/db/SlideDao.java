@@ -35,6 +35,10 @@ public interface SlideDao {
     @Query("SELECT DISTINCT set_id FROM slides WHERE set_id LIKE 'plan:%'")
     List<String> planSetIds();
 
+    /** Writes only the note, so a stale copy of the slide elsewhere can never undo another field. */
+    @Query("UPDATE slides SET speaker_note = :note WHERE id = :id")
+    void updateNote(int id, String note);
+
     @Insert
     void insertAll(List<Slide> slides);
 

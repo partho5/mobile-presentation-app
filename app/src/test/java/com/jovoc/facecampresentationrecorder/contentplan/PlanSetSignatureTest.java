@@ -79,4 +79,32 @@ public class PlanSetSignatureTest {
                 slide("TEXT", "one", null, false, 77, 5), slide("TEXT", "two", null, false, 99, 9)));
         assertEquals(PlanSetSignature.of(a), PlanSetSignature.of(b));
     }
+
+    @Test
+    public void noteJoinsOnlyWhenWritten() {
+        String h = PlanSetSignature.of(base());
+
+        List<Slide> empty = base();
+        empty.get(0).setSpeakerNote("");
+        assertEquals(h, PlanSetSignature.of(empty));
+
+        List<Slide> noted = base();
+        noted.get(0).setSpeakerNote("say this");
+        String n = PlanSetSignature.of(noted);
+        assertNotEquals(h, n);
+
+        List<Slide> edited = base();
+        edited.get(0).setSpeakerNote("say that");
+        assertNotEquals(n, PlanSetSignature.of(edited));
+    }
+
+    @Test
+    public void builtPlanSlidesCarryTheSpokenLine() throws Exception {
+        PlanWeek pw = PlanWeek.parse("{\"status\":\"ACTIVE\",\"week\":{\"id\":\"w\",\"days\":[{\"id\":\"d1\","
+                + "\"beats\":[{\"hook\":\"H1\",\"say\":\"S1\"},{\"hook\":\"H2\",\"say\":\"\"}]}]}}");
+        List<Slide> built = PlanSetSync.buildSlides(pw.week.days.get(0));
+        assertEquals("H1", built.get(0).getTextContent());
+        assertEquals("S1", built.get(0).getSpeakerNote());
+        assertEquals(null, built.get(1).getSpeakerNote());
+    }
 }
