@@ -35,14 +35,14 @@
     <string name="onb_todo_doubt">Sounds impossible?</string>
     <string name="onb_founder_photo_desc">Photo of Protim</string>
     <string name="onb_note_personal">Let me tell you personally.</string>
-    <string name="onb_note_intro">I am Protim, a software engineer. I specialise in AI.</string>
-    <string name="onb_note_brands">I work with global brands.</string>
-    <string name="onb_note_secrets">Let me share the proven strategies for building a strong personal brand.</string>
+    <string name="onb_note_intro">Today, many owners of global brands talk to the camera. And their brands keep growing.</string>
+    <string name="onb_note_brands">That\'s not luck. It\'s their daily routine.</string>
+    <string name="onb_note_secrets">Let me show you how they do it.</string>
     <string name="onb_brand_strategy">Proven strategy of brand building</string>
 
     <!-- The story on screen 4. [[double brackets]] mark the words that get the highlighter. -->
     <string-array name="onb_story">
-        <item>Working with many service providers, I noticed how they build [[personal branding]].</item>
+        <item>Working with many service providers, I noticed how they build [[personal brands]].</item>
         <item>They all do 2 common things:</item>
         <item>1. They share helpful tips about their service.</item>
         <item>2. They NEVER miss their posting schedule.</item>
@@ -59,7 +59,7 @@
         <item>2. A social media manager</item>
         <item>That is a big [[cost]] every month.</item>
         <item>For the last three years, I was thinking how to bring this cost down.</item>
-        <item>So I built an app. Open it. Talk for [[2-3 minutes]]. Close it. [[The app does all the rest]].</item>
+        <item>So I built an app. Open it. Talk for [[1-2 minutes]]. Close it. [[The app does all the rest]].</item>
         <item>You stay consistent. No editor. No manager. No extra cost.</item>
         <item>You start building your [[personal brand]].</item>
     </string-array>
